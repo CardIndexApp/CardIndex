@@ -1,14 +1,15 @@
 'use client'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import Ticker from '@/components/Ticker'
 import CardPreview from '@/components/CardPreview'
-import CardSearch from '@/components/CardSearch'
 import AuthModal from '@/components/AuthModal'
 import { cards } from '@/lib/data'
 
 export default function Home() {
   const [modal, setModal] = useState(false)
+  const router = useRouter()
 
   return (
     <>
@@ -29,21 +30,55 @@ export default function Home() {
             <p className="font-mono-custom anim d3" style={{ fontSize: 11, color: 'var(--ink3)', letterSpacing: 3, margin: '0 auto 32px', textTransform: 'uppercase' }}>
               Card Market Intelligence
             </p>
-            <div className="anim d4">
-              <CardSearch />
+            <div className="anim d4" style={{ marginBottom: 28 }}>
+              <button
+                onClick={() => router.push('/search')}
+                style={{ padding: '14px 40px', borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 15, fontWeight: 500, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 10, transition: 'border-color 0.2s' }}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--gold)')}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border2)')}
+              >
+                <span style={{ color: 'var(--ink3)', fontSize: 16 }}>🔍</span>
+                <span>Search cards</span>
+                <span style={{ color: 'var(--ink3)', fontSize: 13 }}>→</span>
+              </button>
             </div>
             <div className="anim d5" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
               <a href="#featured" style={{ padding: '11px 24px', borderRadius: 12, background: 'var(--surface2)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 14, fontWeight: 500, textDecoration: 'none' }}>Explore Market</a>
               <button onClick={() => setModal(true)} style={{ padding: '11px 24px', borderRadius: 12, background: 'var(--gold)', color: '#080810', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}>Get started free →</button>
             </div>
           </div>
-          <div className="anim d6" style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 720, margin: '64px auto 0', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1, borderRadius: 16, overflow: 'hidden', background: 'var(--border)' }}>
-            {[{ label: 'Cards tracked', value: '60,000+' }, { label: 'Data sources', value: 'eBay · TCGPlayer · PWCC' }, { label: 'Analysis time', value: '< 2 seconds' }].map((s, i) => (
-              <div key={i} style={{ padding: '20px 24px', textAlign: 'center', background: 'var(--surface)' }}>
-                <div className="font-display" style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>{s.value}</div>
-                <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 4 }}>{s.label}</div>
+
+          {/* Live Sales Data from eBay */}
+          <div className="anim d6" style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 720, margin: '64px auto 0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 12, color: 'var(--ink3)', fontWeight: 500 }}>Live Sales Data from</span>
+                {/* eBay wordmark */}
+                <span style={{ fontSize: 22, fontWeight: 800, lineHeight: 1, letterSpacing: '-0.5px' }}>
+                  <span style={{ color: '#E53238' }}>e</span><span style={{ color: '#0064D2' }}>B</span><span style={{ color: '#F5AF02' }}>a</span><span style={{ color: '#86B817' }}>y</span>
+                </span>
               </div>
-            ))}
+              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)', display: 'inline-block', boxShadow: '0 0 6px var(--green)' }} />
+                <span className="font-mono-custom" style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1 }}>LIVE</span>
+              </span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1, borderRadius: 16, overflow: 'hidden', background: 'var(--border)' }}>
+              {[
+                { card: 'Charizard Base Set', grade: 'PSA 9', price: '$4,250', delta: '+3.2%', up: true },
+                { card: 'Pikachu Illustrator', grade: 'PSA 7', price: '$38,000', delta: '+1.8%', up: true },
+                { card: 'Lugia V Alt Art', grade: 'PSA 10', price: '$680', delta: '-0.5%', up: false },
+              ].map((s, i) => (
+                <div key={i} style={{ padding: '16px 18px', background: 'var(--surface)' }}>
+                  <div style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 4 }}>{s.card}</div>
+                  <div style={{ fontSize: 10, color: 'var(--ink3)', marginBottom: 6, opacity: 0.6 }}>{s.grade}</div>
+                  <div className="font-mono-custom" style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)' }}>{s.price}</div>
+                  <div className="font-mono-custom" style={{ fontSize: 11, color: s.up ? 'var(--green)' : 'var(--red)', marginTop: 2 }}>
+                    {s.up ? '▲' : '▼'} {s.delta}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
 

@@ -16,7 +16,7 @@ export default function CardSearch() {
   const [results, setResults] = useState<TcgCard[]>([])
   const [loading, setLoading] = useState(false)
   const [open, setOpen] = useState(false)
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>()
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const router = useRouter()
 
   const search = useCallback((q: string) => {
@@ -57,12 +57,10 @@ export default function CardSearch() {
         type="text"
         value={query}
         onChange={e => { setQuery(e.target.value); search(e.target.value) }}
-        onFocus={() => results.length > 0 && setOpen(true)}
-        onBlur={() => setTimeout(() => setOpen(false), 180)}
+        onFocus={e => { if (results.length > 0) setOpen(true); e.currentTarget.style.borderColor = 'var(--gold)' }}
+        onBlur={e => { setTimeout(() => setOpen(false), 180); e.currentTarget.style.borderColor = 'var(--border2)' }}
         placeholder="Search any card (Charizard, Pikachu, Lugia…)"
         style={{ width: '100%', paddingLeft: 44, paddingRight: 16, paddingTop: 14, paddingBottom: 14, borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 15, outline: 'none', transition: 'border-color 0.2s' }}
-        onFocus={e => (e.currentTarget.style.borderColor = 'var(--gold)')}
-        onBlurCapture={e => (e.currentTarget.style.borderColor = 'var(--border2)')}
       />
 
       {/* Dropdown */}

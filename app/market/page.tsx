@@ -4,11 +4,10 @@ import Navbar from '@/components/Navbar'
 import Ticker from '@/components/Ticker'
 import { rising, declining, traded, scoreColor } from '@/lib/data'
 
-function Table({ title, icon, items, type }: { title: string; icon: string; items: { id: string; name: string; grade: string; change?: number; volume?: number; score: number }[]; type: string }) {
+function Table({ title, items, type }: { title: string; items: { id: string; name: string; grade: string; change?: number; volume?: number; score: number }[]; type: string }) {
   return (
     <div style={{ borderRadius: 16, overflow: 'hidden', background: 'var(--surface)', border: '1px solid var(--border)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
-        <span>{icon}</span>
         <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--ink)' }}>{title}</span>
       </div>
       {items.map((item, i) => (
@@ -58,7 +57,7 @@ export default function Market() {
           </div>
 
           {/* Summary cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12, marginBottom: 40 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 40 }}>
             {[
               { label: 'Cards Rising', value: '1,284', color: 'var(--green)', icon: '↑' },
               { label: 'Cards Falling', value: '892', color: 'var(--red)', icon: '↓' },
@@ -70,16 +69,16 @@ export default function Market() {
                   <span style={{ color: s.color, fontSize: 11 }}>{s.icon}</span>
                   <span style={{ fontSize: 11, color: 'var(--ink3)' }}>{s.label}</span>
                 </div>
-                <div className="font-display" style={{ fontSize: 22, fontWeight: 700, color: s.color }}>{s.value}</div>
+                <div className="font-num" style={{ fontSize: 22, fontWeight: 700, color: s.color }}>{s.value}</div>
               </div>
             ))}
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-            <Table title="Top rising (30d)" icon="📈" items={rising} type="rising" />
-            <Table title="Top declining (30d)" icon="📉" items={declining} type="declining" />
+            <Table title="Top rising (30d)" items={rising} type="rising" />
+            <Table title="Top declining (30d)" items={declining} type="declining" />
           </div>
-          <Table title="Most traded (30d)" icon="🔁" items={traded} type="traded" />
+          <Table title="Most traded (30d)" items={traded} type="traded" />
 
           <p style={{ fontSize: 11, color: 'var(--ink3)', textAlign: 'center', marginTop: 32 }}>
             Data shown is for demonstration purposes — CardIndex Beta · card-index.app

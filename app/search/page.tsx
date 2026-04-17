@@ -81,7 +81,7 @@ export default function SearchPage() {
   )
 
   const filteredCards = cards.filter(c =>
-    !cardQuery.trim() || c.name.toLowerCase().includes(cardQuery.toLowerCase()) || c.number.includes(cardQuery)
+    !cardQuery.trim() || c.name.toLowerCase().includes(cardQuery.toLowerCase()) || c.number.includes(cardQuery) || (c.rarity?.toLowerCase().includes(cardQuery.toLowerCase()))
   )
 
   // Group sets by series
@@ -165,13 +165,12 @@ export default function SearchPage() {
 
             {/* Search */}
             <div style={{ position: 'relative', marginBottom: 24 }}>
-              <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink3)', fontSize: 14, pointerEvents: 'none' }}>🔍</span>
               <input
                 type="text"
                 value={setQuery}
                 onChange={e => setSetQuery(e.target.value)}
                 placeholder="Filter sets…"
-                style={{ width: '100%', paddingLeft: 42, paddingRight: 16, paddingTop: 12, paddingBottom: 12, borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 14, outline: 'none' }}
+                style={{ width: '100%', paddingLeft: 16, paddingRight: 16, paddingTop: 12, paddingBottom: 12, borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 14, outline: 'none' }}
                 onFocus={e => (e.currentTarget.style.borderColor = 'var(--gold)')}
                 onBlur={e => (e.currentTarget.style.borderColor = 'var(--border2)')}
               />
@@ -215,13 +214,12 @@ export default function SearchPage() {
 
             {/* Filter */}
             <div style={{ position: 'relative', marginBottom: 20 }}>
-              <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink3)', fontSize: 14, pointerEvents: 'none' }}>🔍</span>
               <input
                 type="text"
                 value={cardQuery}
                 onChange={e => setCardQuery(e.target.value)}
-                placeholder="Filter cards…"
-                style={{ width: '100%', paddingLeft: 42, paddingRight: 16, paddingTop: 12, paddingBottom: 12, borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 14, outline: 'none' }}
+                placeholder="Filter by name, number, or rarity…"
+                style={{ width: '100%', paddingLeft: 16, paddingRight: 16, paddingTop: 12, paddingBottom: 12, borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 14, outline: 'none' }}
                 onFocus={e => (e.currentTarget.style.borderColor = 'var(--gold)')}
                 onBlur={e => (e.currentTarget.style.borderColor = 'var(--border2)')}
               />

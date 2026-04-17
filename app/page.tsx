@@ -37,7 +37,6 @@ export default function Home() {
                 onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--gold)')}
                 onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border2)')}
               >
-                <span style={{ color: 'var(--ink3)', fontSize: 16 }}>🔍</span>
                 <span>Search cards</span>
                 <span style={{ color: 'var(--ink3)', fontSize: 13 }}>→</span>
               </button>
@@ -102,12 +101,11 @@ export default function Home() {
         <section style={{ padding: '0 24px 80px', maxWidth: 1100, margin: '0 auto' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
             {[
-              { icon: '📊', title: 'CardIndex Score', body: 'A composite 0–100 score measuring growth, liquidity, volatility, and collector demand for any card.' },
-              { icon: '📈', title: 'Market Verdicts', body: 'Plain-language analysis backed by real transaction data and trend signals. Know when to buy and sell.' },
-              { icon: '🕒', title: 'Price History', body: 'Up to 12 months of historical price data with daily snapshots, sales volume, and trend indicators.' },
+              { title: 'CardIndex Score', body: 'A composite 0–100 score measuring growth, liquidity, volatility, and collector demand for any card.' },
+              { title: 'Market Verdicts', body: 'Plain-language analysis backed by real transaction data and trend signals. Know when to buy and sell.' },
+              { title: 'Price History', body: 'Up to 12 months of historical price data with daily snapshots, sales volume, and trend indicators.' },
             ].map((f, i) => (
               <div key={i} style={{ borderRadius: 16, padding: 24, background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                <div style={{ fontSize: 24, marginBottom: 12 }}>{f.icon}</div>
                 <div className="font-display" style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', marginBottom: 8 }}>{f.title}</div>
                 <p style={{ fontSize: 13, color: 'var(--ink2)', lineHeight: 1.7 }}>{f.body}</p>
               </div>

@@ -5,6 +5,7 @@ import Navbar from '@/components/Navbar'
 import Ticker from '@/components/Ticker'
 import CardPreview from '@/components/CardPreview'
 import AuthModal from '@/components/AuthModal'
+import EbayLogo from '@/components/EbayLogo'
 import { cards } from '@/lib/data'
 
 export default function Home() {
@@ -55,10 +56,7 @@ export default function Home() {
                 <span className="font-mono-custom" style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1 }}>LIVE</span>
               </span>
               <span style={{ fontSize: 12, color: 'var(--ink3)', fontWeight: 500 }}>Sales Data from</span>
-              {/* eBay wordmark */}
-              <span style={{ fontSize: 22, fontWeight: 800, lineHeight: 1, letterSpacing: '-0.5px' }}>
-                <span style={{ color: '#E53238' }}>e</span><span style={{ color: '#0064D2' }}>B</span><span style={{ color: '#F5AF02' }}>a</span><span style={{ color: '#86B817' }}>y</span>
-              </span>
+              <EbayLogo height={22} />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1, borderRadius: 16, overflow: 'hidden', background: 'var(--border)' }}>
               {[
@@ -97,6 +95,10 @@ export default function Home() {
 
         {/* Features */}
         <section style={{ padding: '0 24px 80px', maxWidth: 1100, margin: '0 auto' }}>
+          <div style={{ marginBottom: 32 }}>
+            <p style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' }}>TOOLS</p>
+            <h2 style={{ fontSize: 32, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-1px' }}>Understand the market</h2>
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
             {[
               { title: 'CardIndex Score', body: 'A composite 0–100 score measuring growth, liquidity, volatility, and collector demand for any card.' },

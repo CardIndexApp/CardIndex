@@ -3,6 +3,7 @@ import { useState } from 'react'
 import Navbar from '@/components/Navbar'
 import Ticker from '@/components/Ticker'
 import CardPreview from '@/components/CardPreview'
+import CardSearch from '@/components/CardSearch'
 import AuthModal from '@/components/AuthModal'
 import { cards } from '@/lib/data'
 
@@ -22,15 +23,14 @@ export default function Home() {
               <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--gold)', display: 'inline-block' }} />
               <span className="font-mono-custom" style={{ fontSize: 10, color: 'var(--gold)', letterSpacing: 2 }}>LIVE MARKET DATA</span>
             </div>
-            <h1 className="font-display anim d2" style={{ fontSize: 'clamp(40px,7vw,76px)', fontWeight: 800, lineHeight: 1, letterSpacing: '-2px', color: 'var(--ink)', marginBottom: 24 }}>
+            <h1 className="font-display anim d2" style={{ fontSize: 'clamp(40px,7vw,76px)', fontWeight: 800, lineHeight: 1, letterSpacing: '-2px', color: 'var(--ink)', marginBottom: 12 }}>
               The market index<br /><span style={{ color: 'var(--gold)' }}>for trading cards</span>
             </h1>
-            <p className="anim d3" style={{ fontSize: 17, color: 'var(--ink2)', maxWidth: 460, margin: '0 auto 40px', lineHeight: 1.7 }}>
-              CardIndex scores, real-time pricing intelligence, and market analysis — built for serious collectors and investors.
+            <p className="font-mono-custom anim d3" style={{ fontSize: 11, color: 'var(--ink3)', letterSpacing: 3, margin: '0 auto 32px', textTransform: 'uppercase' }}>
+              Card Market Intelligence
             </p>
-            <div className="anim d4" style={{ position: 'relative', maxWidth: 520, margin: '0 auto 28px' }}>
-              <span style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink3)', fontSize: 15 }}>🔍</span>
-              <input type="text" placeholder="Search a card (Charizard, Lugia, Eevee…)" style={{ width: '100%', paddingLeft: 44, paddingRight: 16, paddingTop: 14, paddingBottom: 14, borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 15, outline: 'none' }} onFocus={e => (e.currentTarget.style.borderColor = 'var(--gold)')} onBlur={e => (e.currentTarget.style.borderColor = 'var(--border2)')} />
+            <div className="anim d4">
+              <CardSearch />
             </div>
             <div className="anim d5" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
               <a href="#featured" style={{ padding: '11px 24px', borderRadius: 12, background: 'var(--surface2)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 14, fontWeight: 500, textDecoration: 'none' }}>Explore Market</a>

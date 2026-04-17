@@ -1,12 +1,25 @@
+'use client'
+import { useState } from 'react'
 import Link from 'next/link'
 import { Card, fmt, scoreColor } from '@/lib/data'
 
 export default function CardPreview({ card }: { card: Card }) {
   const isUp = card.trend === 'up'
+  const [imgError, setImgError] = useState(false)
+
   return (
     <Link href={`/card/${card.id}`} className="card-hover" style={{ display: 'block', borderRadius: 16, padding: 16, background: 'var(--surface)', border: '1px solid var(--border)', textDecoration: 'none' }}>
-      <div style={{ width: '100%', height: 160, borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 56, marginBottom: 14 }}>
-        {card.emoji}
+      <div style={{ width: '100%', height: 180, borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14, overflow: 'hidden' }}>
+        {card.imageUrl && !imgError ? (
+          <img
+            src={card.imageUrl}
+            alt={card.name}
+            onError={() => setImgError(true)}
+            style={{ height: '100%', width: '100%', objectFit: 'contain', padding: 8 }}
+          />
+        ) : (
+          <span style={{ fontSize: 56 }}>{card.emoji}</span>
+        )}
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 4 }}>
         <div>

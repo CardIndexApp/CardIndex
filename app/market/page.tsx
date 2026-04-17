@@ -57,12 +57,11 @@ export default function Market() {
           </div>
 
           {/* Summary cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 40 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 40 }}>
             {[
               { label: 'Cards Rising', value: '1,284', color: 'var(--green)', icon: '↑' },
               { label: 'Cards Falling', value: '892', color: 'var(--red)', icon: '↓' },
               { label: 'Unchanged', value: '3,112', color: 'var(--ink2)', icon: '→' },
-              { label: 'Market Sentiment', value: 'Bullish', color: 'var(--green)', icon: '●' },
             ].map((s, i) => (
               <div key={i} style={{ borderRadius: 14, padding: 20, background: 'var(--surface)', border: '1px solid var(--border)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>

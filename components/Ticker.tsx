@@ -1,12 +1,12 @@
-import { tickerItems, fmt } from '@/lib/mockData';
+import { ticker, fmt } from '@/lib/data'
 
 export default function Ticker() {
-  const items = [...tickerItems, ...tickerItems];
+  const items = [...ticker, ...ticker]
   return (
-    <div className="overflow-hidden py-2.5" style={{ borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
-      <div className="ticker-track flex gap-8 whitespace-nowrap" style={{ width: 'max-content' }}>
+    <div style={{ overflow: 'hidden', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', background: 'var(--surface)', padding: '10px 0' }}>
+      <div className="ticker-track font-mono-custom" style={{ display: 'flex', gap: 32, whiteSpace: 'nowrap', width: 'max-content' }}>
         {items.map((item, i) => (
-          <span key={i} className="flex items-center gap-2 font-mono text-xs">
+          <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
             <span style={{ color: 'var(--ink3)' }}>{item.name}</span>
             <span style={{ color: 'var(--ink)' }}>{fmt(item.price)}</span>
             <span style={{ color: item.change >= 0 ? 'var(--green)' : 'var(--red)' }}>
@@ -17,5 +17,5 @@ export default function Ticker() {
         ))}
       </div>
     </div>
-  );
+  )
 }

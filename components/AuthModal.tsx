@@ -1,87 +1,47 @@
-'use client';
-import { useState } from 'react';
-import { X } from 'lucide-react';
+'use client'
+import { useState } from 'react'
 
-interface Props {
-  mode: 'login' | 'signup';
-  onClose: () => void;
-}
+interface Props { mode: 'login' | 'signup'; onClose: () => void }
 
 export default function AuthModal({ mode, onClose }: Props) {
-  const [view, setView] = useState(mode);
-  const [done, setDone] = useState(false);
+  const [view, setView] = useState(mode)
+  const [done, setDone] = useState(false)
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="w-full max-w-sm rounded-2xl p-8 relative"
-        style={{ background: 'var(--surface)', border: '1px solid var(--border2)' }}>
-        <button onClick={onClose} className="absolute top-4 right-4 p-1 rounded-lg transition-colors"
-          style={{ color: 'var(--ink3)' }}
-          onMouseEnter={e => (e.currentTarget.style.color = 'var(--ink)')}
-          onMouseLeave={e => (e.currentTarget.style.color = 'var(--ink3)')}>
-          <X size={16} />
-        </button>
-
+    <div onClick={e => e.target === e.currentTarget && onClose()} style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)' }}>
+      <div style={{ width: '100%', maxWidth: 360, borderRadius: 20, padding: 32, background: 'var(--surface)', border: '1px solid var(--border2)', position: 'relative' }}>
+        <button onClick={onClose} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', color: 'var(--ink3)', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>×</button>
         {!done ? (
           <>
-            <div className="mb-6">
-              <div className="font-display font-700 text-xl mb-1" style={{ color: 'var(--ink)' }}>
-                Card<span style={{ color: 'var(--gold)' }}>Index</span>
-              </div>
-              <p className="text-sm" style={{ color: 'var(--ink2)' }}>
-                {view === 'login' ? 'Welcome back.' : 'The market index for trading cards.'}
-              </p>
+            <div style={{ marginBottom: 24 }}>
+              <div className="font-display" style={{ fontSize: 20, fontWeight: 800, marginBottom: 4 }}>Card<span style={{ color: 'var(--gold)' }}>Index</span></div>
+              <p style={{ fontSize: 13, color: 'var(--ink2)' }}>{view === 'login' ? 'Welcome back.' : 'The market index for trading cards.'}</p>
             </div>
-
-            <div className="flex gap-1 p-1 rounded-lg mb-6" style={{ background: 'var(--surface2)' }}>
+            <div style={{ display: 'flex', gap: 4, padding: 4, borderRadius: 10, background: 'var(--surface2)', marginBottom: 20 }}>
               {(['login', 'signup'] as const).map(v => (
-                <button key={v} onClick={() => setView(v)}
-                  className="flex-1 py-1.5 rounded-md text-sm font-medium capitalize transition-all"
-                  style={view === v
-                    ? { background: 'var(--gold)', color: '#080810' }
-                    : { color: 'var(--ink2)' }}>
+                <button key={v} onClick={() => setView(v)} style={{ flex: 1, padding: '6px 0', borderRadius: 7, fontSize: 13, fontWeight: 500, border: 'none', cursor: 'pointer', background: view === v ? 'var(--gold)' : 'transparent', color: view === v ? '#080810' : 'var(--ink2)' }}>
                   {v === 'login' ? 'Log in' : 'Sign up'}
                 </button>
               ))}
             </div>
-
-            <div className="flex flex-col gap-3 mb-4">
-              {view === 'signup' && (
-                <input type="text" placeholder="Full name"
-                  className="w-full rounded-lg px-3 py-2.5 text-sm outline-none"
-                  style={{ background: 'var(--surface2)', border: '1px solid var(--border2)', color: 'var(--ink)' }} />
-              )}
-              <input type="email" placeholder="Email address"
-                className="w-full rounded-lg px-3 py-2.5 text-sm outline-none"
-                style={{ background: 'var(--surface2)', border: '1px solid var(--border2)', color: 'var(--ink)' }} />
-              <input type="password" placeholder="Password"
-                className="w-full rounded-lg px-3 py-2.5 text-sm outline-none"
-                style={{ background: 'var(--surface2)', border: '1px solid var(--border2)', color: 'var(--ink)' }} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+              {view === 'signup' && <input type="text" placeholder="Full name" style={{ padding: '10px 12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 14, outline: 'none' }} />}
+              <input type="email" placeholder="Email address" style={{ padding: '10px 12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 14, outline: 'none' }} />
+              <input type="password" placeholder="Password" style={{ padding: '10px 12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 14, outline: 'none' }} />
             </div>
-
-            <button onClick={() => setDone(true)}
-              className="w-full py-2.5 rounded-lg text-sm font-semibold transition-all"
-              style={{ background: 'var(--gold)', color: '#080810' }}
-              onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
-              onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
+            <button onClick={() => setDone(true)} style={{ width: '100%', padding: '11px 0', borderRadius: 10, background: 'var(--gold)', color: '#080810', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}>
               {view === 'login' ? 'Log in' : 'Create account'}
             </button>
           </>
         ) : (
-          <div className="text-center py-4">
-            <div className="text-3xl mb-3">✓</div>
-            <p className="font-display font-600 text-lg mb-1" style={{ color: 'var(--gold)' }}>You&apos;re in.</p>
-            <p className="text-sm mb-6" style={{ color: 'var(--ink2)' }}>CardIndex dashboard coming soon.</p>
-            <button onClick={onClose}
-              className="px-6 py-2 rounded-lg text-sm font-medium"
-              style={{ background: 'var(--surface2)', border: '1px solid var(--border2)', color: 'var(--ink)' }}>
-              Continue to dashboard →
-            </button>
+          <div style={{ textAlign: 'center', padding: '16px 0' }}>
+            <div style={{ fontSize: 36, marginBottom: 12 }}>✓</div>
+            <p className="font-display" style={{ fontSize: 18, fontWeight: 700, color: 'var(--gold)', marginBottom: 4 }}>You are in.</p>
+            <p style={{ fontSize: 13, color: 'var(--ink2)', marginBottom: 24 }}>CardIndex dashboard coming soon.</p>
+            <button onClick={onClose} style={{ padding: '10px 24px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border2)', color: 'var(--ink)', cursor: 'pointer', fontSize: 14 }}>Continue to dashboard →</button>
           </div>
         )}
       </div>
     </div>
-  );
+  )
 }

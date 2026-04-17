@@ -1,188 +1,143 @@
-'use client';
-import { useParams } from 'next/navigation';
-import { notFound } from 'next/navigation';
-import { ArrowLeft, TrendingUp, TrendingDown, ExternalLink } from 'lucide-react';
-import Link from 'next/link';
-import Navbar from '@/components/Navbar';
-import PriceChart from '@/components/PriceChart';
-import ScoreRing, { scoreColor, scoreLabel } from '@/components/ScoreRing';
-import { getCard, fmt } from '@/lib/mockData';
+'use client'
+import { useParams } from 'next/navigation'
+import Link from 'next/link'
+import Navbar from '@/components/Navbar'
+import PriceChart from '@/components/PriceChart'
+import ScoreRing from '@/components/ScoreRing'
+import { getCard, fmt, scoreColor, scoreLabel } from '@/lib/data'
 
-export default function CardDetail() {
-  const { id } = useParams<{ id: string }>();
-  const card = getCard(id);
-  if (!card) return notFound();
+export default function CardPage() {
+  const { id } = useParams<{ id: string }>()
+  const card = getCard(id)
+  if (!card) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16 }}>
+      <p style={{ color: 'var(--ink2)' }}>Card not found</p>
+      <Link href="/" style={{ color: 'var(--gold)', textDecoration: 'none' }}>← Back home</Link>
+    </div>
+  )
 
-  const isUp = card.trend === 'up';
-  const firstPrice = card.priceHistory[0].price;
-  const lastPrice = card.priceHistory[card.priceHistory.length - 1].price;
-  const totalChange = ((lastPrice - firstPrice) / firstPrice * 100).toFixed(1);
-
-  const emojis: Record<string, string> = {
-    'charizard-base-psa9': '🔥',
-    'lugia-v-alt-psa10': '🌊',
-    'eevee-promo-psa10': '⭐',
-    'pikachu-illustrator': '⚡',
-  };
+  const isUp = card.trend === 'up'
+  const firstPrice = card.history[0].price
+  const lastPrice = card.history[card.history.length - 1].price
+  const totalChange = ((lastPrice - firstPrice) / firstPrice * 100).toFixed(1)
 
   return (
     <>
       <Navbar />
-      <main className="pt-14 pb-20 min-h-screen">
-        <div className="max-w-5xl mx-auto px-6">
+      <main style={{ paddingTop: 56, paddingBottom: 80, minHeight: '100vh' }}>
+        <div style={{ maxWidth: 1000, margin: '0 auto', padding: '0 24px' }}>
 
-          {/* Back */}
-          <div className="py-6">
-            <Link href="/" className="inline-flex items-center gap-2 text-sm transition-colors" style={{ color: 'var(--ink3)' }}
-              onMouseEnter={e => (e.currentTarget.style.color = 'var(--ink)')}
-              onMouseLeave={e => (e.currentTarget.style.color = 'var(--ink3)')}>
-              <ArrowLeft size={14} /> Back to market
-            </Link>
+          <div style={{ padding: '24px 0' }}>
+            <Link href="/" style={{ fontSize: 13, color: 'var(--ink3)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}>← Back to market</Link>
           </div>
 
           {/* Header */}
-          <div className="flex items-start justify-between gap-6 mb-8 flex-wrap">
-            <div className="flex items-center gap-5">
-              <div className="w-16 h-16 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ background: 'var(--surface2)', border: '1px solid var(--border2)', fontSize: 32 }}>
-                {emojis[card.id] || '🃏'}
-              </div>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 24, marginBottom: 32, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <div style={{ width: 64, height: 64, borderRadius: 14, background: 'var(--surface2)', border: '1px solid var(--border2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30 }}>{card.emoji}</div>
               <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <h1 className="font-display font-bold text-2xl" style={{ color: 'var(--ink)', letterSpacing: '-0.5px' }}>{card.name}</h1>
-                  <span className="text-xs px-2 py-0.5 rounded font-mono" style={{ background: 'var(--surface2)', color: 'var(--ink3)', border: '1px solid var(--border)' }}>{card.grade}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <h1 className="font-display" style={{ fontSize: 24, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px' }}>{card.name}</h1>
+                  <span className="font-mono-custom" style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--ink3)' }}>{card.grade}</span>
                 </div>
-                <p className="text-sm" style={{ color: 'var(--ink2)' }}>{card.set} · {card.rarity} · {card.year}</p>
+                <p style={{ fontSize: 13, color: 'var(--ink2)' }}>{card.set} · {card.rarity} · {card.year}</p>
               </div>
             </div>
-            <div className="text-right">
-              <div className="font-display font-bold text-3xl font-mono" style={{ color: 'var(--ink)', letterSpacing: '-1px' }}>{fmt(card.price)}</div>
-              <div className="flex items-center justify-end gap-1.5 mt-1">
-                {isUp ? <TrendingUp size={14} style={{ color: 'var(--green)' }} /> : <TrendingDown size={14} style={{ color: 'var(--red)' }} />}
-                <span className="text-sm font-mono" style={{ color: isUp ? 'var(--green)' : 'var(--red)' }}>
-                  {isUp ? '+' : ''}{card.priceChange}% (30d)
-                </span>
+            <div style={{ textAlign: 'right' }}>
+              <div className="font-display" style={{ fontSize: 32, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-1px' }}>{fmt(card.price)}</div>
+              <div className="font-mono-custom" style={{ fontSize: 13, color: isUp ? 'var(--green)' : 'var(--red)', marginTop: 2 }}>
+                {isUp ? '▲' : '▼'} {Math.abs(card.change)}% (30d)
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left: Chart + Verdict */}
-            <div className="lg:col-span-2 flex flex-col gap-6">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 20 }}>
+            {/* Left column */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-              {/* Quick stats row */}
-              <div className="grid grid-cols-3 gap-3">
+              {/* Stats row */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
                 {[
-                  { label: 'Current Price', value: fmt(card.price) },
+                  { label: 'Current Price', value: fmt(card.price), color: 'var(--ink)' },
                   { label: '12M Change', value: `${parseFloat(totalChange) >= 0 ? '+' : ''}${totalChange}%`, color: parseFloat(totalChange) >= 0 ? 'var(--green)' : 'var(--red)' },
-                  { label: 'Recent Sales', value: `${card.recentSales.length} (30d)` },
+                  { label: 'Recent Sales', value: `${card.sales.length} (30d)`, color: 'var(--ink)' },
                 ].map((s, i) => (
-                  <div key={i} className="rounded-xl p-4" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                    <div className="text-xs mb-1.5" style={{ color: 'var(--ink3)' }}>{s.label}</div>
-                    <div className="font-mono font-semibold text-base" style={{ color: s.color || 'var(--ink)' }}>{s.value}</div>
+                  <div key={i} style={{ borderRadius: 12, padding: 16, background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 6 }}>{s.label}</div>
+                    <div className="font-mono-custom" style={{ fontSize: 16, fontWeight: 500, color: s.color }}>{s.value}</div>
                   </div>
                 ))}
               </div>
 
               {/* Chart */}
-              <div className="rounded-xl p-6" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                <div className="flex items-center justify-between mb-6">
+              <div style={{ borderRadius: 16, padding: 24, background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
                   <div>
-                    <p className="font-mono text-xs mb-1" style={{ color: 'var(--ink3)', letterSpacing: '1px' }}>PRICE HISTORY</p>
-                    <p className="font-semibold" style={{ color: 'var(--ink)' }}>12 Month Chart</p>
+                    <p className="font-mono-custom" style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1, marginBottom: 4 }}>PRICE HISTORY</p>
+                    <p style={{ fontSize: 15, fontWeight: 500, color: 'var(--ink)' }}>12 Month Chart</p>
                   </div>
-                  <div className="flex gap-1">
+                  <div style={{ display: 'flex', gap: 4 }}>
                     {['1M', '3M', '6M', '1Y'].map((t, i) => (
-                      <button key={t} className="text-xs px-2.5 py-1 rounded transition-all"
-                        style={i === 3
-                          ? { background: 'var(--gold2)', color: 'var(--gold)', border: '1px solid rgba(232,197,71,0.2)' }
-                          : { color: 'var(--ink3)', border: '1px solid transparent' }}>
-                        {t}
-                      </button>
+                      <button key={t} style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6, border: i === 3 ? '1px solid rgba(232,197,71,0.2)' : '1px solid transparent', background: i === 3 ? 'var(--gold2)' : 'transparent', color: i === 3 ? 'var(--gold)' : 'var(--ink3)', cursor: 'pointer' }}>{t}</button>
                     ))}
                   </div>
                 </div>
-                <PriceChart data={card.priceHistory} />
+                <PriceChart data={card.history} />
               </div>
 
-              {/* Market Verdict */}
-              <div className="rounded-xl p-6" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                <p className="font-mono text-xs mb-4" style={{ color: 'var(--ink3)', letterSpacing: '1px' }}>MARKET VERDICT</p>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="px-3 py-1 rounded-lg text-sm font-semibold"
-                    style={isUp
-                      ? { background: 'rgba(61,232,138,0.1)', color: 'var(--green)', border: '1px solid rgba(61,232,138,0.2)' }
-                      : { background: 'var(--red2)', color: 'var(--red)', border: '1px solid rgba(232,82,74,0.2)' }}>
+              {/* Verdict */}
+              <div style={{ borderRadius: 16, padding: 24, background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                <p className="font-mono-custom" style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1, marginBottom: 16 }}>MARKET VERDICT</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                  <span style={{ fontSize: 13, padding: '4px 12px', borderRadius: 8, fontWeight: 600, background: isUp ? 'rgba(61,232,138,0.1)' : 'rgba(232,82,74,0.1)', color: isUp ? 'var(--green)' : 'var(--red)', border: `1px solid ${isUp ? 'rgba(61,232,138,0.2)' : 'rgba(232,82,74,0.2)'}` }}>
                     {isUp ? '↑ Bullish' : '↓ Bearish'}
-                  </div>
-                  <span className="text-sm" style={{ color: 'var(--ink2)' }}>{card.verdictShort}</span>
+                  </span>
+                  <span style={{ fontSize: 13, color: 'var(--ink2)' }}>{card.verdictShort}</span>
                 </div>
-                <p className="text-sm leading-relaxed" style={{ color: 'var(--ink2)', lineHeight: 1.8 }}>
-                  {card.verdict}
-                </p>
+                <p style={{ fontSize: 13, color: 'var(--ink2)', lineHeight: 1.8 }}>{card.verdict}</p>
               </div>
 
               {/* Recent Sales */}
-              <div className="rounded-xl p-6" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                <p className="font-mono text-xs mb-4" style={{ color: 'var(--ink3)', letterSpacing: '1px' }}>RECENT SALES</p>
-                <div className="flex flex-col gap-0">
-                  {card.recentSales.map((sale, i) => (
-                    <div key={i} className="flex items-center justify-between py-3"
-                      style={{ borderBottom: i < card.recentSales.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs font-mono" style={{ color: 'var(--ink3)' }}>{sale.date}</span>
-                        <span className="text-xs px-2 py-0.5 rounded" style={{ background: 'var(--surface2)', color: 'var(--ink3)' }}>{sale.platform}</span>
-                      </div>
-                      <span className="font-mono text-sm font-medium" style={{ color: 'var(--ink)' }}>{fmt(sale.price)}</span>
+              <div style={{ borderRadius: 16, padding: 24, background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                <p className="font-mono-custom" style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1, marginBottom: 16 }}>RECENT SALES</p>
+                {card.sales.map((sale, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: i < card.sales.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span className="font-mono-custom" style={{ fontSize: 11, color: 'var(--ink3)' }}>{sale.date}</span>
+                      <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 5, background: 'var(--surface2)', color: 'var(--ink3)' }}>{sale.platform}</span>
                     </div>
-                  ))}
-                </div>
+                    <span className="font-mono-custom" style={{ fontSize: 14, fontWeight: 500, color: 'var(--ink)' }}>{fmt(sale.price)}</span>
+                  </div>
+                ))}
               </div>
             </div>
 
-            {/* Right: Score */}
-            <div className="flex flex-col gap-6">
-              <div className="rounded-xl p-6" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                <p className="font-mono text-xs mb-6 text-center" style={{ color: 'var(--ink3)', letterSpacing: '1px' }}>CARDINDEX SCORE</p>
-                <div className="flex justify-center mb-2">
+            {/* Right column */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ borderRadius: 16, padding: 24, background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                <p className="font-mono-custom" style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1, marginBottom: 20, textAlign: 'center' }}>CARDINDEX SCORE</p>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
                   <ScoreRing score={card.score} size="lg" />
                 </div>
-                <p className="text-center text-sm mt-4 mb-6" style={{ color: scoreColor(card.score) }}>
+                <p style={{ textAlign: 'center', fontSize: 13, color: scoreColor(card.score), margin: '12px 0 20px' }}>
                   {scoreLabel(card.score)} — {card.score}/100
                 </p>
-                <ScoreRing score={card.score} size="lg" breakdown={card.scoreBreakdown} />
+                <ScoreRing score={card.score} size="lg" breakdown={card.breakdown} />
               </div>
 
-              {/* Grade info */}
-              <div className="rounded-xl p-6" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                <p className="font-mono text-xs mb-4" style={{ color: 'var(--ink3)', letterSpacing: '1px' }}>GRADE INFO</p>
-                <div className="flex flex-col gap-3">
-                  {[
-                    { label: 'Grade', value: card.grade },
-                    { label: 'Set', value: card.set },
-                    { label: 'Year', value: card.year },
-                    { label: 'Rarity', value: card.rarity },
-                  ].map((row, i) => (
-                    <div key={i} className="flex justify-between items-center">
-                      <span className="text-xs" style={{ color: 'var(--ink3)' }}>{row.label}</span>
-                      <span className="text-xs font-medium" style={{ color: 'var(--ink)' }}>{row.value}</span>
-                    </div>
-                  ))}
-                </div>
+              <div style={{ borderRadius: 16, padding: 24, background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                <p className="font-mono-custom" style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1, marginBottom: 16 }}>CARD INFO</p>
+                {[{ label: 'Grade', value: card.grade }, { label: 'Set', value: card.set }, { label: 'Year', value: card.year }, { label: 'Rarity', value: card.rarity }].map((row, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: i < 3 ? '1px solid var(--border)' : 'none' }}>
+                    <span style={{ fontSize: 12, color: 'var(--ink3)' }}>{row.label}</span>
+                    <span style={{ fontSize: 12, color: 'var(--ink)' }}>{row.value}</span>
+                  </div>
+                ))}
               </div>
-
-              {/* Search on eBay CTA */}
-              <a href="https://ebay.com" target="_blank" rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 rounded-xl py-3 text-sm transition-all"
-                style={{ background: 'var(--surface2)', border: '1px solid var(--border2)', color: 'var(--ink2)' }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.color = 'var(--gold)'; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border2)'; e.currentTarget.style.color = 'var(--ink2)'; }}>
-                <ExternalLink size={13} /> View on eBay
-              </a>
             </div>
           </div>
         </div>
       </main>
     </>
-  );
+  )
 }

@@ -9,7 +9,14 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(232,197,71,0.08)', borderBottom: '1px solid rgba(232,197,71,0.15)', backdropFilter: 'blur(8px)' }}>
+          <p style={{ margin: 0, fontSize: 11, color: 'rgba(232,197,71,0.7)', letterSpacing: 1, fontFamily: 'DM Mono, monospace' }}>
+            DATA SHOWN IS FOR DISPLAY PURPOSES ONLY — CARDINDEX BETA
+          </p>
+        </div>
+        {children}
+      </body>
     </html>
   )
 }

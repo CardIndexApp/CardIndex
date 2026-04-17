@@ -120,7 +120,7 @@ export default function SearchPage() {
   return (
     <>
       <Navbar />
-      <main style={{ maxWidth: 900, margin: '0 auto', padding: '80px 24px 100px' }}>
+      <main style={{ maxWidth: 900, margin: '0 auto', padding: '112px 24px 100px' }}>
         {/* Steps indicator */}
         <div style={{ display: 'flex', marginBottom: 40, position: 'relative' }}>
           <div style={{ position: 'absolute', left: 0, right: 0, top: 13, height: 1, background: 'var(--border)', zIndex: 0 }} />

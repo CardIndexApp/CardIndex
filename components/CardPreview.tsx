@@ -22,8 +22,8 @@ export default function CardPreview({ card }: { card: Card }) {
         )}
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 4 }}>
-        <div>
-          <div className="font-display" style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.3px' }}>{card.name}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="font-display" style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.3px', minHeight: 40, display: 'flex', alignItems: 'flex-start' }}>{card.name}</div>
           <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 2 }}>{card.set} · {card.grade}</div>
         </div>
         <div style={{ textAlign: 'right', flexShrink: 0 }}>

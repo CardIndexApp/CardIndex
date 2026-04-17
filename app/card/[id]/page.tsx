@@ -197,7 +197,7 @@ export default function CardPage() {
       <>
         <style>{PAGE_STYLES}</style>
         <Navbar />
-        <main style={{ paddingTop: 56, paddingBottom: 80, minHeight: '100vh' }}>
+        <main style={{ paddingTop: 88, paddingBottom: 80, minHeight: '100vh' }}>
           <div style={{ maxWidth: 500, margin: '0 auto', padding: '0 16px' }}>
             <div style={{ marginTop: 20, marginBottom: 12, borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', overflow: 'hidden' }}>
               <div style={{ padding: '18px 20px' }}>
@@ -268,7 +268,7 @@ export default function CardPage() {
     <>
       <style>{PAGE_STYLES}</style>
       <Navbar />
-      <main className="ci-main" style={{ paddingTop: 56, paddingBottom: 100, minHeight: '100vh' }}>
+      <main className="ci-main" style={{ paddingTop: 88, paddingBottom: 100, minHeight: '100vh' }}>
         <div style={{ maxWidth: 860, margin: '0 auto', padding: '0 16px' }}>
 
           {/* ── Card Header (with controls) ── */}

@@ -1,13 +1,13 @@
 'use client'
 import Link from 'next/link'
 import { useState } from 'react'
-import AuthModal from './AuthModal'
+import BetaModal from './BetaModal'
 
 export default function Navbar() {
-  const [modal, setModal] = useState<'login' | 'signup' | null>(null)
+  const [showBeta, setShowBeta] = useState(false)
   return (
     <>
-      <nav style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50, height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', borderBottom: '1px solid var(--border)', background: 'rgba(8,8,16,0.9)', backdropFilter: 'blur(12px)' }}>
+      <nav style={{ position: 'fixed', top: 32, left: 0, right: 0, zIndex: 50, height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', borderBottom: '1px solid var(--border)', background: 'rgba(8,8,16,0.9)', backdropFilter: 'blur(12px)' }}>
         <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
           <span className="font-display" style={{ fontSize: 18, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px' }}>
             Card<span style={{ color: 'var(--gold)' }}>Index</span>
@@ -16,11 +16,11 @@ export default function Navbar() {
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <Link href="/market" style={{ fontSize: 14, padding: '6px 12px', borderRadius: 8, color: 'var(--ink2)', textDecoration: 'none' }}>Market</Link>
-          <button onClick={() => setModal('login')} style={{ fontSize: 14, padding: '6px 12px', borderRadius: 8, color: 'var(--ink2)', background: 'none', border: 'none', cursor: 'pointer' }}>Log in</button>
-          <button onClick={() => setModal('signup')} style={{ fontSize: 14, padding: '7px 16px', borderRadius: 8, background: 'var(--gold)', color: '#080810', border: 'none', cursor: 'pointer', fontWeight: 600 }}>Sign up</button>
+          <button onClick={() => setShowBeta(true)} style={{ fontSize: 14, padding: '6px 12px', borderRadius: 8, color: 'var(--ink2)', background: 'none', border: 'none', cursor: 'pointer' }}>Log in</button>
+          <button onClick={() => setShowBeta(true)} style={{ fontSize: 14, padding: '7px 16px', borderRadius: 8, background: 'var(--gold)', color: '#080810', border: 'none', cursor: 'pointer', fontWeight: 600 }}>Sign up</button>
         </div>
       </nav>
-      {modal && <AuthModal mode={modal} onClose={() => setModal(null)} />}
+      {showBeta && <BetaModal onClose={() => setShowBeta(false)} />}
     </>
   )
 }

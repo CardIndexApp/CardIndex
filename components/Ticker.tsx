@@ -7,7 +7,7 @@ export default function Ticker() {
       <div className="ticker-track" style={{ display: 'flex', gap: 32, whiteSpace: 'nowrap', width: 'max-content' }}>
         {items.map((item, i) => (
           <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
-            <span style={{ color: 'var(--ink3)', fontFamily: 'DM Sans, sans-serif' }}>{item.name}</span>
+            <span style={{ color: 'var(--ink3)', fontFamily: 'Helvetica, Arial, sans-serif' }}>{item.name}</span>
             <span className="font-num" style={{ color: 'var(--ink)' }}>{fmt(item.price)}</span>
             <span className="font-num" style={{ color: item.change >= 0 ? 'var(--green)' : 'var(--red)' }}>
               {item.change >= 0 ? '▲' : '▼'} {Math.abs(item.change)}%

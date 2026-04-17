@@ -8,8 +8,9 @@ export default function CardPreview({ card }: { card: Card }) {
   const [imgError, setImgError] = useState(false)
 
   return (
-    <Link href={`/card/${card.id}`} className="card-hover" style={{ display: 'block', borderRadius: 16, padding: 16, background: 'var(--surface)', border: '1px solid var(--border)', textDecoration: 'none' }}>
-      <div style={{ width: '100%', height: 180, borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14, overflow: 'hidden' }}>
+    <Link href={`/card/${card.id}`} className="card-hover" style={{ display: 'flex', flexDirection: 'column', borderRadius: 16, padding: 16, background: 'var(--surface)', border: '1px solid var(--border)', textDecoration: 'none' }}>
+      {/* Image */}
+      <div style={{ width: '100%', height: 180, borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14, overflow: 'hidden', flexShrink: 0 }}>
         {card.imageUrl && !imgError ? (
           <img
             src={card.imageUrl}
@@ -21,25 +22,31 @@ export default function CardPreview({ card }: { card: Card }) {
           <span style={{ fontSize: 56 }}>{card.emoji}</span>
         )}
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 4 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="font-display" style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.3px', minHeight: 40, display: 'flex', alignItems: 'flex-start' }}>{card.name}</div>
-          <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 2 }}>{card.set} · {card.grade}</div>
-        </div>
-        <div style={{ textAlign: 'right', flexShrink: 0 }}>
-          <div className="font-num" style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{fmt(card.price)}</div>
-          <div className="font-num" style={{ fontSize: 11, color: isUp ? 'var(--green)' : 'var(--red)' }}>
-            {isUp ? '▲' : '▼'} {Math.abs(card.change)}%
+
+      {/* Name / set — fixed height so price always aligns */}
+      <div style={{ flex: 1 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="font-display" style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.3px', minHeight: 36, lineHeight: 1.3 }}>{card.name}</div>
+            <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 2 }}>{card.set} · {card.grade}</div>
+          </div>
+          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+            <div className="font-num" style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{fmt(card.price)}</div>
+            <div className="font-num" style={{ fontSize: 11, color: isUp ? 'var(--green)' : 'var(--red)' }}>
+              {isUp ? '▲' : '▼'} {Math.abs(card.change)}%
+            </div>
           </div>
         </div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
-        <span style={{ fontSize: 11, color: 'var(--ink3)' }}>CardIndex Score</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <div style={{ width: 56, height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: `${card.score}%`, background: scoreColor(card.score), borderRadius: 2 }} />
-          </div>
-          <span className="font-num" style={{ fontSize: 11, color: scoreColor(card.score) }}>{card.score}</span>
+
+      {/* Score — always at bottom */}
+      <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+          <span style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 0.5 }}>CardIndex Score</span>
+          <span className="font-num" style={{ fontSize: 13, fontWeight: 700, color: scoreColor(card.score) }}>{card.score}</span>
+        </div>
+        <div style={{ height: 4, borderRadius: 3, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${card.score}%`, background: scoreColor(card.score), borderRadius: 3, transition: 'width 0.4s ease' }} />
         </div>
       </div>
     </Link>

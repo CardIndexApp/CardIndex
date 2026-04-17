@@ -9,9 +9,9 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        display: ['Syne', 'sans-serif'],
-        mono: ['DM Mono', 'monospace'],
-        sans: ['DM Sans', 'sans-serif'],
+        display: ['Helvetica', 'Arial', 'sans-serif'],
+        mono: ['Helvetica', 'Arial', 'sans-serif'],
+        sans: ['Helvetica', 'Arial', 'sans-serif'],
       },
     },
   },

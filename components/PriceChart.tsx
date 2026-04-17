@@ -36,8 +36,8 @@ export default function PriceChart({ data }: Props) {
           </linearGradient>
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
-        <XAxis dataKey="month" tick={{ fill: '#55556a', fontSize: 11, fontFamily: 'DM Mono' }} axisLine={false} tickLine={false} />
-        <YAxis domain={[min - pad, max + pad]} tick={{ fill: '#55556a', fontSize: 11, fontFamily: 'DM Mono' }} tickFormatter={v => fmt(v).replace('$', '')} axisLine={false} tickLine={false} width={52} />
+        <XAxis dataKey="month" tick={{ fill: '#55556a', fontSize: 11, fontFamily: 'Helvetica' }} axisLine={false} tickLine={false} />
+        <YAxis domain={[min - pad, max + pad]} tick={{ fill: '#55556a', fontSize: 11, fontFamily: 'Helvetica' }} tickFormatter={v => fmt(v).replace('$', '')} axisLine={false} tickLine={false} width={52} />
         <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }} />
         <Area type="monotone" dataKey="price" stroke={color} strokeWidth={2} fill="url(#grad)" dot={false} activeDot={{ r: 4, fill: color, stroke: 'var(--surface)' }} />
       </AreaChart>

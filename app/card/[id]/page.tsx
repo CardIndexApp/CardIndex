@@ -509,7 +509,7 @@ export default function CardPage() {
                     </div>
                     <ResponsiveContainer width="100%" height={110}>
                       <LineChart data={chartData} margin={{ top: 10, right: 4, left: 4, bottom: 0 }}>
-                        <XAxis dataKey="month" tick={{ fill: '#55556a', fontSize: 9, fontFamily: 'DM Mono' }} axisLine={false} tickLine={false} />
+                        <XAxis dataKey="month" tick={{ fill: '#55556a', fontSize: 9, fontFamily: 'Helvetica' }} axisLine={false} tickLine={false} />
                         <Tooltip content={<SparkTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.08)', strokeWidth: 1 }} />
                         <Line type="monotone" dataKey="price" stroke={chartColor} strokeWidth={2} dot={false} activeDot={{ r: 4, fill: chartColor, stroke: 'var(--surface)' }} />
                       </LineChart>

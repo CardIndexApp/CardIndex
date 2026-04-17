@@ -24,10 +24,10 @@ export default function Home() {
               <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--gold)', display: 'inline-block' }} />
               <span className="font-mono-custom" style={{ fontSize: 10, color: 'var(--gold)', letterSpacing: 2 }}>LIVE MARKET DATA</span>
             </div>
-            <h1 className="font-display anim d2" style={{ fontSize: 'clamp(40px,7vw,76px)', fontWeight: 800, lineHeight: 1, letterSpacing: '-2px', color: 'var(--ink)', marginBottom: 12 }}>
+            <h1 className="font-display anim d2" style={{ fontSize: 'clamp(40px,7vw,76px)', fontWeight: 800, lineHeight: 1, letterSpacing: '-2px', color: 'var(--ink)', marginBottom: 20 }}>
               The market index<br /><span style={{ color: 'var(--gold)' }}>for trading cards</span>
             </h1>
-            <p className="font-mono-custom anim d3" style={{ fontSize: 11, color: 'var(--ink3)', letterSpacing: 3, margin: '0 auto 32px', textTransform: 'uppercase' }}>
+            <p className="font-mono-custom anim d3" style={{ fontSize: 11, color: 'var(--ink3)', letterSpacing: 3, margin: '0 auto 36px', textTransform: 'uppercase' }}>
               Card Market Intelligence
             </p>
             <div className="anim d4" style={{ marginBottom: 28 }}>
@@ -49,17 +49,15 @@ export default function Home() {
 
           {/* Live Sales Data from eBay */}
           <div className="anim d6" style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 720, margin: '64px auto 0' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 12, color: 'var(--ink3)', fontWeight: 500 }}>Live Sales Data from</span>
-                {/* eBay wordmark */}
-                <span style={{ fontSize: 22, fontWeight: 800, lineHeight: 1, letterSpacing: '-0.5px' }}>
-                  <span style={{ color: '#E53238' }}>e</span><span style={{ color: '#0064D2' }}>B</span><span style={{ color: '#F5AF02' }}>a</span><span style={{ color: '#86B817' }}>y</span>
-                </span>
-              </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 14 }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)', display: 'inline-block', boxShadow: '0 0 6px var(--green)' }} />
                 <span className="font-mono-custom" style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1 }}>LIVE</span>
+              </span>
+              <span style={{ fontSize: 12, color: 'var(--ink3)', fontWeight: 500 }}>Sales Data from</span>
+              {/* eBay wordmark */}
+              <span style={{ fontSize: 22, fontWeight: 800, lineHeight: 1, letterSpacing: '-0.5px' }}>
+                <span style={{ color: '#E53238' }}>e</span><span style={{ color: '#0064D2' }}>B</span><span style={{ color: '#F5AF02' }}>a</span><span style={{ color: '#86B817' }}>y</span>
               </span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1, borderRadius: 16, overflow: 'hidden', background: 'var(--border)' }}>

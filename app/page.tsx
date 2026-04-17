@@ -71,8 +71,8 @@ export default function Home() {
                 <div key={i} style={{ padding: '16px 18px', background: 'var(--surface)' }}>
                   <div style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 4 }}>{s.card}</div>
                   <div style={{ fontSize: 10, color: 'var(--ink3)', marginBottom: 6, opacity: 0.6 }}>{s.grade}</div>
-                  <div className="font-mono-custom" style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)' }}>{s.price}</div>
-                  <div className="font-mono-custom" style={{ fontSize: 11, color: s.up ? 'var(--green)' : 'var(--red)', marginTop: 2 }}>
+                  <div className="font-num" style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>{s.price}</div>
+                  <div className="font-num" style={{ fontSize: 11, color: s.up ? 'var(--green)' : 'var(--red)', marginTop: 2 }}>
                     {s.up ? '▲' : '▼'} {s.delta}
                   </div>
                 </div>

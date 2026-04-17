@@ -27,8 +27,8 @@ export default function CardPreview({ card }: { card: Card }) {
           <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 2 }}>{card.set} · {card.grade}</div>
         </div>
         <div style={{ textAlign: 'right', flexShrink: 0 }}>
-          <div className="font-mono-custom" style={{ fontSize: 14, fontWeight: 500, color: 'var(--ink)' }}>{fmt(card.price)}</div>
-          <div className="font-mono-custom" style={{ fontSize: 11, color: isUp ? 'var(--green)' : 'var(--red)' }}>
+          <div className="font-num" style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{fmt(card.price)}</div>
+          <div className="font-num" style={{ fontSize: 11, color: isUp ? 'var(--green)' : 'var(--red)' }}>
             {isUp ? '▲' : '▼'} {Math.abs(card.change)}%
           </div>
         </div>
@@ -39,7 +39,7 @@ export default function CardPreview({ card }: { card: Card }) {
           <div style={{ width: 56, height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
             <div style={{ height: '100%', width: `${card.score}%`, background: scoreColor(card.score), borderRadius: 2 }} />
           </div>
-          <span className="font-mono-custom" style={{ fontSize: 11, color: scoreColor(card.score) }}>{card.score}</span>
+          <span className="font-num" style={{ fontSize: 11, color: scoreColor(card.score) }}>{card.score}</span>
         </div>
       </div>
     </Link>

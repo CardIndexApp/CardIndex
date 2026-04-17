@@ -15,7 +15,7 @@ function Table({ title, items, type }: { title: string; items: { id: string; nam
           onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
           onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span className="font-mono-custom" style={{ fontSize: 11, color: 'var(--ink3)', width: 16 }}>{i + 1}</span>
+            <span className="font-num" style={{ fontSize: 11, color: 'var(--ink3)', width: 16 }}>{i + 1}</span>
             <div>
               <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)' }}>{item.name}</div>
               <div style={{ fontSize: 11, color: 'var(--ink3)' }}>{item.grade}</div>
@@ -23,18 +23,18 @@ function Table({ title, items, type }: { title: string; items: { id: string; nam
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             {item.change !== undefined && (
-              <span className="font-mono-custom" style={{ fontSize: 13, color: item.change >= 0 ? 'var(--green)' : 'var(--red)' }}>
+              <span className="font-num" style={{ fontSize: 13, color: item.change >= 0 ? 'var(--green)' : 'var(--red)' }}>
                 {item.change >= 0 ? '+' : ''}{item.change}%
               </span>
             )}
             {item.volume !== undefined && (
-              <span className="font-mono-custom" style={{ fontSize: 13, color: 'var(--ink2)' }}>{item.volume} sales</span>
+              <span className="font-num" style={{ fontSize: 13, color: 'var(--ink2)' }}>{item.volume} sales</span>
             )}
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <div style={{ width: 40, height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
                 <div style={{ height: '100%', width: `${item.score}%`, background: scoreColor(item.score), borderRadius: 2 }} />
               </div>
-              <span className="font-mono-custom" style={{ fontSize: 11, color: scoreColor(item.score) }}>{item.score}</span>
+              <span className="font-num" style={{ fontSize: 11, color: scoreColor(item.score) }}>{item.score}</span>
             </div>
           </div>
         </Link>

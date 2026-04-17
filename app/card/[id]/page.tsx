@@ -313,51 +313,50 @@ export default function CardPage() {
               </div>
 
               {/* Grade + Price + Window — inline in header */}
-              <div className="ci-controls ci-no-print" style={{ marginTop: 20 }}>
+              <div className="ci-controls ci-no-print" style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
                 {/* Grade */}
-                <div style={{ background: 'var(--surface2)', borderRadius: 10, padding: '12px 14px', border: '1px solid var(--border)' }}>
-                  <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', marginBottom: 8, display: 'block' }}>SELECT GRADE</span>
-                  <div className="ci-grade-grid">
+                <div>
+                  <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', marginBottom: 8, display: 'block' }}>GRADE</span>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                     {GRADES.map(g => {
                       const active = selectedGrade === g.key
                       return (
                         <button key={g.key} onClick={() => setSelectedGrade(g.key)}
-                          style={{ padding: '7px 2px', borderRadius: 7, border: active ? '1px solid rgba(232,197,71,0.4)' : '1px solid var(--border)', background: active ? 'var(--gold2)' : 'var(--surface)', cursor: 'pointer', textAlign: 'center' }}>
-                          <div className="font-num" style={{ fontSize: g.key === 'RAW' ? 8 : 12, fontWeight: 700, color: active ? 'var(--gold)' : 'var(--ink)', lineHeight: 1.1 }}>{g.key}</div>
-                          <div style={{ fontSize: 7, color: active ? 'var(--gold)' : 'var(--ink3)', marginTop: 2 }}>{g.label}</div>
+                          style={{ padding: '5px 9px', borderRadius: 6, border: active ? '1px solid rgba(232,197,71,0.4)' : '1px solid var(--border)', background: active ? 'var(--gold2)' : 'transparent', cursor: 'pointer' }}>
+                          <span className="font-num" style={{ fontSize: 11, fontWeight: 700, color: active ? 'var(--gold)' : 'var(--ink3)' }}>{g.key}</span>
                         </button>
                       )
                     })}
                   </div>
                 </div>
                 {/* Price */}
-                <div style={{ background: 'var(--surface2)', borderRadius: 10, padding: '12px 14px', border: '1px solid var(--border)' }}>
+                <div>
                   <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', marginBottom: 8, display: 'block' }}>YOUR PRICE</span>
                   <div style={{ display: 'flex', gap: 8 }}>
-                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', background: 'var(--surface)', border: '1px solid var(--border2)', borderRadius: 10, overflow: 'hidden', paddingLeft: 12 }}>
-                      <span className="font-num" style={{ fontSize: 16, fontWeight: 800, color: 'var(--ink2)', flexShrink: 0 }}>$</span>
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, paddingLeft: 10, overflow: 'hidden' }}>
+                      <span className="font-num" style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink3)', flexShrink: 0 }}>$</span>
                       <input type="text" inputMode="numeric" value={priceInput}
                         onChange={e => setPriceInput(e.target.value)}
                         onKeyDown={e => e.key === 'Enter' && handleAnalyse()}
-                        style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', padding: '10px 8px 10px 4px', fontSize: 20, fontWeight: 700, color: 'var(--gold)', fontFamily: 'Helvetica, Arial, sans-serif', letterSpacing: '-0.5px', minWidth: 0 }} />
+                        style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', padding: '9px 8px 9px 4px', fontSize: 16, fontWeight: 700, color: 'var(--gold)', fontFamily: 'Helvetica, Arial, sans-serif', letterSpacing: '-0.5px', minWidth: 0 }} />
                     </div>
                     <button onClick={handleAnalyse}
-                      style={{ padding: '0 16px', borderRadius: 10, background: 'var(--gold)', border: 'none', color: '#08080f', fontFamily: 'Helvetica, Arial, sans-serif', fontSize: 12, fontWeight: 800, letterSpacing: 1, cursor: 'pointer', flexShrink: 0 }}>
+                      style={{ padding: '0 14px', borderRadius: 8, background: 'var(--gold)', border: 'none', color: '#08080f', fontFamily: 'Helvetica, Arial, sans-serif', fontSize: 11, fontWeight: 800, letterSpacing: 1, cursor: 'pointer', flexShrink: 0 }}>
                       ANALYSE
                     </button>
                   </div>
                 </div>
                 {/* Window */}
-                <div style={{ background: 'var(--surface2)', borderRadius: 10, padding: '12px 14px', border: '1px solid var(--border)' }}>
-                  <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', marginBottom: 8, display: 'block' }}>ANALYSIS WINDOW</span>
-                  <div style={{ display: 'flex', gap: 6 }}>
+                <div>
+                  <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', marginBottom: 8, display: 'block' }}>WINDOW</span>
+                  <div style={{ display: 'flex', gap: 4 }}>
                     {WINDOWS.map(w => {
                       const active = analysisWindow === w.key
                       return (
                         <button key={w.key} onClick={() => setAnalysisWindow(w.key as '1M' | '3M' | '6M')}
-                          style={{ flex: 1, padding: '10px 6px', borderRadius: 10, border: active ? '1px solid rgba(232,197,71,0.4)' : '1px solid var(--border)', background: active ? 'var(--gold2)' : 'var(--surface)', cursor: 'pointer', textAlign: 'center' }}>
-                          <div className="font-num" style={{ fontSize: 16, fontWeight: 700, color: active ? 'var(--gold)' : 'var(--ink)' }}>{w.key}</div>
-                          <div style={{ fontSize: 9, color: active ? 'var(--gold)' : 'var(--ink3)', marginTop: 2 }}>{w.label}</div>
+                          style={{ flex: 1, padding: '7px 6px', borderRadius: 7, border: active ? '1px solid rgba(232,197,71,0.4)' : '1px solid var(--border)', background: active ? 'var(--gold2)' : 'transparent', cursor: 'pointer', textAlign: 'center' }}>
+                          <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: active ? 'var(--gold)' : 'var(--ink3)', lineHeight: 1 }}>{w.key}</div>
+                          <div style={{ fontSize: 9, color: active ? 'rgba(232,197,71,0.6)' : 'var(--ink3)', marginTop: 3 }}>{w.label}</div>
                         </button>
                       )
                     })}

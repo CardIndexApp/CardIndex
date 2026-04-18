@@ -5,6 +5,7 @@ import Navbar from '@/components/Navbar'
 import Ticker from '@/components/Ticker'
 import CardPreview from '@/components/CardPreview'
 import EbayLogo from '@/components/EbayLogo'
+import Footer from '@/components/Footer'
 import { cards } from '@/lib/data'
 
 const faqItems = [
@@ -374,10 +375,7 @@ export default function Home() {
           </div>
         </section>
 
-        <footer style={{ borderTop: '1px solid var(--border)', padding: '24px', textAlign: 'center' }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>Card<span style={{ color: 'var(--gold)' }}>Index</span></div>
-          <p style={{ fontSize: 11, color: 'var(--ink3)' }}>© 2026 card-index.app — The market index for trading cards</p>
-        </footer>
+        <Footer />
       </main>
     </>
   )

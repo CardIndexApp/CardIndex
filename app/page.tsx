@@ -96,8 +96,22 @@ export default function Home() {
 
         <Ticker />
 
+        {/* Featured */}
+        <section id="featured" style={{ padding: '80px 24px', maxWidth: 1100, margin: '0 auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 40 }}>
+            <div>
+              <p style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' }}>Featured Cards</p>
+              <h2 style={{ fontSize: 32, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-1px' }}>Market highlights</h2>
+            </div>
+            <a href="/market" style={{ fontSize: 13, color: 'var(--ink3)', textDecoration: 'none' }}>View all →</a>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16 }}>
+            {cards.map(card => <CardPreview key={card.id} card={card} />)}
+          </div>
+        </section>
+
         {/* How it works */}
-        <section style={{ padding: '96px 24px', maxWidth: 1100, margin: '0 auto' }}>
+        <section style={{ padding: '0 24px 96px', maxWidth: 1100, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 64 }}>
             <p style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10, textTransform: 'uppercase' }}>How it works</p>
             <h2 style={{ fontSize: 36, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-1px', marginBottom: 14 }}>Three steps to smarter collecting</h2>
@@ -127,28 +141,14 @@ export default function Home() {
               },
             ].map((step, i) => (
               <div key={i} style={{ padding: '36px 32px', background: 'var(--surface)', position: 'relative' }}>
-                <div className="font-num" style={{ fontSize: 52, fontWeight: 800, color: 'rgba(232,197,71,0.1)', letterSpacing: '-2px', lineHeight: 1, marginBottom: 20 }}>{step.n}</div>
+                <div className="font-num" style={{ fontSize: 52, fontWeight: 800, color: 'var(--gold)', letterSpacing: '-2px', lineHeight: 1, marginBottom: 20, opacity: 0.85 }}>{step.n}</div>
                 <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--ink)', marginBottom: 10 }}>{step.title}</div>
                 <p style={{ fontSize: 13, color: 'var(--ink2)', lineHeight: 1.75, marginBottom: 16 }}>{step.body}</p>
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, borderRadius: 99, padding: '3px 10px', background: 'var(--surface2)', border: '1px solid var(--border2)' }}>
-                  <span style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 0.5 }}>{step.detail}</span>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, borderRadius: 99, padding: '4px 12px', background: 'rgba(61,232,138,0.1)', border: '1px solid rgba(61,232,138,0.25)' }}>
+                  <span style={{ fontSize: 10, color: 'var(--green)', letterSpacing: 0.5, fontWeight: 500 }}>{step.detail}</span>
                 </div>
               </div>
             ))}
-          </div>
-        </section>
-
-        {/* Featured */}
-        <section id="featured" style={{ padding: '0 24px 80px', maxWidth: 1100, margin: '0 auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 40 }}>
-            <div>
-              <p style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' }}>Featured Cards</p>
-              <h2 style={{ fontSize: 32, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-1px' }}>Market highlights</h2>
-            </div>
-            <a href="/market" style={{ fontSize: 13, color: 'var(--ink3)', textDecoration: 'none' }}>View all →</a>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16 }}>
-            {cards.map(card => <CardPreview key={card.id} card={card} />)}
           </div>
         </section>
 

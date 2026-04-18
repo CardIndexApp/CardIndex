@@ -187,12 +187,26 @@ export default function SearchPage() {
                       <button
                         key={set.id}
                         onClick={() => handleSetSelect(set)}
-                        style={{ background: 'var(--surface)', border: '1.5px solid var(--border)', borderRadius: 10, padding: '11px 12px', cursor: 'pointer', textAlign: 'left', transition: 'all 0.18s' }}
+                        style={{ background: 'var(--surface)', border: '1.5px solid var(--border)', borderRadius: 10, padding: '12px', cursor: 'pointer', textAlign: 'left', transition: 'all 0.18s', display: 'flex', flexDirection: 'column', gap: 8 }}
                         onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.transform = 'translateY(-1px)' }}
                         onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.transform = 'translateY(0)' }}
                       >
-                        <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink)', lineHeight: 1.3, marginBottom: 3 }}>{set.name}</div>
-                        <div style={{ fontSize: 10, color: 'var(--ink3)' }}>{set.releaseDate?.slice(0, 4)} · {set.total} cards</div>
+                        <div style={{ height: 36, display: 'flex', alignItems: 'center' }}>
+                          {set.images?.logo ? (
+                            <img
+                              src={set.images.logo}
+                              alt={set.name}
+                              style={{ maxHeight: 36, maxWidth: '100%', objectFit: 'contain', objectPosition: 'left center', filter: 'brightness(0) invert(1)', opacity: 0.85 }}
+                              onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                            />
+                          ) : (
+                            <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)' }} />
+                          )}
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3, marginBottom: 2 }}>{set.name}</div>
+                          <div style={{ fontSize: 10, color: 'var(--ink3)' }}>{set.releaseDate?.slice(0, 4)} · {set.total} cards</div>
+                        </div>
                       </button>
                     ))}
                   </div>

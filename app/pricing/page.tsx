@@ -1,0 +1,253 @@
+'use client'
+import { useState } from 'react'
+import Navbar from '@/components/Navbar'
+import BetaModal from '@/components/BetaModal'
+
+const tiers = [
+  {
+    name: 'Free',
+    tagline: 'Everything you need to get started',
+    monthlyPrice: 0,
+    annualPrice: 0,
+    cta: 'Get started free',
+    highlight: false,
+    features: [
+      { text: 'Search any card', included: true },
+      { text: '3-month price history', included: true },
+      { text: 'CardIndex Score for all cards', included: true },
+      { text: '5 market verdicts per day', included: true },
+      { text: 'Live eBay sales feed', included: true },
+      { text: 'Full 12-month price history', included: false },
+      { text: 'Price alerts', included: false },
+      { text: 'Portfolio tracking', included: false },
+      { text: 'Data export (CSV)', included: false },
+      { text: 'API access', included: false },
+    ],
+  },
+  {
+    name: 'Pro',
+    tagline: 'For serious collectors and investors',
+    monthlyPrice: 9,
+    annualPrice: 7,
+    cta: 'Start Pro',
+    highlight: true,
+    badge: 'Most popular',
+    features: [
+      { text: 'Search any card', included: true },
+      { text: 'Full 12-month price history', included: true },
+      { text: 'CardIndex Score for all cards', included: true },
+      { text: 'Unlimited market verdicts', included: true },
+      { text: 'Live eBay sales feed', included: true },
+      { text: 'Price alerts (up to 25 cards)', included: true },
+      { text: 'Daily market digest email', included: true },
+      { text: 'Data export (CSV)', included: true },
+      { text: 'Portfolio tracking', included: false },
+      { text: 'API access', included: false },
+    ],
+  },
+  {
+    name: 'Collector',
+    tagline: 'For power users and large collections',
+    monthlyPrice: 19,
+    annualPrice: 15,
+    cta: 'Start Collector',
+    highlight: false,
+    features: [
+      { text: 'Search any card', included: true },
+      { text: 'Full 12-month price history', included: true },
+      { text: 'CardIndex Score for all cards', included: true },
+      { text: 'Unlimited market verdicts', included: true },
+      { text: 'Live eBay sales feed', included: true },
+      { text: 'Unlimited price alerts', included: true },
+      { text: 'Daily market digest email', included: true },
+      { text: 'Data export (CSV)', included: true },
+      { text: 'Portfolio tracking', included: true },
+      { text: 'API access (1,000 req/day)', included: true },
+    ],
+  },
+]
+
+const faqs = [
+  {
+    q: 'Can I switch plans later?',
+    a: 'Yes — you can upgrade, downgrade, or cancel at any time. Changes take effect at the start of your next billing cycle.',
+  },
+  {
+    q: 'What happens when I hit my daily verdict limit on Free?',
+    a: 'You\'ll still be able to view card prices and scores — you just won\'t see the full verdict reasoning until the next day or you upgrade.',
+  },
+  {
+    q: 'Is there a free trial for paid plans?',
+    a: 'Yes. Pro and Collector both come with a 14-day free trial, no credit card required.',
+  },
+  {
+    q: 'What payment methods do you accept?',
+    a: 'We accept all major credit and debit cards. Annual plans are charged upfront and save you up to 22%.',
+  },
+]
+
+export default function Pricing() {
+  const [annual, setAnnual] = useState(false)
+  const [showBeta, setShowBeta] = useState(false)
+  const [openFaq, setOpenFaq] = useState<number | null>(null)
+
+  return (
+    <>
+      <Navbar />
+      {showBeta && <BetaModal onClose={() => setShowBeta(false)} />}
+      <main style={{ paddingTop: 88, paddingBottom: 96, minHeight: '100vh' }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '64px 24px 0' }}>
+
+          {/* Header */}
+          <div style={{ textAlign: 'center', marginBottom: 56 }}>
+            <p style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10, textTransform: 'uppercase' }}>Pricing</p>
+            <h1 style={{ fontSize: 'clamp(32px, 5vw, 52px)', fontWeight: 800, color: 'var(--ink)', letterSpacing: '-1.5px', marginBottom: 14, lineHeight: 1.05 }}>
+              Simple, transparent pricing
+            </h1>
+            <p style={{ fontSize: 15, color: 'var(--ink2)', maxWidth: 440, margin: '0 auto 32px', lineHeight: 1.7 }}>
+              Start free. Upgrade when you need more. No hidden fees.
+            </p>
+
+            {/* Billing toggle */}
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12, borderRadius: 99, padding: '4px 6px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
+              <button
+                onClick={() => setAnnual(false)}
+                style={{ padding: '6px 18px', borderRadius: 99, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500, background: !annual ? 'var(--surface2)' : 'transparent', color: !annual ? 'var(--ink)' : 'var(--ink3)', transition: 'all 0.15s' }}
+              >
+                Monthly
+              </button>
+              <button
+                onClick={() => setAnnual(true)}
+                style={{ padding: '6px 18px', borderRadius: 99, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500, background: annual ? 'var(--surface2)' : 'transparent', color: annual ? 'var(--ink)' : 'var(--ink3)', transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: 8 }}
+              >
+                Annual
+                <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--green)', background: 'rgba(61,232,138,0.12)', border: '1px solid rgba(61,232,138,0.25)', borderRadius: 99, padding: '1px 7px', letterSpacing: 0.5 }}>
+                  SAVE 22%
+                </span>
+              </button>
+            </div>
+          </div>
+
+          {/* Tier cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, marginBottom: 80, alignItems: 'stretch' }}>
+            {tiers.map((tier, i) => (
+              <div
+                key={i}
+                style={{
+                  borderRadius: 20,
+                  padding: 28,
+                  background: tier.highlight ? 'var(--surface)' : 'var(--surface)',
+                  border: tier.highlight ? '1px solid rgba(232,197,71,0.4)' : '1px solid var(--border)',
+                  position: 'relative',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  boxShadow: tier.highlight ? '0 0 40px rgba(232,197,71,0.06)' : 'none',
+                }}
+              >
+                {tier.badge && (
+                  <div style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', background: 'var(--gold)', color: '#080810', fontSize: 10, fontWeight: 700, letterSpacing: 1, padding: '3px 12px', borderRadius: 99, whiteSpace: 'nowrap' }}>
+                    {tier.badge.toUpperCase()}
+                  </div>
+                )}
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>{tier.name}</div>
+                  <div style={{ fontSize: 12, color: 'var(--ink3)', lineHeight: 1.5 }}>{tier.tagline}</div>
+                </div>
+
+                <div style={{ marginBottom: 28 }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4 }}>
+                    <span className="font-num" style={{ fontSize: 44, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-2px', lineHeight: 1 }}>
+                      ${annual ? tier.annualPrice : tier.monthlyPrice}
+                    </span>
+                    {tier.monthlyPrice > 0 && (
+                      <span style={{ fontSize: 13, color: 'var(--ink3)', paddingBottom: 6 }}>/mo</span>
+                    )}
+                  </div>
+                  {tier.monthlyPrice > 0 && annual && (
+                    <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 4 }}>
+                      Billed ${tier.annualPrice * 12}/year
+                    </div>
+                  )}
+                  {tier.monthlyPrice === 0 && (
+                    <div style={{ fontSize: 12, color: 'var(--ink3)', marginTop: 4 }}>Free forever</div>
+                  )}
+                </div>
+
+                <button
+                  onClick={() => setShowBeta(true)}
+                  style={{
+                    width: '100%',
+                    padding: '11px 0',
+                    borderRadius: 12,
+                    border: tier.highlight ? 'none' : '1px solid var(--border2)',
+                    background: tier.highlight ? 'var(--gold)' : 'transparent',
+                    color: tier.highlight ? '#080810' : 'var(--ink)',
+                    fontSize: 14,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    marginBottom: 28,
+                    transition: 'opacity 0.15s',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
+                  onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+                >
+                  {tier.cta} →
+                </button>
+
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 11 }}>
+                  {tier.features.map((f, j) => (
+                    <div key={j} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{
+                        width: 16, height: 16, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700,
+                        background: f.included ? 'rgba(61,232,138,0.12)' : 'rgba(255,255,255,0.04)',
+                        color: f.included ? 'var(--green)' : 'var(--ink3)',
+                        border: f.included ? '1px solid rgba(61,232,138,0.25)' : '1px solid rgba(255,255,255,0.06)',
+                      }}>
+                        {f.included ? '✓' : '–'}
+                      </span>
+                      <span style={{ fontSize: 13, color: f.included ? 'var(--ink2)' : 'var(--ink3)' }}>{f.text}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Feature comparison note */}
+          <div style={{ textAlign: 'center', marginBottom: 80 }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, borderRadius: 99, padding: '8px 20px', background: 'var(--surface)', border: '1px solid var(--border)' }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)', display: 'inline-block' }} />
+              <span style={{ fontSize: 12, color: 'var(--ink2)' }}>All paid plans include a <strong style={{ color: 'var(--ink)' }}>14-day free trial</strong> — no credit card required</span>
+            </div>
+          </div>
+
+          {/* FAQ */}
+          <div style={{ maxWidth: 640, margin: '0 auto' }}>
+            <div style={{ textAlign: 'center', marginBottom: 40 }}>
+              <h2 style={{ fontSize: 28, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px' }}>Questions about pricing</h2>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, borderRadius: 16, overflow: 'hidden', background: 'var(--border)' }}>
+              {faqs.map((item, i) => (
+                <div key={i} style={{ background: 'var(--surface)' }}>
+                  <button
+                    onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 22px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', gap: 16 }}
+                  >
+                    <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{item.q}</span>
+                    <span style={{ fontSize: 18, color: 'var(--ink3)', flexShrink: 0, transition: 'transform 0.2s', transform: openFaq === i ? 'rotate(45deg)' : 'none', display: 'inline-block' }}>+</span>
+                  </button>
+                  {openFaq === i && (
+                    <div style={{ padding: '0 22px 18px' }}>
+                      <p style={{ fontSize: 13, color: 'var(--ink2)', lineHeight: 1.75 }}>{item.a}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </main>
+    </>
+  )
+}

@@ -106,6 +106,49 @@ export default function Home() {
           </div>
         </section>
 
+        {/* Recently Searched */}
+        <section style={{ padding: '0 24px 80px', maxWidth: 1100, margin: '0 auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24 }}>
+            <div>
+              <p style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' }}>Recently Searched</p>
+              <h2 style={{ fontSize: 28, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.5px' }}>Popular right now</h2>
+            </div>
+            <a href="/search" style={{ fontSize: 13, color: 'var(--ink3)', textDecoration: 'none' }}>Search cards →</a>
+          </div>
+          <div style={{ borderRadius: 16, overflow: 'hidden', background: 'var(--surface)', border: '1px solid var(--border)' }}>
+            {[
+              { name: 'Umbreon VMAX Alt Art', set: 'Evolving Skies', grade: 'PSA 10', price: 890, change: 8.2, up: true,  ago: '2m ago',  img: 'https://images.pokemontcg.io/swsh7/215_hires.png' },
+              { name: 'Blastoise Base Set',   set: 'Base Set',       grade: 'PSA 9',  price: 1450, change: 2.1, up: true,  ago: '5m ago',  img: 'https://images.pokemontcg.io/base1/2_hires.png' },
+              { name: 'Espeon VMAX Alt Art',  set: 'Evolving Skies', grade: 'PSA 10', price: 320, change: 1.4, up: false, ago: '11m ago', img: 'https://images.pokemontcg.io/swsh7/208_hires.png' },
+              { name: 'Sylveon VMAX Alt Art', set: 'Evolving Skies', grade: 'PSA 10', price: 275, change: 4.7, up: true,  ago: '18m ago', img: 'https://images.pokemontcg.io/swsh7/212_hires.png' },
+              { name: 'Gengar VMAX Alt Art',  set: 'Fusion Strike',  grade: 'PSA 10', price: 260, change: 3.1, up: true,  ago: '24m ago', img: 'https://images.pokemontcg.io/swsh8/271_hires.png' },
+              { name: 'Leafeon VMAX Alt Art', set: 'Evolving Skies', grade: 'PSA 9',  price: 195, change: 0.8, up: false, ago: '31m ago', img: 'https://images.pokemontcg.io/swsh7/211_hires.png' },
+            ].map((item, i, arr) => (
+              <a key={i} href="/search" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none', textDecoration: 'none', background: 'transparent', transition: 'background 0.15s' }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0 }}>
+                    <img src={item.img} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 3 }} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 2 }}>{item.name}</div>
+                    <div style={{ fontSize: 11, color: 'var(--ink3)' }}>{item.set} · {item.grade}</div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+                  <span style={{ fontSize: 10, color: 'var(--ink3)', minWidth: 48, textAlign: 'right' }}>{item.ago}</span>
+                  <span className="font-num" style={{ fontSize: 12, color: item.up ? 'var(--green)' : 'var(--red)', minWidth: 52, textAlign: 'right' }}>
+                    {item.up ? '▲' : '▼'} {item.change}%
+                  </span>
+                  <span className="font-num" style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', minWidth: 64, textAlign: 'right' }}>${item.price.toLocaleString()}</span>
+                </div>
+              </a>
+            ))}
+          </div>
+        </section>
+
         {/* How it works */}
         <section style={{ padding: '0 24px 96px', maxWidth: 1100, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 64 }}>

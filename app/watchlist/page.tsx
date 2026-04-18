@@ -224,6 +224,14 @@ export default function Watchlist() {
               <span className="wl-hide-mobile" style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center' }}>Score</span>
               <span />
             </div>
+            {/* Mobile-only header replacement */}
+            <style>{`
+              @media (max-width: 640px) {
+                .wl-header > span { display: none !important; }
+                .wl-header::before { content: 'CARD'; font-size: 10px; color: var(--ink3); letter-spacing: 1px; text-transform: uppercase; }
+                .wl-header::after  { content: 'PRICE / CHANGE'; font-size: 10px; color: var(--ink3); letter-spacing: 1px; text-transform: uppercase; grid-column: 2; text-align: right; }
+              }
+            `}</style>
 
             {visible.length === 0 ? (
               <div style={{ padding: '48px 24px', textAlign: 'center' }}>
@@ -239,41 +247,38 @@ export default function Watchlist() {
                 onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
               >
-                {/* Card name */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 7, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0 }}>
+                {/* Card info */}
+                <div className="wl-cell-card" style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                  <div style={{ width: 38, height: 38, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0 }}>
                     <img src={tcgImg(item.img)} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 3 }} />
                   </div>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.name}</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <div className="wl-card-name font-num" style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.name}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
                       <span style={{ fontSize: 10, color: 'var(--ink3)' }}>{item.set}</span>
                       <span style={{ fontSize: 10, color: 'var(--border2)' }}>·</span>
                       <span style={{ fontSize: 10, color: 'var(--ink3)' }}>{item.grade}</span>
-                      {item.alert && (
-                        <>
-                          <span style={{ fontSize: 10, color: 'var(--border2)' }}>·</span>
-                          <span style={{ fontSize: 9, color: 'var(--gold)', background: 'var(--gold2)', border: '1px solid rgba(232,197,71,0.2)', borderRadius: 4, padding: '1px 5px', letterSpacing: 0.5 }}>
-                            ALERT ${item.alert.toLocaleString()}
-                          </span>
-                        </>
-                      )}
                     </div>
+                    {item.alert && (
+                      <span style={{ display: 'inline-block', marginTop: 4, fontSize: 9, color: 'var(--gold)', background: 'var(--gold2)', border: '1px solid rgba(232,197,71,0.2)', borderRadius: 4, padding: '2px 6px', letterSpacing: 0.5 }}>
+                        ⚡ ALERT ${item.alert.toLocaleString()}
+                      </span>
+                    )}
                   </div>
                 </div>
 
                 {/* Price */}
-                <div style={{ textAlign: 'right' }}>
-                  <div className="font-num" style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>${item.price.toLocaleString()}</div>
+                <div className="wl-cell-price" style={{ textAlign: 'right' }}>
+                  <div className="font-num" style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', lineHeight: 1 }}>${item.price.toLocaleString()}</div>
                 </div>
 
                 {/* 24h change */}
-                <div style={{ textAlign: 'right' }}>
-                  <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: item.trend === 'up' ? 'var(--green)' : 'var(--red)' }}>
+                <div className="wl-cell-change" style={{ textAlign: 'right' }}>
+                  <div className="font-num" style={{ fontSize: 12, fontWeight: 600, color: item.trend === 'up' ? 'var(--green)' : 'var(--red)', lineHeight: 1 }}>
                     {item.trend === 'up' ? '+' : ''}{item.change}%
                   </div>
-                  <div className="font-num" style={{ fontSize: 11, color: item.trend === 'up' ? 'var(--green)' : 'var(--red)', opacity: 0.7, marginTop: 1 }}>
-                    {item.changeAbs > 0 ? '+' : ''}${item.changeAbs}
+                  <div className="font-num" style={{ fontSize: 10, color: item.trend === 'up' ? 'var(--green)' : 'var(--red)', opacity: 0.65, marginTop: 2 }}>
+                    {item.changeAbs > 0 ? '+' : ''}${Math.abs(item.changeAbs)}
                   </div>
                 </div>
 
@@ -291,7 +296,7 @@ export default function Watchlist() {
                 </div>
 
                 {/* Remove */}
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <div className="wl-cell-remove" style={{ display: 'flex', justifyContent: 'flex-end' }}>
                   <button
                     onClick={e => { e.preventDefault(); e.stopPropagation(); setRemoved(prev => new Set([...prev, item.id])) }}
                     style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid var(--border)', background: 'transparent', color: 'var(--ink3)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}

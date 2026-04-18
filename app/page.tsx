@@ -102,7 +102,7 @@ export default function Home() {
             <a href="/market" style={{ fontSize: 13, color: 'var(--ink3)', textDecoration: 'none' }}>View all →</a>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16 }}>
-            {cards.map(card => <CardPreview key={card.id} card={card} />)}
+            {cards.slice(0, 6).map(card => <CardPreview key={card.id} card={card} />)}
           </div>
         </section>
 

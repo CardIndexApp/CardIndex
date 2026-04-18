@@ -239,13 +239,13 @@ export default function Watchlist() {
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
               >
                 {/* Card name */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
                   <div style={{ width: 36, height: 36, borderRadius: 7, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0 }}>
                     <img src={item.img} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 3 }} />
                   </div>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 2 }}>{item.name}</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.name}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                       <span style={{ fontSize: 10, color: 'var(--ink3)' }}>{item.set}</span>
                       <span style={{ fontSize: 10, color: 'var(--border2)' }}>·</span>
                       <span style={{ fontSize: 10, color: 'var(--ink3)' }}>{item.grade}</span>

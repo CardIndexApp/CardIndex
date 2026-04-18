@@ -71,6 +71,31 @@ body {
 /* Firefox */
 * { scrollbar-width: thin; scrollbar-color: var(--gold) transparent; }
 
+/* Market responsive grid */
+.market-tables-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+@media (max-width: 640px) {
+  .market-tables-grid {
+    grid-template-columns: 1fr;
+  }
+  .market-summary-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+  .market-summary-grid > div {
+    padding: 14px 12px !important;
+  }
+  .market-summary-grid .summary-label {
+    display: none;
+  }
+  .market-summary-grid .summary-value {
+    font-size: 18px !important;
+  }
+}
+
 /* Watchlist responsive grid */
 .wl-row,
 .wl-header {

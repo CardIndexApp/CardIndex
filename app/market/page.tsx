@@ -57,7 +57,7 @@ export default function Market() {
           </div>
 
           {/* Summary cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 40 }}>
+          <div className="market-summary-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 40 }}>
             {[
               { label: 'Cards Rising', value: '1,284', color: 'var(--green)', icon: '↑' },
               { label: 'Cards Falling', value: '892', color: 'var(--red)', icon: '↓' },
@@ -73,7 +73,7 @@ export default function Market() {
             ))}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+          <div className="market-tables-grid">
             <Table title="Top rising (30d)" items={rising} type="rising" />
             <Table title="Top declining (30d)" items={declining} type="declining" />
           </div>

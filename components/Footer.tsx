@@ -7,10 +7,10 @@ export default function Footer() {
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
 
         {/* Main grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: 40, marginBottom: 48 }}>
+        <div className="footer-grid" style={{ marginBottom: 48 }}>
 
           {/* Brand col */}
-          <div>
+          <div className="footer-brand">
             <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px', marginBottom: 10 }}>
               Card<span style={{ color: 'var(--gold)' }}>Index</span>
               <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: 'var(--gold2)', color: 'var(--gold)', border: '1px solid rgba(232,197,71,0.2)', letterSpacing: 1, marginLeft: 8, fontWeight: 600 }}>BETA</span>
@@ -81,6 +81,23 @@ export default function Footer() {
           </p>
         </div>
       </div>
+
+      <style>{`
+        .footer-grid {
+          display: grid;
+          grid-template-columns: 2fr 1fr 1fr 1fr;
+          gap: 40px;
+        }
+        @media (max-width: 640px) {
+          .footer-grid {
+            grid-template-columns: 1fr 1fr;
+            gap: 36px;
+          }
+          .footer-brand {
+            grid-column: 1 / -1;
+          }
+        }
+      `}</style>
     </footer>
   )
 }

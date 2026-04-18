@@ -64,7 +64,12 @@ body {
 }
 
 ::-webkit-scrollbar { width: 3px; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--gold); border-radius: 2px; opacity: 0.8; }
+::-webkit-scrollbar-thumb:hover { background: var(--gold); opacity: 1; }
+
+/* Firefox */
+* { scrollbar-width: thin; scrollbar-color: var(--gold) transparent; }
 
 /* Watchlist responsive grid */
 .wl-row,

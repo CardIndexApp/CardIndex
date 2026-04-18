@@ -196,7 +196,7 @@ export default function SearchPage() {
                             <img
                               src={set.images.logo}
                               alt={set.name}
-                              style={{ maxHeight: 36, maxWidth: '100%', objectFit: 'contain', objectPosition: 'left center', filter: 'brightness(0) invert(1)', opacity: 0.85 }}
+                              style={{ maxHeight: 36, maxWidth: '100%', objectFit: 'contain', objectPosition: 'left center' }}
                               onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
                             />
                           ) : (

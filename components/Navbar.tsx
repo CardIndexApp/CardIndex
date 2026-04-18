@@ -16,6 +16,7 @@ export default function Navbar() {
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <Link href="/market" style={{ fontSize: 14, padding: '6px 12px', borderRadius: 8, color: 'var(--ink2)', textDecoration: 'none' }}>Market</Link>
+          <Link href="/watchlist" style={{ fontSize: 14, padding: '6px 12px', borderRadius: 8, color: 'var(--ink2)', textDecoration: 'none' }}>Watchlist</Link>
           <Link href="/pricing" style={{ fontSize: 14, padding: '6px 12px', borderRadius: 8, color: 'var(--ink2)', textDecoration: 'none' }}>Pricing</Link>
           <button onClick={() => setShowBeta(true)} style={{ fontSize: 14, padding: '6px 12px', borderRadius: 8, color: 'var(--ink2)', background: 'none', border: 'none', cursor: 'pointer' }}>Log in</button>
           <button onClick={() => setShowBeta(true)} style={{ fontSize: 14, padding: '7px 16px', borderRadius: 8, background: 'var(--gold)', color: '#080810', border: 'none', cursor: 'pointer', fontWeight: 600 }}>Sign up</button>

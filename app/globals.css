@@ -65,3 +65,22 @@ body {
 
 ::-webkit-scrollbar { width: 3px; }
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+/* Watchlist responsive grid */
+.wl-row,
+.wl-header {
+  display: grid;
+  grid-template-columns: 1fr 110px 130px 100px 80px 36px;
+  align-items: center;
+  padding: 14px 20px;
+  gap: 0;
+}
+.wl-header { padding: 10px 20px; }
+
+@media (max-width: 680px) {
+  .wl-row,
+  .wl-header {
+    grid-template-columns: 1fr 88px 84px 32px;
+  }
+  .wl-hide-mobile { display: none !important; }
+}

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { LineChart, Line, XAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import Navbar from '@/components/Navbar'
 import { getCard, fmt, scoreColor } from '@/lib/data'
+import { tcgImg } from '@/lib/img'
 
 const GRADES = [
   { key: 'RAW', label: 'Ungraded' },
@@ -204,7 +205,7 @@ export default function CardPage() {
                 <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
                   <div style={{ width: 80, height: 110, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
                     {apiCard?.imageUrl && !imgError ? (
-                      <img src={apiCard.imageUrl} alt={displayName} onError={() => setImgError(true)} style={{ height: '100%', width: '100%', objectFit: 'contain' }} />
+                      <img src={tcgImg(apiCard.imageUrl)} alt={displayName} onError={() => setImgError(true)} style={{ height: '100%', width: '100%', objectFit: 'contain' }} />
                     ) : (
                       <span style={{ fontSize: 11, color: 'var(--ink3)' }}>{apiCard ? '—' : '...'}</span>
                     )}
@@ -278,7 +279,7 @@ export default function CardPage() {
                 <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flex: 1, minWidth: 0 }}>
                   <div style={{ width: 88, height: 122, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
                     {card.imageUrl && !imgError ? (
-                      <img src={card.imageUrl} alt={card.name} onError={() => setImgError(true)} style={{ height: '100%', width: '100%', objectFit: 'contain' }} />
+                      <img src={tcgImg(card.imageUrl)} alt={card.name} onError={() => setImgError(true)} style={{ height: '100%', width: '100%', objectFit: 'contain' }} />
                     ) : (
                       <span style={{ fontSize: 40 }}>{card.emoji}</span>
                     )}

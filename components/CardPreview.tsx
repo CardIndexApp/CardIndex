@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Card, fmt, scoreColor } from '@/lib/data'
+import { tcgImg } from '@/lib/img'
 
 export default function CardPreview({ card }: { card: Card }) {
   const isUp = card.trend === 'up'
@@ -13,7 +14,7 @@ export default function CardPreview({ card }: { card: Card }) {
       <div style={{ width: '100%', height: 180, borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14, overflow: 'hidden', flexShrink: 0 }}>
         {card.imageUrl && !imgError ? (
           <img
-            src={card.imageUrl}
+            src={tcgImg(card.imageUrl)}
             alt={card.name}
             onError={() => setImgError(true)}
             style={{ height: '100%', width: '100%', objectFit: 'contain', padding: 8 }}

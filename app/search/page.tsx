@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Navbar from '@/components/Navbar'
+import { tcgImg } from '@/lib/img'
 
 interface TcgSet {
   id: string
@@ -194,7 +195,7 @@ export default function SearchPage() {
                         <div style={{ height: 36, display: 'flex', alignItems: 'center' }}>
                           {set.images?.logo ? (
                             <img
-                              src={set.images.logo}
+                              src={tcgImg(set.images.logo)}
                               alt={set.name}
                               style={{ maxHeight: 36, maxWidth: '100%', objectFit: 'contain', objectPosition: 'left center' }}
                               onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
@@ -252,7 +253,7 @@ export default function SearchPage() {
                     onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.transform = 'translateY(0)' }}
                   >
                     {card.images?.small ? (
-                      <img src={card.images.small} alt={card.name} style={{ width: '100%', display: 'block' }} />
+                      <img src={tcgImg(card.images.small)} alt={card.name} style={{ width: '100%', display: 'block' }} />
                     ) : (
                       <div style={{ width: '100%', paddingTop: '140%', background: 'var(--surface2)' }} />
                     )}
@@ -280,7 +281,7 @@ export default function SearchPage() {
             {/* Selected card summary */}
             <div style={{ display: 'flex', gap: 20, background: 'var(--surface)', border: '1.5px solid var(--border2)', borderRadius: 14, padding: 18, marginBottom: 28, alignItems: 'flex-start' }}>
               {selectedCard.images?.small ? (
-                <img src={selectedCard.images.small} alt={selectedCard.name} style={{ width: 80, borderRadius: 8, boxShadow: '0 8px 28px rgba(0,0,0,0.6)', flexShrink: 0 }} />
+                <img src={tcgImg(selectedCard.images.small)} alt={selectedCard.name} style={{ width: 80, borderRadius: 8, boxShadow: '0 8px 28px rgba(0,0,0,0.6)', flexShrink: 0 }} />
               ) : (
                 <div style={{ width: 80, height: 112, borderRadius: 8, background: 'var(--surface2)', flexShrink: 0 }} />
               )}

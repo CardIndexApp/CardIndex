@@ -7,6 +7,7 @@ import CardPreview from '@/components/CardPreview'
 import EbayLogo from '@/components/EbayLogo'
 import Footer from '@/components/Footer'
 import { cards } from '@/lib/data'
+import { tcgImg } from '@/lib/img'
 
 const faqItems = [
   {
@@ -131,7 +132,7 @@ export default function Home() {
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                   <div style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0 }}>
-                    <img src={item.img} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 3 }} />
+                    <img src={tcgImg(item.img)} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 3 }} />
                   </div>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 2 }}>{item.name}</div>
@@ -219,7 +220,7 @@ export default function Home() {
             <div style={{ borderRadius: 20, padding: 28, background: 'var(--bg)', border: '1px solid var(--border2)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 24, paddingBottom: 20, borderBottom: '1px solid var(--border)' }}>
                 <div style={{ width: 52, height: 52, borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0 }}>
-                  <img src="https://images.pokemontcg.io/base1/4_hires.png" alt="Charizard" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                  <img src={tcgImg('https://images.pokemontcg.io/base1/4_hires.png')} alt="Charizard" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                 </div>
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginBottom: 2 }}>Charizard Base Set</div>

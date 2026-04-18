@@ -9,10 +9,6 @@ import { cards } from '@/lib/data'
 
 const faqItems = [
   {
-    q: 'Do I need to know about card grading?',
-    a: 'No. CardIndex explains every grade in plain English. You\'ll see exactly what PSA 9 or BGS 10 means in terms of condition and how it affects value.',
-  },
-  {
     q: 'What trading cards are supported?',
     a: 'We currently focus on Pokémon TCG, with support for sports cards and other trading card games coming soon. Thousands of cards are already indexed.',
   },

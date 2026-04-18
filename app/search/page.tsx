@@ -37,6 +37,38 @@ const GRADES = [
 
 type Step = 1 | 2 | 3
 
+function SetLogo({ set }: { set: TcgSet }) {
+  const [src, setSrc] = useState<string | null>(
+    set.images?.logo ? tcgImg(set.images.logo) : null
+  )
+  const [failed, setFailed] = useState(!set.images?.logo)
+
+  if (failed) {
+    const initials = set.name.split(' ').filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('')
+    return (
+      <div style={{ width: 36, height: 36, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink3)', letterSpacing: 0.5 }}>{initials}</span>
+      </div>
+    )
+  }
+
+  return (
+    <img
+      src={src!}
+      alt={set.name}
+      style={{ maxHeight: 36, maxWidth: '100%', objectFit: 'contain', objectPosition: 'left center' }}
+      onError={() => {
+        // Logo failed — try symbol next
+        if (set.images?.symbol && src !== tcgImg(set.images.symbol)) {
+          setSrc(tcgImg(set.images.symbol))
+        } else {
+          setFailed(true)
+        }
+      }}
+    />
+  )
+}
+
 export default function SearchPage() {
   const router = useRouter()
   const [step, setStep] = useState<Step>(1)
@@ -193,16 +225,7 @@ export default function SearchPage() {
                         onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.transform = 'translateY(0)' }}
                       >
                         <div style={{ height: 36, display: 'flex', alignItems: 'center' }}>
-                          {set.images?.logo ? (
-                            <img
-                              src={tcgImg(set.images.logo)}
-                              alt={set.name}
-                              style={{ maxHeight: 36, maxWidth: '100%', objectFit: 'contain', objectPosition: 'left center' }}
-                              onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
-                            />
-                          ) : (
-                            <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)' }} />
-                          )}
+                          <SetLogo set={set} />
                         </div>
                         <div>
                           <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3, marginBottom: 2 }}>{set.name}</div>

@@ -120,6 +120,7 @@ export default function CardPage() {
 
   const [apiCard, setApiCard] = useState<{ name: string; set: string; number: string; imageUrl: string; tags: string[] } | null>(null)
   const [imgError, setImgError] = useState(false)
+  const [lightbox, setLightbox] = useState(false)
 
   useEffect(() => {
     if (!card && id) {
@@ -277,13 +278,41 @@ export default function CardPage() {
             <div style={{ ...P }}>
               <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap' }}>
                 <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flex: 1, minWidth: 0 }}>
-                  <div style={{ width: 88, height: 122, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
+                  <div
+                    onClick={() => card.imageUrl && !imgError && setLightbox(true)}
+                    title={card.imageUrl && !imgError ? 'Click to enlarge' : undefined}
+                    style={{ width: 88, height: 122, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden', cursor: card.imageUrl && !imgError ? 'zoom-in' : 'default', position: 'relative', transition: 'border-color 0.15s' }}
+                    onMouseEnter={e => { if (card.imageUrl && !imgError) e.currentTarget.style.borderColor = 'var(--gold)' }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border2)' }}
+                  >
                     {card.imageUrl && !imgError ? (
                       <img src={tcgImg(card.imageUrl)} alt={card.name} onError={() => setImgError(true)} style={{ height: '100%', width: '100%', objectFit: 'contain' }} />
                     ) : (
                       <span style={{ fontSize: 40 }}>{card.emoji}</span>
                     )}
                   </div>
+
+                  {/* Lightbox */}
+                  {lightbox && card.imageUrl && (
+                    <div
+                      onClick={() => setLightbox(false)}
+                      style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, cursor: 'zoom-out' }}
+                    >
+                      <div style={{ position: 'relative', maxWidth: 420, width: '100%' }}>
+                        <img
+                          src={tcgImg(card.imageUrl)}
+                          alt={card.name}
+                          style={{ width: '100%', borderRadius: 16, boxShadow: '0 32px 80px rgba(0,0,0,0.8)', display: 'block' }}
+                          onClick={e => e.stopPropagation()}
+                        />
+                        <button
+                          onClick={() => setLightbox(false)}
+                          style={{ position: 'absolute', top: -14, right: -14, width: 32, height: 32, borderRadius: '50%', background: 'var(--surface2)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        >×</button>
+                        <p style={{ textAlign: 'center', fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 12 }}>Click anywhere to close</p>
+                      </div>
+                    </div>
+                  )}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p className="font-mono-custom" style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', marginBottom: 6 }}>CARDINDEX — CARD MARKET INTELLIGENCE</p>
                     <h1 className="font-display" style={{ fontSize: 'clamp(20px, 4vw, 28px)', fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px', marginBottom: 4, lineHeight: 1.1 }}>{card.name}</h1>

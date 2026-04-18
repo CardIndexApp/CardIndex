@@ -117,14 +117,14 @@ export default function Home() {
           </div>
           <div style={{ borderRadius: 16, overflow: 'hidden', background: 'var(--surface)', border: '1px solid var(--border)' }}>
             {[
-              { name: 'Umbreon VMAX Alt Art', set: 'Evolving Skies', grade: 'PSA 10', price: 890, change: 8.2, up: true,  ago: '2m ago',  img: 'https://images.pokemontcg.io/swsh7/215_hires.png' },
-              { name: 'Blastoise Base Set',   set: 'Base Set',       grade: 'PSA 9',  price: 1450, change: 2.1, up: true,  ago: '5m ago',  img: 'https://images.pokemontcg.io/base1/2_hires.png' },
-              { name: 'Espeon VMAX Alt Art',  set: 'Evolving Skies', grade: 'PSA 10', price: 320, change: 1.4, up: false, ago: '11m ago', img: 'https://images.pokemontcg.io/swsh7/208_hires.png' },
-              { name: 'Sylveon VMAX Alt Art', set: 'Evolving Skies', grade: 'PSA 10', price: 275, change: 4.7, up: true,  ago: '18m ago', img: 'https://images.pokemontcg.io/swsh7/212_hires.png' },
-              { name: 'Gengar VMAX Alt Art',  set: 'Fusion Strike',  grade: 'PSA 10', price: 260, change: 3.1, up: true,  ago: '24m ago', img: 'https://images.pokemontcg.io/swsh8/271_hires.png' },
-              { name: 'Leafeon VMAX Alt Art', set: 'Evolving Skies', grade: 'PSA 9',  price: 195, change: 0.8, up: false, ago: '31m ago', img: 'https://images.pokemontcg.io/swsh7/211_hires.png' },
+              { id: 'umbreon-vmax-alt-psa10',  name: 'Umbreon VMAX Alt Art', set: 'Evolving Skies', grade: 'PSA 10', price: 890,  change: 8.2, up: true,  ago: '2m ago',  img: 'https://images.pokemontcg.io/swsh7/215_hires.png' },
+              { id: 'blastoise-base-psa9',     name: 'Blastoise Base Set',   set: 'Base Set',       grade: 'PSA 9',  price: 1450, change: 2.1, up: true,  ago: '5m ago',  img: 'https://images.pokemontcg.io/base1/2_hires.png' },
+              { id: 'espeon-vmax-alt-psa10',   name: 'Espeon VMAX Alt Art',  set: 'Evolving Skies', grade: 'PSA 10', price: 320,  change: 1.4, up: false, ago: '11m ago', img: 'https://images.pokemontcg.io/swsh7/208_hires.png' },
+              { id: 'sylveon-vmax-alt-psa10',  name: 'Sylveon VMAX Alt Art', set: 'Evolving Skies', grade: 'PSA 10', price: 275,  change: 4.7, up: true,  ago: '18m ago', img: 'https://images.pokemontcg.io/swsh7/212_hires.png' },
+              { id: 'gengar-vmax-alt-psa10',   name: 'Gengar VMAX Alt Art',  set: 'Fusion Strike',  grade: 'PSA 10', price: 260,  change: 3.1, up: true,  ago: '24m ago', img: 'https://images.pokemontcg.io/swsh8/271_hires.png' },
+              { id: 'leafeon-vmax-alt-psa9',   name: 'Leafeon VMAX Alt Art', set: 'Evolving Skies', grade: 'PSA 9',  price: 195,  change: 0.8, up: false, ago: '31m ago', img: 'https://images.pokemontcg.io/swsh7/211_hires.png' },
             ].map((item, i, arr) => (
-              <a key={i} href="/search" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none', textDecoration: 'none', background: 'transparent', transition: 'background 0.15s' }}
+              <a key={i} href={`/card/${item.id}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none', textDecoration: 'none', background: 'transparent', transition: 'background 0.15s' }}
                 onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
               >

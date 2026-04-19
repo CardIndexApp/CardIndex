@@ -1,11 +1,12 @@
 'use client'
 import { useState, useCallback, useEffect } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { LineChart, Line, XAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import Navbar from '@/components/Navbar'
 import { getCard, fmt, scoreColor } from '@/lib/data'
 import { tcgImg } from '@/lib/img'
+import { createClient } from '@/lib/supabase/client'
 
 const GRADES = [
   { key: 'RAW', label: 'Ungraded' },
@@ -114,14 +115,59 @@ const PAGE_STYLES = `
   }
 `
 
+interface LiveData {
+  price: number
+  price_change_pct: number
+  price_range_low: number
+  price_range_high: number
+  price_history: { month: string; price: number }[]
+  ebay_listings: { title: string; price: number; date: string; url: string }[]
+  score: number
+  score_breakdown: { total: number; trend: number; liquidity: number; consistency: number; value: number; label: string; summary: string }
+  sales_count_30d: number
+}
+
 export default function CardPage() {
   const { id } = useParams<{ id: string }>()
+  const searchParams = useSearchParams()
+  const urlGrade = searchParams.get('grade') ?? null
+  const urlName  = searchParams.get('name')  ?? null
+  const urlSet   = searchParams.get('set')   ?? null
   const card = getCard(id)
 
   const [apiCard, setApiCard] = useState<{ name: string; set: string; number: string; imageUrl: string; tags: string[] } | null>(null)
   const [imgError, setImgError] = useState(false)
   const [lightbox, setLightbox] = useState(false)
 
+  // Live price data from /api/card/[id]
+  const [liveData, setLiveData] = useState<LiveData | null>(null)
+  const [liveLoading, setLiveLoading] = useState(false)
+
+  // Watchlist state
+  const [watchlistAdded, setWatchlistAdded] = useState(false)
+  const [watchlistLoading, setWatchlistLoading] = useState(false)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+
+  // Check auth
+  useEffect(() => {
+    createClient().auth.getUser().then(({ data }) => setIsLoggedIn(!!data.user))
+  }, [])
+
+  // Fetch live price data
+  useEffect(() => {
+    const cardName = urlName ?? card?.name
+    const grade    = urlGrade ?? (card ? `PSA ${card.grade.replace('PSA ', '')}` : 'PSA 10')
+    if (!cardName) return
+    setLiveLoading(true)
+    const params = new URLSearchParams({ grade, name: cardName })
+    fetch(`/api/card/${id}?${params.toString()}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(json => { if (json?.data) setLiveData(json.data) })
+      .catch(() => {})
+      .finally(() => setLiveLoading(false))
+  }, [id, urlGrade, urlName, card])
+
+  // Fetch pokemontcg.io metadata for unknown cards
   useEffect(() => {
     if (!card && id) {
       fetch(`https://api.pokemontcg.io/v2/cards/${id}`)
@@ -139,6 +185,22 @@ export default function CardPage() {
         .catch(() => {})
     }
   }, [card, id])
+
+  const addToWatchlist = async () => {
+    if (!isLoggedIn) return
+    setWatchlistLoading(true)
+    const cardName = urlName ?? card?.name ?? apiCard?.name ?? ''
+    const grade    = urlGrade ?? (card ? card.grade : 'PSA 10')
+    const imageUrl = card?.imageUrl ?? apiCard?.imageUrl ?? ''
+    const setName  = urlSet ?? card?.set ?? apiCard?.set ?? ''
+    await fetch('/api/watchlist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ card_id: id, card_name: cardName, set_name: setName, grade, image_url: imageUrl }),
+    })
+    setWatchlistAdded(true)
+    setWatchlistLoading(false)
+  }
 
   const defaultGrade = card?.grade.replace('PSA ', '') ?? '10'
   const [selectedGrade, setSelectedGrade] = useState(defaultGrade)
@@ -239,27 +301,38 @@ export default function CardPage() {
     )
   }
 
+  // Prefer live API data where available, fall back to hardcoded card data
+  const livePrice   = liveData?.price         ?? card.price
+  const liveScore   = liveData?.score         ?? card.score
+  const liveHistory = liveData?.price_history ?? card.history.map((h: { month: string; price: number }) => h)
+  const liveListings = liveData?.ebay_listings ?? card.ebayListings
+  const liveRangeLow  = liveData?.price_range_low  ?? card.priceRange90d.min
+  const liveRangeHigh = liveData?.price_range_high ?? card.priceRange90d.max
+  const liveTrendPct  = liveData?.price_change_pct ?? card.trendPct
+  const liveSalesCount = liveData?.sales_count_30d ?? card.ebayListings.length
+
   // Derived values
-  const vsMarketPct = userPrice > 0 ? ((userPrice - card.marketAvg) / card.marketAvg * 100) : 0
-  const belowMkt = card.marketAvg - userPrice
+  const marketAvg = livePrice
+  const vsMarketPct = userPrice > 0 ? ((userPrice - marketAvg) / marketAvg * 100) : 0
+  const belowMkt = marketAvg - userPrice
   const verdict = getPriceVerdict(vsMarketPct)
   const holdColor = getHoldVerdictColor(card.holdScore)
-  const mainScoreColor = scoreColor(card.score)
+  const mainScoreColor = scoreColor(liveScore)
 
-  const rangeWidth = card.priceRange90d.max - card.priceRange90d.min
-  const priceBarPos = Math.max(0, Math.min(100, (userPrice - card.priceRange90d.min) / rangeWidth * 100))
+  const rangeWidth = liveRangeHigh - liveRangeLow
+  const priceBarPos = Math.max(0, Math.min(100, rangeWidth > 0 ? (userPrice - liveRangeLow) / rangeWidth * 100 : 50))
 
   const windowPoints = analysisWindow === '1M' ? 2 : analysisWindow === '3M' ? 3 : 6
-  const chartData = card.history.slice(-windowPoints)
-  const chartColor = card.trendPct >= 0 ? '#3de88a' : '#e8524a'
+  const chartData = liveHistory.slice(-windowPoints)
+  const chartColor = liveTrendPct >= 0 ? '#3de88a' : '#e8524a'
 
   const windowLabel = analysisWindow === '1M' ? 'last 30 days' : analysisWindow === '3M' ? 'last 90 days' : 'last 180 days'
-  const summaryText = `Based on eBay sold data from the ${windowLabel}, PSA ${selectedGrade === 'RAW' ? 'ungraded' : selectedGrade} copies sold between ${fmt(card.priceRange90d.min)} and ${fmt(card.priceRange90d.max)}. Your price of ${fmt(userPrice)} is approximately ${Math.abs(Math.round(vsMarketPct))}% ${vsMarketPct < 0 ? 'below' : 'above'} the market average of ${fmt(card.marketAvg)}${vsMarketPct <= -20 ? ', representing a strong buying opportunity if authentic' : ''}.`
+  const summaryText = `Based on eBay sold data from the ${windowLabel}, ${urlGrade ?? card.grade} copies sold between ${fmt(liveRangeLow)} and ${fmt(liveRangeHigh)}. Your price of ${fmt(userPrice)} is approximately ${Math.abs(Math.round(vsMarketPct))}% ${vsMarketPct < 0 ? 'below' : 'above'} the market average of ${fmt(marketAvg)}${vsMarketPct <= -20 ? ', representing a strong buying opportunity if authentic' : ''}.`
 
   const breakevenDisplay = vsMarketPct < 0
     ? { label: `Already ${Math.abs(Math.round(vsMarketPct))}% below market`, sub: 'at / below market' }
     : card.monthlyGrowth > 0
-      ? { label: `~${Math.ceil(Math.log(userPrice / card.marketAvg) / Math.log(1 + card.monthlyGrowth / 100))}mo`, sub: `at +${card.monthlyGrowth}%/mo growth` }
+      ? { label: `~${Math.ceil(Math.log(userPrice / marketAvg) / Math.log(1 + card.monthlyGrowth / 100))}mo`, sub: `at +${card.monthlyGrowth}%/mo growth` }
       : { label: 'N/A', sub: 'negative growth trend' }
 
   const C = { borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', overflow: 'hidden', marginBottom: 10 }
@@ -325,10 +398,35 @@ export default function CardPage() {
                     <Link href="/market" style={{ fontSize: 12, color: 'var(--ink3)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 14 }}>← Change card</Link>
                   </div>
                 </div>
-                {/* Export PDF button */}
-                <button
-                  className="ci-no-print"
-                  onClick={exportPDF}
+                {/* Action buttons */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignSelf: 'flex-start', flexShrink: 0 }}>
+                  {/* Watchlist button */}
+                  {isLoggedIn && (
+                    <button
+                      className="ci-no-print"
+                      onClick={addToWatchlist}
+                      disabled={watchlistAdded || watchlistLoading}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, background: watchlistAdded ? 'rgba(61,232,138,0.1)' : 'var(--surface2)', border: `1.5px solid ${watchlistAdded ? 'rgba(61,232,138,0.4)' : 'var(--border2)'}`, borderRadius: 10, padding: '9px 14px', fontSize: 11, fontWeight: 600, color: watchlistAdded ? 'var(--green)' : 'var(--ink2)', cursor: watchlistAdded ? 'default' : 'pointer', transition: 'all 0.2s' }}
+                      onMouseEnter={e => { if (!watchlistAdded) { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.color = 'var(--gold)' } }}
+                      onMouseLeave={e => { if (!watchlistAdded) { e.currentTarget.style.borderColor = 'var(--border2)'; e.currentTarget.style.color = 'var(--ink2)' } }}
+                    >
+                      {watchlistAdded ? '★ Watching' : watchlistLoading ? '…' : '☆ Watch'}
+                    </button>
+                  )}
+                  {/* Live data badge */}
+                  {liveData && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 9, color: 'var(--green)', letterSpacing: 1, padding: '4px 8px', borderRadius: 6, background: 'rgba(61,232,138,0.07)', border: '1px solid rgba(61,232,138,0.15)' }}>
+                      <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--green)', display: 'inline-block' }} />
+                      LIVE DATA
+                    </div>
+                  )}
+                  {liveLoading && (
+                    <div style={{ fontSize: 9, color: 'var(--ink3)', letterSpacing: 1 }}>Fetching prices…</div>
+                  )}
+                  {/* Export PDF button */}
+                  <button
+                    className="ci-no-print"
+                    onClick={exportPDF}
                   style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface2)', border: '1.5px solid var(--border2)', borderRadius: 10, padding: '9px 14px', fontSize: 11, fontWeight: 500, color: 'var(--ink3)', cursor: 'pointer', transition: 'all 0.2s', flexShrink: 0, alignSelf: 'flex-start' }}
                   onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.color = 'var(--gold)' }}
                   onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border2)'; e.currentTarget.style.color = 'var(--ink3)' }}
@@ -340,6 +438,7 @@ export default function CardPage() {
                   </svg>
                   Export PDF
                 </button>
+                </div>
               </div>
 
               {/* Grade + Price + Window — inline in header */}
@@ -402,10 +501,10 @@ export default function CardPage() {
               <div className="ci-score-wrap">
                 <div className="ci-score-left">
                   <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', marginBottom: 10, display: 'block', textAlign: 'center' }}>CARDINDEX SCORE</span>
-                  <div className="font-num" style={{ fontSize: 64, fontWeight: 800, color: mainScoreColor, letterSpacing: '-3px', lineHeight: 1 }}>{card.score}</div>
+                  <div className="font-num" style={{ fontSize: 64, fontWeight: 800, color: mainScoreColor, letterSpacing: '-3px', lineHeight: 1 }}>{liveScore}</div>
                   <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 4 }}>/ 100</div>
                   <div style={{ marginTop: 10, width: '100%', height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${card.score}%`, background: mainScoreColor, borderRadius: 2 }} />
+                    <div style={{ height: '100%', width: `${liveScore}%`, background: mainScoreColor, borderRadius: 2 }} />
                   </div>
                 </div>
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 14 }}>
@@ -462,13 +561,13 @@ export default function CardPage() {
                 <div className="ci-sum-grid">
                   {[
                     { label: 'VERDICT',      value: verdict.label,                                                                            sub: 'price vs market',                                                                                              valueColor: verdict.color,                                              valueSize: 15 },
-                    { label: 'MARKET AVG',   value: fmt(card.marketAvg),                                                                      sub: `${card.ebayListings.length} eBay sold`,                                                                        valueColor: 'var(--ink)',                                               valueSize: 22 },
+                    { label: 'MARKET AVG',   value: fmt(marketAvg),                                                                            sub: `${liveSalesCount} eBay sold`,                                                                                  valueColor: 'var(--ink)',                                               valueSize: 22 },
                     { label: 'YOUR PRICE',   value: fmt(userPrice),                                                                           sub: vsMarketPct < 0 ? `+${fmt(belowMkt).replace('$','')} below` : `${fmt(Math.abs(belowMkt)).replace('$','')} above`, valueColor: 'var(--gold)',                                              valueSize: 22 },
                     { label: 'VS MARKET',    value: `${vsMarketPct >= 0 ? '+' : ''}${Math.round(vsMarketPct)}%`,                              sub: vsMarketPct < 0 ? 'below market' : 'above market',                                                             valueColor: vsMarketPct < 0 ? '#3de88a' : '#e8524a',                   valueSize: 24 },
-                    { label: 'HOLD RATING',  value: card.holdVerdict,                                                                         sub: `score: ${card.holdScore}/100`,                                                                                 valueColor: holdColor,                                                  valueSize: 14 },
-                    { label: 'SALES FOUND',  value: String(card.ebayListings.length),                                                         sub: `${card.ebayListings.length} eBay sold`,                                                                        valueColor: 'var(--ink)',                                               valueSize: 26 },
-                    { label: 'PRICE RANGE',  value: `${fmt(card.priceRange90d.min)}–${fmt(card.priceRange90d.max)}`,                          sub: 'low — high',                                                                                                   valueColor: 'var(--ink)',                                               valueSize: 13 },
-                    { label: 'TREND',        value: `${card.trendPct >= 0 ? '+' : ''}${card.trendPct}%`,                                     sub: card.trendLabel,                                                                                                valueColor: card.trendPct >= 0 ? '#3de88a' : '#e8524a',                valueSize: 22 },
+                    { label: 'HOLD RATING',  value: liveData?.score_breakdown?.label ?? card.holdVerdict,                                     sub: `score: ${liveScore}/100`,                                                                                      valueColor: holdColor,                                                  valueSize: 14 },
+                    { label: 'SALES FOUND',  value: String(liveSalesCount),                                                                   sub: `${liveSalesCount} eBay sold`,                                                                                  valueColor: 'var(--ink)',                                               valueSize: 26 },
+                    { label: 'PRICE RANGE',  value: `${fmt(liveRangeLow)}–${fmt(liveRangeHigh)}`,                                             sub: 'low — high',                                                                                                   valueColor: 'var(--ink)',                                               valueSize: 13 },
+                    { label: 'TREND',        value: `${liveTrendPct >= 0 ? '+' : ''}${liveTrendPct}%`,                                        sub: liveTrendPct >= 5 ? 'Rising' : liveTrendPct <= -5 ? 'Declining' : 'Stable',                                     valueColor: liveTrendPct >= 0 ? '#3de88a' : '#e8524a',                 valueSize: 22 },
                   ].map((cell, i) => (
                     <div key={i} style={{
                       padding: '16px 18px',
@@ -495,9 +594,9 @@ export default function CardPage() {
               {/* 4 metric cards */}
               <div className="ci-metrics">
                 {[
-                  { label: 'MARKET AVG',       value: fmt(card.marketAvg),           sub: 'current',                                                                                                          valueColor: 'var(--ink)' },
+                  { label: 'MARKET AVG',       value: fmt(marketAvg),                sub: 'current',                                                                                                          valueColor: 'var(--ink)' },
                   { label: 'YOUR PRICE',        value: fmt(userPrice),                sub: vsMarketPct < 0 ? `+${fmt(belowMkt).replace('$','')} below mkt` : `${fmt(Math.abs(belowMkt)).replace('$','')} above mkt`, valueColor: 'var(--gold)' },
-                  { label: `SALES (${analysisWindow})`, value: String(card.ebayListings.length), sub: `${card.ebayListings.length} eBay sold`, valueColor: 'var(--ink)' },
+                  { label: `SALES (${analysisWindow})`, value: String(liveSalesCount), sub: `${liveSalesCount} eBay sold`,                   valueColor: 'var(--ink)' },
                   { label: 'VOLATILITY',        value: `±${card.volatilityPct}%`,     sub: card.volatilityLabel, valueColor: card.volatilityPct >= 40 ? '#e8524a' : card.volatilityPct >= 20 ? '#e8c547' : 'var(--ink)' },
                 ].map((m, i) => (
                   <div key={i} style={{ borderRadius: 14, padding: '18px 20px', background: 'var(--surface)', border: '1px solid var(--border)' }} className="ci-card-surface">
@@ -523,8 +622,8 @@ export default function CardPage() {
                       <div style={{ position: 'absolute', top: 14, left: `${priceBarPos}%`, transform: 'translateX(-50%)', whiteSpace: 'nowrap', fontSize: 10, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: 3 }}>
                         <span style={{ color: '#e8c547', fontSize: 11 }}>•</span> Your price
                       </div>
-                      <div style={{ position: 'absolute', top: 14, left: 0, fontSize: 10, color: 'var(--ink2)' }}>Low: {fmt(card.priceRange90d.min)}</div>
-                      <div style={{ position: 'absolute', top: 14, right: 0, fontSize: 10, color: 'var(--ink2)' }}>High: {fmt(card.priceRange90d.max)}</div>
+                      <div style={{ position: 'absolute', top: 14, left: 0, fontSize: 10, color: 'var(--ink2)' }}>Low: {fmt(liveRangeLow)}</div>
+                      <div style={{ position: 'absolute', top: 14, right: 0, fontSize: 10, color: 'var(--ink2)' }}>High: {fmt(liveRangeHigh)}</div>
                     </div>
                   </div>
                 </div>
@@ -533,7 +632,7 @@ export default function CardPage() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                       <span style={{ fontSize: 10, letterSpacing: 2, color: 'var(--ink3)' }}>PRICE TREND — {analysisWindow}</span>
                       <div style={{ textAlign: 'right' }}>
-                        <div className="font-num" style={{ fontSize: 18, fontWeight: 700, color: chartColor }}>{card.trendPct >= 0 ? '+' : ''}{card.trendPct}%</div>
+                        <div className="font-num" style={{ fontSize: 18, fontWeight: 700, color: chartColor }}>{liveTrendPct >= 0 ? '+' : ''}{liveTrendPct}%</div>
                         <div style={{ fontSize: 10, color: 'var(--ink3)' }}>{card.trendLabel} trend</div>
                       </div>
                     </div>
@@ -570,11 +669,12 @@ export default function CardPage() {
               <div style={{ ...C }} className="ci-card-surface">
                 <div style={{ ...P }}>
                   <span style={{ ...L }}>EBAY SOLD LISTINGS USED</span>
-                  {card.ebayListings.map((listing, i) => (
-                    <div key={i} style={{ paddingTop: 14, paddingBottom: 14, borderBottom: i < card.ebayListings.length - 1 ? '1px solid var(--border)' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
+                  {liveListings.map((listing: { title: string; price: number; date: string; url?: string; badge?: string }, i: number) => (
+                    <a key={i} href={listing.url} target="_blank" rel="noopener noreferrer"
+                      style={{ paddingTop: 14, paddingBottom: 14, borderBottom: i < liveListings.length - 1 ? '1px solid var(--border)' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, textDecoration: 'none' }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <p style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.4, marginBottom: 4 }}>{listing.title}</p>
-                        <p style={{ fontSize: 11, color: 'var(--ink3)' }}>{listing.date}</p>
+                        <p style={{ fontSize: 11, color: 'var(--ink3)' }}>{listing.date ? new Date(listing.date).toLocaleDateString() : ''}</p>
                       </div>
                       <div style={{ textAlign: 'right', flexShrink: 0 }}>
                         {listing.badge && (
@@ -582,10 +682,10 @@ export default function CardPage() {
                         )}
                         <div className="font-num" style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>{fmt(listing.price)}</div>
                       </div>
-                    </div>
+                    </a>
                   ))}
                   <div style={{ paddingTop: 14, borderTop: '1px solid var(--border)', fontSize: 11, color: 'var(--ink3)' }}>
-                    {card.ebayListings.length} sales · Avg: {fmt(card.marketAvg)} · Range: {fmt(card.priceRange90d.min)}–{fmt(card.priceRange90d.max)}
+                    {liveSalesCount} sales · Avg: {fmt(marketAvg)} · Range: {fmt(liveRangeLow)}–{fmt(liveRangeHigh)}
                   </div>
                 </div>
               </div>

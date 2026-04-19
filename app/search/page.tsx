@@ -140,7 +140,12 @@ export default function SearchPage() {
   const handleGradeSelect = (grade: string) => {
     setSelectedGrade(grade)
     if (selectedCard) {
-      router.push(`/card/${selectedCard.id}`)
+      const params = new URLSearchParams({
+        grade,
+        name: selectedCard.name,
+        set: selectedCard.set.name,
+      })
+      router.push(`/card/${selectedCard.id}?${params.toString()}`)
     }
   }
 

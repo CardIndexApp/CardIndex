@@ -19,7 +19,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob:",
               "font-src 'self'",
-              "connect-src 'self' https://api.pokemontcg.io",
+              "connect-src 'self' https://api.pokemontcg.io https://*.supabase.co wss://*.supabase.co",
               "frame-ancestors 'none'",
             ].join('; '),
           },

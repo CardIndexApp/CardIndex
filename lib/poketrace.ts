@@ -2,6 +2,7 @@
  * Poketrace Pricing API client
  * Base URL: https://api.poketrace.com/v1
  * Auth: X-API-Key header
+ * Spec: https://api.poketrace.com/v1/openapi.json
  */
 
 const BASE = 'https://api.poketrace.com/v1'
@@ -20,18 +21,18 @@ export interface TierPrice {
   low?: number
   high?: number
   saleCount?: number
-  lastUpdated: string
+  trend?: 'up' | 'down' | 'stable'
+  confidence?: 'high' | 'medium' | 'low'
   avg1d?: number
   avg7d?: number
   avg30d?: number
   median3d?: number
   median7d?: number
   median30d?: number
-  country?: Record<string, { avg: number; low: number; high: number; saleCount: number }>
 }
 
 export interface PokétraceCard {
-  id: string
+  id: string   // UUID
   name: string
   cardNumber: string
   set: { slug: string; name: string }
@@ -41,6 +42,10 @@ export interface PokétraceCard {
   game: string
   market: 'US' | 'EU'
   currency: 'USD' | 'EUR'
+  refs?: {
+    tcgplayerId?: string | null
+    cardmarketId?: string | null
+  }
   prices: {
     ebay?: Record<string, TierPrice>
     tcgplayer?: Record<string, TierPrice>
@@ -62,9 +67,9 @@ export interface PriceHistoryPoint {
   low?: number
   high?: number
   saleCount?: number
-  avg1d?: number
-  avg7d?: number
-  avg30d?: number
+  median3d?: number
+  median7d?: number
+  median30d?: number
 }
 
 // ── Grade/Tier conversion ──────────────────────────────────────────────────────
@@ -155,15 +160,22 @@ export function getAvailableTiers(card: PokétraceCard): string[] {
   return Array.from(tiers)
 }
 
-// ── API calls ─────────────────────────────────────────────────────────────────
-
-// ── Set lookup ────────────────────────────────────────────────────────────────
+// ── Set lookup ─────────────────────────────────────────────────────────────────
 
 interface PoketraceSet {
-  id: string
   slug: string
   name: string
-  game?: string
+  releaseDate?: string
+  cardCount?: number
+}
+
+/** Normalise a set name to a slug fragment for matching */
+function setNameToSlug(name: string): string {
+  return name.toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .trim()
 }
 
 /**
@@ -190,7 +202,7 @@ export async function getPoketraceSetSlug(setName: string): Promise<string | nul
     const exact = sets.find(s => s.name.toLowerCase() === nameLower)
     if (exact) return exact.slug
 
-    // 2. Slug of Poketrace set contains or matches our slug
+    // 2. Poketrace slug contains our slug fragment
     // e.g. "me02-phantasmal-flames" contains "phantasmal-flames"
     const slugMatch = sets.find(s => {
       const sl = s.slug.toLowerCase()
@@ -210,84 +222,57 @@ export async function getPoketraceSetSlug(setName: string): Promise<string | nul
   }
 }
 
-/**
- * Convert a card name + set slug + variant + number into a Poketrace card ID (slug).
- * Format: {name-slug}-{set-slug}-{Variant}-{number-hyphenated}
- * e.g. mega-charizard-x-ex-me02-phantasmal-flames-Holofoil-125-094
- *
- * The variant must be a valid Poketrace variant string (e.g. "Holofoil", "Normal").
- * The number uses the Poketrace format with "/" replaced by "-" (e.g. "125/094" → "125-094").
- *
- * Returns null if any required part is missing.
- */
-function buildCardSlug(
-  cardName: string,
-  setSlug: string,
-  variant: string,
-  poketraceNumber: string // "125/094" format
-): string {
-  const nameSlug = cardName.toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .trim()
-
-  const numberSlug = poketraceNumber.replace(/\//g, '-')
-
-  return `${nameSlug}-${setSlug}-${variant}-${numberSlug}`
-}
-
-/** Common Poketrace variant strings to try when we don't know the exact one */
-const VARIANT_CANDIDATES = [
-  'Holofoil', 'Normal', 'ReverseHolofoil', 'Foil',
-  'HoloRare', 'FullArt', 'AlternateArt', 'SecretRare',
-]
+// ── Card search ────────────────────────────────────────────────────────────────
 
 /**
- * Try to find a Poketrace card by constructing its slug from the set lookup +
- * pokemontcg.io number.  Returns the first variant slug that resolves.
- *
- * ptcgNumber: bare card number from pokemontcg.io (e.g. "125")
- * setTotalCards: total cards in the set (e.g. 94), used to build "125/094"
+ * Valid Poketrace variant enum values (from OpenAPI spec).
+ * Used for the `variant` query parameter in GET /cards.
  */
-export async function findByConstructedSlug(
-  cardName: string,
-  setName: string,
-  ptcgNumber: string,
-  variants?: string[]
-): Promise<PokétraceCard | null> {
-  const setSlug = await getPoketraceSetSlug(setName)
-  if (!setSlug) return null
+export const POKETRACE_VARIANTS = [
+  'Holofoil',
+  'Normal',
+  'Reverse_Holofoil',
+  '1st_Edition_Holofoil',
+  '1st_Edition',
+  'Unlimited',
+] as const
 
-  // Try with the number as-is (may already be "125/094") then with padding
-  const numberCandidates: string[] = []
-  if (ptcgNumber.includes('/')) {
-    numberCandidates.push(ptcgNumber)
-  } else {
-    // We don't know the total — try common padding or just the bare number
-    numberCandidates.push(ptcgNumber) // "125" → "125" slug
-    // Also try zero-padded in case Poketrace uses it
-    numberCandidates.push(ptcgNumber.padStart(3, '0'))
-  }
+export type PoketraceVariant = typeof POKETRACE_VARIANTS[number]
 
-  const variantsToTry = variants?.length ? variants : VARIANT_CANDIDATES
+/**
+ * Map pokemontcg.io subtypes/supertypes to valid Poketrace variant strings.
+ * Returns variants in most-likely-first order.
+ */
+export function toPoketraceVariants(subtypes: string[] = [], supertypes: string[] = []): PoketraceVariant[] {
+  const all = [...subtypes.map(s => s.toLowerCase()), ...supertypes.map(s => s.toLowerCase())]
+  const out: PoketraceVariant[] = []
 
-  for (const num of numberCandidates) {
-    for (const variant of variantsToTry) {
-      const slug = buildCardSlug(cardName, setSlug, variant, num)
-      const card = await getPokétraceCard(slug)
-      if (card) return card
-    }
-  }
+  if (all.some(s => s.includes('reverse holo')))             out.push('Reverse_Holofoil')
+  if (all.some(s => s.includes('1st edition') && s.includes('holo'))) out.push('1st_Edition_Holofoil')
+  if (all.some(s => s.includes('1st edition')))              out.push('1st_Edition')
+  if (all.some(s => s === 'unlimited'))                      out.push('Unlimited')
 
-  return null
+  // Holo-type cards (ex, gx, v, vmax, vstar, full art, secret) → Holofoil
+  const isHolo = all.some(s =>
+    s.includes('holo') || s.includes(' ex') || s.includes(' gx') ||
+    s.includes(' v') || s.includes('vmax') || s.includes('vstar') ||
+    s.includes('full art') || s.includes('secret') || s.includes('ultra rare')
+  )
+  if (isHolo && !out.includes('Holofoil')) out.push('Holofoil')
+
+  // Non-holo commons/uncommons → Normal
+  const isNormal = all.some(s => s === 'common' || s === 'uncommon' || s === 'trainer' || s === 'energy')
+  if (isNormal && !out.includes('Normal')) out.push('Normal')
+
+  // Ensure both main variants are always candidates as fallback
+  if (!out.includes('Holofoil')) out.push('Holofoil')
+  if (!out.includes('Normal'))   out.push('Normal')
+
+  return out
 }
 
 /**
- * Search cards by name only. Card number is NOT sent to the API because
- * pokemontcg.io uses bare numbers ("125") while Poketrace may use
- * formatted numbers ("125/094") — sending it causes wrong matches.
- * Post-filtering by number is done in pickBest() instead.
+ * Search cards by name only. Returns lightweight card list (no full pricing).
  */
 export async function searchPokétraceCards(
   name: string,
@@ -298,7 +283,6 @@ export async function searchPokétraceCards(
       search: name,
       limit: String(options.limit ?? 20),
     })
-
     const res = await fetch(`${BASE}/cards?${params}`, {
       headers: apiHeaders(),
       next: { revalidate: 3600 },
@@ -308,6 +292,46 @@ export async function searchPokétraceCards(
     return (json.data as PokétraceCard[]) ?? []
   } catch {
     return []
+  }
+}
+
+/**
+ * Search cards by set slug + card number. This is the most precise lookup
+ * when we have the correct Poketrace set slug (from GET /sets).
+ *
+ * cardNumber: Poketrace-format number e.g. "125/094"
+ * variants: optional list to try; if omitted tries all valid variants then no-variant
+ */
+export async function findBySetAndNumber(
+  setSlug: string,
+  cardNumber: string,
+  variants?: PoketraceVariant[]
+): Promise<PokétraceCard | null> {
+  try {
+    const variantsToTry = variants?.length ? variants : [...POKETRACE_VARIANTS]
+
+    // Build one search per variant + one without variant filter — fire concurrently
+    const searches: Promise<PokétraceCard | null>[] = variantsToTry.map(variant => {
+      const params = new URLSearchParams({ set: setSlug, card_number: cardNumber, variant, limit: '5' })
+      return fetch(`${BASE}/cards?${params}`, { headers: apiHeaders(), next: { revalidate: 3600 } })
+        .then(r => r.ok ? r.json() : null)
+        .then(json => (json?.data as PokétraceCard[])?.[0] ?? null)
+        .catch(() => null)
+    })
+
+    // Also try without variant filter (catches any variant)
+    const noVariantParams = new URLSearchParams({ set: setSlug, card_number: cardNumber, limit: '5' })
+    searches.push(
+      fetch(`${BASE}/cards?${noVariantParams}`, { headers: apiHeaders(), next: { revalidate: 3600 } })
+        .then(r => r.ok ? r.json() : null)
+        .then(json => (json?.data as PokétraceCard[])?.[0] ?? null)
+        .catch(() => null)
+    )
+
+    const results = await Promise.all(searches)
+    return results.find(r => r !== null) ?? null
+  } catch {
+    return null
   }
 }
 
@@ -332,11 +356,11 @@ export async function searchByTcgPlayerId(tcgplayerId: string): Promise<Pokétra
 }
 
 /**
- * Get a single card with full pricing by Poketrace card ID.
+ * Get a single card with full pricing by Poketrace card UUID.
  */
 export async function getPokétraceCard(id: string): Promise<PokétraceCard | null> {
   try {
-    const res = await fetch(`${BASE}/cards/${id}`, {
+    const res = await fetch(`${BASE}/cards/${encodeURIComponent(id)}`, {
       headers: apiHeaders(),
       next: { revalidate: 0 }, // always fetch fresh pricing
     })
@@ -359,7 +383,7 @@ export async function getPriceHistory(
 ): Promise<PriceHistoryPoint[]> {
   try {
     const res = await fetch(
-      `${BASE}/cards/${cardId}/prices/${encodeURIComponent(tier)}/history?period=${period}&limit=90`,
+      `${BASE}/cards/${encodeURIComponent(cardId)}/prices/${encodeURIComponent(tier)}/history?period=${period}&limit=90`,
       { headers: apiHeaders() }
     )
     if (!res.ok) return []
@@ -370,14 +394,7 @@ export async function getPriceHistory(
   }
 }
 
-/** Normalise a set name to a URL slug for Poketrace set filtering */
-function setNameToSlug(name: string): string {
-  return name.toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .trim()
-}
+// ── Best-match fallback ───────────────────────────────────────────────────────
 
 export interface MatchDebug {
   searched: string
@@ -387,14 +404,14 @@ export interface MatchDebug {
 }
 
 /**
- * Find the best Poketrace card match using name + set name.
- * Card number is used as a tiebreaker only (NOT sent to the API).
+ * Find the best Poketrace card match using name search + set-name matching.
+ * Used as a last-resort fallback when TCGPlayer ID and set/number lookups fail.
  *
  * Priority:
  *   1. Exact name + exact set name
- *   2. Exact name + set slug match (handles "ME02-Phantasmal Flames" vs "Phantasmal Flames")
- *   3. Exact name + set name contains our set name (partial)
- *   4. Exact name, pick highest-priced result (most likely to be the valuable card)
+ *   2. Exact name + set slug contains our set slug (handles "ME02: Phantasmal Flames" vs "Phantasmal Flames")
+ *   3. Exact name + partial set name match
+ *   4. Exact name, pick highest-priced result
  *   5. First result
  */
 export async function findBestMatch(
@@ -429,10 +446,12 @@ export async function findBestMatch(
     return { card: exactSet, debug }
   }
 
-  // 2. Set slug match — handles "ME02-Phantasmal Flames" matching "Phantasmal Flames"
+  // 2. Set slug match — handles "ME02: Phantasmal Flames" matching "Phantasmal Flames"
   const slugMatch = pool.find(r => {
-    const rSlug = setNameToSlug(r.set.name)
-    return rSlug === setSlug || rSlug.includes(setSlug) || setSlug.includes(rSlug)
+    const rSlug = r.set.slug.toLowerCase()
+    const rNameSlug = setNameToSlug(r.set.name)
+    return rSlug === setSlug || rSlug.includes(setSlug) || setSlug.includes(rSlug) ||
+           rNameSlug === setSlug || rNameSlug.includes(setSlug) || setSlug.includes(rNameSlug)
   })
   if (slugMatch) {
     debug.matched = { id: slugMatch.id, name: slugMatch.name, set: slugMatch.set.name, cardNumber: slugMatch.cardNumber }
@@ -450,20 +469,26 @@ export async function findBestMatch(
     return { card: partialSet, debug }
   }
 
-  // 4. If multiple name matches, pick highest avg price (the expensive/notable card)
+  // 4. If card number provided, try to match by number suffix
+  if (cardNumber) {
+    const numMatch = pool.find(r => r.cardNumber?.includes(cardNumber) || cardNumber.includes(r.cardNumber ?? ''))
+    if (numMatch) {
+      debug.matched = { id: numMatch.id, name: numMatch.name, set: numMatch.set.name, cardNumber: numMatch.cardNumber }
+      debug.matchReason = 'exact name + card number match'
+      return { card: numMatch, debug }
+    }
+  }
+
+  // 5. Multiple name matches → pick highest-priced (most notable card)
   if (pool.length > 1) {
-    const byPrice = [...pool].sort((a, b) => {
-      const aPrice = getTopPrice(a)
-      const bPrice = getTopPrice(b)
-      return bPrice - aPrice
-    })
+    const byPrice = [...pool].sort((a, b) => getTopPrice(b) - getTopPrice(a))
     const top = byPrice[0]
     debug.matched = { id: top.id, name: top.name, set: top.set.name, cardNumber: top.cardNumber }
     debug.matchReason = 'exact name, highest price selected'
     return { card: top, debug }
   }
 
-  // 5. First result
+  // 6. First result
   const first = pool[0]
   debug.matched = { id: first.id, name: first.name, set: first.set.name, cardNumber: first.cardNumber }
   debug.matchReason = 'first result'

@@ -127,6 +127,11 @@ interface LiveData {
   sales_count_30d: number
   resolved_tier?: string
   currency?: string
+  // Card metadata stored in cache
+  card_name?: string
+  set_name?: string
+  // pokemontcg.io image URL (images.pokemontcg.io) — available immediately from cache
+  image_url?: string | null
   // Moving average fields
   avg1d?: number | null
   avg7d?: number | null
@@ -178,6 +183,80 @@ function TrendBadge({ trend, confidence }: { trend?: string | null; confidence?:
       )}
     </div>
   )
+}
+
+// ── Analysis engine ──────────────────────────────────────────────────────────
+
+type AnalysisSignal = 'BUY' | 'ACCUMULATE' | 'HOLD' | 'REDUCE' | 'AVOID'
+
+function computeAnalysis(d: LiveData) {
+  const score       = d.score ?? 0
+  const trend       = d.trend ?? 'stable'
+  const confidence  = d.confidence ?? 'low'
+  const sales       = d.sales_count_30d ?? 0
+  const sb          = d.score_breakdown
+
+  // Confidence multiplier — penalises thin-data signals
+  const confMult = confidence === 'high' ? 1 : confidence === 'medium' ? 0.88 : 0.72
+  const adj = score * confMult
+
+  // Signal
+  let signal: AnalysisSignal, sigColor: string, sigBg: string, sigBorder: string
+  if (adj >= 74 && trend !== 'down') {
+    signal = 'BUY';       sigColor = '#3de88a'; sigBg = 'rgba(61,232,138,0.07)';  sigBorder = 'rgba(61,232,138,0.2)'
+  } else if (adj >= 60) {
+    signal = 'ACCUMULATE'; sigColor = '#3de88a'; sigBg = 'rgba(61,232,138,0.05)'; sigBorder = 'rgba(61,232,138,0.15)'
+  } else if (adj >= 44) {
+    signal = 'HOLD';      sigColor = '#e8c547'; sigBg = 'rgba(232,197,71,0.06)'; sigBorder = 'rgba(232,197,71,0.15)'
+  } else if (adj >= 28) {
+    signal = 'REDUCE';    sigColor = '#e8524a'; sigBg = 'rgba(232,82,74,0.06)';  sigBorder = 'rgba(232,82,74,0.15)'
+  } else {
+    signal = 'AVOID';     sigColor = '#e8524a'; sigBg = 'rgba(232,82,74,0.08)';  sigBorder = 'rgba(232,82,74,0.2)'
+  }
+
+  // Momentum vs moving averages
+  const vs7d  = d.avg7d  && d.avg7d  > 0 ? ((d.price - d.avg7d)  / d.avg7d)  * 100 : null
+  const vs30d = d.avg30d && d.avg30d > 0 ? ((d.price - d.avg30d) / d.avg30d) * 100 : null
+
+  // Liquidity bucket
+  const liqLabel  = sales >= 500 ? 'Extremely High' : sales >= 200 ? 'Very High' : sales >= 50 ? 'High' : sales >= 15 ? 'Moderate' : sales >= 5 ? 'Low' : 'Very Low'
+  const liqColor  = sales >= 50 ? '#3de88a' : sales >= 15 ? '#e8c547' : '#e8524a'
+
+  // Consistency & value (normalised 0–100)
+  const consPct   = sb ? Math.round(sb.consistency / 25 * 100) : 0
+  const consLabel = consPct >= 80 ? 'Very stable' : consPct >= 60 ? 'Stable' : consPct >= 40 ? 'Some variance' : 'High variance'
+  const valuePct  = sb ? Math.round(sb.value / 20 * 100) : 0
+  const valueLabel = valuePct >= 80 ? 'Great value' : valuePct >= 60 ? 'Good value' : valuePct >= 40 ? 'Fair value' : 'Below average'
+
+  // Price position in 30d range (0–100%)
+  const rangeW    = d.price_range_high - d.price_range_low
+  const rangePos  = rangeW > 0 ? (d.price - d.price_range_low) / rangeW : 0.5
+  const rangePct  = Math.round(Math.max(0, Math.min(1, rangePos)) * 100)
+  const rangeLabel = rangePos >= 0.8 ? 'Near range high' : rangePos >= 0.6 ? 'Above midpoint' : rangePos >= 0.4 ? 'Near midpoint' : rangePos >= 0.2 ? 'Below midpoint' : 'Near range low'
+  const rangeColor = rangePos >= 0.75 ? '#e8c547' : '#3de88a'
+
+  // Reasoning sentence
+  const parts: string[] = []
+  if (signal === 'BUY' || signal === 'ACCUMULATE') {
+    parts.push(`CardIndex score ${score}/100`)
+    if (trend === 'up') parts.push('rising price trend')
+    if (sales >= 50)    parts.push(`liquid market — ${sales.toLocaleString()} sales in 30 days`)
+    if (confidence === 'high') parts.push('high data confidence')
+  } else if (signal === 'HOLD') {
+    parts.push(`Score ${score}/100 with ${trend} trend`)
+    if (consPct >= 70) parts.push('consistent price history')
+    else parts.push('mixed signals — no clear direction')
+  } else {
+    if (score < 45)          parts.push(`low score of ${score}/100`)
+    if (trend === 'down')    parts.push('declining price trend')
+    if (sales < 10)          parts.push('thin market liquidity')
+    if (confidence === 'low') parts.push('insufficient trade data for confidence')
+  }
+  const reasoning = parts.length > 0
+    ? parts.join(', ').replace(/^(.)/, c => c.toUpperCase()) + '.'
+    : 'Insufficient data for a confident recommendation.'
+
+  return { signal, sigColor, sigBg, sigBorder, vs7d, vs30d, liqLabel, liqColor, consPct, consLabel, valuePct, valueLabel, rangePct, rangeLabel, rangeColor, reasoning }
 }
 
 function gradeToPoketraceTier(grade: string): string {
@@ -252,8 +331,8 @@ export default function CardPage() {
     setWatchlistLoading(true)
     const cardName = urlName ?? card?.name ?? apiCard?.name ?? ''
     const grade    = urlGrade ?? (card ? card.grade : 'PSA 10')
-    const imageUrl = card?.imageUrl ?? apiCard?.imageUrl ?? ''
-    const setName  = urlSet ?? card?.set ?? apiCard?.set ?? ''
+    const imageUrl = card?.imageUrl ?? liveData?.image_url ?? apiCard?.imageUrl ?? ''
+    const setName  = urlSet ?? card?.set ?? apiCard?.set ?? liveData?.set_name ?? ''
     await fetch('/api/watchlist', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -316,15 +395,16 @@ export default function CardPage() {
 
   // Non-demo card fallback — use live Poketrace data if available
   if (!card) {
-    const displayName = urlName ?? apiCard?.name ?? '...'
-    const displaySet  = urlSet  ?? (apiCard ? `${apiCard.set} · #${apiCard.number}` : 'Loading...')
-    const imageUrl    = apiCard?.imageUrl ?? ''
+    const displayName = urlName ?? apiCard?.name ?? liveData?.card_name ?? '...'
+    const displaySet  = urlSet  ?? (apiCard ? `${apiCard.set} · #${apiCard.number}` : liveData?.set_name ?? 'Loading...')
+    // Prefer pokemontcg.io URL from cache (available instantly) over the slower secondary API fetch
+    const imageUrl    = apiCard?.imageUrl ?? liveData?.image_url ?? ''
 
     return (
       <>
         <style>{PAGE_STYLES}</style>
         <Navbar />
-        <main className="ci-main" style={{ paddingTop: 88, paddingBottom: 80, minHeight: '100vh' }}>
+        <main className="ci-main" style={{ paddingTop: 72, paddingBottom: 80, minHeight: '100vh' }}>
           <div style={{ maxWidth: 860, margin: '0 auto', padding: '0 16px' }}>
 
             {/* Card header */}
@@ -439,6 +519,93 @@ export default function CardPage() {
                     </ResponsiveContainer>
                   </div>
                 )}
+
+                {/* Analysis panel */}
+                {liveData.score_breakdown && (() => {
+                  const a = computeAnalysis(liveData)
+                  return (
+                    <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', padding: '20px', marginBottom: 10 }}>
+                      <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', display: 'block', marginBottom: 14 }}>ANALYSIS</span>
+
+                      {/* Signal + reasoning */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16, padding: '14px 16px', borderRadius: 10, background: a.sigBg, border: `1px solid ${a.sigBorder}` }}>
+                        <div style={{ flexShrink: 0, textAlign: 'center', minWidth: 80 }}>
+                          <div className="font-num" style={{ fontSize: 17, fontWeight: 800, color: a.sigColor, letterSpacing: 2 }}>{a.signal}</div>
+                        </div>
+                        <div style={{ width: 1, alignSelf: 'stretch', background: a.sigBorder, flexShrink: 0 }} />
+                        <p style={{ fontSize: 12, color: 'var(--ink2)', lineHeight: 1.65, margin: 0 }}>{a.reasoning}</p>
+                      </div>
+
+                      {/* 6 metric tiles — 3-col on desktop, 2-col on mobile */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+
+                        {/* Momentum */}
+                        <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>MOMENTUM</div>
+                          {a.vs7d != null ? (
+                            <>
+                              <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: a.vs7d >= 0 ? '#3de88a' : '#e8524a', marginBottom: 3 }}>
+                                {a.vs7d >= 0 ? '+' : ''}{a.vs7d.toFixed(1)}% vs 7d avg
+                              </div>
+                              {a.vs30d != null && (
+                                <div className="font-num" style={{ fontSize: 11, color: a.vs30d >= 0 ? '#3de88a' : '#e8524a', opacity: 0.75 }}>
+                                  {a.vs30d >= 0 ? '+' : ''}{a.vs30d.toFixed(1)}% vs 30d avg
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <div style={{ fontSize: 12, color: 'var(--ink3)' }}>—</div>
+                          )}
+                        </div>
+
+                        {/* Trend */}
+                        <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>TREND</div>
+                          <TrendBadge trend={liveData.trend} confidence={null} />
+                          {liveData.confidence && (
+                            <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 6 }}>
+                              {liveData.confidence === 'high' ? '●●●' : liveData.confidence === 'medium' ? '●●○' : '●○○'} {liveData.confidence} confidence
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Liquidity */}
+                        <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>LIQUIDITY</div>
+                          <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: a.liqColor, marginBottom: 3 }}>{a.liqLabel}</div>
+                          {(liveData.sales_count_30d ?? 0) > 0 && (
+                            <div style={{ fontSize: 10, color: 'var(--ink3)' }}>{(liveData.sales_count_30d ?? 0).toLocaleString()} sales / 30d</div>
+                          )}
+                        </div>
+
+                        {/* Price position */}
+                        <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>PRICE POSITION</div>
+                          <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: a.rangeColor, marginBottom: 6 }}>{a.rangeLabel}</div>
+                          <div style={{ height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.07)', overflow: 'hidden', position: 'relative' }}>
+                            <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: `${a.rangePct}%`, background: a.rangeColor, borderRadius: 2 }} />
+                          </div>
+                          <div style={{ fontSize: 9, color: 'var(--ink3)', marginTop: 4 }}>30d range · {a.rangePct}th pct.</div>
+                        </div>
+
+                        {/* Consistency */}
+                        <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>CONSISTENCY</div>
+                          <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: scoreColor(a.consPct), marginBottom: 3 }}>{a.consPct}/100</div>
+                          <div style={{ fontSize: 10, color: 'var(--ink3)' }}>{a.consLabel}</div>
+                        </div>
+
+                        {/* Value */}
+                        <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>VALUE SCORE</div>
+                          <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: scoreColor(a.valuePct), marginBottom: 3 }}>{a.valuePct}/100</div>
+                          <div style={{ fontSize: 10, color: 'var(--ink3)' }}>{a.valueLabel}</div>
+                        </div>
+
+                      </div>
+                    </div>
+                  )
+                })()}
 
                 {/* Score breakdown */}
                 {liveData.score_breakdown && (
@@ -598,7 +765,7 @@ export default function CardPage() {
     <>
       <style>{PAGE_STYLES}</style>
       <Navbar />
-      <main className="ci-main" style={{ paddingTop: 88, paddingBottom: 100, minHeight: '100vh' }}>
+      <main className="ci-main" style={{ paddingTop: 72, paddingBottom: 100, minHeight: '100vh' }}>
         <div style={{ maxWidth: 860, margin: '0 auto', padding: '0 16px' }}>
 
           {/* ── Card Header (with controls) ── */}

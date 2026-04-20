@@ -95,7 +95,7 @@ export default function Pricing() {
     <>
       <Navbar />
       {showBeta && <BetaModal onClose={() => setShowBeta(false)} />}
-      <main style={{ paddingTop: 88, paddingBottom: 96, minHeight: '100vh' }}>
+      <main style={{ paddingTop: 72, paddingBottom: 96, minHeight: '100vh' }}>
         <div style={{ maxWidth: 1100, margin: '0 auto', padding: '64px 24px 0' }}>
 
           {/* Header */}

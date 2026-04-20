@@ -185,9 +185,9 @@ export default function Watchlist() {
 
         // Kick off per-card price fetches
         enriched.forEach(item => {
-          const grade = encodeURIComponent(item.grade)
-          const name = encodeURIComponent(item.card_name)
-          fetch(`/api/card/${item.card_id}?grade=${grade}&name=${name}`)
+          const params = new URLSearchParams({ grade: item.grade, name: item.card_name })
+          if (item.set_name) params.set('set', item.set_name)
+          fetch(`/api/card/${item.card_id}?${params.toString()}`)
             .then(r => r.json())
             .then(({ data }: { data: PriceData }) => {
               setItems(prev =>
@@ -255,7 +255,7 @@ export default function Watchlist() {
         }
       `}</style>
 
-      <main style={{ paddingTop: 88, paddingBottom: 96, minHeight: '100vh' }}>
+      <main style={{ paddingTop: 72, paddingBottom: 96, minHeight: '100vh' }}>
         <div style={{ maxWidth: 1100, margin: '0 auto', padding: '48px 24px 0' }}>
 
           {/* Header */}
@@ -352,10 +352,15 @@ export default function Watchlist() {
                   const score = pd?.score ?? 0
                   const history = pd?.price_history?.map(h => h.price) ?? []
 
+                  // Build card page URL with params so live data loads correctly
+                  const cardParams = new URLSearchParams({ name: item.card_name, grade: item.grade })
+                  if (item.set_name) cardParams.set('set', item.set_name)
+                  const cardHref = `/card/${item.card_id}?${cardParams.toString()}`
+
                   return (
                     <Link
                       key={item.id}
-                      href={`/card/${item.card_id}`}
+                      href={cardHref}
                       className="wl-row"
                       style={{ borderBottom: i < visible.length - 1 ? '1px solid var(--border)' : 'none', textDecoration: 'none', background: 'transparent', transition: 'background 0.15s' }}
                       onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}

@@ -30,7 +30,7 @@ export default function ContactPage() {
   return (
     <>
       <Navbar />
-      <main style={{ paddingTop: 88, paddingBottom: 0, minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <main style={{ paddingTop: 72, paddingBottom: 0, minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         <div style={{ maxWidth: 680, margin: '0 auto', padding: '56px 24px 96px', flex: 1 }}>
 
           <p style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 12 }}>Get in touch</p>

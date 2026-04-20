@@ -37,6 +37,8 @@ interface PokemonTcgCardInfo {
   fullNumber: string | null
   subtypes: string[]
   supertypes: string[]
+  /** pokemontcg.io image URL (large preferred) */
+  imageUrl: string | null
 }
 
 /** Fetch pokemontcg.io card, extract TCGPlayer product ID + card number + subtypes */
@@ -45,7 +47,7 @@ async function getPokemonTcgCardInfo(pokemontcgId: string): Promise<PokemonTcgCa
     const res = await fetch(`https://api.pokemontcg.io/v2/cards/${pokemontcgId}`, {
       next: { revalidate: 86400 }, // cache for 24h — this data doesn't change
     })
-    if (!res.ok) return { tcgplayerId: null, fullNumber: null, subtypes: [], supertypes: [] }
+    if (!res.ok) return { tcgplayerId: null, fullNumber: null, subtypes: [], supertypes: [], imageUrl: null }
     const json = await res.json()
     const data = json.data
 
@@ -74,11 +76,12 @@ async function getPokemonTcgCardInfo(pokemontcgId: string): Promise<PokemonTcgCa
     return {
       tcgplayerId,
       fullNumber,
-      subtypes:  data?.subtypes  ?? [],
+      subtypes:   data?.subtypes  ?? [],
       supertypes: data?.supertypes ?? [],
+      imageUrl:   (data?.images?.large ?? data?.images?.small) as string | null ?? null,
     }
   } catch {
-    return { tcgplayerId: null, fullNumber: null, subtypes: [], supertypes: [] }
+    return { tcgplayerId: null, fullNumber: null, subtypes: [], supertypes: [], imageUrl: null }
   }
 }
 
@@ -232,7 +235,7 @@ export async function GET(
     card_name:           cardName,
     set_name:            setName || fullCard.set.name,
     grade,
-    image_url:           fullCard.image,
+    image_url:           ptcgInfo.imageUrl ?? fullCard.image,
     price:               tierPrice.avg,
     price_change_pct:    Math.round(priceChangePct * 10) / 10,
     price_range_low:     tierPrice.low  ?? tierPrice.avg,

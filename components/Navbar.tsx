@@ -60,7 +60,7 @@ export default function Navbar() {
   return (
     <>
       <nav style={{
-        position: 'fixed', top: 32, left: 0, right: 0, zIndex: 50,
+        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50,
         height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '0 24px',
         borderBottom: '1px solid var(--border)',
@@ -132,7 +132,7 @@ export default function Navbar() {
       </nav>
 
       {/* Mobile drawer */}
-      <div className="nav-drawer" style={{ position: 'fixed', top: 88, left: 0, right: 0, bottom: 0, zIndex: 49, background: 'rgba(8,8,16,0.97)', backdropFilter: 'blur(16px)', display: 'flex', flexDirection: 'column', padding: '32px 24px 40px', transform: open ? 'translateY(0)' : 'translateY(-12px)', opacity: open ? 1 : 0, pointerEvents: open ? 'auto' : 'none', transition: 'opacity 0.25s, transform 0.25s' }}>
+      <div className="nav-drawer" style={{ position: 'fixed', top: 56, left: 0, right: 0, bottom: 0, zIndex: 49, background: 'rgba(8,8,16,0.97)', backdropFilter: 'blur(16px)', display: 'flex', flexDirection: 'column', padding: '32px 24px 40px', transform: open ? 'translateY(0)' : 'translateY(-12px)', opacity: open ? 1 : 0, pointerEvents: open ? 'auto' : 'none', transition: 'opacity 0.25s, transform 0.25s' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 32 }}>
           {NAV_LINKS.map(l => (
             <Link key={l.href} href={l.href} onClick={() => setOpen(false)} style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)', textDecoration: 'none', padding: '10px 0', borderBottom: '1px solid var(--border)', letterSpacing: '-0.5px' }}>{l.label}</Link>

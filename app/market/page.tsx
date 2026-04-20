@@ -47,7 +47,7 @@ export default function Market() {
   return (
     <>
       <Navbar />
-      <main style={{ paddingTop: 88, paddingBottom: 80, minHeight: '100vh' }}>
+      <main style={{ paddingTop: 72, paddingBottom: 80, minHeight: '100vh' }}>
         <Ticker />
         <div style={{ maxWidth: 1100, margin: '0 auto', padding: '48px 24px' }}>
           <div style={{ marginBottom: 40 }}>

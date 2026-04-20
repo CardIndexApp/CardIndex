@@ -118,7 +118,7 @@ export default function Dashboard() {
     return (
       <>
         <Navbar />
-        <main style={{ paddingTop: 120, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <main style={{ paddingTop: 88, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ fontSize: 13, color: 'var(--ink3)' }}>Loading…</div>
         </main>
       </>
@@ -128,7 +128,7 @@ export default function Dashboard() {
   return (
     <>
       <Navbar />
-      <main style={{ paddingTop: 100, paddingBottom: 100, minHeight: '100vh' }}>
+      <main style={{ paddingTop: 88, paddingBottom: 88, minHeight: '100vh' }}>
         <div style={{ maxWidth: 960, margin: '0 auto', padding: '0 16px' }}>
 
           {/* ── Welcome ── */}

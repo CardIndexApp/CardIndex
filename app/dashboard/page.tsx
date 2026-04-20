@@ -6,22 +6,6 @@ import Navbar from '@/components/Navbar'
 import { createClient } from '@/lib/supabase/client'
 import { rising, scoreColor } from '@/lib/data'
 
-// SQL migration required in Supabase:
-// CREATE TABLE IF NOT EXISTS recently_viewed (
-//   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-//   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-//   card_id text NOT NULL,
-//   card_name text NOT NULL,
-//   grade text NOT NULL,
-//   set_name text,
-//   viewed_at timestamptz DEFAULT now() NOT NULL
-// );
-// CREATE UNIQUE INDEX IF NOT EXISTS recently_viewed_user_card_grade
-//   ON recently_viewed (user_id, card_id, grade);
-// ALTER TABLE recently_viewed ENABLE ROW LEVEL SECURITY;
-// CREATE POLICY "Users see own rows" ON recently_viewed
-//   FOR ALL USING (auth.uid() = user_id);
-
 type Tier = 'free' | 'standard' | 'pro'
 
 interface Profile {
@@ -127,15 +111,23 @@ export default function Dashboard() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.replace('/'); return }
 
-      const [{ data: prof }, { data: wl }, { data: rv }] = await Promise.all([
+      const [{ data: prof }, { data: wl }] = await Promise.all([
         supabase.from('profiles').select('email, username, tier').eq('id', user.id).single(),
         supabase.from('watchlists').select('id, card_name, set_name, grade').eq('user_id', user.id).order('added_at', { ascending: false }).limit(5),
-        supabase.from('recently_viewed').select('card_id, card_name, grade, set_name, viewed_at').eq('user_id', user.id).order('viewed_at', { ascending: false }).limit(10),
       ])
 
       setProfile(prof ?? { email: user.email ?? '', username: null, tier: 'free' })
       setWatchlist(wl ?? [])
-      setRecentlyViewed(rv ?? [])
+
+      // Recently viewed — stored in localStorage under the user's key
+      try {
+        const rvKey = `ci_rv_${user.id}`
+        const stored: RecentlyViewedItem[] = JSON.parse(localStorage.getItem(rvKey) ?? '[]')
+        setRecentlyViewed(stored.slice(0, 10))
+      } catch {
+        setRecentlyViewed([])
+      }
+
       setLoading(false)
     }
     load()

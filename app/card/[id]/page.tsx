@@ -314,24 +314,24 @@ export default function CardPage() {
       .then(json => {
         if (json?.data) {
           setLiveData(json.data)
-          // Track recently viewed for logged-in users
+          // Track recently viewed in localStorage (no DB migration needed)
           if (userId) {
-            const d = json.data
-            void Promise.resolve(
-              createClient()
-                .from('recently_viewed')
-                .upsert(
-                  {
-                    user_id: userId,
-                    card_id: id,
-                    card_name: d.card_name ?? cardName,
-                    grade,
-                    set_name: d.set_name ?? urlSet ?? null,
-                    viewed_at: new Date().toISOString(),
-                  },
-                  { onConflict: 'user_id,card_id,grade' }
-                )
-            ).catch(() => {})
+            try {
+              const d = json.data
+              const rvKey = `ci_rv_${userId}`
+              const stored: Array<{ card_id: string; card_name: string; grade: string; set_name: string | null; viewed_at: string }> =
+                JSON.parse(localStorage.getItem(rvKey) ?? '[]')
+              const entry = {
+                card_id: id,
+                card_name: d.card_name ?? cardName,
+                grade,
+                set_name: d.set_name ?? urlSet ?? null,
+                viewed_at: new Date().toISOString(),
+              }
+              // dedupe by card_id+grade, most recent first, cap at 20
+              const updated = [entry, ...stored.filter(x => !(x.card_id === id && x.grade === grade))].slice(0, 20)
+              localStorage.setItem(rvKey, JSON.stringify(updated))
+            } catch {}
           }
         }
       })
@@ -361,14 +361,15 @@ export default function CardPage() {
   const addToWatchlist = async () => {
     if (!isLoggedIn) return
     setWatchlistLoading(true)
-    const cardName = urlName ?? card?.name ?? apiCard?.name ?? ''
-    const grade    = urlGrade ?? (card ? card.grade : 'PSA 10')
-    const imageUrl = card?.imageUrl ?? liveData?.image_url ?? apiCard?.imageUrl ?? ''
-    const setName  = urlSet ?? card?.set ?? apiCard?.set ?? liveData?.set_name ?? ''
+    const cardName   = urlName ?? card?.name ?? apiCard?.name ?? ''
+    const grade      = urlGrade ?? (card ? card.grade : 'PSA 10')
+    const imageUrl   = card?.imageUrl ?? liveData?.image_url ?? apiCard?.imageUrl ?? ''
+    const setName    = urlSet ?? card?.set ?? apiCard?.set ?? liveData?.set_name ?? ''
+    const cardNumber = urlNumber ?? card?.cardNumber ?? apiCard?.number ?? ''
     await fetch('/api/watchlist', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ card_id: id, card_name: cardName, set_name: setName, grade, image_url: imageUrl }),
+      body: JSON.stringify({ card_id: id, card_name: cardName, set_name: setName, grade, image_url: imageUrl, card_number: cardNumber }),
     })
     setWatchlistAdded(true)
     setWatchlistLoading(false)

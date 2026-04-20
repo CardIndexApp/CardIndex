@@ -18,6 +18,7 @@ interface WatchlistItem {
   card_name: string
   set_name: string | null
   grade: string
+  card_number: string | null
   image_url: string | null
   alert_price: number | null
   added_at: string
@@ -171,6 +172,48 @@ export default function Watchlist() {
     })
   }, [])
 
+  // ── Per-card price fetch (also used by retry) ────────────────────────────
+  function fetchPriceForItem(item: EnrichedItem, bustCache = false) {
+    const params = new URLSearchParams({ grade: item.grade, name: item.card_name })
+    if (item.set_name)    params.set('set', item.set_name)
+    if (item.card_number) params.set('number', item.card_number)
+    if (bustCache)        params.set('bust_cache', '1')
+
+    setItems(prev => prev.map(p => p.id === item.id ? { ...p, priceLoading: true, priceError: null } : p))
+
+    fetch(`/api/card/${item.card_id}?${params.toString()}`)
+      .then(async r => {
+        const json = await r.json().catch(() => null)
+        if (!r.ok || !json?.data) {
+          const raw = json?.error ?? `HTTP ${r.status}`
+          // Humanise common errors
+          const errMsg = raw === 'Card not found on Poketrace'
+            ? 'Not in database'
+            : raw.startsWith('No price data')
+            ? 'No price data'
+            : raw === 'POKETRACE_API_KEY not configured'
+            ? 'Service unavailable'
+            : raw
+          setItems(prev => prev.map(p =>
+            p.id === item.id ? { ...p, priceLoading: false, priceError: errMsg } : p
+          ))
+          return
+        }
+        setItems(prev => prev.map(p =>
+          p.id === item.id ? { ...p, priceData: json.data, priceLoading: false, priceError: null } : p
+        ))
+      })
+      .catch(() => {
+        setItems(prev => prev.map(p =>
+          p.id === item.id ? { ...p, priceLoading: false, priceError: 'Network error' } : p
+        ))
+      })
+  }
+
+  function retryItem(item: EnrichedItem) {
+    fetchPriceForItem(item, true)
+  }
+
   // ── Fetch watchlist ───────────────────────────────────────────────────────
   useEffect(() => {
     if (!user) return
@@ -189,31 +232,7 @@ export default function Watchlist() {
         setListLoading(false)
 
         // Kick off per-card price fetches
-        enriched.forEach(item => {
-          const params = new URLSearchParams({ grade: item.grade, name: item.card_name })
-          if (item.set_name) params.set('set', item.set_name)
-          fetch(`/api/card/${item.card_id}?${params.toString()}`)
-            .then(async r => {
-              const json = await r.json().catch(() => null)
-              if (!r.ok || !json?.data) {
-                const errMsg = json?.error ?? `HTTP ${r.status}`
-                console.error('[Watchlist] price fetch failed', item.card_id, errMsg, json)
-                setItems(prev => prev.map(p =>
-                  p.id === item.id ? { ...p, priceLoading: false, priceError: errMsg } : p
-                ))
-                return
-              }
-              setItems(prev => prev.map(p =>
-                p.id === item.id ? { ...p, priceData: json.data, priceLoading: false, priceError: null } : p
-              ))
-            })
-            .catch(err => {
-              console.error('[Watchlist] fetch threw', item.card_id, err)
-              setItems(prev => prev.map(p =>
-                p.id === item.id ? { ...p, priceLoading: false, priceError: 'Network error' } : p
-              ))
-            })
-        })
+        enriched.forEach(item => fetchPriceForItem(item))
       })
       .catch(() => setListLoading(false))
   }, [user])
@@ -411,7 +430,13 @@ export default function Watchlist() {
                             {fmtCurrency(pd.price)}
                           </div>
                         ) : item.priceError ? (
-                          <span style={{ fontSize: 10, color: 'var(--red)', opacity: 0.7 }} title={item.priceError}>Error</span>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                            <span style={{ fontSize: 10, color: 'var(--red)', opacity: 0.8 }}>{item.priceError}</span>
+                            <button
+                              onClick={e => { e.preventDefault(); e.stopPropagation(); retryItem(item) }}
+                              style={{ fontSize: 9, color: 'var(--ink3)', background: 'var(--surface2)', border: '1px solid var(--border2)', borderRadius: 4, padding: '2px 6px', cursor: 'pointer', letterSpacing: 0.5 }}
+                            >↺ retry</button>
+                          </div>
                         ) : (
                           <span style={{ fontSize: 11, color: 'var(--ink3)' }}>—</span>
                         )}
@@ -430,6 +455,8 @@ export default function Watchlist() {
                               {up ? '+' : ''}{fmtCurrency(Math.abs(pd.price * change / 100))}
                             </div>
                           </>
+                        ) : item.priceError ? (
+                          <span style={{ fontSize: 11, color: 'var(--ink3)' }}>—</span>
                         ) : (
                           <span style={{ fontSize: 11, color: 'var(--ink3)' }}>—</span>
                         )}

@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
-  const { card_id, card_name, set_name, grade, image_url, alert_price } = body
+  const { card_id, card_name, set_name, grade, image_url, alert_price, card_number } = body
 
   if (!card_id || !card_name || !grade) {
     return NextResponse.json({ error: 'card_id, card_name and grade are required' }, { status: 400 })
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
   const { data, error } = await supabase
     .from('watchlists')
     .upsert(
-      { user_id: user.id, card_id, card_name, set_name, grade, image_url, alert_price },
+      { user_id: user.id, card_id, card_name, set_name, grade, image_url, alert_price, card_number: card_number || null },
       { onConflict: 'user_id,card_id,grade' }
     )
     .select()

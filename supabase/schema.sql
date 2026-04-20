@@ -64,7 +64,13 @@ create table if not exists public.search_cache (
   score             integer,
   score_breakdown   jsonb,
   sales_count_30d   integer,
-  last_fetched  timestamptz default now()
+  last_fetched      timestamptz default now(),
+  -- Poketrace extras
+  poketrace_id      text,
+  currency          text,
+  market            text,
+  avg7d             numeric,
+  avg30d            numeric
 );
 
 

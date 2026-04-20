@@ -308,7 +308,7 @@ export default function SearchPage() {
             <h2 className="font-display" style={{ fontSize: 26, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.5px', marginBottom: 24 }}>Select grade</h2>
 
             {/* Selected card summary */}
-            <div style={{ display: 'flex', gap: 20, background: 'var(--surface)', border: '1.5px solid var(--border2)', borderRadius: 14, padding: 18, marginBottom: 28, alignItems: 'flex-start' }}>
+            <div className="search-card-summary" style={{ display: 'flex', gap: 20, background: 'var(--surface)', border: '1.5px solid var(--border2)', borderRadius: 14, padding: 18, marginBottom: 28, alignItems: 'flex-start' }}>
               {selectedCard.images?.small ? (
                 <img src={tcgImg(selectedCard.images.small)} alt={selectedCard.name} style={{ width: 80, borderRadius: 8, boxShadow: '0 8px 28px rgba(0,0,0,0.6)', flexShrink: 0 }} />
               ) : (
@@ -326,7 +326,7 @@ export default function SearchPage() {
             </div>
 
             {/* Grade grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
+            <div className="search-grade-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
               {GRADES.map(g => (
                 <button
                   key={g.label}
@@ -351,6 +351,13 @@ export default function SearchPage() {
           </div>
         )}
       </main>
+
+      <style>{`
+        @media (max-width: 480px) {
+          .search-grade-grid { grid-template-columns: repeat(3, 1fr) !important; }
+          .search-card-summary { flex-direction: column; align-items: center; text-align: center; }
+        }
+      `}</style>
     </>
   )
 }

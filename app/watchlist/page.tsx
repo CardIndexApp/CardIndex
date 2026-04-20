@@ -7,6 +7,7 @@ import { scoreColor } from '@/lib/data'
 import { tcgImg } from '@/lib/img'
 import { createClient } from '@/lib/supabase/client'
 import type { User } from '@supabase/supabase-js'
+import { useCurrency } from '@/lib/currency'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -158,6 +159,8 @@ export default function Watchlist() {
 
   const [sort, setSort] = useState<SortKey>('score')
   const [filter, setFilter] = useState<Filter>('all')
+
+  const { fmtCurrency } = useCurrency()
 
   // ── Auth check ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -393,7 +396,7 @@ export default function Watchlist() {
                           </div>
                           {item.alert_price != null && (
                             <span style={{ display: 'inline-block', marginTop: 4, fontSize: 9, color: 'var(--gold)', background: 'var(--gold2)', border: '1px solid rgba(232,197,71,0.2)', borderRadius: 4, padding: '2px 6px', letterSpacing: 0.5 }}>
-                              ⚡ ALERT ${item.alert_price.toLocaleString()}
+                              ⚡ ALERT {fmtCurrency(item.alert_price)}
                             </span>
                           )}
                         </div>
@@ -405,7 +408,7 @@ export default function Watchlist() {
                           <div style={{ width: 60, height: 15, borderRadius: 4, background: 'var(--surface2)', marginLeft: 'auto' }} className="sk-pulse" />
                         ) : pd ? (
                           <div className="font-num" style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', lineHeight: 1 }}>
-                            ${pd.price.toLocaleString()}
+                            {fmtCurrency(pd.price)}
                           </div>
                         ) : item.priceError ? (
                           <span style={{ fontSize: 10, color: 'var(--red)', opacity: 0.7 }} title={item.priceError}>Error</span>
@@ -424,7 +427,7 @@ export default function Watchlist() {
                               {up ? '+' : ''}{change.toFixed(1)}%
                             </div>
                             <div className="font-num" style={{ fontSize: 10, color: up ? 'var(--green)' : 'var(--red)', opacity: 0.65, marginTop: 2 }}>
-                              {up ? '+' : ''}${Math.abs(Math.round(pd.price * change / 100)).toLocaleString()}
+                              {up ? '+' : ''}{fmtCurrency(Math.abs(pd.price * change / 100))}
                             </div>
                           </>
                         ) : (

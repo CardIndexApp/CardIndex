@@ -7,6 +7,7 @@ import Navbar from '@/components/Navbar'
 import { getCard, fmt, scoreColor } from '@/lib/data'
 import { tcgImg } from '@/lib/img'
 import { createClient } from '@/lib/supabase/client'
+import { useCurrency } from '@/lib/currency'
 
 const GRADES = [
   { key: 'RAW', label: 'Ungraded' },
@@ -39,11 +40,12 @@ function getHoldVerdictColor(score: number) {
   return score >= 80 ? '#3de88a' : score >= 60 ? '#e8c547' : '#e8524a'
 }
 
-const SparkTooltip = ({ active, payload }: { active?: boolean; payload?: { value: number }[] }) => {
+const SparkTooltip = ({ active, payload, formatter }: { active?: boolean; payload?: { value: number }[]; formatter?: (n: number) => string }) => {
   if (active && payload?.length) {
+    const fmtFn = formatter ?? fmt
     return (
       <div style={{ background: '#181828', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '6px 10px' }}>
-        <span className="font-num" style={{ fontSize: 12, color: '#f0f0f8' }}>{fmt(payload[0].value)}</span>
+        <span className="font-num" style={{ fontSize: 12, color: '#f0f0f8' }}>{fmtFn(payload[0].value)}</span>
       </div>
     )
   }
@@ -273,6 +275,9 @@ export default function CardPage() {
   const urlNumber = searchParams.get('number') ?? null
   const card = getCard(id)
 
+  // Currency conversion
+  const { fmtCurrency } = useCurrency()
+
   const [apiCard, setApiCard] = useState<{ name: string; set: string; number: string; imageUrl: string; tags: string[] } | null>(null)
   const [imgError, setImgError] = useState(false)
   const [lightbox, setLightbox] = useState(false)
@@ -286,9 +291,13 @@ export default function CardPage() {
   const [watchlistLoading, setWatchlistLoading] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
 
-  // Check auth
+  // Check auth + track recently viewed
+  const [userId, setUserId] = useState<string | null>(null)
   useEffect(() => {
-    createClient().auth.getUser().then(({ data }) => setIsLoggedIn(!!data.user))
+    createClient().auth.getUser().then(({ data }) => {
+      setIsLoggedIn(!!data.user)
+      setUserId(data.user?.id ?? null)
+    })
   }, [])
 
   // Fetch live price data
@@ -302,10 +311,33 @@ export default function CardPage() {
     if (urlNumber) params.set('number', urlNumber)
     fetch(`/api/card/${id}?${params.toString()}`)
       .then(r => r.ok ? r.json() : null)
-      .then(json => { if (json?.data) setLiveData(json.data) })
+      .then(json => {
+        if (json?.data) {
+          setLiveData(json.data)
+          // Track recently viewed for logged-in users
+          if (userId) {
+            const d = json.data
+            void Promise.resolve(
+              createClient()
+                .from('recently_viewed')
+                .upsert(
+                  {
+                    user_id: userId,
+                    card_id: id,
+                    card_name: d.card_name ?? cardName,
+                    grade,
+                    set_name: d.set_name ?? urlSet ?? null,
+                    viewed_at: new Date().toISOString(),
+                  },
+                  { onConflict: 'user_id,card_id,grade' }
+                )
+            ).catch(() => {})
+          }
+        }
+      })
       .catch(() => {})
       .finally(() => setLiveLoading(false))
-  }, [id, urlGrade, urlName, card])
+  }, [id, urlGrade, urlName, card, userId])
 
   // Fetch pokemontcg.io metadata for unknown cards
   useEffect(() => {
@@ -461,7 +493,7 @@ export default function CardPage() {
                     <div>
                       <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', display: 'block', marginBottom: 6 }}>MARKET PRICE</span>
                       <div className="font-num" style={{ fontSize: 42, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-2px', lineHeight: 1 }}>
-                        {liveData.price > 0 ? fmtPrice(liveData.price, liveData.currency) : '—'}
+                        {liveData.price > 0 ? fmtCurrency(liveData.price) : '—'}
                       </div>
                       <div style={{ display: 'flex', gap: 12, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                         <span className="font-num" style={{ fontSize: 13, color: liveData.price_change_pct >= 0 ? 'var(--green)' : 'var(--red)' }}>
@@ -469,7 +501,7 @@ export default function CardPage() {
                         </span>
                         {liveData.price_range_low > 0 && (
                           <span style={{ fontSize: 12, color: 'var(--ink3)' }}>
-                            Range: {fmtPrice(liveData.price_range_low, liveData.currency)} – {fmtPrice(liveData.price_range_high, liveData.currency)}
+                            Range: {fmtCurrency(liveData.price_range_low)} – {fmtCurrency(liveData.price_range_high)}
                           </span>
                         )}
                         {liveData.sales_count_30d > 0 && (
@@ -498,7 +530,7 @@ export default function CardPage() {
                         <div key={label} style={{ textAlign: 'center', padding: '10px 8px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
                           <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6 }}>{label}</div>
                           <div className="font-num" style={{ fontSize: 15, fontWeight: 700, color: value != null ? 'var(--ink)' : 'var(--ink3)' }}>
-                            {value != null ? fmtPrice(value, liveData.currency) : '—'}
+                            {value != null ? fmtCurrency(value) : '—'}
                           </div>
                         </div>
                       ))}
@@ -513,7 +545,7 @@ export default function CardPage() {
                     <ResponsiveContainer width="100%" height={160}>
                       <LineChart data={liveData.price_history}>
                         <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'var(--ink3)' }} axisLine={false} tickLine={false} />
-                        <Tooltip content={<SparkTooltip />} />
+                        <Tooltip content={<SparkTooltip formatter={fmtCurrency} />} />
                         <Line type="monotone" dataKey="price" stroke={liveData.price_change_pct >= 0 ? '#3de88a' : '#e8524a'} strokeWidth={2} dot={false} />
                       </LineChart>
                     </ResponsiveContainer>
@@ -657,7 +689,7 @@ export default function CardPage() {
                           )}
                           <span style={{ fontSize: 10, color: 'var(--ink3)', opacity: 0.7 }}>{data.source}</span>
                           <span className="font-num" style={{ fontSize: 14, fontWeight: 700, color: isActive ? 'var(--gold)' : 'var(--ink)', minWidth: 72, textAlign: 'right' }}>
-                            {fmtPrice(data.avg, liveData.currency)}
+                            {fmtCurrency(data.avg)}
                           </span>
                         </div>
                       </div>
@@ -749,7 +781,7 @@ export default function CardPage() {
   const chartColor = liveTrendPct >= 0 ? '#3de88a' : '#e8524a'
 
   const windowLabel = analysisWindow === '1M' ? 'last 30 days' : analysisWindow === '3M' ? 'last 90 days' : 'last 180 days'
-  const summaryText = `Based on eBay sold data from the ${windowLabel}, ${urlGrade ?? card.grade} copies sold between ${fmt(liveRangeLow)} and ${fmt(liveRangeHigh)}. Your price of ${fmt(userPrice)} is approximately ${Math.abs(Math.round(vsMarketPct))}% ${vsMarketPct < 0 ? 'below' : 'above'} the market average of ${fmt(marketAvg)}${vsMarketPct <= -20 ? ', representing a strong buying opportunity if authentic' : ''}.`
+  const summaryText = `Based on eBay sold data from the ${windowLabel}, ${urlGrade ?? card.grade} copies sold between ${fmtCurrency(liveRangeLow)} and ${fmtCurrency(liveRangeHigh)}. Your price of ${fmtCurrency(userPrice)} is approximately ${Math.abs(Math.round(vsMarketPct))}% ${vsMarketPct < 0 ? 'below' : 'above'} the market average of ${fmtCurrency(marketAvg)}${vsMarketPct <= -20 ? ', representing a strong buying opportunity if authentic' : ''}.`
 
   const breakevenDisplay = vsMarketPct < 0
     ? { label: `Already ${Math.abs(Math.round(vsMarketPct))}% below market`, sub: 'at / below market' }
@@ -983,12 +1015,12 @@ export default function CardPage() {
                 <div className="ci-sum-grid">
                   {[
                     { label: 'VERDICT',      value: verdict.label,                                                                            sub: 'price vs market',                                                                                              valueColor: verdict.color,                                              valueSize: 15 },
-                    { label: 'MARKET AVG',   value: fmt(marketAvg),                                                                            sub: `${liveSalesCount} eBay sold`,                                                                                  valueColor: 'var(--ink)',                                               valueSize: 22 },
-                    { label: 'YOUR PRICE',   value: fmt(userPrice),                                                                           sub: vsMarketPct < 0 ? `+${fmt(belowMkt).replace('$','')} below` : `${fmt(Math.abs(belowMkt)).replace('$','')} above`, valueColor: 'var(--gold)',                                              valueSize: 22 },
+                    { label: 'MARKET AVG',   value: fmtCurrency(marketAvg),                                                                        sub: `${liveSalesCount} eBay sold`,                                                                                  valueColor: 'var(--ink)',                                               valueSize: 22 },
+                    { label: 'YOUR PRICE',   value: fmtCurrency(userPrice),                                                                       sub: vsMarketPct < 0 ? `${fmtCurrency(belowMkt)} below` : `${fmtCurrency(Math.abs(belowMkt))} above`,              valueColor: 'var(--gold)',                                              valueSize: 22 },
                     { label: 'VS MARKET',    value: `${vsMarketPct >= 0 ? '+' : ''}${Math.round(vsMarketPct)}%`,                              sub: vsMarketPct < 0 ? 'below market' : 'above market',                                                             valueColor: vsMarketPct < 0 ? '#3de88a' : '#e8524a',                   valueSize: 24 },
                     { label: 'HOLD RATING',  value: liveData?.score_breakdown?.label ?? card.holdVerdict,                                     sub: `score: ${liveScore}/100`,                                                                                      valueColor: holdColor,                                                  valueSize: 14 },
                     { label: 'SALES FOUND',  value: String(liveSalesCount),                                                                   sub: `${liveSalesCount} eBay sold`,                                                                                  valueColor: 'var(--ink)',                                               valueSize: 26 },
-                    { label: 'PRICE RANGE',  value: `${fmt(liveRangeLow)}–${fmt(liveRangeHigh)}`,                                             sub: 'low — high',                                                                                                   valueColor: 'var(--ink)',                                               valueSize: 13 },
+                    { label: 'PRICE RANGE',  value: `${fmtCurrency(liveRangeLow)}–${fmtCurrency(liveRangeHigh)}`,                             sub: 'low — high',                                                                                                   valueColor: 'var(--ink)',                                               valueSize: 13 },
                     { label: 'TREND',        value: `${liveTrendPct >= 0 ? '+' : ''}${liveTrendPct}%`,                                        sub: liveTrendPct >= 5 ? 'Rising' : liveTrendPct <= -5 ? 'Declining' : 'Stable',                                     valueColor: liveTrendPct >= 0 ? '#3de88a' : '#e8524a',                 valueSize: 22 },
                   ].map((cell, i) => (
                     <div key={i} style={{
@@ -1016,8 +1048,8 @@ export default function CardPage() {
               {/* 4 metric cards */}
               <div className="ci-metrics">
                 {[
-                  { label: 'MARKET AVG',       value: fmt(marketAvg),                sub: 'current',                                                                                                          valueColor: 'var(--ink)' },
-                  { label: 'YOUR PRICE',        value: fmt(userPrice),                sub: vsMarketPct < 0 ? `+${fmt(belowMkt).replace('$','')} below mkt` : `${fmt(Math.abs(belowMkt)).replace('$','')} above mkt`, valueColor: 'var(--gold)' },
+                  { label: 'MARKET AVG',       value: fmtCurrency(marketAvg),            sub: 'current',                                                                                                          valueColor: 'var(--ink)' },
+                  { label: 'YOUR PRICE',        value: fmtCurrency(userPrice),            sub: vsMarketPct < 0 ? `${fmtCurrency(belowMkt)} below mkt` : `${fmtCurrency(Math.abs(belowMkt))} above mkt`,        valueColor: 'var(--gold)' },
                   { label: `SALES (${analysisWindow})`, value: String(liveSalesCount), sub: `${liveSalesCount} eBay sold`,                   valueColor: 'var(--ink)' },
                   { label: 'VOLATILITY',        value: `±${card.volatilityPct}%`,     sub: card.volatilityLabel, valueColor: card.volatilityPct >= 40 ? '#e8524a' : card.volatilityPct >= 20 ? '#e8c547' : 'var(--ink)' },
                 ].map((m, i) => (
@@ -1044,8 +1076,8 @@ export default function CardPage() {
                       <div style={{ position: 'absolute', top: 14, left: `${priceBarPos}%`, transform: 'translateX(-50%)', whiteSpace: 'nowrap', fontSize: 10, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: 3 }}>
                         <span style={{ color: '#e8c547', fontSize: 11 }}>•</span> Your price
                       </div>
-                      <div style={{ position: 'absolute', top: 14, left: 0, fontSize: 10, color: 'var(--ink2)' }}>Low: {fmt(liveRangeLow)}</div>
-                      <div style={{ position: 'absolute', top: 14, right: 0, fontSize: 10, color: 'var(--ink2)' }}>High: {fmt(liveRangeHigh)}</div>
+                      <div style={{ position: 'absolute', top: 14, left: 0, fontSize: 10, color: 'var(--ink2)' }}>Low: {fmtCurrency(liveRangeLow)}</div>
+                      <div style={{ position: 'absolute', top: 14, right: 0, fontSize: 10, color: 'var(--ink2)' }}>High: {fmtCurrency(liveRangeHigh)}</div>
                     </div>
                   </div>
                 </div>
@@ -1102,12 +1134,12 @@ export default function CardPage() {
                         {listing.badge && (
                           <div style={{ fontSize: 9, letterSpacing: 1.5, padding: '2px 7px', borderRadius: 4, background: listing.badge === 'HIGH' ? 'rgba(232,82,74,0.1)' : 'rgba(61,232,138,0.1)', color: listing.badge === 'HIGH' ? '#e8524a' : '#3de88a', border: `1px solid ${listing.badge === 'HIGH' ? 'rgba(232,82,74,0.2)' : 'rgba(61,232,138,0.2)'}`, marginBottom: 5, display: 'inline-block' }}>{listing.badge}</div>
                         )}
-                        <div className="font-num" style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>{fmt(listing.price)}</div>
+                        <div className="font-num" style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>{fmtCurrency(listing.price)}</div>
                       </div>
                     </a>
                   ))}
                   <div style={{ paddingTop: 14, borderTop: '1px solid var(--border)', fontSize: 11, color: 'var(--ink3)' }}>
-                    {liveSalesCount} sales · Avg: {fmt(marketAvg)} · Range: {fmt(liveRangeLow)}–{fmt(liveRangeHigh)}
+                    {liveSalesCount} sales · Avg: {fmtCurrency(marketAvg)} · Range: {fmtCurrency(liveRangeLow)}–{fmtCurrency(liveRangeHigh)}
                   </div>
                 </div>
               </div>
@@ -1143,7 +1175,7 @@ export default function CardPage() {
                   <div className="ci-hold-metrics">
                     {[
                       { label: 'MONTHLY GROWTH', value: `${card.monthlyGrowth >= 0 ? '+' : ''}${card.monthlyGrowth}%`, sub: 'avg/month', color: card.monthlyGrowth >= 0 ? '#3de88a' : '#e8524a' },
-                      { label: 'PROJ. 12MO', value: fmt(card.projections.m12.price), sub: `+${card.projections.m12.pct}% projected`, color: '#3de88a' },
+                      { label: 'PROJ. 12MO', value: fmtCurrency(card.projections.m12.price), sub: `+${card.projections.m12.pct}% projected`, color: '#3de88a' },
                       { label: 'BREAK-EVEN', value: breakevenDisplay.label, sub: breakevenDisplay.sub, color: vsMarketPct < 0 ? '#3de88a' : 'var(--ink)' },
                     ].map((m, i) => (
                       <div key={i} style={{ borderRadius: 10, padding: '14px', background: 'var(--surface2)', border: '1px solid var(--border)' }}>
@@ -1184,7 +1216,7 @@ export default function CardPage() {
                     ].map((proj, i) => (
                       <div key={i} style={{ borderRadius: 10, padding: '16px 14px', background: 'rgba(61,232,138,0.04)', border: '1px solid rgba(61,232,138,0.1)' }}>
                         <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 10 }}>{proj.label}</div>
-                        <div className="font-num" style={{ fontSize: 18, fontWeight: 700, color: proj.pct >= 0 ? '#3de88a' : '#e8524a', marginBottom: 4 }}>{fmt(proj.price)}</div>
+                        <div className="font-num" style={{ fontSize: 18, fontWeight: 700, color: proj.pct >= 0 ? '#3de88a' : '#e8524a', marginBottom: 4 }}>{fmtCurrency(proj.price)}</div>
                         <div style={{ fontSize: 10, color: proj.pct >= 0 ? '#3de88a' : '#e8524a', marginBottom: 4 }}>{proj.pct >= 0 ? '+' : ''}{proj.pct}%</div>
                         <div style={{ fontSize: 10, color: 'var(--ink3)', lineHeight: 1.4 }}>{proj.desc}</div>
                       </div>

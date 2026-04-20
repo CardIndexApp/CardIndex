@@ -79,9 +79,6 @@ export default function Market() {
           </div>
           <Table title="Most traded (30d)" items={traded} type="traded" />
 
-          <p style={{ fontSize: 11, color: 'var(--ink3)', textAlign: 'center', marginTop: 32 }}>
-            Data shown is for demonstration purposes — CardIndex Beta · card-index.app
-          </p>
         </div>
       </main>
     </>

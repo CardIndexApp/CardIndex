@@ -13,13 +13,9 @@ export default function Footer() {
           <div className="footer-brand">
             <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px', marginBottom: 10 }}>
               Card<span style={{ color: 'var(--gold)' }}>Index</span>
-              <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: 'var(--gold2)', color: 'var(--gold)', border: '1px solid rgba(232,197,71,0.2)', letterSpacing: 1, marginLeft: 8, fontWeight: 600 }}>BETA</span>
             </div>
             <p style={{ fontSize: 12, color: 'var(--ink3)', lineHeight: 1.7, maxWidth: 240, marginBottom: 16 }}>
               The market intelligence platform for trading card collectors and investors.
-            </p>
-            <p style={{ fontSize: 11, color: 'var(--ink3)', opacity: 0.6 }}>
-              Data shown is for display purposes only.
             </p>
           </div>
 

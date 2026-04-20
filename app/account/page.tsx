@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Navbar from '@/components/Navbar'
 import { createClient } from '@/lib/supabase/client'
+import { CURRENCIES, useCurrency, type CurrencyCode } from '@/lib/currency'
 
 type Tier = 'free' | 'standard' | 'pro'
 
@@ -45,6 +46,10 @@ export default function AccountPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [pwLoading, setPwLoading] = useState(false)
   const [pwMsg, setPwMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+
+  // Currency preference
+  const { currency, setCurrency, fmtCurrency, rates, ratesLoading } = useCurrency()
+  const [currencyMsg, setCurrencyMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
 
   // Delete account
   const [deleteInput, setDeleteInput] = useState('')
@@ -285,6 +290,75 @@ export default function AccountPage() {
                       {profile.subscription_status.charAt(0).toUpperCase() + profile.subscription_status.slice(1)}
                     </span>
                   </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ── Display & Currency ── */}
+          <div style={S.card}>
+            <div style={S.cardHead}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Display & Currency</span>
+              {!ratesLoading && currency !== 'USD' && (
+                <span style={{ fontSize: 11, color: 'var(--ink3)' }}>
+                  1 USD = {(rates[currency] ?? 1).toLocaleString('en-US', { maximumFractionDigits: 4 })} {currency}
+                </span>
+              )}
+            </div>
+            <div style={S.cardBody}>
+              <p style={{ fontSize: 13, color: 'var(--ink3)', lineHeight: 1.6, marginBottom: 20 }}>
+                Card prices are sourced in USD and converted client-side using live exchange rates. Rates update hourly.
+              </p>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 8 }}>
+                {(Object.keys(CURRENCIES) as CurrencyCode[]).map(code => {
+                  const meta = CURRENCIES[code]
+                  const selected = currency === code
+                  return (
+                    <button
+                      key={code}
+                      onClick={() => {
+                        setCurrency(code)
+                        setCurrencyMsg({ type: 'ok', text: `Currency set to ${meta.label}.` })
+                        setTimeout(() => setCurrencyMsg(null), 3000)
+                      }}
+                      style={{
+                        padding: '12px 14px',
+                        borderRadius: 10,
+                        background: selected ? 'rgba(232,197,71,0.08)' : 'var(--bg)',
+                        border: `1.5px solid ${selected ? 'var(--gold)' : 'var(--border2)'}`,
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        transition: 'all 0.15s',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 2,
+                      }}
+                      onMouseEnter={e => { if (!selected) e.currentTarget.style.borderColor = 'var(--border)' }}
+                      onMouseLeave={e => { if (!selected) e.currentTarget.style.borderColor = 'var(--border2)' }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: selected ? 'var(--gold)' : 'var(--ink)' }}>
+                          {meta.symbol} {code}
+                        </span>
+                        {selected && (
+                          <span style={{ fontSize: 10, color: 'var(--gold)' }}>✓</span>
+                        )}
+                      </div>
+                      <span style={{ fontSize: 11, color: 'var(--ink3)' }}>{meta.label}</span>
+                      {!ratesLoading && code !== 'USD' && rates[code] && (
+                        <span style={{ fontSize: 10, color: 'var(--ink3)', opacity: 0.6, marginTop: 2 }}>
+                          $100 = {meta.symbol}{(100 * rates[code]).toLocaleString('en-US', { minimumFractionDigits: meta.decimals, maximumFractionDigits: meta.decimals })}
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+
+              {currencyMsg && (
+                <div style={{ marginTop: 16, borderRadius: 8, padding: '10px 14px', background: 'rgba(61,232,138,0.08)', border: '1px solid rgba(61,232,138,0.2)', fontSize: 13, color: 'var(--green)' }}>
+                  {currencyMsg.text}
                 </div>
               )}
             </div>

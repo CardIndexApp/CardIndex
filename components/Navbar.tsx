@@ -5,7 +5,13 @@ import AuthModal from './AuthModal'
 import { createClient } from '@/lib/supabase/client'
 import type { User } from '@supabase/supabase-js'
 
-const NAV_LINKS = [
+const NAV_LINKS_AUTHED = [
+  { label: 'Dashboard', href: '/dashboard' },
+  { label: 'Market',    href: '/market' },
+  { label: 'Watchlist', href: '/watchlist' },
+]
+
+const NAV_LINKS_GUEST = [
   { label: 'Market',    href: '/market' },
   { label: 'Watchlist', href: '/watchlist' },
   { label: 'Pricing',   href: '/pricing' },
@@ -72,21 +78,30 @@ export default function Navbar() {
           <span className="font-display" style={{ fontSize: 18, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px' }}>
             Card<span style={{ color: 'var(--gold)' }}>Index</span>
           </span>
-          <span className="font-mono-custom" style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: 'var(--gold2)', color: 'var(--gold)', border: '1px solid rgba(232,197,71,0.2)', letterSpacing: 1 }}>BETA</span>
         </Link>
 
         {/* Desktop nav */}
         <div className="nav-desktop" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          {NAV_LINKS.map(l => (
-            <Link key={l.href} href={l.href} style={{ fontSize: 14, padding: '6px 12px', borderRadius: 8, color: 'var(--ink2)', textDecoration: 'none' }}>{l.label}</Link>
-          ))}
-
           {user ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 8 }}>
-              <Link href="/search" style={{ fontSize: 13, padding: '7px 14px', borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border2)', color: 'var(--ink2)', textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Link href="/search" style={{ fontSize: 13, padding: '7px 14px', borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border2)', color: 'var(--ink2)', textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, marginRight: 4 }}>
                 <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="6.5" cy="6.5" r="4.5"/><path d="M14 14l-3-3"/></svg>
                 Search
               </Link>
+              {NAV_LINKS_AUTHED.map(l => (
+                <Link key={l.href} href={l.href} style={{ fontSize: 14, padding: '6px 12px', borderRadius: 8, color: 'var(--ink2)', textDecoration: 'none' }}>{l.label}</Link>
+              ))}
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              {NAV_LINKS_GUEST.map(l => (
+                <Link key={l.href} href={l.href} style={{ fontSize: 14, padding: '6px 12px', borderRadius: 8, color: 'var(--ink2)', textDecoration: 'none' }}>{l.label}</Link>
+              ))}
+            </div>
+          )}
+
+          {user ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 8 }}>
             <div style={{ position: 'relative' }}>
               <button
                 onClick={() => setUserMenuOpen(v => !v)}
@@ -134,11 +149,17 @@ export default function Navbar() {
       {/* Mobile drawer */}
       <div className="nav-drawer" style={{ position: 'fixed', top: 56, left: 0, right: 0, bottom: 0, zIndex: 49, background: 'rgba(8,8,16,0.97)', backdropFilter: 'blur(16px)', display: 'flex', flexDirection: 'column', padding: '32px 24px 40px', transform: open ? 'translateY(0)' : 'translateY(-12px)', opacity: open ? 1 : 0, pointerEvents: open ? 'auto' : 'none', transition: 'opacity 0.25s, transform 0.25s' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 32 }}>
-          {NAV_LINKS.map(l => (
-            <Link key={l.href} href={l.href} onClick={() => setOpen(false)} style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)', textDecoration: 'none', padding: '10px 0', borderBottom: '1px solid var(--border)', letterSpacing: '-0.5px' }}>{l.label}</Link>
-          ))}
-          {user && (
-            <Link href="/search" onClick={() => setOpen(false)} style={{ fontSize: 22, fontWeight: 700, color: 'var(--gold)', textDecoration: 'none', padding: '10px 0', borderBottom: '1px solid var(--border)', letterSpacing: '-0.5px' }}>Search</Link>
+          {user ? (
+            <>
+              <Link href="/search" onClick={() => setOpen(false)} style={{ fontSize: 22, fontWeight: 700, color: 'var(--gold)', textDecoration: 'none', padding: '10px 0', borderBottom: '1px solid var(--border)', letterSpacing: '-0.5px' }}>Search</Link>
+              {NAV_LINKS_AUTHED.map(l => (
+                <Link key={l.href} href={l.href} onClick={() => setOpen(false)} style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)', textDecoration: 'none', padding: '10px 0', borderBottom: '1px solid var(--border)', letterSpacing: '-0.5px' }}>{l.label}</Link>
+              ))}
+            </>
+          ) : (
+            NAV_LINKS_GUEST.map(l => (
+              <Link key={l.href} href={l.href} onClick={() => setOpen(false)} style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)', textDecoration: 'none', padding: '10px 0', borderBottom: '1px solid var(--border)', letterSpacing: '-0.5px' }}>{l.label}</Link>
+            ))
           )}
         </div>
 

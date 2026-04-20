@@ -4,7 +4,23 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Navbar from '@/components/Navbar'
 import { createClient } from '@/lib/supabase/client'
-import { rising, declining, scoreColor } from '@/lib/data'
+import { rising, scoreColor } from '@/lib/data'
+
+// SQL migration required in Supabase:
+// CREATE TABLE IF NOT EXISTS recently_viewed (
+//   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+//   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+//   card_id text NOT NULL,
+//   card_name text NOT NULL,
+//   grade text NOT NULL,
+//   set_name text,
+//   viewed_at timestamptz DEFAULT now() NOT NULL
+// );
+// CREATE UNIQUE INDEX IF NOT EXISTS recently_viewed_user_card_grade
+//   ON recently_viewed (user_id, card_id, grade);
+// ALTER TABLE recently_viewed ENABLE ROW LEVEL SECURITY;
+// CREATE POLICY "Users see own rows" ON recently_viewed
+//   FOR ALL USING (auth.uid() = user_id);
 
 type Tier = 'free' | 'standard' | 'pro'
 
@@ -19,6 +35,14 @@ interface WatchlistItem {
   card_name: string
   set_name: string
   grade: string
+}
+
+interface RecentlyViewedItem {
+  card_id: string
+  card_name: string
+  grade: string
+  set_name: string | null
+  viewed_at: string
 }
 
 const QUICK_ACTIONS = [
@@ -79,37 +103,43 @@ const QUICK_ACTIONS = [
 const TIER_LABELS: Record<Tier, string> = { free: 'Free', standard: 'Standard', pro: 'Pro' }
 const TIER_COLORS: Record<Tier, string> = { free: 'var(--ink3)', standard: 'var(--blue)', pro: 'var(--gold)' }
 
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  return `${Math.floor(hrs / 24)}d ago`
+}
+
 export default function Dashboard() {
   const router = useRouter()
   const supabase = createClient()
 
   const [profile, setProfile] = useState<Profile | null>(null)
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([])
+  const [recentlyViewed, setRecentlyViewed] = useState<RecentlyViewedItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.replace('/'); return }
 
-      const [{ data: prof }, { data: wl }] = await Promise.all([
+      const [{ data: prof }, { data: wl }, { data: rv }] = await Promise.all([
         supabase.from('profiles').select('email, username, tier').eq('id', user.id).single(),
         supabase.from('watchlists').select('id, card_name, set_name, grade').eq('user_id', user.id).order('added_at', { ascending: false }).limit(5),
+        supabase.from('recently_viewed').select('card_id, card_name, grade, set_name, viewed_at').eq('user_id', user.id).order('viewed_at', { ascending: false }).limit(10),
       ])
 
       setProfile(prof ?? { email: user.email ?? '', username: null, tier: 'free' })
       setWatchlist(wl ?? [])
+      setRecentlyViewed(rv ?? [])
       setLoading(false)
     }
     load()
   }, [])
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (searchQuery.trim()) router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`)
-    else router.push('/search')
-  }
 
   const displayName = profile?.username ?? profile?.email?.split('@')[0] ?? ''
   const tier = (profile?.tier ?? 'free') as Tier
@@ -149,26 +179,6 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* ── Search bar ── */}
-          <form onSubmit={handleSearch} style={{ marginBottom: 32 }}>
-            <div style={{ display: 'flex', gap: 8, background: 'var(--surface)', border: '1px solid var(--border2)', borderRadius: 14, padding: '6px 6px 6px 16px', alignItems: 'center', transition: 'border-color 0.15s' }}
-              onFocus={() => {}} >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--ink3)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                <circle cx="6.5" cy="6.5" r="4.5"/><path d="M14 14l-3-3"/>
-              </svg>
-              <input
-                type="text"
-                placeholder="Search for a card, e.g. Charizard Base Set PSA 10…"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: 14, color: 'var(--ink)', padding: '6px 0' }}
-              />
-              <button type="submit" style={{ padding: '10px 20px', borderRadius: 10, background: 'var(--gold)', color: '#080810', border: 'none', fontSize: 13, fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}>
-                Search
-              </button>
-            </div>
-          </form>
-
           {/* ── Quick Actions ── */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 32 }}>
             {QUICK_ACTIONS.map(action => (
@@ -188,7 +198,7 @@ export default function Dashboard() {
           </div>
 
           {/* ── Two column: Watchlist + Market movers ── */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="dash-two-col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
 
             {/* Watchlist preview */}
             <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden' }}>
@@ -249,9 +259,47 @@ export default function Dashboard() {
             </div>
           </div>
 
+          {/* ── Recently Viewed ── */}
+          <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden', marginBottom: 12 }}>
+            <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Recently Searched</span>
+              <Link href="/search" style={{ fontSize: 11, color: 'var(--gold)', textDecoration: 'none' }}>Search cards →</Link>
+            </div>
+            {recentlyViewed.length === 0 ? (
+              <div style={{ padding: '28px 20px', textAlign: 'center' }}>
+                <p style={{ fontSize: 13, color: 'var(--ink3)', marginBottom: 12 }}>No recent searches yet</p>
+                <Link href="/search" style={{ fontSize: 12, color: 'var(--gold)', textDecoration: 'none', fontWeight: 600 }}>Find your first card →</Link>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}>
+                {recentlyViewed.map((item, i) => {
+                  const params = new URLSearchParams({ grade: item.grade, name: item.card_name })
+                  if (item.set_name) params.set('set', item.set_name)
+                  return (
+                    <Link
+                      key={`${item.card_id}-${i}`}
+                      href={`/card/${item.card_id}?${params.toString()}`}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderBottom: '1px solid var(--border)', borderRight: '1px solid var(--border)', textDecoration: 'none', gap: 8 }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.card_name}</div>
+                        <div style={{ fontSize: 11, color: 'var(--ink3)' }}>
+                          {item.set_name ? `${item.set_name} · ` : ''}{item.grade}
+                        </div>
+                      </div>
+                      <span style={{ fontSize: 10, color: 'var(--ink3)', flexShrink: 0, whiteSpace: 'nowrap' }}>{timeAgo(item.viewed_at)}</span>
+                    </Link>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
           {/* ── Upgrade banner (free users only) ── */}
           {tier === 'free' && (
-            <div style={{ marginTop: 24, borderRadius: 16, background: 'var(--gold2)', border: '1px solid rgba(232,197,71,0.2)', padding: '24px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+            <div style={{ marginTop: 12, borderRadius: 16, background: 'var(--gold2)', border: '1px solid rgba(232,197,71,0.2)', padding: '24px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
               <div>
                 <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--gold)', marginBottom: 4 }}>Unlock the full CardIndex</div>
                 <div style={{ fontSize: 13, color: 'rgba(232,197,71,0.7)' }}>Price history charts, trend indicators, unlimited watchlist and more.</div>

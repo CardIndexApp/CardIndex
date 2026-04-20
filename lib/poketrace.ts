@@ -428,20 +428,42 @@ export interface MatchDebug {
 }
 
 /**
+ * When we have multiple candidates from the same set, pick the right one by card number.
+ * cardNumber: bare number from URL params e.g. "125"
+ */
+function pickByNumber(candidates: PokétraceCard[], cardNumber?: string): PokétraceCard {
+  if (!cardNumber || candidates.length === 1) return candidates[0]
+
+  // Strip leading zeros and totals for comparison: "125/094" → "125", "013/094" → "13"
+  const bare = cardNumber.replace(/\/.*$/, '').replace(/^0+/, '') || cardNumber
+
+  const byNum = candidates.find(c => {
+    const cn = (c.cardNumber ?? '').split('/')[0].replace(/^0+/, '')
+    return cn === bare
+  })
+  if (byNum) return byNum
+
+  // Fall back to highest-priced among candidates
+  return [...candidates].sort((a, b) => getTopPrice(b) - getTopPrice(a))[0]
+}
+
+/**
  * Find the best Poketrace card match using name search + set-name matching.
- * Used as a last-resort fallback when TCGPlayer ID and set/number lookups fail.
+ * Also accepts an optional tcgplayerId to cross-match against refs.tcgplayerId in results.
  *
  * Priority:
- *   1. Exact name + exact set name
- *   2. Exact name + set slug contains our set slug (handles "ME02: Phantasmal Flames" vs "Phantasmal Flames")
- *   3. Exact name + partial set name match
- *   4. Exact name, pick highest-priced result
- *   5. First result
+ *   1. refs.tcgplayerId match (most precise — cross-references pokemontcg.io ↔ Poketrace)
+ *   2. Exact name + exact set name → pick by card number
+ *   3. Exact name + set slug match (handles "ME02: Phantasmal Flames" vs "Phantasmal Flames") → pick by number
+ *   4. Exact name + partial set name → pick by number
+ *   5. Exact name, pick highest-priced result
+ *   6. First result
  */
 export async function findBestMatch(
   cardName: string,
   setName: string,
-  cardNumber?: string
+  cardNumber?: string,
+  tcgplayerId?: string
 ): Promise<{ card: PokétraceCard; debug: MatchDebug } | null> {
   const results = await searchPokétraceCards(cardName, { limit: 20 })
 
@@ -454,6 +476,16 @@ export async function findBestMatch(
 
   if (!results.length) return null
 
+  // 1. TCGPlayer ID cross-match — most precise possible
+  if (tcgplayerId) {
+    const tcgMatch = results.find(r => r.refs?.tcgplayerId === tcgplayerId)
+    if (tcgMatch) {
+      debug.matched = { id: tcgMatch.id, name: tcgMatch.name, set: tcgMatch.set.name, cardNumber: tcgMatch.cardNumber }
+      debug.matchReason = 'refs.tcgplayerId match'
+      return { card: tcgMatch, debug }
+    }
+  }
+
   const nameLower = cardName.toLowerCase()
   const setLower  = setName.toLowerCase()
   const setSlug   = setNameToSlug(setName)
@@ -462,38 +494,41 @@ export async function findBestMatch(
   const nameMatches = results.filter(r => r.name.toLowerCase() === nameLower)
   const pool = nameMatches.length ? nameMatches : results
 
-  // 1. Exact set name match
-  const exactSet = pool.find(r => r.set.name.toLowerCase() === setLower)
-  if (exactSet) {
-    debug.matched = { id: exactSet.id, name: exactSet.name, set: exactSet.set.name, cardNumber: exactSet.cardNumber }
+  // 2. Exact set name match → pick by card number among those
+  const exactSetGroup = pool.filter(r => r.set.name.toLowerCase() === setLower)
+  if (exactSetGroup.length) {
+    const pick = pickByNumber(exactSetGroup, cardNumber)
+    debug.matched = { id: pick.id, name: pick.name, set: pick.set.name, cardNumber: pick.cardNumber }
     debug.matchReason = 'exact name + exact set'
-    return { card: exactSet, debug }
+    return { card: pick, debug }
   }
 
-  // 2. Set slug match — handles "ME02: Phantasmal Flames" matching "Phantasmal Flames"
-  const slugMatch = pool.find(r => {
-    const rSlug = r.set.slug.toLowerCase()
+  // 3. Set slug match — "me02-phantasmal-flames" contains "phantasmal-flames"
+  const slugGroup = pool.filter(r => {
+    const rSlug     = r.set.slug.toLowerCase()
     const rNameSlug = setNameToSlug(r.set.name)
     return rSlug === setSlug || rSlug.includes(setSlug) || setSlug.includes(rSlug) ||
            rNameSlug === setSlug || rNameSlug.includes(setSlug) || setSlug.includes(rNameSlug)
   })
-  if (slugMatch) {
-    debug.matched = { id: slugMatch.id, name: slugMatch.name, set: slugMatch.set.name, cardNumber: slugMatch.cardNumber }
+  if (slugGroup.length) {
+    const pick = pickByNumber(slugGroup, cardNumber)
+    debug.matched = { id: pick.id, name: pick.name, set: pick.set.name, cardNumber: pick.cardNumber }
     debug.matchReason = 'exact name + set slug match'
-    return { card: slugMatch, debug }
+    return { card: pick, debug }
   }
 
-  // 3. Set name contains our set name (partial)
-  const partialSet = pool.find(
+  // 4. Partial set name match
+  const partialGroup = pool.filter(
     r => r.set.name.toLowerCase().includes(setLower) || setLower.includes(r.set.name.toLowerCase())
   )
-  if (partialSet) {
-    debug.matched = { id: partialSet.id, name: partialSet.name, set: partialSet.set.name, cardNumber: partialSet.cardNumber }
+  if (partialGroup.length) {
+    const pick = pickByNumber(partialGroup, cardNumber)
+    debug.matched = { id: pick.id, name: pick.name, set: pick.set.name, cardNumber: pick.cardNumber }
     debug.matchReason = 'exact name + partial set match'
-    return { card: partialSet, debug }
+    return { card: pick, debug }
   }
 
-  // 4. Multiple name matches → pick highest-priced (most notable card)
+  // 5. Multiple name matches → pick highest-priced
   if (pool.length > 1) {
     const byPrice = [...pool].sort((a, b) => getTopPrice(b) - getTopPrice(a))
     const top = byPrice[0]
@@ -502,7 +537,7 @@ export async function findBestMatch(
     return { card: top, debug }
   }
 
-  // 5. First result
+  // 6. First result
   const first = pool[0]
   debug.matched = { id: first.id, name: first.name, set: first.set.name, cardNumber: first.cardNumber }
   debug.matchReason = 'first result'

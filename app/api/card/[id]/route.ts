@@ -15,13 +15,10 @@ import { createClient } from '@supabase/supabase-js'
 import {
   searchByTcgPlayerId,
   findBestMatch,
-  findBySetAndNumber,
-  getPoketraceSetSlug,
   getPokétraceCard,
   getPriceHistory,
   gradeToTier,
   getTierPrice,
-  toPoketraceVariants,
 } from '@/lib/poketrace'
 import { computeScore } from '@/lib/score'
 
@@ -127,7 +124,7 @@ export async function GET(
   // Fetch pokemontcg.io card info once — used by multiple strategies
   const ptcgInfo = await getPokemonTcgCardInfo(id)
 
-  // Strategy A: TCGPlayer ID lookup (most accurate — exact foreign-key match)
+  // Strategy A: TCGPlayer ID lookup via GET /cards?tcgplayer_ids=
   let matchedCard = null
   let matchReason = ''
 
@@ -139,31 +136,17 @@ export async function GET(
     }
   }
 
-  // Strategy B: Set slug + card number → GET /cards?set={slug}&card_number={num}
-  // Uses the correct API parameters (set slug + card_number) rather than slug construction.
-  if (!matchedCard && setName) {
-    const numToUse = ptcgInfo.fullNumber ?? cardNumber
-    if (numToUse) {
-      try {
-        const setSlug = await getPoketraceSetSlug(setName)
-        if (setSlug) {
-          const variants = toPoketraceVariants(ptcgInfo.subtypes, ptcgInfo.supertypes)
-          const found = await findBySetAndNumber(cardName, setSlug, numToUse, variants)
-          if (found) {
-            matchedCard = found
-            matchReason = `set_and_number:${setSlug}/${numToUse}`
-          }
-        }
-      } catch {
-        // fall through to strategy C
-      }
-    }
-  }
-
-  // Strategy C: Name search fallback with set-slug matching
+  // Strategy B: Name search with TCGPlayer ID cross-match + set slug + card number
+  // The name search returns refs.tcgplayerId which we can match against our extracted ID.
+  // Falls back to set-slug matching + card number disambiguation within the name results.
   if (!matchedCard) {
     try {
-      const matchResult = await findBestMatch(cardName, setName, cardNumber)
+      const matchResult = await findBestMatch(
+        cardName,
+        setName,
+        ptcgInfo.fullNumber ?? cardNumber,
+        ptcgInfo.tcgplayerId ?? undefined
+      )
       if (matchResult) {
         matchedCard = matchResult.card
         matchReason = matchResult.debug.matchReason

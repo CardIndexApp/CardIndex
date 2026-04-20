@@ -144,6 +144,7 @@ export default function SearchPage() {
         grade,
         name: selectedCard.name,
         set: selectedCard.set.name,
+        number: selectedCard.number,
       })
       router.push(`/card/${selectedCard.id}?${params.toString()}`)
     }

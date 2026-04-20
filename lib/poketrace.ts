@@ -104,23 +104,23 @@ export function getTierPrice(card: PokétraceCard, tier: string): TierPrice | nu
 // ── API calls ─────────────────────────────────────────────────────────────────
 
 /**
- * Search cards by name (and optionally set slug).
- * Returns up to 20 results.
+ * Search cards by name, optionally filtered by set slug and/or card number.
  */
 export async function searchPokétraceCards(
   name: string,
-  options: { setSlug?: string; limit?: number } = {}
+  options: { setSlug?: string; cardNumber?: string; limit?: number } = {}
 ): Promise<PokétraceCard[]> {
   try {
     const params = new URLSearchParams({
       search: name,
       limit: String(options.limit ?? 20),
     })
-    if (options.setSlug) params.set('set', options.setSlug)
+    if (options.setSlug)    params.set('set', options.setSlug)
+    if (options.cardNumber) params.set('card_number', options.cardNumber)
 
     const res = await fetch(`${BASE}/cards?${params}`, {
       headers: apiHeaders(),
-      next: { revalidate: 3600 }, // 1h cache on the search results
+      next: { revalidate: 3600 },
     })
     if (!res.ok) return []
     const json = await res.json()
@@ -169,31 +169,92 @@ export async function getPriceHistory(
   }
 }
 
+/** Normalise a set name to a URL slug for Poketrace set filtering */
+function setNameToSlug(name: string): string {
+  return name.toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .trim()
+}
+
 /**
- * Find the best Poketrace card match for a given card name + set name.
- * Tries exact name match within the same set first, then falls back to
- * closest name match.
+ * Find the best Poketrace card match using name, set name, and card number.
+ * Priority order:
+ *   1. Exact name + exact card number (most specific — correct card guaranteed)
+ *   2. Exact name + set name match
+ *   3. Exact name only
+ *   4. First result (last resort)
  */
 export async function findBestMatch(
   cardName: string,
-  setName: string
+  setName: string,
+  cardNumber?: string
 ): Promise<PokétraceCard | null> {
-  const results = await searchPokétraceCards(cardName, { limit: 20 })
-  if (!results.length) return null
+  const nameLower = cardName.toLowerCase()
+  const setLower  = setName.toLowerCase()
 
-  // 1. Try exact name + set name match
-  const exactSetMatch = results.find(
-    r => r.name.toLowerCase() === cardName.toLowerCase() &&
-         r.set.name.toLowerCase() === setName.toLowerCase()
-  )
-  if (exactSetMatch) return exactSetMatch
+  // Pass card_number to Poketrace to narrow results immediately
+  const results = await searchPokétraceCards(cardName, {
+    limit: 20,
+    cardNumber: cardNumber || undefined,
+  })
 
-  // 2. Exact name match (any set)
-  const exactNameMatch = results.find(
-    r => r.name.toLowerCase() === cardName.toLowerCase()
-  )
-  if (exactNameMatch) return exactNameMatch
+  if (!results.length) {
+    // Retry without card_number filter in case Poketrace doesn't index it
+    const fallback = await searchPokétraceCards(cardName, { limit: 20 })
+    if (!fallback.length) return null
+    return pickBest(fallback, nameLower, setLower, cardNumber)
+  }
 
-  // 3. First result
+  return pickBest(results, nameLower, setLower, cardNumber)
+}
+
+function pickBest(
+  results: PokétraceCard[],
+  nameLower: string,
+  setLower: string,
+  cardNumber?: string
+): PokétraceCard | null {
+  // 1. Exact name + card number + set name — perfect match
+  if (cardNumber && setLower) {
+    const perfect = results.find(
+      r => r.name.toLowerCase() === nameLower &&
+           r.cardNumber === cardNumber &&
+           r.set.name.toLowerCase() === setLower
+    )
+    if (perfect) return perfect
+  }
+
+  // 2. Exact name + card number (any set)
+  if (cardNumber) {
+    const byNumber = results.find(
+      r => r.name.toLowerCase() === nameLower && r.cardNumber === cardNumber
+    )
+    if (byNumber) return byNumber
+  }
+
+  // 3. Exact name + set name (any number)
+  if (setLower) {
+    const bySet = results.find(
+      r => r.name.toLowerCase() === nameLower &&
+           r.set.name.toLowerCase() === setLower
+    )
+    if (bySet) return bySet
+
+    // 3b. Slug match in case Poketrace set name differs slightly
+    const slug = setNameToSlug(setLower)
+    const bySlug = results.find(
+      r => r.name.toLowerCase() === nameLower &&
+           setNameToSlug(r.set.name) === slug
+    )
+    if (bySlug) return bySlug
+  }
+
+  // 4. Exact name, any set
+  const byName = results.find(r => r.name.toLowerCase() === nameLower)
+  if (byName) return byName
+
+  // 5. First result — last resort
   return results[0]
 }

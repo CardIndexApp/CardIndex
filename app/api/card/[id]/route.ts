@@ -27,9 +27,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const grade    = req.nextUrl.searchParams.get('grade') ?? 'Raw'
-  const cardName = req.nextUrl.searchParams.get('name') ?? ''
-  const setName  = req.nextUrl.searchParams.get('set') ?? ''
+  const grade      = req.nextUrl.searchParams.get('grade')  ?? 'Raw'
+  const cardName   = req.nextUrl.searchParams.get('name')   ?? ''
+  const setName    = req.nextUrl.searchParams.get('set')    ?? ''
+  const cardNumber = req.nextUrl.searchParams.get('number') ?? ''
 
   if (!cardName) {
     return NextResponse.json({ error: 'name param required' }, { status: 400 })
@@ -60,7 +61,7 @@ export async function GET(
     return NextResponse.json({ error: 'POKETRACE_API_KEY not configured' }, { status: 503 })
   }
 
-  const matchedCard = await findBestMatch(cardName, setName)
+  const matchedCard = await findBestMatch(cardName, setName, cardNumber)
   if (!matchedCard) {
     if (cached) return NextResponse.json({ source: 'stale_cache', data: cached })
     return NextResponse.json({ error: 'Card not found on Poketrace' }, { status: 404 })

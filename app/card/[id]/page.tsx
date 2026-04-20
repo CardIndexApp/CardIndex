@@ -130,9 +130,10 @@ interface LiveData {
 export default function CardPage() {
   const { id } = useParams<{ id: string }>()
   const searchParams = useSearchParams()
-  const urlGrade = searchParams.get('grade') ?? null
-  const urlName  = searchParams.get('name')  ?? null
-  const urlSet   = searchParams.get('set')   ?? null
+  const urlGrade  = searchParams.get('grade')  ?? null
+  const urlName   = searchParams.get('name')   ?? null
+  const urlSet    = searchParams.get('set')    ?? null
+  const urlNumber = searchParams.get('number') ?? null
   const card = getCard(id)
 
   const [apiCard, setApiCard] = useState<{ name: string; set: string; number: string; imageUrl: string; tags: string[] } | null>(null)
@@ -160,7 +161,8 @@ export default function CardPage() {
     if (!cardName) return
     setLiveLoading(true)
     const params = new URLSearchParams({ grade, name: cardName })
-    if (urlSet) params.set('set', urlSet)
+    if (urlSet)    params.set('set', urlSet)
+    if (urlNumber) params.set('number', urlNumber)
     fetch(`/api/card/${id}?${params.toString()}`)
       .then(r => r.ok ? r.json() : null)
       .then(json => { if (json?.data) setLiveData(json.data) })

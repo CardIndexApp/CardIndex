@@ -160,6 +160,7 @@ export default function CardPage() {
     if (!cardName) return
     setLiveLoading(true)
     const params = new URLSearchParams({ grade, name: cardName })
+    if (urlSet) params.set('set', urlSet)
     fetch(`/api/card/${id}?${params.toString()}`)
       .then(r => r.ok ? r.json() : null)
       .then(json => { if (json?.data) setLiveData(json.data) })
@@ -253,48 +254,132 @@ export default function CardPage() {
     }, 150)
   }, [card, selectedGrade])
 
-  // API card fallback
+  // Non-demo card fallback — use live Poketrace data if available
   if (!card) {
-    const displayName = apiCard?.name ?? '...'
-    const displaySet = apiCard ? `${apiCard.set} · #${apiCard.number}` : 'Loading...'
+    const displayName = urlName ?? apiCard?.name ?? '...'
+    const displaySet  = urlSet  ?? (apiCard ? `${apiCard.set} · #${apiCard.number}` : 'Loading...')
+    const imageUrl    = apiCard?.imageUrl ?? ''
+
     return (
       <>
         <style>{PAGE_STYLES}</style>
         <Navbar />
-        <main style={{ paddingTop: 88, paddingBottom: 80, minHeight: '100vh' }}>
-          <div style={{ maxWidth: 500, margin: '0 auto', padding: '0 16px' }}>
-            <div style={{ marginTop: 20, marginBottom: 12, borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', overflow: 'hidden' }}>
+        <main className="ci-main" style={{ paddingTop: 88, paddingBottom: 80, minHeight: '100vh' }}>
+          <div style={{ maxWidth: 860, margin: '0 auto', padding: '0 16px' }}>
+
+            {/* Card header */}
+            <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', overflow: 'hidden', marginTop: 24, marginBottom: 10 }}>
               <div style={{ padding: '18px 20px' }}>
                 <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
                   <div style={{ width: 80, height: 110, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
-                    {apiCard?.imageUrl && !imgError ? (
-                      <img src={tcgImg(apiCard.imageUrl)} alt={displayName} onError={() => setImgError(true)} style={{ height: '100%', width: '100%', objectFit: 'contain' }} />
+                    {imageUrl && !imgError ? (
+                      <img src={tcgImg(imageUrl)} alt={displayName} onError={() => setImgError(true)} style={{ height: '100%', width: '100%', objectFit: 'contain' }} />
                     ) : (
-                      <span style={{ fontSize: 11, color: 'var(--ink3)' }}>{apiCard ? '—' : '...'}</span>
+                      <span style={{ fontSize: 28 }}>🃏</span>
                     )}
                   </div>
-                  <div style={{ flex: 1 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <h1 className="font-display" style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px', marginBottom: 2 }}>{displayName}</h1>
                     <p style={{ fontSize: 12, color: 'var(--ink2)', marginBottom: 10 }}>{displaySet}</p>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                      {(apiCard?.tags ?? []).map(tag => (
-                        <span key={tag} style={{ fontSize: 10, padding: '3px 8px', borderRadius: 5, background: 'var(--surface2)', border: '1px solid var(--border2)', color: 'var(--ink2)' }}>{tag}</span>
-                      ))}
+                    {urlGrade && (
+                      <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 99, background: 'var(--gold2)', border: '1px solid rgba(232,197,71,0.25)', fontSize: 11, color: 'var(--gold)', fontWeight: 600 }}>{urlGrade}</span>
+                    )}
+                  </div>
+                  {isLoggedIn && (
+                    <button
+                      onClick={addToWatchlist}
+                      disabled={watchlistAdded || watchlistLoading}
+                      style={{ padding: '8px 14px', borderRadius: 10, background: watchlistAdded ? 'rgba(61,232,138,0.1)' : 'var(--surface2)', border: `1.5px solid ${watchlistAdded ? 'rgba(61,232,138,0.4)' : 'var(--border2)'}`, fontSize: 11, fontWeight: 600, color: watchlistAdded ? 'var(--green)' : 'var(--ink2)', cursor: watchlistAdded ? 'default' : 'pointer', flexShrink: 0 }}
+                    >
+                      {watchlistAdded ? '★ Watching' : watchlistLoading ? '…' : '☆ Watch'}
+                    </button>
+                  )}
+                </div>
+                <Link href="/search" style={{ fontSize: 12, color: 'var(--ink3)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 14 }}>← Change card</Link>
+              </div>
+            </div>
+
+            {/* Live data panel */}
+            {liveLoading && (
+              <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', padding: '32px 20px', textAlign: 'center' }}>
+                <div style={{ fontSize: 13, color: 'var(--ink3)' }}>Fetching live prices…</div>
+              </div>
+            )}
+
+            {!liveLoading && liveData && (
+              <>
+                {/* Price summary */}
+                <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', padding: '20px', marginBottom: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+                    <div>
+                      <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', display: 'block', marginBottom: 6 }}>MARKET PRICE</span>
+                      <div className="font-num" style={{ fontSize: 42, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-2px', lineHeight: 1 }}>
+                        {liveData.price > 0 ? `$${liveData.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
+                      </div>
+                      <div style={{ display: 'flex', gap: 12, marginTop: 8, flexWrap: 'wrap' }}>
+                        <span className="font-num" style={{ fontSize: 13, color: liveData.price_change_pct >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                          {liveData.price_change_pct >= 0 ? '+' : ''}{liveData.price_change_pct.toFixed(1)}% (30d)
+                        </span>
+                        {liveData.price_range_low > 0 && (
+                          <span style={{ fontSize: 12, color: 'var(--ink3)' }}>
+                            Range: ${liveData.price_range_low.toFixed(2)} – ${liveData.price_range_high.toFixed(2)}
+                          </span>
+                        )}
+                        {liveData.sales_count_30d > 0 && (
+                          <span style={{ fontSize: 12, color: 'var(--ink3)' }}>{liveData.sales_count_30d} sales (30d)</span>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', display: 'block', marginBottom: 6 }}>CARDINDEX SCORE</span>
+                      <div className="font-num" style={{ fontSize: 48, fontWeight: 800, color: scoreColor(liveData.score), letterSpacing: '-2px', lineHeight: 1 }}>{liveData.score}</div>
+                      <div style={{ fontSize: 11, color: 'var(--ink3)' }}>{liveData.score_breakdown?.label ?? ''}</div>
                     </div>
                   </div>
                 </div>
-                <Link href="/" style={{ fontSize: 12, color: 'var(--ink3)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 14 }}>← Change card</Link>
+
+                {/* Price chart */}
+                {liveData.price_history.length > 1 && (
+                  <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', padding: '20px', marginBottom: 10 }}>
+                    <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', display: 'block', marginBottom: 16 }}>PRICE HISTORY</span>
+                    <ResponsiveContainer width="100%" height={160}>
+                      <LineChart data={liveData.price_history}>
+                        <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'var(--ink3)' }} axisLine={false} tickLine={false} />
+                        <Tooltip content={<SparkTooltip />} />
+                        <Line type="monotone" dataKey="price" stroke={liveData.price_change_pct >= 0 ? '#3de88a' : '#e8524a'} strokeWidth={2} dot={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+
+                {/* Score breakdown */}
+                {liveData.score_breakdown && (
+                  <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', padding: '20px', marginBottom: 10 }}>
+                    <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', display: 'block', marginBottom: 16 }}>SCORE BREAKDOWN</span>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 32px' }}>
+                      <ScoreBar label="TREND"       value={Math.round(liveData.score_breakdown.trend / 30 * 100)}       color={scoreColor(Math.round(liveData.score_breakdown.trend / 30 * 100))} />
+                      <ScoreBar label="LIQUIDITY"   value={Math.round(liveData.score_breakdown.liquidity / 25 * 100)}   color={scoreColor(Math.round(liveData.score_breakdown.liquidity / 25 * 100))} />
+                      <ScoreBar label="CONSISTENCY" value={Math.round(liveData.score_breakdown.consistency / 25 * 100)} color={scoreColor(Math.round(liveData.score_breakdown.consistency / 25 * 100))} />
+                      <ScoreBar label="VALUE"       value={Math.round(liveData.score_breakdown.value / 20 * 100)}       color={scoreColor(Math.round(liveData.score_breakdown.value / 20 * 100))} />
+                    </div>
+                    <p style={{ fontSize: 12, color: 'var(--ink3)', marginTop: 14, lineHeight: 1.6 }}>{liveData.score_breakdown.summary}</p>
+                  </div>
+                )}
+              </>
+            )}
+
+            {!liveLoading && !liveData && (
+              <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', padding: '32px 20px', textAlign: 'center' }}>
+                <p className="font-display" style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>No price data available</p>
+                <p style={{ fontSize: 13, color: 'var(--ink2)', lineHeight: 1.6 }}>
+                  We couldn&apos;t find pricing for this card. Try a different grade or check back soon.
+                </p>
+                <Link href="/search" style={{ display: 'inline-block', marginTop: 16, padding: '10px 20px', borderRadius: 10, background: 'var(--gold)', color: '#08080f', fontWeight: 600, fontSize: 13, textDecoration: 'none' }}>
+                  Search again
+                </Link>
               </div>
-            </div>
-            <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', padding: '24px 20px', textAlign: 'center' }}>
-              <p className="font-display" style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>Full analysis coming soon</p>
-              <p style={{ fontSize: 13, color: 'var(--ink2)', lineHeight: 1.6 }}>
-                This card isn&apos;t in our analysis database yet. We&apos;re continually adding cards — check back soon.
-              </p>
-              <Link href="/#featured" style={{ display: 'inline-block', marginTop: 16, padding: '10px 20px', borderRadius: 10, background: 'var(--gold)', color: '#08080f', fontWeight: 600, fontSize: 13, textDecoration: 'none' }}>
-                Browse featured cards
-              </Link>
-            </div>
+            )}
+
           </div>
         </main>
       </>

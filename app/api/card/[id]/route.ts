@@ -10,7 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { findBestMatch, getPokétraceCard, getPriceHistory, gradeToTier, getTierPrice } from '@/lib/poketrace'
+import { findBestMatch, getPokétraceCard, getPriceHistory, gradeToTier, getTierPrice, type MatchDebug } from '@/lib/poketrace'
 import { computeScore } from '@/lib/score'
 
 function adminClient() {
@@ -61,11 +61,13 @@ export async function GET(
     return NextResponse.json({ error: 'POKETRACE_API_KEY not configured' }, { status: 503 })
   }
 
-  const matchedCard = await findBestMatch(cardName, setName, cardNumber)
-  if (!matchedCard) {
+  const matchResult = await findBestMatch(cardName, setName, cardNumber)
+  if (!matchResult) {
     if (cached) return NextResponse.json({ source: 'stale_cache', data: cached })
-    return NextResponse.json({ error: 'Card not found on Poketrace' }, { status: 404 })
+    return NextResponse.json({ error: 'Card not found on Poketrace', debug: { searched: cardName, setName, cardNumber } }, { status: 404 })
   }
+
+  const { card: matchedCard, debug: matchDebug } = matchResult
 
   // ── 3. Fetch full card pricing ────────────────────────────────────────────
   const fullCard = await getPokétraceCard(matchedCard.id)
@@ -126,6 +128,7 @@ export async function GET(
     last_fetched:      new Date().toISOString(),
     // Poketrace extras
     poketrace_id:      fullCard.id,
+    match_debug:       matchDebug,
     currency:          fullCard.currency,
     market:            fullCard.market,
     resolved_tier:     resolvedTier,

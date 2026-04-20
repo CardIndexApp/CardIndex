@@ -288,10 +288,11 @@ export default function CardPage() {
 
   // Watchlist state
   const [watchlistAdded, setWatchlistAdded] = useState(false)
+  const [watchlistItemId, setWatchlistItemId] = useState<string | null>(null)
   const [watchlistLoading, setWatchlistLoading] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
 
-  // Check auth + track recently viewed
+  // Check auth
   const [userId, setUserId] = useState<string | null>(null)
   useEffect(() => {
     createClient().auth.getUser().then(({ data }) => {
@@ -300,7 +301,26 @@ export default function CardPage() {
     })
   }, [])
 
-  // Fetch live price data
+  // Check if card is already on watchlist
+  useEffect(() => {
+    if (!userId) return
+    const grade = urlGrade ?? (card ? `PSA ${card.grade.replace('PSA ', '')}` : 'PSA 10')
+    createClient()
+      .from('watchlists')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('card_id', id)
+      .eq('grade', grade)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setWatchlistAdded(true)
+          setWatchlistItemId(data.id)
+        }
+      })
+  }, [userId, id, urlGrade, card])
+
+  // Fetch live price data — userId intentionally excluded to avoid double-fetch
   useEffect(() => {
     const cardName = urlName ?? card?.name
     const grade    = urlGrade ?? (card ? `PSA ${card.grade.replace('PSA ', '')}` : 'PSA 10')
@@ -311,33 +331,31 @@ export default function CardPage() {
     if (urlNumber) params.set('number', urlNumber)
     fetch(`/api/card/${id}?${params.toString()}`)
       .then(r => r.ok ? r.json() : null)
-      .then(json => {
-        if (json?.data) {
-          setLiveData(json.data)
-          // Track recently viewed in localStorage (no DB migration needed)
-          if (userId) {
-            try {
-              const d = json.data
-              const rvKey = `ci_rv_${userId}`
-              const stored: Array<{ card_id: string; card_name: string; grade: string; set_name: string | null; viewed_at: string }> =
-                JSON.parse(localStorage.getItem(rvKey) ?? '[]')
-              const entry = {
-                card_id: id,
-                card_name: d.card_name ?? cardName,
-                grade,
-                set_name: d.set_name ?? urlSet ?? null,
-                viewed_at: new Date().toISOString(),
-              }
-              // dedupe by card_id+grade, most recent first, cap at 20
-              const updated = [entry, ...stored.filter(x => !(x.card_id === id && x.grade === grade))].slice(0, 20)
-              localStorage.setItem(rvKey, JSON.stringify(updated))
-            } catch {}
-          }
-        }
-      })
+      .then(json => { if (json?.data) setLiveData(json.data) })
       .catch(() => {})
       .finally(() => setLiveLoading(false))
-  }, [id, urlGrade, urlName, card, userId])
+  }, [id, urlGrade, urlName, card])
+
+  // Write recently viewed to localStorage — separate from price fetch so userId is always available
+  useEffect(() => {
+    if (!liveData || !userId) return
+    try {
+      const grade  = urlGrade ?? (card ? `PSA ${card.grade.replace('PSA ', '')}` : 'PSA 10')
+      const cardName = urlName ?? card?.name ?? liveData.card_name ?? ''
+      const rvKey  = `ci_rv_${userId}`
+      const stored: Array<{ card_id: string; card_name: string; grade: string; set_name: string | null; viewed_at: string }> =
+        JSON.parse(localStorage.getItem(rvKey) ?? '[]')
+      const entry = {
+        card_id: id,
+        card_name: liveData.card_name ?? cardName,
+        grade,
+        set_name: liveData.set_name ?? urlSet ?? null,
+        viewed_at: new Date().toISOString(),
+      }
+      const updated = [entry, ...stored.filter(x => !(x.card_id === id && x.grade === grade))].slice(0, 20)
+      localStorage.setItem(rvKey, JSON.stringify(updated))
+    } catch {}
+  }, [liveData, userId])
 
   // Fetch pokemontcg.io metadata for unknown cards
   useEffect(() => {
@@ -366,12 +384,25 @@ export default function CardPage() {
     const imageUrl   = card?.imageUrl ?? liveData?.image_url ?? apiCard?.imageUrl ?? ''
     const setName    = urlSet ?? card?.set ?? apiCard?.set ?? liveData?.set_name ?? ''
     const cardNumber = urlNumber ?? card?.cardNumber ?? apiCard?.number ?? ''
-    await fetch('/api/watchlist', {
+    const res = await fetch('/api/watchlist', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ card_id: id, card_name: cardName, set_name: setName, grade, image_url: imageUrl, card_number: cardNumber }),
     })
-    setWatchlistAdded(true)
+    if (res.ok) {
+      const json = await res.json()
+      setWatchlistAdded(true)
+      setWatchlistItemId(json.item?.id ?? null)
+    }
+    setWatchlistLoading(false)
+  }
+
+  const removeFromWatchlist = async () => {
+    if (!watchlistItemId) return
+    setWatchlistLoading(true)
+    await fetch(`/api/watchlist?id=${watchlistItemId}`, { method: 'DELETE' })
+    setWatchlistAdded(false)
+    setWatchlistItemId(null)
     setWatchlistLoading(false)
   }
 
@@ -460,11 +491,11 @@ export default function CardPage() {
                   </div>
                   {isLoggedIn && (
                     <button
-                      onClick={addToWatchlist}
-                      disabled={watchlistAdded || watchlistLoading}
-                      style={{ padding: '8px 14px', borderRadius: 10, background: watchlistAdded ? 'rgba(61,232,138,0.1)' : 'var(--surface2)', border: `1.5px solid ${watchlistAdded ? 'rgba(61,232,138,0.4)' : 'var(--border2)'}`, fontSize: 11, fontWeight: 600, color: watchlistAdded ? 'var(--green)' : 'var(--ink2)', cursor: watchlistAdded ? 'default' : 'pointer', flexShrink: 0 }}
+                      onClick={watchlistAdded ? removeFromWatchlist : addToWatchlist}
+                      disabled={watchlistLoading}
+                      style={{ padding: '8px 14px', borderRadius: 10, background: watchlistAdded ? 'rgba(61,232,138,0.1)' : 'var(--surface2)', border: `1.5px solid ${watchlistAdded ? 'rgba(61,232,138,0.4)' : 'var(--border2)'}`, fontSize: 11, fontWeight: 600, color: watchlistAdded ? 'var(--green)' : 'var(--ink2)', cursor: watchlistLoading ? 'default' : 'pointer', flexShrink: 0 }}
                     >
-                      {watchlistAdded ? '★ Watching' : watchlistLoading ? '…' : '☆ Watch'}
+                      {watchlistLoading ? '…' : watchlistAdded ? '★ Watching · Remove' : '☆ Watch'}
                     </button>
                   )}
                 </div>
@@ -859,13 +890,13 @@ export default function CardPage() {
                   {isLoggedIn && (
                     <button
                       className="ci-no-print"
-                      onClick={addToWatchlist}
-                      disabled={watchlistAdded || watchlistLoading}
-                      style={{ display: 'flex', alignItems: 'center', gap: 6, background: watchlistAdded ? 'rgba(61,232,138,0.1)' : 'var(--surface2)', border: `1.5px solid ${watchlistAdded ? 'rgba(61,232,138,0.4)' : 'var(--border2)'}`, borderRadius: 10, padding: '9px 14px', fontSize: 11, fontWeight: 600, color: watchlistAdded ? 'var(--green)' : 'var(--ink2)', cursor: watchlistAdded ? 'default' : 'pointer', transition: 'all 0.2s' }}
+                      onClick={watchlistAdded ? removeFromWatchlist : addToWatchlist}
+                      disabled={watchlistLoading}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, background: watchlistAdded ? 'rgba(61,232,138,0.1)' : 'var(--surface2)', border: `1.5px solid ${watchlistAdded ? 'rgba(61,232,138,0.4)' : 'var(--border2)'}`, borderRadius: 10, padding: '9px 14px', fontSize: 11, fontWeight: 600, color: watchlistAdded ? 'var(--green)' : 'var(--ink2)', cursor: watchlistLoading ? 'default' : 'pointer', transition: 'all 0.2s' }}
                       onMouseEnter={e => { if (!watchlistAdded) { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.color = 'var(--gold)' } }}
                       onMouseLeave={e => { if (!watchlistAdded) { e.currentTarget.style.borderColor = 'var(--border2)'; e.currentTarget.style.color = 'var(--ink2)' } }}
                     >
-                      {watchlistAdded ? '★ Watching' : watchlistLoading ? '…' : '☆ Watch'}
+                      {watchlistLoading ? '…' : watchlistAdded ? '★ Watching · Remove' : '☆ Watch'}
                     </button>
                   )}
                   {/* Live data badge */}

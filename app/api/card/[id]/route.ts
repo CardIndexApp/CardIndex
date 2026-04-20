@@ -148,7 +148,7 @@ export async function GET(
         const setSlug = await getPoketraceSetSlug(setName)
         if (setSlug) {
           const variants = toPoketraceVariants(ptcgInfo.subtypes, ptcgInfo.supertypes)
-          const found = await findBySetAndNumber(setSlug, numToUse, variants)
+          const found = await findBySetAndNumber(cardName, setSlug, numToUse, variants)
           if (found) {
             matchedCard = found
             matchReason = `set_and_number:${setSlug}/${numToUse}`

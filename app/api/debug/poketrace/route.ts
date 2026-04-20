@@ -186,7 +186,7 @@ export async function GET(req: NextRequest) {
     if (setName && fullNumber) {
       const setSlug = await getPoketraceSetSlug(setName)
       if (setSlug) {
-        const found = await findBySetAndNumber(setSlug, fullNumber, variants)
+        const found = await findBySetAndNumber(data?.name ?? '', setSlug, fullNumber, variants)
         results.strategyB_setAndNumber = {
           resolvedSetSlug: setSlug,
           fullNumber,

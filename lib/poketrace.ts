@@ -295,14 +295,28 @@ export async function searchPokétraceCards(
   }
 }
 
+/** Build a Poketrace card slug: {name}-{setSlug}-{Variant}-{number-with-hyphens} */
+function buildCardSlug(cardName: string, setSlug: string, variant: string, cardNumber: string): string {
+  const nameSlug = cardName.toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .trim()
+  const numSlug = cardNumber.replace(/\//g, '-')
+  return `${nameSlug}-${setSlug}-${variant}-${numSlug}`
+}
+
 /**
- * Search cards by set slug + card number. This is the most precise lookup
- * when we have the correct Poketrace set slug (from GET /sets).
+ * Find a card using set slug + card number.
+ * Tries two approaches concurrently:
+ *   A) GET /cards?set={slug}&card_number={num}  — correct API query params
+ *   B) GET /cards/{name}-{set}-{variant}-{num}  — slug-style ID (confirmed working)
  *
- * cardNumber: Poketrace-format number e.g. "125/094"
- * variants: optional list to try; if omitted tries all valid variants then no-variant
+ * cardName: used for slug construction
+ * cardNumber: "125/094" format
  */
 export async function findBySetAndNumber(
+  cardName: string,
   setSlug: string,
   cardNumber: string,
   variants?: PoketraceVariant[]
@@ -310,16 +324,19 @@ export async function findBySetAndNumber(
   try {
     const variantsToTry = variants?.length ? variants : [...POKETRACE_VARIANTS]
 
-    // Build one search per variant + one without variant filter — fire concurrently
-    const searches: Promise<PokétraceCard | null>[] = variantsToTry.map(variant => {
-      const params = new URLSearchParams({ set: setSlug, card_number: cardNumber, variant, limit: '5' })
-      return fetch(`${BASE}/cards?${params}`, { headers: apiHeaders(), next: { revalidate: 3600 } })
-        .then(r => r.ok ? r.json() : null)
-        .then(json => (json?.data as PokétraceCard[])?.[0] ?? null)
-        .catch(() => null)
-    })
+    const searches: Promise<PokétraceCard | null>[] = []
 
-    // Also try without variant filter (catches any variant)
+    // Approach A: API query params — try each variant and no-variant
+    for (const variant of variantsToTry) {
+      const params = new URLSearchParams({ set: setSlug, card_number: cardNumber, variant, limit: '5' })
+      searches.push(
+        fetch(`${BASE}/cards?${params}`, { headers: apiHeaders(), next: { revalidate: 3600 } })
+          .then(r => r.ok ? r.json() : null)
+          .then(json => (json?.data as PokétraceCard[])?.[0] ?? null)
+          .catch(() => null)
+      )
+    }
+    // Also without variant filter
     const noVariantParams = new URLSearchParams({ set: setSlug, card_number: cardNumber, limit: '5' })
     searches.push(
       fetch(`${BASE}/cards?${noVariantParams}`, { headers: apiHeaders(), next: { revalidate: 3600 } })
@@ -327,6 +344,13 @@ export async function findBySetAndNumber(
         .then(json => (json?.data as PokétraceCard[])?.[0] ?? null)
         .catch(() => null)
     )
+
+    // Approach B: slug-style IDs — confirmed working via debug testing
+    // e.g. mega-charizard-x-ex-me02-phantasmal-flames-Holofoil-125-094
+    for (const variant of variantsToTry) {
+      const slug = buildCardSlug(cardName, setSlug, variant, cardNumber)
+      searches.push(getPokétraceCard(slug))
+    }
 
     const results = await Promise.all(searches)
     return results.find(r => r !== null) ?? null
@@ -469,17 +493,7 @@ export async function findBestMatch(
     return { card: partialSet, debug }
   }
 
-  // 4. If card number provided, try to match by number suffix
-  if (cardNumber) {
-    const numMatch = pool.find(r => r.cardNumber?.includes(cardNumber) || cardNumber.includes(r.cardNumber ?? ''))
-    if (numMatch) {
-      debug.matched = { id: numMatch.id, name: numMatch.name, set: numMatch.set.name, cardNumber: numMatch.cardNumber }
-      debug.matchReason = 'exact name + card number match'
-      return { card: numMatch, debug }
-    }
-  }
-
-  // 5. Multiple name matches → pick highest-priced (most notable card)
+  // 4. Multiple name matches → pick highest-priced (most notable card)
   if (pool.length > 1) {
     const byPrice = [...pool].sort((a, b) => getTopPrice(b) - getTopPrice(a))
     const top = byPrice[0]
@@ -488,7 +502,7 @@ export async function findBestMatch(
     return { card: top, debug }
   }
 
-  // 6. First result
+  // 5. First result
   const first = pool[0]
   debug.matched = { id: first.id, name: first.name, set: first.set.name, cardNumber: first.cardNumber }
   debug.matchReason = 'first result'

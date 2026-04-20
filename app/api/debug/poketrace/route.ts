@@ -26,12 +26,30 @@ export async function GET(req: NextRequest) {
   const setSlugParam  = searchParams.get('set') ?? ''
   const numParam      = searchParams.get('num') ?? ''
 
-  const headers = {
-    'X-API-Key': process.env.POKETRACE_API_KEY!,
-    'Content-Type': 'application/json',
+  // ── 0. Environment / health check (always runs) ────────────────────────────
+  const apiKey = process.env.POKETRACE_API_KEY
+  const results: Record<string, unknown> = {
+    env: {
+      POKETRACE_API_KEY: apiKey ? `SET (starts with ${apiKey.slice(0, 6)}...)` : 'NOT SET ❌',
+      NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ? 'SET ✓' : 'NOT SET',
+      SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SET ✓' : 'NOT SET',
+    },
   }
 
-  const results: Record<string, unknown> = {}
+  // Health check
+  try {
+    const health = await fetch('https://api.poketrace.com/v1/health', {
+      headers: { 'X-API-Key': apiKey ?? '' },
+    })
+    results.health = { status: health.status, ok: health.ok, body: await health.text() }
+  } catch (e) {
+    results.health = { error: String(e) }
+  }
+
+  const headers = {
+    'X-API-Key': apiKey ?? '',
+    'Content-Type': 'application/json',
+  }
 
   // ── 1. Name search ──────────────────────────────────────────────────────────
   if (name) {

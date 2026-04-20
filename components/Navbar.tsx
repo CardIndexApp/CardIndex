@@ -71,7 +71,12 @@ export default function Navbar() {
           ))}
 
           {user ? (
-            <div style={{ position: 'relative', marginLeft: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 8 }}>
+              <Link href="/search" style={{ fontSize: 13, padding: '7px 14px', borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border2)', color: 'var(--ink2)', textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="6.5" cy="6.5" r="4.5"/><path d="M14 14l-3-3"/></svg>
+                Search
+              </Link>
+            <div style={{ position: 'relative' }}>
               <button
                 onClick={() => setUserMenuOpen(v => !v)}
                 style={{ width: 34, height: 34, borderRadius: '50%', background: 'var(--gold2)', border: '1.5px solid var(--gold)', color: 'var(--gold)', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
@@ -85,10 +90,12 @@ export default function Navbar() {
                     <div style={{ fontSize: 12, color: 'var(--ink)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</div>
                   </div>
                   <Link href="/watchlist" onClick={() => setUserMenuOpen(false)} style={{ display: 'block', padding: '10px 16px', fontSize: 13, color: 'var(--ink2)', textDecoration: 'none' }}>My Watchlist</Link>
+                  <Link href="/account" onClick={() => setUserMenuOpen(false)} style={{ display: 'block', padding: '10px 16px', fontSize: 13, color: 'var(--ink2)', textDecoration: 'none' }}>Account settings</Link>
                   <Link href="/pricing" onClick={() => setUserMenuOpen(false)} style={{ display: 'block', padding: '10px 16px', fontSize: 13, color: 'var(--ink2)', textDecoration: 'none' }}>Upgrade plan</Link>
                   <button onClick={signOut} style={{ width: '100%', padding: '10px 16px', textAlign: 'left', fontSize: 13, color: 'var(--red)', background: 'none', border: 'none', cursor: 'pointer', borderTop: '1px solid var(--border)' }}>Sign out</button>
                 </div>
               )}
+            </div>
             </div>
           ) : (
             <>
@@ -119,6 +126,9 @@ export default function Navbar() {
           {NAV_LINKS.map(l => (
             <Link key={l.href} href={l.href} onClick={() => setOpen(false)} style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)', textDecoration: 'none', padding: '10px 0', borderBottom: '1px solid var(--border)', letterSpacing: '-0.5px' }}>{l.label}</Link>
           ))}
+          {user && (
+            <Link href="/search" onClick={() => setOpen(false)} style={{ fontSize: 22, fontWeight: 700, color: 'var(--gold)', textDecoration: 'none', padding: '10px 0', borderBottom: '1px solid var(--border)', letterSpacing: '-0.5px' }}>Search</Link>
+          )}
         </div>
 
         {user ? (

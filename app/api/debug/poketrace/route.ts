@@ -94,20 +94,34 @@ export async function GET(req: NextRequest) {
   if (directId) {
     const r = await fetch(`${BASE}/cards/${encodeURIComponent(directId)}`, { headers })
     const json = await r.json()
+    const d = json.data
+    // Summarise each price tier to avg/low/high/saleCount/trend/confidence/avg7d/avg30d
+    const summariseTiers = (src: Record<string, Record<string, unknown>> | undefined) =>
+      src ? Object.fromEntries(Object.entries(src).map(([tier, tp]) => [tier, {
+        avg: tp.avg, low: tp.low, high: tp.high,
+        saleCount: tp.saleCount, trend: tp.trend, confidence: tp.confidence,
+        avg1d: tp.avg1d, avg7d: tp.avg7d, avg30d: tp.avg30d,
+      }])) : {}
     results.directFetch = {
       status: r.status,
-      id: json.data?.id,
-      name: json.data?.name,
-      set: json.data?.set?.name,
-      setSlug: json.data?.set?.slug,
-      cardNumber: json.data?.cardNumber,
-      variant: json.data?.variant,
-      topPrice: json.data?.topPrice,
-      refs: json.data?.refs,
-      availableTiers: [
-        ...Object.keys(json.data?.prices?.ebay ?? {}),
-        ...Object.keys(json.data?.prices?.tcgplayer ?? {}),
-      ],
+      id: d?.id,
+      name: d?.name,
+      set: d?.set?.name,
+      setSlug: d?.set?.slug,
+      cardNumber: d?.cardNumber,
+      variant: d?.variant,
+      topPrice: d?.topPrice,
+      totalSaleCount: d?.totalSaleCount,
+      hasGraded: d?.hasGraded,
+      lastUpdated: d?.lastUpdated,
+      refs: d?.refs,
+      gradedOptions: d?.gradedOptions,
+      conditionOptions: d?.conditionOptions,
+      prices: {
+        ebay: summariseTiers(d?.prices?.ebay),
+        tcgplayer: summariseTiers(d?.prices?.tcgplayer),
+        cardmarket: d?.prices?.cardmarket ? { AGGREGATED: d.prices.cardmarket.AGGREGATED } : null,
+      },
     }
   }
 

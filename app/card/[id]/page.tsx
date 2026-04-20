@@ -127,6 +127,57 @@ interface LiveData {
   sales_count_30d: number
   resolved_tier?: string
   currency?: string
+  // Moving average fields
+  avg1d?: number | null
+  avg7d?: number | null
+  avg30d?: number | null
+  // Trend direction from Poketrace
+  trend?: 'up' | 'down' | 'stable' | null
+  confidence?: 'high' | 'medium' | 'low' | null
+  // Full grade/condition price ladder
+  all_tier_prices?: Record<string, { avg: number; source: string; saleCount?: number }> | null
+  total_sale_count?: number | null
+  last_updated_pt?: string | null
+}
+
+const TIER_LABELS: Record<string, string> = {
+  PSA_10: 'PSA 10', PSA_9: 'PSA 9', PSA_8: 'PSA 8', PSA_7: 'PSA 7',
+  PSA_6: 'PSA 6', PSA_5: 'PSA 5', PSA_4: 'PSA 4', PSA_3: 'PSA 3',
+  PSA_2: 'PSA 2', PSA_1: 'PSA 1',
+  BGS_10: 'BGS 10', BGS_9_5: 'BGS 9.5', BGS_9: 'BGS 9', BGS_8_5: 'BGS 8.5',
+  CGC_10: 'CGC 10', CGC_9_5: 'CGC 9.5', CGC_9: 'CGC 9',
+  NEAR_MINT: 'Near Mint', LIGHTLY_PLAYED: 'Lightly Played',
+  MODERATELY_PLAYED: 'Mod. Played', HEAVILY_PLAYED: 'Heavily Played', DAMAGED: 'Damaged',
+  AGGREGATED: 'CardMarket Avg',
+}
+
+const RAW_TIER_KEYS = new Set(['NEAR_MINT', 'LIGHTLY_PLAYED', 'MODERATELY_PLAYED', 'HEAVILY_PLAYED', 'DAMAGED'])
+
+function fmtPrice(n: number, currency?: string) {
+  if (currency && currency !== 'USD') {
+    return `${currency} ${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  }
+  return `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+function TrendBadge({ trend, confidence }: { trend?: string | null; confidence?: string | null }) {
+  if (!trend) return null
+  const icon = trend === 'up' ? '↑' : trend === 'down' ? '↓' : '→'
+  const color = trend === 'up' ? '#3de88a' : trend === 'down' ? '#e8524a' : '#e8c547'
+  const bg = trend === 'up' ? 'rgba(61,232,138,0.08)' : trend === 'down' ? 'rgba(232,82,74,0.08)' : 'rgba(232,197,71,0.08)'
+  const border = trend === 'up' ? 'rgba(61,232,138,0.2)' : trend === 'down' ? 'rgba(232,82,74,0.2)' : 'rgba(232,197,71,0.2)'
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 99, background: bg, border: `1px solid ${border}`, fontSize: 11, fontWeight: 700, color }}>
+        {icon} {trend.charAt(0).toUpperCase() + trend.slice(1)}
+      </span>
+      {confidence && (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '3px 9px', borderRadius: 99, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', fontSize: 10, color: 'var(--ink3)' }}>
+          {confidence === 'high' ? '●●●' : confidence === 'medium' ? '●●○' : '●○○'} {confidence}
+        </span>
+      )}
+    </div>
+  )
 }
 
 function gradeToPoketraceTier(grade: string): string {
@@ -330,20 +381,23 @@ export default function CardPage() {
                     <div>
                       <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', display: 'block', marginBottom: 6 }}>MARKET PRICE</span>
                       <div className="font-num" style={{ fontSize: 42, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-2px', lineHeight: 1 }}>
-                        {liveData.price > 0 ? `$${liveData.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
+                        {liveData.price > 0 ? fmtPrice(liveData.price, liveData.currency) : '—'}
                       </div>
-                      <div style={{ display: 'flex', gap: 12, marginTop: 8, flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', gap: 12, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                         <span className="font-num" style={{ fontSize: 13, color: liveData.price_change_pct >= 0 ? 'var(--green)' : 'var(--red)' }}>
                           {liveData.price_change_pct >= 0 ? '+' : ''}{liveData.price_change_pct.toFixed(1)}% (30d)
                         </span>
                         {liveData.price_range_low > 0 && (
                           <span style={{ fontSize: 12, color: 'var(--ink3)' }}>
-                            Range: ${liveData.price_range_low.toFixed(2)} – ${liveData.price_range_high.toFixed(2)}
+                            Range: {fmtPrice(liveData.price_range_low, liveData.currency)} – {fmtPrice(liveData.price_range_high, liveData.currency)}
                           </span>
                         )}
                         {liveData.sales_count_30d > 0 && (
                           <span style={{ fontSize: 12, color: 'var(--ink3)' }}>{liveData.sales_count_30d} sales (30d)</span>
                         )}
+                      </div>
+                      <div style={{ marginTop: 10 }}>
+                        <TrendBadge trend={liveData.trend} confidence={liveData.confidence} />
                       </div>
                     </div>
                     <div style={{ textAlign: 'center' }}>
@@ -352,6 +406,24 @@ export default function CardPage() {
                       <div style={{ fontSize: 11, color: 'var(--ink3)' }}>{liveData.score_breakdown?.label ?? ''}</div>
                     </div>
                   </div>
+
+                  {/* Moving averages row */}
+                  {(liveData.avg1d != null || liveData.avg7d != null || liveData.avg30d != null) && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+                      {[
+                        { label: '1D AVG', value: liveData.avg1d },
+                        { label: '7D AVG', value: liveData.avg7d },
+                        { label: '30D AVG', value: liveData.avg30d },
+                      ].map(({ label, value }) => (
+                        <div key={label} style={{ textAlign: 'center', padding: '10px 8px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6 }}>{label}</div>
+                          <div className="font-num" style={{ fontSize: 15, fontWeight: 700, color: value != null ? 'var(--ink)' : 'var(--ink3)' }}>
+                            {value != null ? fmtPrice(value, liveData.currency) : '—'}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Price chart */}
@@ -381,6 +453,88 @@ export default function CardPage() {
                     <p style={{ fontSize: 12, color: 'var(--ink3)', marginTop: 14, lineHeight: 1.6 }}>{liveData.score_breakdown.summary}</p>
                   </div>
                 )}
+
+                {/* Grade / condition price ladder */}
+                {liveData.all_tier_prices && Object.keys(liveData.all_tier_prices).length > 0 && (() => {
+                  const tiers = liveData.all_tier_prices!
+                  const resolvedTier = liveData.resolved_tier ?? ''
+                  const gradedEntries = Object.entries(tiers)
+                    .filter(([k]) => !RAW_TIER_KEYS.has(k) && k !== 'AGGREGATED')
+                    .sort(([, a], [, b]) => b.avg - a.avg)
+                  const rawEntries = Object.entries(tiers)
+                    .filter(([k]) => RAW_TIER_KEYS.has(k))
+                    .sort(([, a], [, b]) => b.avg - a.avg)
+                  const marketEntry = tiers['AGGREGATED']
+
+                  const TierRow = ({ tierKey, data }: { tierKey: string; data: { avg: number; source: string; saleCount?: number } }) => {
+                    const isActive = tierKey === resolvedTier
+                    return (
+                      <div style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '10px 12px', borderRadius: 8, marginBottom: 4,
+                        background: isActive ? 'rgba(232,197,71,0.07)' : 'transparent',
+                        border: isActive ? '1px solid rgba(232,197,71,0.25)' : '1px solid transparent',
+                        transition: 'background 0.15s',
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontSize: 12, color: isActive ? 'var(--gold)' : 'var(--ink2)', fontWeight: isActive ? 700 : 400 }}>
+                            {TIER_LABELS[tierKey] ?? tierKey.replace(/_/g, ' ')}
+                          </span>
+                          {isActive && (
+                            <span style={{ fontSize: 9, letterSpacing: 1, padding: '2px 6px', borderRadius: 4, background: 'rgba(232,197,71,0.15)', color: 'var(--gold)', fontWeight: 600 }}>CURRENT</span>
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          {data.saleCount != null && data.saleCount > 0 && (
+                            <span style={{ fontSize: 10, color: 'var(--ink3)' }}>{data.saleCount} sales</span>
+                          )}
+                          <span style={{ fontSize: 10, color: 'var(--ink3)', opacity: 0.7 }}>{data.source}</span>
+                          <span className="font-num" style={{ fontSize: 14, fontWeight: 700, color: isActive ? 'var(--gold)' : 'var(--ink)', minWidth: 72, textAlign: 'right' }}>
+                            {fmtPrice(data.avg, liveData.currency)}
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  }
+
+                  return (
+                    <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', padding: '20px', marginBottom: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                        <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)' }}>PRICE LADDER</span>
+                        {liveData.total_sale_count != null && liveData.total_sale_count > 0 && (
+                          <span style={{ fontSize: 10, color: 'var(--ink3)' }}>{liveData.total_sale_count.toLocaleString()} total sales</span>
+                        )}
+                      </div>
+
+                      {gradedEntries.length > 0 && (
+                        <>
+                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8, paddingLeft: 4 }}>GRADED</div>
+                          {gradedEntries.map(([k, v]) => <TierRow key={k} tierKey={k} data={v} />)}
+                        </>
+                      )}
+
+                      {rawEntries.length > 0 && (
+                        <>
+                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginTop: gradedEntries.length > 0 ? 14 : 0, marginBottom: 8, paddingLeft: 4 }}>RAW / UNGRADED</div>
+                          {rawEntries.map(([k, v]) => <TierRow key={k} tierKey={k} data={v} />)}
+                        </>
+                      )}
+
+                      {marketEntry && (
+                        <>
+                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginTop: 14, marginBottom: 8, paddingLeft: 4 }}>MARKET</div>
+                          <TierRow tierKey="AGGREGATED" data={marketEntry} />
+                        </>
+                      )}
+
+                      {liveData.last_updated_pt && (
+                        <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)', fontSize: 10, color: 'var(--ink3)' }}>
+                          Data updated {new Date(liveData.last_updated_pt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
               </>
             )}
 

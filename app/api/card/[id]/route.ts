@@ -203,31 +203,59 @@ export async function GET(
     price: h.avg,
   }))
 
-  // ── 8. Build cache record ─────────────────────────────────────────────────
+  // ── 8. Build all-tier price ladder ───────────────────────────────────────
+  // eBay = graded tiers; TCGPlayer = raw condition tiers; prefer TCGPlayer for raw
+  const RAW_TIERS = ['NEAR_MINT', 'LIGHTLY_PLAYED', 'MODERATELY_PLAYED', 'HEAVILY_PLAYED', 'DAMAGED']
+  const allTierPrices: Record<string, { avg: number; source: string; saleCount?: number }> = {}
+
+  for (const [t, tp] of Object.entries(fullCard.prices.ebay ?? {})) {
+    allTierPrices[t] = { avg: tp.avg, source: 'eBay', saleCount: tp.saleCount }
+  }
+  for (const [t, tp] of Object.entries(fullCard.prices.tcgplayer ?? {})) {
+    // Prefer TCGPlayer for raw conditions; keep eBay for graded
+    if (RAW_TIERS.includes(t) || !allTierPrices[t]) {
+      allTierPrices[t] = { avg: tp.avg, source: 'TCGPlayer', saleCount: tp.saleCount }
+    }
+  }
+  if (fullCard.prices.cardmarket?.AGGREGATED) {
+    allTierPrices['AGGREGATED'] = {
+      avg: fullCard.prices.cardmarket.AGGREGATED.avg,
+      source: 'CardMarket',
+      saleCount: fullCard.prices.cardmarket.AGGREGATED.saleCount,
+    }
+  }
+
+  // ── 9. Build cache record ─────────────────────────────────────────────────
   const record = {
-    cache_key:        cacheKey,
-    card_id:          id,
-    card_name:        cardName,
-    set_name:         setName || fullCard.set.name,
+    cache_key:           cacheKey,
+    card_id:             id,
+    card_name:           cardName,
+    set_name:            setName || fullCard.set.name,
     grade,
-    image_url:        fullCard.image,
-    price:            tierPrice.avg,
-    price_change_pct: Math.round(priceChangePct * 10) / 10,
-    price_range_low:  tierPrice.low  ?? tierPrice.avg,
-    price_range_high: tierPrice.high ?? tierPrice.avg,
-    price_history:    priceHistory,
-    ebay_listings:    [],
-    score:            scoreBreakdown.total,
-    score_breakdown:  scoreBreakdown,
-    sales_count_30d:  tierPrice.saleCount ?? 0,
-    last_fetched:     new Date().toISOString(),
-    poketrace_id:     fullCard.id,
-    match_reason:     matchReason,
-    currency:         fullCard.currency,
-    market:           fullCard.market,
-    resolved_tier:    resolvedTier,
-    avg7d:            tierPrice.avg7d  ?? null,
-    avg30d:           tierPrice.avg30d ?? null,
+    image_url:           fullCard.image,
+    price:               tierPrice.avg,
+    price_change_pct:    Math.round(priceChangePct * 10) / 10,
+    price_range_low:     tierPrice.low  ?? tierPrice.avg,
+    price_range_high:    tierPrice.high ?? tierPrice.avg,
+    price_history:       priceHistory,
+    ebay_listings:       [],
+    score:               scoreBreakdown.total,
+    score_breakdown:     scoreBreakdown,
+    sales_count_30d:     tierPrice.saleCount ?? 0,
+    last_fetched:        new Date().toISOString(),
+    poketrace_id:        fullCard.id,
+    match_reason:        matchReason,
+    currency:            fullCard.currency,
+    market:              fullCard.market,
+    resolved_tier:       resolvedTier,
+    avg1d:               tierPrice.avg1d  ?? null,
+    avg7d:               tierPrice.avg7d  ?? null,
+    avg30d:              tierPrice.avg30d ?? null,
+    trend:               tierPrice.trend  ?? null,
+    confidence:          tierPrice.confidence ?? null,
+    all_tier_prices:     allTierPrices,
+    total_sale_count:    fullCard.totalSaleCount ?? null,
+    last_updated_pt:     fullCard.lastUpdated ?? null,
   }
 
   // ── 9. Upsert cache + log ─────────────────────────────────────────────────

@@ -74,16 +74,18 @@ export async function GET(
     return NextResponse.json({ error: 'Failed to fetch card pricing' }, { status: 502 })
   }
 
-  const tier      = gradeToTier(grade)
-  const tierPrice = getTierPrice(fullCard, tier)
+  const tier   = gradeToTier(grade)
+  const result = getTierPrice(fullCard, tier)
 
-  if (!tierPrice) {
+  if (!result) {
     if (cached) return NextResponse.json({ source: 'stale_cache', data: cached })
     return NextResponse.json({ error: `No price data for ${grade}` }, { status: 404 })
   }
 
+  const { tierPrice, resolvedTier } = result
+
   // ── 4. Fetch price history ────────────────────────────────────────────────
-  const history = await getPriceHistory(matchedCard.id, tier, '30d')
+  const history = await getPriceHistory(matchedCard.id, resolvedTier, '30d')
 
   // ── 5. Compute score ──────────────────────────────────────────────────────
   const scoreBreakdown = computeScore(tierPrice, history)
@@ -126,6 +128,7 @@ export async function GET(
     poketrace_id:      fullCard.id,
     currency:          fullCard.currency,
     market:            fullCard.market,
+    resolved_tier:     resolvedTier,
     avg7d:             tierPrice.avg7d ?? null,
     avg30d:            tierPrice.avg30d ?? null,
   }

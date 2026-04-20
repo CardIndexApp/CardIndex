@@ -125,6 +125,13 @@ interface LiveData {
   score: number
   score_breakdown: { total: number; trend: number; liquidity: number; consistency: number; value: number; label: string; summary: string }
   sales_count_30d: number
+  resolved_tier?: string
+  currency?: string
+}
+
+function gradeToPoketraceTier(grade: string): string {
+  if (!grade || grade === 'Raw' || grade === 'Ungraded') return 'NEAR_MINT'
+  return grade.trim().replace(/\s+/g, '_').replace(/\./g, '_')
 }
 
 export default function CardPage() {
@@ -310,6 +317,13 @@ export default function CardPage() {
 
             {!liveLoading && liveData && (
               <>
+                {/* Tier notice — shown when we fell back to a different tier */}
+                {liveData.resolved_tier && liveData.resolved_tier !== gradeToPoketraceTier(urlGrade ?? 'Raw') && (
+                  <div style={{ borderRadius: 10, padding: '10px 14px', background: 'rgba(232,197,71,0.06)', border: '1px solid rgba(232,197,71,0.2)', fontSize: 12, color: 'var(--gold)', marginBottom: 10 }}>
+                    ⚠ No {urlGrade} data found — showing <strong>{liveData.resolved_tier.replace(/_/g, ' ')}</strong> prices instead
+                  </div>
+                )}
+
                 {/* Price summary */}
                 <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', padding: '20px', marginBottom: 10 }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>

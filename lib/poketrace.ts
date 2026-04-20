@@ -78,27 +78,81 @@ export function gradeToTier(grade: string): string {
   return grade.trim().replace(/\s+/g, '_').replace(/\./g, '_')
 }
 
+const RAW_TIERS = ['NEAR_MINT', 'MINT', 'LIGHTLY_PLAYED', 'MODERATELY_PLAYED', 'HEAVILY_PLAYED', 'DAMAGED']
+
 /**
  * Pick the best TierPrice from a card's prices object for a given tier.
- * For graded tiers → use ebay source.
- * For raw/condition tiers → prefer tcgplayer, fall back to ebay.
+ * Falls back through related tiers if exact match is missing.
+ * Returns { tierPrice, resolvedTier } so callers know what was actually used.
  */
-export function getTierPrice(card: PokétraceCard, tier: string): TierPrice | null {
-  const rawTiers = ['NEAR_MINT', 'MINT', 'LIGHTLY_PLAYED', 'MODERATELY_PLAYED', 'HEAVILY_PLAYED', 'DAMAGED']
-  const isRaw = rawTiers.includes(tier)
+export function getTierPrice(
+  card: PokétraceCard,
+  tier: string
+): { tierPrice: TierPrice; resolvedTier: string } | null {
+  const isRaw = RAW_TIERS.includes(tier)
 
   if (card.market === 'EU') {
-    return card.prices.cardmarket?.AGGREGATED ?? null
+    const tp = card.prices.cardmarket?.AGGREGATED
+    return tp ? { tierPrice: tp, resolvedTier: 'AGGREGATED' } : null
   }
 
   if (isRaw) {
-    const tcp = card.prices.tcgplayer?.[tier]
-    if (tcp) return tcp
-    return card.prices.ebay?.[tier] ?? null
+    // Try exact tier first across both sources
+    const exact = card.prices.tcgplayer?.[tier] ?? card.prices.ebay?.[tier]
+    if (exact) return { tierPrice: exact, resolvedTier: tier }
+
+    // Fall back through other raw conditions
+    for (const fallback of RAW_TIERS) {
+      if (fallback === tier) continue
+      const fb = card.prices.tcgplayer?.[fallback] ?? card.prices.ebay?.[fallback]
+      if (fb) return { tierPrice: fb, resolvedTier: fallback }
+    }
+
+    // No raw data — return best graded price if available
+    const gradedTier = getBestGradedTier(card)
+    if (gradedTier) return gradedTier
+
+    return null
   }
 
   // Graded — use eBay
-  return card.prices.ebay?.[tier] ?? null
+  const exact = card.prices.ebay?.[tier]
+  if (exact) return { tierPrice: exact, resolvedTier: tier }
+
+  // Graded tier not available — return another graded tier or best raw
+  const gradedTier = getBestGradedTier(card)
+  if (gradedTier) return gradedTier
+
+  // Last resort — any raw tier
+  for (const raw of RAW_TIERS) {
+    const rb = card.prices.tcgplayer?.[raw] ?? card.prices.ebay?.[raw]
+    if (rb) return { tierPrice: rb, resolvedTier: raw }
+  }
+
+  return null
+}
+
+/** Return the highest-quality graded tier available on eBay */
+function getBestGradedTier(card: PokétraceCard): { tierPrice: TierPrice; resolvedTier: string } | null {
+  const preferred = ['PSA_10', 'PSA_9', 'CGC_10', 'CGC_9_5', 'BGS_10', 'BGS_9_5', 'PSA_8', 'CGC_9', 'PSA_7']
+  const ebay = card.prices.ebay ?? {}
+  for (const t of preferred) {
+    if (ebay[t]) return { tierPrice: ebay[t], resolvedTier: t }
+  }
+  // Any graded tier
+  for (const t of Object.keys(ebay)) {
+    if (!RAW_TIERS.includes(t)) return { tierPrice: ebay[t], resolvedTier: t }
+  }
+  return null
+}
+
+/** Return all available tier keys for a card (for UI display) */
+export function getAvailableTiers(card: PokétraceCard): string[] {
+  const tiers = new Set<string>()
+  Object.keys(card.prices.ebay ?? {}).forEach(t => tiers.add(t))
+  Object.keys(card.prices.tcgplayer ?? {}).forEach(t => tiers.add(t))
+  if (card.prices.cardmarket?.AGGREGATED) tiers.add('AGGREGATED')
+  return Array.from(tiers)
 }
 
 // ── API calls ─────────────────────────────────────────────────────────────────

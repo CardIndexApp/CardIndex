@@ -157,6 +157,132 @@ export function getAvailableTiers(card: PokétraceCard): string[] {
 
 // ── API calls ─────────────────────────────────────────────────────────────────
 
+// ── Set lookup ────────────────────────────────────────────────────────────────
+
+interface PoketraceSet {
+  id: string
+  slug: string
+  name: string
+  game?: string
+}
+
+/**
+ * Look up the Poketrace set slug for a given set name.
+ * Poketrace set slugs include a code prefix (e.g. "me02-phantasmal-flames")
+ * that pokemontcg.io doesn't have ("Phantasmal Flames").
+ */
+export async function getPoketraceSetSlug(setName: string): Promise<string | null> {
+  try {
+    const params = new URLSearchParams({ search: setName, limit: '10' })
+    const res = await fetch(`${BASE}/sets?${params}`, {
+      headers: apiHeaders(),
+      next: { revalidate: 86400 }, // set slugs don't change
+    })
+    if (!res.ok) return null
+    const json = await res.json()
+    const sets = (json.data as PoketraceSet[]) ?? []
+    if (!sets.length) return null
+
+    const nameLower = setName.toLowerCase()
+    const setSlug   = setNameToSlug(setName)
+
+    // 1. Exact name match
+    const exact = sets.find(s => s.name.toLowerCase() === nameLower)
+    if (exact) return exact.slug
+
+    // 2. Slug of Poketrace set contains or matches our slug
+    // e.g. "me02-phantasmal-flames" contains "phantasmal-flames"
+    const slugMatch = sets.find(s => {
+      const sl = s.slug.toLowerCase()
+      return sl === setSlug || sl.includes(setSlug) || setSlug.includes(sl)
+    })
+    if (slugMatch) return slugMatch.slug
+
+    // 3. Partial name match
+    const partial = sets.find(s =>
+      s.name.toLowerCase().includes(nameLower) || nameLower.includes(s.name.toLowerCase())
+    )
+    if (partial) return partial.slug
+
+    return null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Convert a card name + set slug + variant + number into a Poketrace card ID (slug).
+ * Format: {name-slug}-{set-slug}-{Variant}-{number-hyphenated}
+ * e.g. mega-charizard-x-ex-me02-phantasmal-flames-Holofoil-125-094
+ *
+ * The variant must be a valid Poketrace variant string (e.g. "Holofoil", "Normal").
+ * The number uses the Poketrace format with "/" replaced by "-" (e.g. "125/094" → "125-094").
+ *
+ * Returns null if any required part is missing.
+ */
+function buildCardSlug(
+  cardName: string,
+  setSlug: string,
+  variant: string,
+  poketraceNumber: string // "125/094" format
+): string {
+  const nameSlug = cardName.toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .trim()
+
+  const numberSlug = poketraceNumber.replace(/\//g, '-')
+
+  return `${nameSlug}-${setSlug}-${variant}-${numberSlug}`
+}
+
+/** Common Poketrace variant strings to try when we don't know the exact one */
+const VARIANT_CANDIDATES = [
+  'Holofoil', 'Normal', 'ReverseHolofoil', 'Foil',
+  'HoloRare', 'FullArt', 'AlternateArt', 'SecretRare',
+]
+
+/**
+ * Try to find a Poketrace card by constructing its slug from the set lookup +
+ * pokemontcg.io number.  Returns the first variant slug that resolves.
+ *
+ * ptcgNumber: bare card number from pokemontcg.io (e.g. "125")
+ * setTotalCards: total cards in the set (e.g. 94), used to build "125/094"
+ */
+export async function findByConstructedSlug(
+  cardName: string,
+  setName: string,
+  ptcgNumber: string,
+  variants?: string[]
+): Promise<PokétraceCard | null> {
+  const setSlug = await getPoketraceSetSlug(setName)
+  if (!setSlug) return null
+
+  // Try with the number as-is (may already be "125/094") then with padding
+  const numberCandidates: string[] = []
+  if (ptcgNumber.includes('/')) {
+    numberCandidates.push(ptcgNumber)
+  } else {
+    // We don't know the total — try common padding or just the bare number
+    numberCandidates.push(ptcgNumber) // "125" → "125" slug
+    // Also try zero-padded in case Poketrace uses it
+    numberCandidates.push(ptcgNumber.padStart(3, '0'))
+  }
+
+  const variantsToTry = variants?.length ? variants : VARIANT_CANDIDATES
+
+  for (const num of numberCandidates) {
+    for (const variant of variantsToTry) {
+      const slug = buildCardSlug(cardName, setSlug, variant, num)
+      const card = await getPokétraceCard(slug)
+      if (card) return card
+    }
+  }
+
+  return null
+}
+
 /**
  * Search cards by name only. Card number is NOT sent to the API because
  * pokemontcg.io uses bare numbers ("125") while Poketrace may use

@@ -6,12 +6,13 @@
  *
  * Matching strategy (in order):
  *   1. Fetch pokemontcg.io card → extract TCGPlayer ID → query Poketrace by tcgplayer_ids
- *   2. Fall back to name + set name search with slug matching
+ *   2. Construct Poketrace card slug via set slug lookup + number
+ *   3. Fall back to name + set name search with slug matching
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { searchByTcgPlayerId, findBestMatch, getPokétraceCard, getPriceHistory, gradeToTier, getTierPrice } from '@/lib/poketrace'
+import { searchByTcgPlayerId, findBestMatch, findByConstructedSlug, getPokétraceCard, getPriceHistory, gradeToTier, getTierPrice } from '@/lib/poketrace'
 import { computeScore } from '@/lib/score'
 
 function adminClient() {
@@ -23,21 +24,74 @@ function adminClient() {
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
 
-/** Fetch pokemontcg.io card and extract the TCGPlayer product ID */
-async function getTcgPlayerIdFromPokemonTcg(pokemontcgId: string): Promise<string | null> {
+interface PokemonTcgCardInfo {
+  tcgplayerId: string | null
+  /** Full Poketrace-style number e.g. "125/094" */
+  fullNumber: string | null
+  /** pokemontcg.io subtypes that map to Poketrace variant names */
+  variants: string[]
+}
+
+/** Map pokemontcg.io subtypes/supertypes to Poketrace variant strings */
+function toPoketraceVariants(subtypes: string[] = [], supertypes: string[] = []): string[] {
+  const out: string[] = []
+  const all = [...subtypes.map(s => s.toLowerCase()), ...supertypes.map(s => s.toLowerCase())]
+
+  if (all.some(s => s.includes('holo rare') || s === 'holo')) out.push('Holofoil')
+  if (all.some(s => s.includes('reverse holo'))) out.push('ReverseHolofoil')
+  if (all.some(s => s.includes('full art'))) out.push('FullArt')
+  if (all.some(s => s.includes('alternate art'))) out.push('AlternateArt')
+  if (all.some(s => s.includes('secret'))) out.push('SecretRare')
+  if (all.some(s => s.includes('normal') || s === 'common' || s === 'uncommon')) out.push('Normal')
+  if (all.some(s => s.includes('ex') || s.includes('gx') || s.includes('v '))) {
+    if (!out.includes('Holofoil')) out.push('Holofoil')
+  }
+
+  // Always include common variants as fallback
+  if (!out.includes('Holofoil')) out.push('Holofoil')
+  if (!out.includes('Normal')) out.push('Normal')
+
+  return out
+}
+
+/** Fetch pokemontcg.io card, extract TCGPlayer product ID + card number info */
+async function getPokemonTcgCardInfo(pokemontcgId: string): Promise<PokemonTcgCardInfo> {
   try {
     const res = await fetch(`https://api.pokemontcg.io/v2/cards/${pokemontcgId}`, {
       next: { revalidate: 86400 }, // cache for 24h — this data doesn't change
     })
-    if (!res.ok) return null
+    if (!res.ok) return { tcgplayerId: null, fullNumber: null, variants: [] }
     const json = await res.json()
-    const url: string | undefined = json.data?.tcgplayer?.url
-    if (!url) return null
-    // URL format: https://www.tcgplayer.com/product/123456/...
-    const match = url.match(/\/product\/(\d+)/)
-    return match ? match[1] : null
+    const data = json.data
+
+    // Extract TCGPlayer ID
+    const url: string | undefined = data?.tcgplayer?.url
+    const tcgMatch = url?.match(/\/product\/(\d+)/)
+    const tcgplayerId = tcgMatch ? tcgMatch[1] : null
+
+    // Build full card number "number/printedTotal" (e.g. "125/094")
+    const number = data?.number as string | undefined
+    const printedTotal = data?.set?.printedTotal as number | undefined
+    const totalCards = data?.set?.total as number | undefined
+    let fullNumber: string | null = null
+    if (number) {
+      const total = printedTotal ?? totalCards
+      if (total) {
+        // Pad both sides to match typical Poketrace format
+        const numPart = number.replace(/[^0-9]/g, '')
+        const totalStr = String(total).padStart(3, '0')
+        const numStr = numPart.padStart(3, '0')
+        fullNumber = `${numStr}/${totalStr}`
+      } else {
+        fullNumber = number
+      }
+    }
+
+    const variants = toPoketraceVariants(data?.subtypes ?? [], data?.supertypes ?? [])
+
+    return { tcgplayerId, fullNumber, variants }
   } catch {
-    return null
+    return { tcgplayerId: null, fullNumber: null, variants: [] }
   }
 }
 
@@ -50,6 +104,7 @@ export async function GET(
   const cardName   = req.nextUrl.searchParams.get('name')   ?? ''
   const setName    = req.nextUrl.searchParams.get('set')    ?? ''
   const cardNumber = req.nextUrl.searchParams.get('number') ?? ''
+  const bustCache  = req.nextUrl.searchParams.get('bust_cache') === '1'
 
   if (!cardName) {
     return NextResponse.json({ error: 'name param required' }, { status: 400 })
@@ -65,7 +120,7 @@ export async function GET(
     .eq('cache_key', cacheKey)
     .single()
 
-  if (cached) {
+  if (cached && !bustCache) {
     const age = Date.now() - new Date(cached.last_fetched).getTime()
     if (age < CACHE_TTL_MS) {
       await supabase.from('search_log').insert({ card_id: id, card_name: cardName, grade })
@@ -79,20 +134,35 @@ export async function GET(
   }
 
   // ── 2. Find the card on Poketrace ─────────────────────────────────────────
-  // Strategy A: TCGPlayer ID lookup (most accurate)
+  // Fetch pokemontcg.io card info once — used by multiple strategies
+  const ptcgInfo = await getPokemonTcgCardInfo(id)
+
+  // Strategy A: TCGPlayer ID lookup (most accurate — exact foreign-key match)
   let matchedCard = null
   let matchReason = ''
 
-  const tcgplayerId = await getTcgPlayerIdFromPokemonTcg(id)
-  if (tcgplayerId) {
-    const found = await searchByTcgPlayerId(tcgplayerId)
+  if (ptcgInfo.tcgplayerId) {
+    const found = await searchByTcgPlayerId(ptcgInfo.tcgplayerId)
     if (found) {
       matchedCard = found
-      matchReason = `tcgplayer_id:${tcgplayerId}`
+      matchReason = `tcgplayer_id:${ptcgInfo.tcgplayerId}`
     }
   }
 
-  // Strategy B: Name + set name search
+  // Strategy B: Construct Poketrace slug via set slug lookup + card number
+  // Handles cases where TCGPlayer ID isn't available or doesn't match
+  if (!matchedCard && setName) {
+    const numToUse = ptcgInfo.fullNumber ?? cardNumber
+    if (numToUse) {
+      const found = await findByConstructedSlug(cardName, setName, numToUse, ptcgInfo.variants)
+      if (found) {
+        matchedCard = found
+        matchReason = `constructed_slug:${found.id}`
+      }
+    }
+  }
+
+  // Strategy C: Name + set name search (fuzzy fallback)
   if (!matchedCard) {
     const matchResult = await findBestMatch(cardName, setName, cardNumber)
     if (matchResult) {
@@ -105,7 +175,7 @@ export async function GET(
     if (cached) return NextResponse.json({ source: 'stale_cache', data: cached })
     return NextResponse.json({
       error: 'Card not found on Poketrace',
-      debug: { searched: cardName, setName, cardNumber, tcgplayerId }
+      debug: { searched: cardName, setName, cardNumber, tcgplayerId: ptcgInfo.tcgplayerId, fullNumber: ptcgInfo.fullNumber }
     }, { status: 404 })
   }
 

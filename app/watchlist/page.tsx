@@ -32,6 +32,7 @@ interface PriceData {
 interface EnrichedItem extends WatchlistItem {
   priceData: PriceData | null
   priceLoading: boolean
+  priceError: string | null
 }
 
 type SortKey = 'price' | 'change' | 'score' | 'name'
@@ -179,6 +180,7 @@ export default function Watchlist() {
           ...item,
           priceData: null,
           priceLoading: true,
+          priceError: null,
         }))
         setItems(enriched)
         setListLoading(false)
@@ -188,22 +190,25 @@ export default function Watchlist() {
           const params = new URLSearchParams({ grade: item.grade, name: item.card_name })
           if (item.set_name) params.set('set', item.set_name)
           fetch(`/api/card/${item.card_id}?${params.toString()}`)
-            .then(r => r.json())
-            .then(({ data }: { data: PriceData }) => {
-              setItems(prev =>
-                prev.map(p =>
-                  p.id === item.id
-                    ? { ...p, priceData: data ?? null, priceLoading: false }
-                    : p
-                )
-              )
+            .then(async r => {
+              const json = await r.json().catch(() => null)
+              if (!r.ok || !json?.data) {
+                const errMsg = json?.error ?? `HTTP ${r.status}`
+                console.error('[Watchlist] price fetch failed', item.card_id, errMsg, json)
+                setItems(prev => prev.map(p =>
+                  p.id === item.id ? { ...p, priceLoading: false, priceError: errMsg } : p
+                ))
+                return
+              }
+              setItems(prev => prev.map(p =>
+                p.id === item.id ? { ...p, priceData: json.data, priceLoading: false, priceError: null } : p
+              ))
             })
-            .catch(() => {
-              setItems(prev =>
-                prev.map(p =>
-                  p.id === item.id ? { ...p, priceLoading: false } : p
-                )
-              )
+            .catch(err => {
+              console.error('[Watchlist] fetch threw', item.card_id, err)
+              setItems(prev => prev.map(p =>
+                p.id === item.id ? { ...p, priceLoading: false, priceError: 'Network error' } : p
+              ))
             })
         })
       })
@@ -402,6 +407,8 @@ export default function Watchlist() {
                           <div className="font-num" style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', lineHeight: 1 }}>
                             ${pd.price.toLocaleString()}
                           </div>
+                        ) : item.priceError ? (
+                          <span style={{ fontSize: 10, color: 'var(--red)', opacity: 0.7 }} title={item.priceError}>Error</span>
                         ) : (
                           <span style={{ fontSize: 11, color: 'var(--ink3)' }}>—</span>
                         )}

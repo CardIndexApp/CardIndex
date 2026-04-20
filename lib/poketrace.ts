@@ -186,6 +186,26 @@ export async function searchPokétraceCards(
 }
 
 /**
+ * Look up a Poketrace card directly by TCGPlayer product ID.
+ * This is the most accurate matching method — bypasses name/set ambiguity.
+ */
+export async function searchByTcgPlayerId(tcgplayerId: string): Promise<PokétraceCard | null> {
+  try {
+    const params = new URLSearchParams({ tcgplayer_ids: tcgplayerId, limit: '5' })
+    const res = await fetch(`${BASE}/cards?${params}`, {
+      headers: apiHeaders(),
+      next: { revalidate: 3600 },
+    })
+    if (!res.ok) return null
+    const json = await res.json()
+    const results = (json.data as PokétraceCard[]) ?? []
+    return results[0] ?? null
+  } catch {
+    return null
+  }
+}
+
+/**
  * Get a single card with full pricing by Poketrace card ID.
  */
 export async function getPokétraceCard(id: string): Promise<PokétraceCard | null> {

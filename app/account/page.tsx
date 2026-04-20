@@ -9,6 +9,7 @@ type Tier = 'free' | 'standard' | 'pro'
 
 interface Profile {
   email: string
+  username: string | null
   tier: Tier
   created_at: string
   stripe_customer_id: string | null
@@ -34,6 +35,11 @@ export default function AccountPage() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
 
+  // Username change
+  const [usernameInput, setUsernameInput] = useState('')
+  const [unLoading, setUnLoading] = useState(false)
+  const [unMsg, setUnMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+
   // Password change
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -56,11 +62,28 @@ export default function AccountPage() {
         .eq('id', user.id)
         .single()
 
-      setProfile(data ?? { email: user.email ?? '', tier: 'free', created_at: user.created_at, stripe_customer_id: null, subscription_status: null })
+      const prof = data ?? { email: user.email ?? '', username: null, tier: 'free', created_at: user.created_at, stripe_customer_id: null, subscription_status: null }
+      setProfile(prof)
+      setUsernameInput(prof.username ?? '')
       setLoading(false)
     }
     load()
   }, [])
+
+  const handleUsernameChange = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setUnMsg(null)
+    const val = usernameInput.trim()
+    if (!val) { setUnMsg({ type: 'err', text: 'Username cannot be empty.' }); return }
+    if (val.length < 3) { setUnMsg({ type: 'err', text: 'Username must be at least 3 characters.' }); return }
+    setUnLoading(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { error } = await supabase.from('profiles').update({ username: val }).eq('id', user.id)
+    setUnLoading(false)
+    if (error) setUnMsg({ type: 'err', text: error.message })
+    else { setUnMsg({ type: 'ok', text: 'Username updated.' }); setProfile(p => p ? { ...p, username: val } : p) }
+  }
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -128,7 +151,7 @@ export default function AccountPage() {
               </span>
             </div>
             <div style={S.cardBody}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 24 }}>
                 <div>
                   <span style={S.label}>EMAIL</span>
                   <div style={{ fontSize: 14, color: 'var(--ink)', fontWeight: 500 }}>{profile?.email}</div>
@@ -137,6 +160,33 @@ export default function AccountPage() {
                   <span style={S.label}>MEMBER SINCE</span>
                   <div style={{ fontSize: 14, color: 'var(--ink)', fontWeight: 500 }}>{memberSince}</div>
                 </div>
+              </div>
+              <div style={{ paddingTop: 20, borderTop: '1px solid var(--border)' }}>
+                <form onSubmit={handleUsernameChange} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div>
+                    <label style={S.label}>USERNAME</label>
+                    <input
+                      type="text"
+                      value={usernameInput}
+                      placeholder="e.g. charizard_collector"
+                      minLength={3}
+                      onChange={e => { setUsernameInput(e.target.value.replace(/\s/g, '')); setUnMsg(null) }}
+                      style={S.input}
+                      onFocus={e => (e.currentTarget.style.borderColor = 'var(--gold)')}
+                      onBlur={e => (e.currentTarget.style.borderColor = 'var(--border2)')}
+                    />
+                  </div>
+                  {unMsg && (
+                    <div style={{ borderRadius: 8, padding: '10px 14px', background: unMsg.type === 'ok' ? 'rgba(61,232,138,0.08)' : 'rgba(232,82,74,0.08)', border: `1px solid ${unMsg.type === 'ok' ? 'rgba(61,232,138,0.2)' : 'rgba(232,82,74,0.25)'}`, fontSize: 13, color: unMsg.type === 'ok' ? 'var(--green)' : 'var(--red)' }}>
+                      {unMsg.text}
+                    </div>
+                  )}
+                  <div>
+                    <button type="submit" disabled={unLoading} style={{ ...S.btn, background: 'var(--gold)', color: '#080810', opacity: unLoading ? 0.6 : 1 }}>
+                      {unLoading ? 'Saving…' : 'Save username'}
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
           </div>

@@ -1,6 +1,11 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+// Pages that logged-in users should not see
+const AUTH_REDIRECT_PATHS = ['/', '/pricing']
+// Pages that require login
+const PROTECTED_PATHS = ['/dashboard', '/watchlist', '/account']
+
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
@@ -21,12 +26,22 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // Refresh the session — keeps the user logged in
-  await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
+  const path = request.nextUrl.pathname
+
+  // Logged-in users → send to dashboard instead of public pages
+  if (user && AUTH_REDIRECT_PATHS.includes(path)) {
+    return NextResponse.redirect(new URL('/dashboard', request.url))
+  }
+
+  // Unauthenticated users → send to home if they try protected pages
+  if (!user && PROTECTED_PATHS.includes(path)) {
+    return NextResponse.redirect(new URL('/', request.url))
+  }
 
   return supabaseResponse
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/img).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/img|api/).*)'],
 }

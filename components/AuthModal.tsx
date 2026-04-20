@@ -9,6 +9,7 @@ export default function AuthModal({ onClose, defaultTab = 'signup' }: Props) {
   const [tab, setTab] = useState<Tab>(defaultTab)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [username, setUsername] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -22,10 +23,15 @@ export default function AuthModal({ onClose, defaultTab = 'signup' }: Props) {
     setSuccess('')
 
     if (tab === 'signup') {
+      if (!username.trim()) { setError('Please choose a username.'); setLoading(false); return }
+      if (username.trim().length < 3) { setError('Username must be at least 3 characters.'); setLoading(false); return }
       const { error } = await supabase.auth.signUp({
         email,
         password,
-        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          data: { username: username.trim() },
+        },
       })
       if (error) setError(error.message)
       else setSuccess('Check your email to confirm your account, then sign in.')
@@ -74,6 +80,17 @@ export default function AuthModal({ onClose, defaultTab = 'signup' }: Props) {
           </div>
         ) : (
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {tab === 'signup' && (
+              <div>
+                <label style={{ display: 'block', fontSize: 10, color: 'var(--ink3)', letterSpacing: 1.5, marginBottom: 7 }}>USERNAME</label>
+                <input type="text" required value={username} placeholder="e.g. charizard_collector"
+                  minLength={3}
+                  onChange={e => setUsername(e.target.value.replace(/\s/g, ''))}
+                  style={{ width: '100%', padding: '11px 14px', borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 14, outline: 'none' }}
+                  onFocus={e => (e.currentTarget.style.borderColor = 'var(--gold)')}
+                  onBlur={e => (e.currentTarget.style.borderColor = 'var(--border2)')} />
+              </div>
+            )}
             {[
               { label: 'EMAIL', type: 'email', value: email, onChange: setEmail, placeholder: 'you@example.com' },
               { label: 'PASSWORD', type: 'password', value: password, onChange: setPassword, placeholder: tab === 'signup' ? 'Min. 8 characters' : '••••••••' },

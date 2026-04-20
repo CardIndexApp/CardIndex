@@ -15,14 +15,24 @@ export default function Navbar() {
   const [authModal, setAuthModal] = useState<'signin' | 'signup' | null>(null)
   const [open, setOpen] = useState(false)
   const [user, setUser] = useState<User | null>(null)
+  const [username, setUsername] = useState<string | null>(null)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
 
   const supabase = createClient()
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data.user))
+    async function loadUser() {
+      const { data: { user } } = await supabase.auth.getUser()
+      setUser(user)
+      if (user) {
+        const { data } = await supabase.from('profiles').select('username').eq('id', user.id).single()
+        setUsername(data?.username ?? null)
+      }
+    }
+    loadUser()
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
       setUser(session?.user ?? null)
+      if (!session?.user) setUsername(null)
     })
     return () => subscription.unsubscribe()
   }, [])
@@ -44,7 +54,8 @@ export default function Navbar() {
     window.location.href = '/'
   }
 
-  const initials = user?.email?.slice(0, 2).toUpperCase() ?? '?'
+  const displayName = username ?? user?.email?.split('@')[0] ?? ''
+  const initials = displayName.slice(0, 2).toUpperCase() || '?'
 
   return (
     <>
@@ -57,7 +68,7 @@ export default function Navbar() {
         backdropFilter: 'blur(12px)',
       }}>
         {/* Logo */}
-        <Link href="/" onClick={() => setOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
+        <Link href={user ? '/dashboard' : '/'} onClick={() => setOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
           <span className="font-display" style={{ fontSize: 18, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px' }}>
             Card<span style={{ color: 'var(--gold)' }}>Index</span>
           </span>
@@ -86,8 +97,8 @@ export default function Navbar() {
               {userMenuOpen && (
                 <div style={{ position: 'absolute', right: 0, top: 42, width: 200, borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden', boxShadow: '0 16px 40px rgba(0,0,0,0.5)' }}>
                   <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
-                    <div style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 2 }}>Signed in as</div>
-                    <div style={{ fontSize: 12, color: 'var(--ink)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</div>
+                    <div style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 700, marginBottom: 2 }}>{displayName}</div>
+                    <div style={{ fontSize: 11, color: 'var(--ink3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</div>
                   </div>
                   <Link href="/watchlist" onClick={() => setUserMenuOpen(false)} style={{ display: 'block', padding: '10px 16px', fontSize: 13, color: 'var(--ink2)', textDecoration: 'none' }}>My Watchlist</Link>
                   <Link href="/account" onClick={() => setUserMenuOpen(false)} style={{ display: 'block', padding: '10px 16px', fontSize: 13, color: 'var(--ink2)', textDecoration: 'none' }}>Account settings</Link>
@@ -134,8 +145,8 @@ export default function Navbar() {
         {user ? (
           <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ padding: '12px 16px', borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border)' }}>
-              <div style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 2 }}>Signed in as</div>
-              <div style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 600 }}>{user.email}</div>
+              <div style={{ fontSize: 14, color: 'var(--ink)', fontWeight: 700, marginBottom: 2 }}>{displayName}</div>
+              <div style={{ fontSize: 12, color: 'var(--ink3)' }}>{user.email}</div>
             </div>
             <button onClick={signOut} style={{ width: '100%', padding: 14, borderRadius: 12, background: 'rgba(232,82,74,0.1)', border: '1px solid rgba(232,82,74,0.3)', color: 'var(--red)', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Sign out</button>
           </div>

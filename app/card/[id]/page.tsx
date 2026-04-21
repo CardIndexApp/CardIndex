@@ -321,8 +321,8 @@ export default function CardPage() {
       })
   }, [userId, id, urlGrade, card])
 
-  // Fetch live price data — userId intentionally excluded to avoid double-fetch
-  useEffect(() => {
+  // Stable fetch function — used by initial load and retry button
+  const fetchLiveData = useCallback((bustCache = false) => {
     const cardName = urlName ?? card?.name
     const grade    = urlGrade ?? (card ? `PSA ${card.grade.replace('PSA ', '')}` : 'PSA 10')
     if (!cardName) return
@@ -331,14 +331,15 @@ export default function CardPage() {
     const params = new URLSearchParams({ grade, name: cardName })
     if (urlSet)    params.set('set', urlSet)
     if (urlNumber) params.set('number', urlNumber)
+    if (bustCache) params.set('bust_cache', '1')
     fetch(`/api/card/${id}?${params.toString()}`)
       .then(async r => {
         const json = await r.json().catch(() => null)
         if (json?.data) {
           setLiveData(json.data)
         } else {
-          const raw = json?.error ?? 'Unable to load price data'
-          const msg = raw === 'Card not found on Poketrace' ? 'This card isn\'t in the pricing database yet'
+          const raw: string = json?.error ?? 'Unable to load price data'
+          const msg = raw === 'Card not found on Poketrace' ? "This card isn't in the pricing database yet"
             : raw.startsWith('No price data') ? `No ${grade} sales data available`
             : raw === 'POKETRACE_API_KEY not configured' ? 'Pricing service unavailable'
             : raw
@@ -347,7 +348,13 @@ export default function CardPage() {
       })
       .catch(() => setLiveError('Network error — please try again'))
       .finally(() => setLiveLoading(false))
-  }, [id, urlGrade, urlName, card])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, urlGrade, urlName, urlSet, urlNumber, card])
+
+  // Fetch live price data — userId intentionally excluded to avoid double-fetch
+  useEffect(() => {
+    fetchLiveData()
+  }, [fetchLiveData])
 
   // Write recently viewed to localStorage — separate from price fetch so userId is always available
   useEffect(() => {
@@ -534,32 +541,7 @@ export default function CardPage() {
                     </div>
                   </div>
                   <button
-                    onClick={() => {
-                      const cardName = urlName ?? card?.name
-                      const grade    = urlGrade ?? (card ? `PSA ${card.grade.replace('PSA ', '')}` : 'PSA 10')
-                      if (!cardName) return
-                      setLiveLoading(true)
-                      setLiveError(null)
-                      const params = new URLSearchParams({ grade, name: cardName, bust_cache: '1' })
-                      if (urlSet)    params.set('set', urlSet)
-                      if (urlNumber) params.set('number', urlNumber)
-                      fetch(`/api/card/${id}?${params.toString()}`)
-                        .then(async r => {
-                          const json = await r.json().catch(() => null)
-                          if (json?.data) {
-                            setLiveData(json.data)
-                          } else {
-                            const raw = json?.error ?? 'Unable to load price data'
-                            const msg = raw === 'Card not found on Poketrace' ? 'This card isn\'t in the pricing database yet'
-                              : raw.startsWith('No price data') ? `No ${grade} sales data available`
-                              : raw === 'POKETRACE_API_KEY not configured' ? 'Pricing service unavailable'
-                              : raw
-                            setLiveError(msg)
-                          }
-                        })
-                        .catch(() => setLiveError('Network error — please try again'))
-                        .finally(() => setLiveLoading(false))
-                    }}
+                    onClick={() => fetchLiveData(true)}
                     style={{ padding: '7px 14px', borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border2)', fontSize: 11, color: 'var(--ink2)', cursor: 'pointer', flexShrink: 0 }}
                   >
                     ↺ Retry

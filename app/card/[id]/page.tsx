@@ -345,6 +345,9 @@ export default function CardPage() {
           const msg = raw === 'Card not found on Poketrace' ? "This card isn't in the pricing database yet"
             : raw.startsWith('No price data') ? `No ${grade} sales data available`
             : raw === 'POKETRACE_API_KEY not configured' ? 'Pricing service unavailable'
+            : raw.includes('authentication failed') ? 'Pricing service unavailable — please try again later'
+            : raw.includes('rate limit') ? 'Too many requests — please wait a moment and retry'
+            : raw.startsWith('Pricing service error') ? 'Pricing service temporarily unavailable'
             : raw
           setLiveError(msg)
           if (json?.debug) setLiveDebug(json.debug)
@@ -1070,11 +1073,24 @@ export default function CardPage() {
                       {watchlistLoading ? '…' : watchlistAdded ? '★ Watching · Remove' : '☆ Watch'}
                     </button>
                   )}
-                  {/* Live data badge */}
+                  {/* Live data badge + force refresh */}
                   {liveData && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 9, color: 'var(--green)', letterSpacing: 1, padding: '4px 8px', borderRadius: 6, background: 'rgba(61,232,138,0.07)', border: '1px solid rgba(61,232,138,0.15)' }}>
-                      <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--green)', display: 'inline-block' }} />
-                      LIVE DATA
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 9, color: 'var(--green)', letterSpacing: 1, padding: '4px 8px', borderRadius: 6, background: 'rgba(61,232,138,0.07)', border: '1px solid rgba(61,232,138,0.15)' }}>
+                        <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--green)', display: 'inline-block' }} />
+                        LIVE DATA
+                      </div>
+                      <button
+                        onClick={() => {
+                          setLiveData(null)
+                          // Delete Supabase cache entry then re-fetch live
+                          const grade = urlGrade ?? (card ? `PSA ${card.grade.replace('PSA ', '')}` : 'PSA 10')
+                          fetch(`/api/cache?id=${encodeURIComponent(id)}&grade=${encodeURIComponent(grade)}`, { method: 'DELETE' })
+                            .finally(() => fetchLiveData(true))
+                        }}
+                        title="Force refresh prices"
+                        style={{ padding: '3px 7px', borderRadius: 6, background: 'transparent', border: '1px solid var(--border2)', fontSize: 10, color: 'var(--ink3)', cursor: 'pointer', lineHeight: 1 }}
+                      >↺</button>
                     </div>
                   )}
                   {liveLoading && (

@@ -22,8 +22,16 @@ import {
   gradeToTier,
   getTierPrice,
   toPoketraceVariants,
+  PoketraceApiError,
 } from '@/lib/poketrace'
 import { computeScore } from '@/lib/score'
+
+/** Map a Poketrace HTTP error status to a user-readable message */
+function poketraceApiMessage(status: number): string {
+  if (status === 401 || status === 403) return 'Pricing service authentication failed — please contact support'
+  if (status === 429) return 'Pricing service rate limit reached — please try again in a moment'
+  return `Pricing service error (${status}) — please try again`
+}
 
 function adminClient() {
   return createClient(
@@ -132,10 +140,22 @@ export async function GET(
   }
 
   // ── 2. Fetch pokemontcg.io info + Poketrace set slug in parallel ──────────
-  const [ptcgInfo, poketraceSetSlug] = await Promise.all([
+  const [ptcgInfoResult, slugResult] = await Promise.allSettled([
     getPokemonTcgCardInfo(id),
     setName ? getPoketraceSetSlug(setName) : Promise.resolve(null),
   ])
+
+  // If the set slug lookup threw a PoketraceApiError, surface it immediately
+  if (slugResult.status === 'rejected') {
+    const err = slugResult.reason
+    if (err instanceof PoketraceApiError) {
+      if (cached) return NextResponse.json({ source: 'stale_cache', data: cached })
+      return NextResponse.json({ error: poketraceApiMessage(err.status) }, { status: 503 })
+    }
+  }
+
+  const ptcgInfo       = ptcgInfoResult.status === 'fulfilled' ? ptcgInfoResult.value : { tcgplayerId: null, fullNumber: null, bareNumber: null, subtypes: [], supertypes: [], imageUrl: null }
+  const poketraceSetSlug = slugResult.status === 'fulfilled' ? slugResult.value : null
 
   const variants = toPoketraceVariants(ptcgInfo.subtypes, ptcgInfo.supertypes)
 
@@ -143,40 +163,39 @@ export async function GET(
   let matchReason = ''
   const tried: string[] = []
 
-  // ── Strategy A: TCGPlayer ID (most precise) ───────────────────────────────
-  if (ptcgInfo.tcgplayerId) {
-    tried.push(`tcgplayer_id:${ptcgInfo.tcgplayerId}`)
-    const found = await searchByTcgPlayerId(ptcgInfo.tcgplayerId)
-    if (found) {
-      matchedCard = found
-      matchReason = `tcgplayer_id:${ptcgInfo.tcgplayerId}`
-    }
-  }
-
-  // ── Strategy B: Set slug + card number (deterministic) ────────────────────
-  if (!matchedCard && poketraceSetSlug) {
-    // Try both the full padded number ("004/102") and the bare number ("4")
-    const numbersToTry = [
-      ptcgInfo.fullNumber,
-      ptcgInfo.bareNumber,
-      cardNumber || null,
-    ].filter((n, i, a): n is string => !!n && a.indexOf(n) === i)
-
-    for (const num of numbersToTry) {
-      tried.push(`set_slug:${poketraceSetSlug}+number:${num}`)
-      const found = await findBySetAndNumber(cardName, poketraceSetSlug, num, variants)
+  try {
+    // ── Strategy A: TCGPlayer ID (most precise) ─────────────────────────────
+    if (ptcgInfo.tcgplayerId) {
+      tried.push(`tcgplayer_id:${ptcgInfo.tcgplayerId}`)
+      const found = await searchByTcgPlayerId(ptcgInfo.tcgplayerId)
       if (found) {
         matchedCard = found
-        matchReason = `set_slug:${poketraceSetSlug}+number:${num}`
-        break
+        matchReason = `tcgplayer_id:${ptcgInfo.tcgplayerId}`
       }
     }
-  }
 
-  // ── Strategy C: Name search with set/number filtering (fuzzy fallback) ────
-  if (!matchedCard) {
-    tried.push(`name_search:${cardName}`)
-    try {
+    // ── Strategy B: Set slug + card number (deterministic) ──────────────────
+    if (!matchedCard && poketraceSetSlug) {
+      const numbersToTry = [
+        ptcgInfo.fullNumber,
+        ptcgInfo.bareNumber,
+        cardNumber || null,
+      ].filter((n, i, a): n is string => !!n && a.indexOf(n) === i)
+
+      for (const num of numbersToTry) {
+        tried.push(`set_slug:${poketraceSetSlug}+number:${num}`)
+        const found = await findBySetAndNumber(cardName, poketraceSetSlug, num, variants)
+        if (found) {
+          matchedCard = found
+          matchReason = `set_slug:${poketraceSetSlug}+number:${num}`
+          break
+        }
+      }
+    }
+
+    // ── Strategy C: Name search with set/number filtering (fuzzy fallback) ──
+    if (!matchedCard) {
+      tried.push(`name_search:${cardName}`)
       const matchResult = await findBestMatch(
         cardName,
         setName,
@@ -187,9 +206,15 @@ export async function GET(
         matchedCard = matchResult.card
         matchReason = matchResult.debug.matchReason
       }
-    } catch {
-      // fall through to not-found
     }
+  } catch (err) {
+    // A PoketraceApiError from any strategy means the API itself failed (401/403/429/5xx)
+    // — not that the card is missing. Return a specific error so the client knows to retry.
+    if (err instanceof PoketraceApiError) {
+      if (cached) return NextResponse.json({ source: 'stale_cache', data: cached })
+      return NextResponse.json({ error: poketraceApiMessage(err.status) }, { status: 503 })
+    }
+    // Unknown error — fall through to not-found
   }
 
   if (!matchedCard) {
@@ -209,7 +234,16 @@ export async function GET(
   }
 
   // ── 3. Fetch full card pricing ────────────────────────────────────────────
-  const fullCard = await getPokétraceCard(matchedCard.id)
+  let fullCard
+  try {
+    fullCard = await getPokétraceCard(matchedCard.id)
+  } catch (err) {
+    if (err instanceof PoketraceApiError) {
+      if (cached) return NextResponse.json({ source: 'stale_cache', data: cached })
+      return NextResponse.json({ error: poketraceApiMessage(err.status) }, { status: 503 })
+    }
+    fullCard = null
+  }
   if (!fullCard) {
     if (cached) return NextResponse.json({ source: 'stale_cache', data: cached })
     return NextResponse.json({ error: 'Failed to fetch card pricing', debug: { matchedCard: matchedCard.id, matchReason } }, { status: 502 })

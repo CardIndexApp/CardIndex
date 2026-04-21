@@ -14,6 +14,29 @@ function apiHeaders(): Record<string, string> {
   }
 }
 
+// ── API Error class ───────────────────────────────────────────────────────────
+
+/**
+ * Thrown when the Poketrace API returns a non-success HTTP status that
+ * indicates a problem with the request or service (not just "card not found").
+ * Callers should distinguish this from a null/empty result (card not found).
+ */
+export class PoketraceApiError extends Error {
+  constructor(public readonly status: number, url: string) {
+    super(`Poketrace API error ${status} at ${url}`)
+    this.name = 'PoketraceApiError'
+  }
+}
+
+/**
+ * Throws PoketraceApiError for HTTP statuses that indicate API-level failure.
+ * 404 is NOT thrown — it means "card/set not found" which is a valid result.
+ */
+function assertOkOrNotFound(res: Response): void {
+  if (res.ok || res.status === 404) return
+  throw new PoketraceApiError(res.status, res.url)
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface TierPrice {
@@ -190,6 +213,7 @@ export async function getPoketraceSetSlug(setName: string): Promise<string | nul
       headers: apiHeaders(),
       cache: 'no-store', // don't cache nulls — new sets get indexed regularly
     })
+    assertOkOrNotFound(res)
     if (!res.ok) return null
     const json = await res.json()
     const sets = (json.data as PoketraceSet[]) ?? []
@@ -217,7 +241,8 @@ export async function getPoketraceSetSlug(setName: string): Promise<string | nul
     if (partial) return partial.slug
 
     return null
-  } catch {
+  } catch (err) {
+    if (err instanceof PoketraceApiError) throw err
     return null
   }
 }
@@ -278,21 +303,19 @@ export async function searchPokétraceCards(
   name: string,
   options: { limit?: number } = {}
 ): Promise<PokétraceCard[]> {
-  try {
-    const params = new URLSearchParams({
-      search: name,
-      limit: String(options.limit ?? 50),
-    })
-    const res = await fetch(`${BASE}/cards?${params}`, {
-      headers: apiHeaders(),
-      cache: 'no-store',
-    })
-    if (!res.ok) return []
-    const json = await res.json()
-    return (json.data as PokétraceCard[]) ?? []
-  } catch {
-    return []
-  }
+  const params = new URLSearchParams({
+    search: name,
+    limit: String(options.limit ?? 50),
+  })
+  const res = await fetch(`${BASE}/cards?${params}`, {
+    headers: apiHeaders(),
+    cache: 'no-store',
+  })
+  // Throws PoketraceApiError for 401/403/429/5xx — callers must handle
+  assertOkOrNotFound(res)
+  if (!res.ok) return []
+  const json = await res.json()
+  return (json.data as PokétraceCard[]) ?? []
 }
 
 /** Build a Poketrace card slug: {name}-{setSlug}-{Variant}-{number-with-hyphens} */
@@ -331,18 +354,18 @@ export async function findBySetAndNumber(
       const params = new URLSearchParams({ set: setSlug, card_number: cardNumber, variant, limit: '5' })
       searches.push(
         fetch(`${BASE}/cards?${params}`, { headers: apiHeaders(), cache: 'no-store' })
-          .then(r => r.ok ? r.json() : null)
+          .then(r => { assertOkOrNotFound(r); return r.ok ? r.json() : null })
           .then(json => (json?.data as PokétraceCard[])?.[0] ?? null)
-          .catch(() => null)
+          .catch(err => { if (err instanceof PoketraceApiError) throw err; return null })
       )
     }
     // Also without variant filter
     const noVariantParams = new URLSearchParams({ set: setSlug, card_number: cardNumber, limit: '5' })
     searches.push(
       fetch(`${BASE}/cards?${noVariantParams}`, { headers: apiHeaders(), cache: 'no-store' })
-        .then(r => r.ok ? r.json() : null)
+        .then(r => { assertOkOrNotFound(r); return r.ok ? r.json() : null })
         .then(json => (json?.data as PokétraceCard[])?.[0] ?? null)
-        .catch(() => null)
+        .catch(err => { if (err instanceof PoketraceApiError) throw err; return null })
     )
 
     // Approach B: slug-style IDs — confirmed working via debug testing
@@ -354,7 +377,8 @@ export async function findBySetAndNumber(
 
     const results = await Promise.all(searches)
     return results.find(r => r !== null) ?? null
-  } catch {
+  } catch (err) {
+    if (err instanceof PoketraceApiError) throw err
     return null
   }
 }
@@ -364,36 +388,32 @@ export async function findBySetAndNumber(
  * This is the most accurate matching method — bypasses name/set ambiguity.
  */
 export async function searchByTcgPlayerId(tcgplayerId: string): Promise<PokétraceCard | null> {
-  try {
-    const params = new URLSearchParams({ tcgplayer_ids: tcgplayerId, limit: '5' })
-    const res = await fetch(`${BASE}/cards?${params}`, {
-      headers: apiHeaders(),
-      cache: 'no-store',
-    })
-    if (!res.ok) return null
-    const json = await res.json()
-    const results = (json.data as PokétraceCard[]) ?? []
-    return results[0] ?? null
-  } catch {
-    return null
-  }
+  const params = new URLSearchParams({ tcgplayer_ids: tcgplayerId, limit: '5' })
+  const res = await fetch(`${BASE}/cards?${params}`, {
+    headers: apiHeaders(),
+    cache: 'no-store',
+  })
+  // Throws PoketraceApiError for 401/403/429/5xx
+  assertOkOrNotFound(res)
+  if (!res.ok) return null
+  const json = await res.json()
+  const results = (json.data as PokétraceCard[]) ?? []
+  return results[0] ?? null
 }
 
 /**
  * Get a single card with full pricing by Poketrace card UUID.
  */
 export async function getPokétraceCard(id: string): Promise<PokétraceCard | null> {
-  try {
-    const res = await fetch(`${BASE}/cards/${encodeURIComponent(id)}`, {
-      headers: apiHeaders(),
-      next: { revalidate: 0 }, // always fetch fresh pricing
-    })
-    if (!res.ok) return null
-    const json = await res.json()
-    return (json.data as PokétraceCard) ?? null
-  } catch {
-    return null
-  }
+  const res = await fetch(`${BASE}/cards/${encodeURIComponent(id)}`, {
+    headers: apiHeaders(),
+    next: { revalidate: 0 }, // always fetch fresh pricing
+  })
+  // Throws PoketraceApiError for 401/403/429/5xx
+  assertOkOrNotFound(res)
+  if (!res.ok) return null
+  const json = await res.json()
+  return (json.data as PokétraceCard) ?? null
 }
 
 /**
@@ -499,6 +519,7 @@ export async function findBestMatch(
   let results: PokétraceCard[] = []
   let searchedWith = cardName
 
+  // searchPokétraceCards throws PoketraceApiError on 401/403/429/5xx — let it propagate
   for (const variant of variants) {
     const r = await searchPokétraceCards(variant, { limit: 50 })
     if (r.length) {

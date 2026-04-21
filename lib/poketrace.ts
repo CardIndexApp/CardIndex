@@ -188,7 +188,7 @@ export async function getPoketraceSetSlug(setName: string): Promise<string | nul
     const params = new URLSearchParams({ search: setName, limit: '10' })
     const res = await fetch(`${BASE}/sets?${params}`, {
       headers: apiHeaders(),
-      next: { revalidate: 86400 }, // set slugs don't change
+      next: { revalidate: 86400 },
     })
     if (!res.ok) return null
     const json = await res.json()
@@ -285,7 +285,7 @@ export async function searchPokétraceCards(
     })
     const res = await fetch(`${BASE}/cards?${params}`, {
       headers: apiHeaders(),
-      next: { revalidate: 3600 },
+      cache: 'no-store',
     })
     if (!res.ok) return []
     const json = await res.json()
@@ -330,7 +330,7 @@ export async function findBySetAndNumber(
     for (const variant of variantsToTry) {
       const params = new URLSearchParams({ set: setSlug, card_number: cardNumber, variant, limit: '5' })
       searches.push(
-        fetch(`${BASE}/cards?${params}`, { headers: apiHeaders(), next: { revalidate: 3600 } })
+        fetch(`${BASE}/cards?${params}`, { headers: apiHeaders(), cache: 'no-store' })
           .then(r => r.ok ? r.json() : null)
           .then(json => (json?.data as PokétraceCard[])?.[0] ?? null)
           .catch(() => null)
@@ -339,7 +339,7 @@ export async function findBySetAndNumber(
     // Also without variant filter
     const noVariantParams = new URLSearchParams({ set: setSlug, card_number: cardNumber, limit: '5' })
     searches.push(
-      fetch(`${BASE}/cards?${noVariantParams}`, { headers: apiHeaders(), next: { revalidate: 3600 } })
+      fetch(`${BASE}/cards?${noVariantParams}`, { headers: apiHeaders(), cache: 'no-store' })
         .then(r => r.ok ? r.json() : null)
         .then(json => (json?.data as PokétraceCard[])?.[0] ?? null)
         .catch(() => null)
@@ -368,7 +368,7 @@ export async function searchByTcgPlayerId(tcgplayerId: string): Promise<Pokétra
     const params = new URLSearchParams({ tcgplayer_ids: tcgplayerId, limit: '5' })
     const res = await fetch(`${BASE}/cards?${params}`, {
       headers: apiHeaders(),
-      next: { revalidate: 3600 },
+      cache: 'no-store',
     })
     if (!res.ok) return null
     const json = await res.json()

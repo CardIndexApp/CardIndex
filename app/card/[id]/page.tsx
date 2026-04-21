@@ -285,6 +285,7 @@ export default function CardPage() {
   // Live price data from /api/card/[id]
   const [liveData, setLiveData] = useState<LiveData | null>(null)
   const [liveLoading, setLiveLoading] = useState(false)
+  const [liveError, setLiveError] = useState<string | null>(null)
 
   // Watchlist state
   const [watchlistAdded, setWatchlistAdded] = useState(false)
@@ -326,13 +327,25 @@ export default function CardPage() {
     const grade    = urlGrade ?? (card ? `PSA ${card.grade.replace('PSA ', '')}` : 'PSA 10')
     if (!cardName) return
     setLiveLoading(true)
+    setLiveError(null)
     const params = new URLSearchParams({ grade, name: cardName })
     if (urlSet)    params.set('set', urlSet)
     if (urlNumber) params.set('number', urlNumber)
     fetch(`/api/card/${id}?${params.toString()}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(json => { if (json?.data) setLiveData(json.data) })
-      .catch(() => {})
+      .then(async r => {
+        const json = await r.json().catch(() => null)
+        if (json?.data) {
+          setLiveData(json.data)
+        } else {
+          const raw = json?.error ?? 'Unable to load price data'
+          const msg = raw === 'Card not found on Poketrace' ? 'This card isn\'t in the pricing database yet'
+            : raw.startsWith('No price data') ? `No ${grade} sales data available`
+            : raw === 'POKETRACE_API_KEY not configured' ? 'Pricing service unavailable'
+            : raw
+          setLiveError(msg)
+        }
+      })
+      .catch(() => setLiveError('Network error — please try again'))
       .finally(() => setLiveLoading(false))
   }, [id, urlGrade, urlName, card])
 
@@ -507,6 +520,51 @@ export default function CardPage() {
             {liveLoading && (
               <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', padding: '32px 20px', textAlign: 'center' }}>
                 <div style={{ fontSize: 13, color: 'var(--ink3)' }}>Fetching live prices…</div>
+              </div>
+            )}
+
+            {!liveLoading && liveError && (
+              <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', padding: '24px 20px', marginBottom: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 18 }}>📭</span>
+                    <div>
+                      <div style={{ fontSize: 13, color: 'var(--ink2)', fontWeight: 600 }}>{liveError}</div>
+                      <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 2 }}>Try a different grade, or check back later as new sales data is added regularly.</div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const cardName = urlName ?? card?.name
+                      const grade    = urlGrade ?? (card ? `PSA ${card.grade.replace('PSA ', '')}` : 'PSA 10')
+                      if (!cardName) return
+                      setLiveLoading(true)
+                      setLiveError(null)
+                      const params = new URLSearchParams({ grade, name: cardName, bust_cache: '1' })
+                      if (urlSet)    params.set('set', urlSet)
+                      if (urlNumber) params.set('number', urlNumber)
+                      fetch(`/api/card/${id}?${params.toString()}`)
+                        .then(async r => {
+                          const json = await r.json().catch(() => null)
+                          if (json?.data) {
+                            setLiveData(json.data)
+                          } else {
+                            const raw = json?.error ?? 'Unable to load price data'
+                            const msg = raw === 'Card not found on Poketrace' ? 'This card isn\'t in the pricing database yet'
+                              : raw.startsWith('No price data') ? `No ${grade} sales data available`
+                              : raw === 'POKETRACE_API_KEY not configured' ? 'Pricing service unavailable'
+                              : raw
+                            setLiveError(msg)
+                          }
+                        })
+                        .catch(() => setLiveError('Network error — please try again'))
+                        .finally(() => setLiveLoading(false))
+                    }}
+                    style={{ padding: '7px 14px', borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border2)', fontSize: 11, color: 'var(--ink2)', cursor: 'pointer', flexShrink: 0 }}
+                  >
+                    ↺ Retry
+                  </button>
+                </div>
               </div>
             )}
 

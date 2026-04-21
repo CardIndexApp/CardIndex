@@ -666,62 +666,181 @@ export default function CardPage() {
                           <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>MOMENTUM</div>
                           {a.vs7d != null ? (
                             <>
-                              <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: a.vs7d >= 0 ? '#3de88a' : '#e8524a', marginBottom: 3 }}>
-                                {a.vs7d >= 0 ? '+' : ''}{a.vs7d.toFixed(1)}% vs 7d avg
+                              <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: a.vs7d >= 0 ? '#3de88a' : '#e8524a', marginBottom: 4 }}>
+                                {a.vs7d >= 0 ? '+' : ''}{a.vs7d.toFixed(1)}%
+                              </div>
+                              {/* Diverging bar — 7d */}
+                              <div style={{ position: 'relative', height: 4, background: 'rgba(255,255,255,0.07)', borderRadius: 2, marginBottom: 7 }}>
+                                <div style={{ position: 'absolute', left: '50%', top: -1, width: 1, height: 6, background: 'rgba(255,255,255,0.18)' }} />
+                                <div style={{ position: 'absolute', ...(a.vs7d >= 0 ? { left: '50%' } : { right: '50%' }), width: `${Math.min(Math.abs(a.vs7d), 25) / 25 * 50}%`, height: '100%', background: a.vs7d >= 0 ? '#3de88a' : '#e8524a', borderRadius: 2 }} />
                               </div>
                               {a.vs30d != null && (
-                                <div className="font-num" style={{ fontSize: 11, color: a.vs30d >= 0 ? '#3de88a' : '#e8524a', opacity: 0.75 }}>
-                                  {a.vs30d >= 0 ? '+' : ''}{a.vs30d.toFixed(1)}% vs 30d avg
-                                </div>
+                                <>
+                                  <div className="font-num" style={{ fontSize: 11, color: a.vs30d >= 0 ? '#3de88a' : '#e8524a', opacity: 0.75, marginBottom: 4 }}>
+                                    {a.vs30d >= 0 ? '+' : ''}{a.vs30d.toFixed(1)}%
+                                  </div>
+                                  {/* Diverging bar — 30d */}
+                                  <div style={{ position: 'relative', height: 3, background: 'rgba(255,255,255,0.07)', borderRadius: 2 }}>
+                                    <div style={{ position: 'absolute', left: '50%', top: -1, width: 1, height: 5, background: 'rgba(255,255,255,0.18)' }} />
+                                    <div style={{ position: 'absolute', ...(a.vs30d >= 0 ? { left: '50%' } : { right: '50%' }), width: `${Math.min(Math.abs(a.vs30d), 25) / 25 * 50}%`, height: '100%', background: a.vs30d >= 0 ? '#3de88a' : '#e8524a', borderRadius: 2, opacity: 0.6 }} />
+                                  </div>
+                                </>
                               )}
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: 'var(--ink3)', marginTop: 5 }}>
+                                <span>7d avg</span>
+                                {a.vs30d != null && <span>30d avg</span>}
+                              </div>
                             </>
                           ) : (
                             <div style={{ fontSize: 12, color: 'var(--ink3)' }}>—</div>
                           )}
                         </div>
 
-                        {/* Trend */}
+                        {/* Trend — mini sparkline */}
                         <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
-                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>TREND</div>
-                          <TrendBadge trend={liveData.trend} confidence={null} />
-                          {liveData.confidence && (
-                            <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 6 }}>
-                              {liveData.confidence === 'high' ? '●●●' : liveData.confidence === 'medium' ? '●●○' : '●○○'} {liveData.confidence} confidence
-                            </div>
+                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6 }}>TREND</div>
+                          {liveData.price_history && liveData.price_history.length >= 2 ? (() => {
+                            const prices = liveData.price_history.map(p => p.price)
+                            const minP = Math.min(...prices)
+                            const maxP = Math.max(...prices)
+                            const rng = maxP - minP || 1
+                            const W = 200, H = 38
+                            const pts = prices.map((p, i) => ({
+                              x: (i / (prices.length - 1)) * W,
+                              y: H - 3 - ((p - minP) / rng) * (H - 6),
+                            }))
+                            const line = pts.map((pt, i) => `${i === 0 ? 'M' : 'L'}${pt.x.toFixed(1)},${pt.y.toFixed(1)}`).join(' ')
+                            const area = `${line} L${W},${H} L0,${H} Z`
+                            const tc = liveData.trend === 'up' ? '#3de88a' : liveData.trend === 'down' ? '#e8524a' : '#e8c547'
+                            const first = prices[0], last = prices[prices.length - 1]
+                            const sparkPct = first > 0 ? ((last - first) / first * 100) : 0
+                            return (
+                              <>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                                  <TrendBadge trend={liveData.trend} confidence={null} />
+                                  <span className="font-num" style={{ fontSize: 11, fontWeight: 600, color: sparkPct >= 0 ? '#3de88a' : '#e8524a' }}>
+                                    {sparkPct >= 0 ? '+' : ''}{sparkPct.toFixed(1)}%
+                                  </span>
+                                </div>
+                                <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: '100%', height: 38, display: 'block' }}>
+                                  <defs>
+                                    <linearGradient id="ci-spark-grad" x1="0" y1="0" x2="0" y2="1">
+                                      <stop offset="0%" stopColor={tc} stopOpacity="0.22" />
+                                      <stop offset="100%" stopColor={tc} stopOpacity="0" />
+                                    </linearGradient>
+                                  </defs>
+                                  <path d={area} fill="url(#ci-spark-grad)" />
+                                  <path d={line} fill="none" stroke={tc} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                  {/* End dot */}
+                                  <circle cx={pts[pts.length - 1].x.toFixed(1)} cy={pts[pts.length - 1].y.toFixed(1)} r="2.5" fill={tc} />
+                                </svg>
+                                {liveData.confidence && (
+                                  <div style={{ fontSize: 9, color: 'var(--ink3)', marginTop: 3 }}>
+                                    {liveData.confidence === 'high' ? '●●●' : liveData.confidence === 'medium' ? '●●○' : '●○○'} {liveData.confidence}
+                                  </div>
+                                )}
+                              </>
+                            )
+                          })() : (
+                            <>
+                              <TrendBadge trend={liveData.trend} confidence={null} />
+                              {liveData.confidence && (
+                                <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 6 }}>
+                                  {liveData.confidence === 'high' ? '●●●' : liveData.confidence === 'medium' ? '●●○' : '●○○'} {liveData.confidence}
+                                </div>
+                              )}
+                            </>
                           )}
                         </div>
 
-                        {/* Liquidity */}
+                        {/* Liquidity — graduated bar */}
                         <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
                           <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>LIQUIDITY</div>
-                          <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: a.liqColor, marginBottom: 3 }}>{a.liqLabel}</div>
+                          <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: a.liqColor, marginBottom: 7 }}>{a.liqLabel}</div>
+                          {/* 5-segment bar: thresholds 5 / 15 / 50 / 200 / 500 sales */}
+                          {(() => {
+                            const sales = liveData.sales_count_30d ?? 0
+                            const thresholds = [5, 15, 50, 200, 500]
+                            const filled = thresholds.filter(t => sales >= t).length
+                            return (
+                              <div style={{ display: 'flex', gap: 3, marginBottom: 6 }}>
+                                {thresholds.map((_, i) => (
+                                  <div key={i} style={{ flex: 1, height: 4, borderRadius: 2, background: i < filled ? a.liqColor : 'rgba(255,255,255,0.07)', opacity: i < filled ? (0.5 + i * 0.12) : 1 }} />
+                                ))}
+                              </div>
+                            )
+                          })()}
                           {(liveData.sales_count_30d ?? 0) > 0 && (
                             <div style={{ fontSize: 10, color: 'var(--ink3)' }}>{(liveData.sales_count_30d ?? 0).toLocaleString()} sales / 30d</div>
                           )}
                         </div>
 
-                        {/* Price position */}
+                        {/* Price position — gradient spectrum */}
                         <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
-                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>PRICE POSITION</div>
-                          <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: a.rangeColor, marginBottom: 6 }}>{a.rangeLabel}</div>
-                          <div style={{ height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.07)', overflow: 'hidden', position: 'relative' }}>
-                            <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: `${a.rangePct}%`, background: a.rangeColor, borderRadius: 2 }} />
+                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6 }}>PRICE POSITION</div>
+                          <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: a.rangeColor, marginBottom: 9 }}>{a.rangeLabel}</div>
+                          {/* Gradient track + marker */}
+                          <div style={{ position: 'relative', marginBottom: 6 }}>
+                            <div style={{ height: 7, borderRadius: 4, background: 'linear-gradient(to right, #3de88a 0%, #e8c547 50%, #e8524a 100%)' }} />
+                            <div style={{
+                              position: 'absolute',
+                              left: `${Math.max(5, Math.min(95, a.rangePct))}%`,
+                              top: '50%',
+                              transform: 'translate(-50%, -50%)',
+                              width: 13, height: 13,
+                              borderRadius: '50%',
+                              background: '#fff',
+                              border: '2px solid var(--surface2)',
+                              boxShadow: `0 0 0 2px ${a.rangeColor}, 0 2px 8px rgba(0,0,0,0.5)`,
+                              zIndex: 1,
+                            }} />
                           </div>
-                          <div style={{ fontSize: 9, color: 'var(--ink3)', marginTop: 4 }}>30d range · {a.rangePct}th pct.</div>
+                          {/* Low / high labels */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: 'var(--ink3)' }}>
+                            <span>{fmtCurrency(liveData.price_range_low)}</span>
+                            <span style={{ fontSize: 9, color: 'var(--ink3)', opacity: 0.5 }}>{a.rangePct}th pct.</span>
+                            <span>{fmtCurrency(liveData.price_range_high)}</span>
+                          </div>
                         </div>
 
-                        {/* Consistency */}
+                        {/* Consistency — ring progress */}
                         <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
                           <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>CONSISTENCY</div>
-                          <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: scoreColor(a.consPct), marginBottom: 3 }}>{a.consPct}/100</div>
-                          <div style={{ fontSize: 10, color: 'var(--ink3)' }}>{a.consLabel}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div style={{
+                              width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
+                              background: `conic-gradient(${scoreColor(a.consPct)} 0% ${a.consPct}%, rgba(255,255,255,0.07) ${a.consPct}% 100%)`,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
+                              <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <span className="font-num" style={{ fontSize: 9, fontWeight: 700, color: scoreColor(a.consPct) }}>{a.consPct}</span>
+                              </div>
+                            </div>
+                            <div>
+                              <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: scoreColor(a.consPct), marginBottom: 2 }}>{a.consPct}/100</div>
+                              <div style={{ fontSize: 10, color: 'var(--ink3)' }}>{a.consLabel}</div>
+                            </div>
+                          </div>
                         </div>
 
-                        {/* Value */}
+                        {/* Value score — ring progress */}
                         <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
                           <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>VALUE SCORE</div>
-                          <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: scoreColor(a.valuePct), marginBottom: 3 }}>{a.valuePct}/100</div>
-                          <div style={{ fontSize: 10, color: 'var(--ink3)' }}>{a.valueLabel}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div style={{
+                              width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
+                              background: `conic-gradient(${scoreColor(a.valuePct)} 0% ${a.valuePct}%, rgba(255,255,255,0.07) ${a.valuePct}% 100%)`,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
+                              <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <span className="font-num" style={{ fontSize: 9, fontWeight: 700, color: scoreColor(a.valuePct) }}>{a.valuePct}</span>
+                              </div>
+                            </div>
+                            <div>
+                              <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: scoreColor(a.valuePct), marginBottom: 2 }}>{a.valuePct}/100</div>
+                              <div style={{ fontSize: 10, color: 'var(--ink3)' }}>{a.valueLabel}</div>
+                            </div>
+                          </div>
                         </div>
 
                       </div>

@@ -1,20 +1,15 @@
 /**
- * GET /api/pt/sets?search=&cursor=
+ * GET /api/pt/sets?search=
  * Proxy for Poketrace /sets — keeps API key server-side.
  *
- * When no search query: paginates through ALL sets server-side, returns them
- * sorted by releaseDate descending (newest first). Cached 1 hour.
+ * NOTE: Poketrace /sets always returns releaseDate: null for all sets.
+ * Sorting/grouping by era is handled client-side from the slug prefix.
  *
- * When search query: returns first page of results (up to 100), sorted desc.
+ * No search: paginates through ALL sets server-side and returns the full list.
+ * With search: filters client-side (caller passes full list, but search
+ *   hits the API for server-side keyword matching as a fallback).
  */
 import { NextRequest, NextResponse } from 'next/server'
-
-interface PtSet {
-  slug: string
-  name: string
-  releaseDate: string | null
-  cardCount: number
-}
 
 export async function GET(req: NextRequest) {
   if (!process.env.POKETRACE_API_KEY) {
@@ -23,7 +18,7 @@ export async function GET(req: NextRequest) {
 
   const search = req.nextUrl.searchParams.get('search') ?? ''
 
-  // When searching, a single page is enough — return as-is
+  // When searching, hit the API directly (keyword match)
   if (search) {
     const params = new URLSearchParams({ game: 'pokemon', limit: '100', search })
     try {
@@ -33,9 +28,8 @@ export async function GET(req: NextRequest) {
       })
       if (!res.ok) return NextResponse.json({ data: [], pagination: { hasMore: false, count: 0 } })
       const json = await res.json()
-      const sorted = sortByDateDesc(json.data ?? [])
       return NextResponse.json(
-        { data: sorted, pagination: { hasMore: false, count: sorted.length } },
+        { data: json.data ?? [], pagination: { hasMore: false, count: (json.data ?? []).length } },
         { headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60' } }
       )
     } catch {
@@ -43,11 +37,12 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // No search — paginate through all sets server-side
-  const allSets: PtSet[] = []
+  // No search — paginate through all sets server-side and return combined list
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const allSets: any[] = []
   let cursor = ''
   let hasMore = true
-  const MAX_PAGES = 10 // safety cap: 10 × 100 = 1000 sets max
+  const MAX_PAGES = 10 // safety cap (10 × 100 = 1000 sets)
 
   for (let page = 0; page < MAX_PAGES && hasMore; page++) {
     const params = new URLSearchParams({ game: 'pokemon', limit: '100' })
@@ -68,19 +63,8 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const sorted = sortByDateDesc(allSets)
-
   return NextResponse.json(
-    { data: sorted, pagination: { hasMore: false, count: sorted.length } },
+    { data: allSets, pagination: { hasMore: false, count: allSets.length } },
     { headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=300' } }
   )
-}
-
-function sortByDateDesc(sets: PtSet[]): PtSet[] {
-  return [...sets].sort((a, b) => {
-    if (!a.releaseDate && !b.releaseDate) return 0
-    if (!a.releaseDate) return 1
-    if (!b.releaseDate) return -1
-    return b.releaseDate.localeCompare(a.releaseDate)
-  })
 }

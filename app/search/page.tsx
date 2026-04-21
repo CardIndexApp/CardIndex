@@ -28,6 +28,32 @@ interface Pagination {
   count: number
 }
 
+// ── Era groupings ────────────────────────────────────────────────────────────
+// Poketrace releaseDate is always null, so we derive era from slug prefix.
+// Listed newest → oldest; sets not matching any prefix fall into "Other".
+
+const ERAS: { key: string; label: string; prefixes: string[] }[] = [
+  { key: 'sv',    label: 'Scarlet & Violet',      prefixes: ['sv'] },
+  { key: 'swsh',  label: 'Sword & Shield',         prefixes: ['swsh'] },
+  { key: 'sm',    label: 'Sun & Moon',             prefixes: ['sm'] },
+  { key: 'xy',    label: 'XY',                     prefixes: ['xy'] },
+  { key: 'bw',    label: 'Black & White',          prefixes: ['bw'] },
+  { key: 'pl',    label: 'Platinum',               prefixes: ['pl-'] },
+  { key: 'hgss',  label: 'HeartGold & SoulSilver', prefixes: ['hgss'] },
+  { key: 'dp',    label: 'Diamond & Pearl',        prefixes: ['dp-'] },
+  { key: 'ex',    label: 'EX Series',              prefixes: ['ex-', 'pop'] },
+  { key: 'ecard', label: 'E-Card',                 prefixes: ['e-', 'aquapolis', 'skyridge', 'expedition'] },
+  { key: 'wb',    label: 'Classic',                prefixes: ['base-set', 'jungle', 'fossil', 'team-rocket', 'gym', 'neo', 'pokemon-', 'legendary'] },
+  { key: 'other', label: 'Other',                  prefixes: [] },
+]
+
+function getSetEra(slug: string): string {
+  for (const era of ERAS) {
+    if (era.prefixes.some(p => slug.startsWith(p))) return era.key
+  }
+  return 'other'
+}
+
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const GRADES = [
@@ -208,19 +234,22 @@ export default function SearchPage() {
     router.push(`/card/${card.id}?${params.toString()}`)
   }, [router])
 
-  // ── Set grouping by year ──────────────────────────────────────────────────
-  const yearGroups = useMemo(() => {
+  // ── Set grouping by era (slug-derived, newest → oldest) ──────────────────
+  const eraGroups = useMemo(() => {
     const groups: Record<string, PtSet[]> = {}
     for (const s of sets) {
-      const year = s.releaseDate ? s.releaseDate.slice(0, 4) : 'Unknown'
-      if (!groups[year]) groups[year] = []
-      groups[year].push(s)
+      if (s.cardCount === 0) continue // skip sets with no priced cards
+      const key = getSetEra(s.slug)
+      if (!groups[key]) groups[key] = []
+      groups[key].push(s)
     }
-    return Object.entries(groups).sort(([a], [b]) => {
-      if (a === 'Unknown') return 1
-      if (b === 'Unknown') return -1
-      return b.localeCompare(a)
-    })
+    // Within each era sort by slug descending (sv09 > sv08 > sv01 etc.)
+    for (const key of Object.keys(groups)) {
+      groups[key].sort((a, b) => b.slug.localeCompare(a.slug))
+    }
+    return ERAS
+      .filter(e => groups[e.key]?.length > 0)
+      .map(e => ({ key: e.key, label: e.label, sets: groups[e.key] }))
   }, [sets])
 
   const stepLabel = (n: number) => {
@@ -286,11 +315,11 @@ export default function SearchPage() {
               <div style={{ textAlign: 'center', padding: 48, color: 'var(--ink3)', fontSize: 13 }}>No sets found</div>
             ) : (
               <>
-                {yearGroups.map(([year, yearSets]) => (
-                  <div key={year} style={{ marginBottom: 28 }}>
-                    <p className="font-mono-custom" style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 2, marginBottom: 10 }}>{year}</p>
+                {eraGroups.map(({ key, label, sets: eraSets }) => (
+                  <div key={key} style={{ marginBottom: 28 }}>
+                    <p className="font-mono-custom" style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 2, marginBottom: 10 }}>{label.toUpperCase()}</p>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 8 }}>
-                      {yearSets.map(set => (
+                      {eraSets.map(set => (
                         <button
                           key={set.slug}
                           onClick={() => handleSetSelect(set)}

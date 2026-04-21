@@ -91,8 +91,6 @@ export default function SearchPage() {
   const [setsLoading, setSetsLoading] = useState(true)
   const [setQuery, setSetQuery] = useState('')
   const [selectedSet, setSelectedSet] = useState<PtSet | null>(null)
-  const [setsPagination, setSetsPagination] = useState<Pagination>({ hasMore: false, nextCursor: null, count: 0 })
-  const [setsLoadingMore, setSetsLoadingMore] = useState(false)
 
   // Step 2 — Card selection
   const [cards, setCards] = useState<PtCard[]>([])
@@ -106,51 +104,31 @@ export default function SearchPage() {
   // Step 3 — Grade selection
   const [selectedGrade, setSelectedGrade] = useState<string | null>(null)
 
-  // ── Load sets on mount ────────────────────────────────────────────────────
+  // ── All sets (loaded once) ────────────────────────────────────────────────
+  const [allSets, setAllSets] = useState<PtSet[]>([])
+
   useEffect(() => {
     fetch('/api/pt/sets')
       .then(r => r.json())
-      .then(d => { setSets(d.data ?? []); setSetsPagination(d.pagination ?? { hasMore: false, nextCursor: null, count: 0 }) })
-      .catch(() => setSets([]))
+      .then(d => { setAllSets(d.data ?? []) })
+      .catch(() => setAllSets([]))
       .finally(() => setSetsLoading(false))
   }, [])
 
-  // ── Debounced set search ──────────────────────────────────────────────────
+  // ── Filter sets client-side when query changes ────────────────────────────
   const setSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
     if (setSearchTimeout.current) clearTimeout(setSearchTimeout.current)
-    if (!setQuery.trim()) {
-      // Re-load default set list
-      setSetsLoading(true)
-      fetch('/api/pt/sets')
-        .then(r => r.json())
-        .then(d => { setSets(d.data ?? []); setSetsPagination(d.pagination ?? { hasMore: false }) })
-        .catch(() => setSets([]))
-        .finally(() => setSetsLoading(false))
+    const q = setQuery.trim().toLowerCase()
+    if (!q) {
+      setSets(allSets)
       return
     }
     setSearchTimeout.current = setTimeout(() => {
-      setSetsLoading(true)
-      fetch(`/api/pt/sets?search=${encodeURIComponent(setQuery.trim())}`)
-        .then(r => r.json())
-        .then(d => { setSets(d.data ?? []); setSetsPagination(d.pagination ?? { hasMore: false }) })
-        .catch(() => setSets([]))
-        .finally(() => setSetsLoading(false))
-    }, 300)
+      setSets(allSets.filter(s => s.name.toLowerCase().includes(q)))
+    }, 150)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setQuery])
-
-  // ── Load more sets ────────────────────────────────────────────────────────
-  const loadMoreSets = useCallback(async () => {
-    if (!setsPagination.nextCursor || setsLoadingMore) return
-    setSetsLoadingMore(true)
-    const url = `/api/pt/sets?cursor=${encodeURIComponent(setsPagination.nextCursor)}${setQuery ? `&search=${encodeURIComponent(setQuery)}` : ''}`
-    fetch(url)
-      .then(r => r.json())
-      .then(d => { setSets(prev => [...prev, ...(d.data ?? [])]); setSetsPagination(d.pagination ?? { hasMore: false }) })
-      .catch(() => {})
-      .finally(() => setSetsLoadingMore(false))
-  }, [setsPagination.nextCursor, setsLoadingMore, setQuery])
+  }, [setQuery, allSets])
 
   // ── Load cards when set selected ──────────────────────────────────────────
   const loadCardsForSet = useCallback((slug: string, cursor?: string) => {
@@ -331,17 +309,6 @@ export default function SearchPage() {
                   </div>
                 ))}
 
-                {setsPagination.hasMore && (
-                  <div style={{ textAlign: 'center', marginTop: 16 }}>
-                    <button
-                      onClick={loadMoreSets}
-                      disabled={setsLoadingMore}
-                      style={{ padding: '8px 24px', borderRadius: 8, background: 'var(--surface)', border: '1px solid var(--border2)', color: 'var(--ink3)', fontSize: 12, cursor: 'pointer' }}
-                    >
-                      {setsLoadingMore ? 'Loading…' : 'Load more sets'}
-                    </button>
-                  </div>
-                )}
               </>
             )}
           </div>

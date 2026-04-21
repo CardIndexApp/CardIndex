@@ -29,12 +29,20 @@ export class PoketraceApiError extends Error {
 }
 
 /**
- * Throws PoketraceApiError for HTTP statuses that indicate API-level failure.
- * 404 is NOT thrown — it means "card/set not found" which is a valid result.
+ * Throws PoketraceApiError only for statuses that indicate a systemic API failure:
+ *   401 / 403 — bad or missing API key (all cards will fail)
+ *   429       — rate limited (retry later)
+ *   5xx       — server error (service is down)
+ *
+ * Does NOT throw on 400 Bad Request or 404 Not Found — these mean the specific
+ * card/set/number doesn't exist, which is a valid "not found" result, not an API fault.
  */
 function assertOkOrNotFound(res: Response): void {
-  if (res.ok || res.status === 404) return
-  throw new PoketraceApiError(res.status, res.url)
+  if (res.ok) return
+  if (res.status === 401 || res.status === 403 || res.status === 429 || res.status >= 500) {
+    throw new PoketraceApiError(res.status, res.url)
+  }
+  // 400, 404, and other 4xx are treated as "not found" — no throw
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -208,7 +216,7 @@ function setNameToSlug(name: string): string {
  */
 export async function getPoketraceSetSlug(setName: string): Promise<string | null> {
   try {
-    const params = new URLSearchParams({ search: setName, limit: '10' })
+    const params = new URLSearchParams({ search: setName, limit: '20', game: 'pokemon' })
     const res = await fetch(`${BASE}/sets?${params}`, {
       headers: apiHeaders(),
       cache: 'no-store', // don't cache nulls — new sets get indexed regularly
@@ -297,49 +305,45 @@ export function toPoketraceVariants(subtypes: string[] = [], supertypes: string[
 }
 
 /**
- * Search cards by name only. Returns lightweight card list (no full pricing).
+ * Search cards by name. Returns lightweight card list (no full pricing).
+ * API max limit is 20. Always targets US market.
+ * Pass setSlug to narrow results when searching for a card from a known set.
  */
 export async function searchPokétraceCards(
   name: string,
-  options: { limit?: number } = {}
+  options: { setSlug?: string; hasGraded?: boolean } = {}
 ): Promise<PokétraceCard[]> {
-  const params = new URLSearchParams({
-    search: name,
-    limit: String(options.limit ?? 50),
-  })
-  const res = await fetch(`${BASE}/cards?${params}`, {
-    headers: apiHeaders(),
-    cache: 'no-store',
-  })
-  // Throws PoketraceApiError for 401/403/429/5xx — callers must handle
-  assertOkOrNotFound(res)
-  if (!res.ok) return []
-  const json = await res.json()
-  return (json.data as PokétraceCard[]) ?? []
-}
+  try {
+    const params = new URLSearchParams({
+      search: name,
+      limit: '20',   // API hard max is 20
+      market: 'US',
+      game: 'pokemon',
+    })
+    if (options.setSlug)   params.set('set', options.setSlug)
+    if (options.hasGraded) params.set('has_graded', 'true')
 
-/** Build a Poketrace card slug: {name}-{setSlug}-{Variant}-{number-with-hyphens} */
-function buildCardSlug(cardName: string, setSlug: string, variant: string, cardNumber: string): string {
-  const nameSlug = cardName.toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .trim()
-  const numSlug = cardNumber.replace(/\//g, '-')
-  return `${nameSlug}-${setSlug}-${variant}-${numSlug}`
+    const res = await fetch(`${BASE}/cards?${params}`, {
+      headers: apiHeaders(),
+      cache: 'no-store',
+    })
+    assertOkOrNotFound(res)
+    if (!res.ok) return []
+    const json = await res.json()
+    return (json.data as PokétraceCard[]) ?? []
+  } catch (err) {
+    if (err instanceof PoketraceApiError) throw err
+    return []
+  }
 }
 
 /**
  * Find a card using set slug + card number.
- * Tries two approaches concurrently:
- *   A) GET /cards?set={slug}&card_number={num}  — correct API query params
- *   B) GET /cards/{name}-{set}-{variant}-{num}  — slug-style ID (confirmed working)
- *
- * cardName: used for slug construction
- * cardNumber: "125/094" format
+ * Uses GET /cards?set=&card_number= with variant filters.
+ * NOTE: GET /cards/:id requires a UUID — slug-style IDs don't work.
  */
 export async function findBySetAndNumber(
-  cardName: string,
+  _cardName: string,
   setSlug: string,
   cardNumber: string,
   variants?: PoketraceVariant[]
@@ -349,9 +353,16 @@ export async function findBySetAndNumber(
 
     const searches: Promise<PokétraceCard | null>[] = []
 
-    // Approach A: API query params — try each variant and no-variant
+    // Try each variant with set + card_number filter
     for (const variant of variantsToTry) {
-      const params = new URLSearchParams({ set: setSlug, card_number: cardNumber, variant, limit: '5' })
+      const params = new URLSearchParams({
+        set: setSlug,
+        card_number: cardNumber,
+        variant,
+        market: 'US',
+        game: 'pokemon',
+        limit: '20',
+      })
       searches.push(
         fetch(`${BASE}/cards?${params}`, { headers: apiHeaders(), cache: 'no-store' })
           .then(r => { assertOkOrNotFound(r); return r.ok ? r.json() : null })
@@ -359,21 +370,21 @@ export async function findBySetAndNumber(
           .catch(err => { if (err instanceof PoketraceApiError) throw err; return null })
       )
     }
-    // Also without variant filter
-    const noVariantParams = new URLSearchParams({ set: setSlug, card_number: cardNumber, limit: '5' })
+
+    // Also try without variant filter — catches cards with unexpected variants
+    const noVariantParams = new URLSearchParams({
+      set: setSlug,
+      card_number: cardNumber,
+      market: 'US',
+      game: 'pokemon',
+      limit: '20',
+    })
     searches.push(
       fetch(`${BASE}/cards?${noVariantParams}`, { headers: apiHeaders(), cache: 'no-store' })
         .then(r => { assertOkOrNotFound(r); return r.ok ? r.json() : null })
         .then(json => (json?.data as PokétraceCard[])?.[0] ?? null)
         .catch(err => { if (err instanceof PoketraceApiError) throw err; return null })
     )
-
-    // Approach B: slug-style IDs — confirmed working via debug testing
-    // e.g. mega-charizard-x-ex-me02-phantasmal-flames-Holofoil-125-094
-    for (const variant of variantsToTry) {
-      const slug = buildCardSlug(cardName, setSlug, variant, cardNumber)
-      searches.push(getPokétraceCard(slug))
-    }
 
     const results = await Promise.all(searches)
     return results.find(r => r !== null) ?? null
@@ -388,32 +399,45 @@ export async function findBySetAndNumber(
  * This is the most accurate matching method — bypasses name/set ambiguity.
  */
 export async function searchByTcgPlayerId(tcgplayerId: string): Promise<PokétraceCard | null> {
-  const params = new URLSearchParams({ tcgplayer_ids: tcgplayerId, limit: '5' })
-  const res = await fetch(`${BASE}/cards?${params}`, {
-    headers: apiHeaders(),
-    cache: 'no-store',
-  })
-  // Throws PoketraceApiError for 401/403/429/5xx
-  assertOkOrNotFound(res)
-  if (!res.ok) return null
-  const json = await res.json()
-  const results = (json.data as PokétraceCard[]) ?? []
-  return results[0] ?? null
+  try {
+    const params = new URLSearchParams({
+      tcgplayer_ids: tcgplayerId,
+      market: 'US',
+      limit: '20',
+    })
+    const res = await fetch(`${BASE}/cards?${params}`, {
+      headers: apiHeaders(),
+      cache: 'no-store',
+    })
+    assertOkOrNotFound(res)
+    if (!res.ok) return null
+    const json = await res.json()
+    const results = (json.data as PokétraceCard[]) ?? []
+    return results[0] ?? null
+  } catch (err) {
+    if (err instanceof PoketraceApiError) throw err
+    return null
+  }
 }
 
 /**
  * Get a single card with full pricing by Poketrace card UUID.
  */
 export async function getPokétraceCard(id: string): Promise<PokétraceCard | null> {
-  const res = await fetch(`${BASE}/cards/${encodeURIComponent(id)}`, {
-    headers: apiHeaders(),
-    next: { revalidate: 0 }, // always fetch fresh pricing
-  })
-  // Throws PoketraceApiError for 401/403/429/5xx
-  assertOkOrNotFound(res)
-  if (!res.ok) return null
-  const json = await res.json()
-  return (json.data as PokétraceCard) ?? null
+  try {
+    const res = await fetch(`${BASE}/cards/${encodeURIComponent(id)}`, {
+      headers: apiHeaders(),
+      cache: 'no-store',
+    })
+    // Throws PoketraceApiError for 401/403/429/5xx
+    assertOkOrNotFound(res)
+    if (!res.ok) return null
+    const json = await res.json()
+    return (json.data as PokétraceCard) ?? null
+  } catch (err) {
+    if (err instanceof PoketraceApiError) throw err
+    return null
+  }
 }
 
 /**
@@ -512,25 +536,32 @@ export async function findBestMatch(
   cardName: string,
   setName: string,
   cardNumber?: string,
-  tcgplayerId?: string
+  tcgplayerId?: string,
+  poketraceSetSlug?: string,  // pass this to narrow the search when set slug is known
 ): Promise<{ card: PokétraceCard; debug: MatchDebug } | null> {
-  // Try name variants in sequence until we get results
-  const variants = nameVariants(cardName)
+  const nameVars = nameVariants(cardName)
   let results: PokétraceCard[] = []
   let searchedWith = cardName
 
-  // searchPokétraceCards throws PoketraceApiError on 401/403/429/5xx — let it propagate
-  for (const variant of variants) {
-    const r = await searchPokétraceCards(variant, { limit: 50 })
-    if (r.length) {
-      results = r
-      searchedWith = variant
-      break
+  // First attempt: search with set slug to narrow results (avoids the 20-item limit problem)
+  // This is critical for common card names like "Charizard" that return many results
+  if (poketraceSetSlug) {
+    for (const variant of nameVars) {
+      const r = await searchPokétraceCards(variant, { setSlug: poketraceSetSlug })
+      if (r.length) { results = r; searchedWith = variant; break }
+    }
+  }
+
+  // Second attempt: search without set slug (set slug might be wrong or missing)
+  if (!results.length) {
+    for (const variant of nameVars) {
+      const r = await searchPokétraceCards(variant)
+      if (r.length) { results = r; searchedWith = variant; break }
     }
   }
 
   const debug: MatchDebug = {
-    searched: searchedWith !== cardName ? `${cardName} (tried: ${variants.join(', ')})` : cardName,
+    searched: searchedWith !== cardName ? `${cardName} (tried: ${nameVars.join(', ')})` : cardName,
     resultCount: results.length,
     matched: null,
     matchReason: 'none',

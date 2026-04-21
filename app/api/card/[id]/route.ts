@@ -163,58 +163,64 @@ export async function GET(
   let matchReason = ''
   const tried: string[] = []
 
-  try {
-    // ── Strategy A: TCGPlayer ID (most precise) ─────────────────────────────
-    if (ptcgInfo.tcgplayerId) {
-      tried.push(`tcgplayer_id:${ptcgInfo.tcgplayerId}`)
+  // Each strategy is wrapped independently so a failure in A doesn't prevent B or C.
+  // PoketraceApiError (401/403/429/5xx) always propagates to the outer handler below.
+
+  // ── Strategy A: TCGPlayer ID (most precise) ───────────────────────────────
+  if (!matchedCard && ptcgInfo.tcgplayerId) {
+    tried.push(`tcgplayer_id:${ptcgInfo.tcgplayerId}`)
+    try {
       const found = await searchByTcgPlayerId(ptcgInfo.tcgplayerId)
-      if (found) {
-        matchedCard = found
-        matchReason = `tcgplayer_id:${ptcgInfo.tcgplayerId}`
+      if (found) { matchedCard = found; matchReason = `tcgplayer_id:${ptcgInfo.tcgplayerId}` }
+    } catch (err) {
+      if (err instanceof PoketraceApiError) {
+        if (cached) return NextResponse.json({ source: 'stale_cache', data: cached })
+        return NextResponse.json({ error: poketraceApiMessage(err.status) }, { status: 503 })
       }
     }
+  }
 
-    // ── Strategy B: Set slug + card number (deterministic) ──────────────────
-    if (!matchedCard && poketraceSetSlug) {
-      const numbersToTry = [
-        ptcgInfo.fullNumber,
-        ptcgInfo.bareNumber,
-        cardNumber || null,
-      ].filter((n, i, a): n is string => !!n && a.indexOf(n) === i)
+  // ── Strategy B: Set slug + card number (deterministic) ───────────────────
+  if (!matchedCard && poketraceSetSlug) {
+    const numbersToTry = [
+      ptcgInfo.fullNumber,
+      ptcgInfo.bareNumber,
+      cardNumber || null,
+    ].filter((n, i, a): n is string => !!n && a.indexOf(n) === i)
 
-      for (const num of numbersToTry) {
-        tried.push(`set_slug:${poketraceSetSlug}+number:${num}`)
+    for (const num of numbersToTry) {
+      tried.push(`set_slug:${poketraceSetSlug}+number:${num}`)
+      try {
         const found = await findBySetAndNumber(cardName, poketraceSetSlug, num, variants)
-        if (found) {
-          matchedCard = found
-          matchReason = `set_slug:${poketraceSetSlug}+number:${num}`
-          break
+        if (found) { matchedCard = found; matchReason = `set_slug:${poketraceSetSlug}+number:${num}`; break }
+      } catch (err) {
+        if (err instanceof PoketraceApiError) {
+          if (cached) return NextResponse.json({ source: 'stale_cache', data: cached })
+          return NextResponse.json({ error: poketraceApiMessage(err.status) }, { status: 503 })
         }
+        break // non-API error on this number — skip remaining numbers, try Strategy C
       }
     }
+  }
 
-    // ── Strategy C: Name search with set/number filtering (fuzzy fallback) ──
-    if (!matchedCard) {
-      tried.push(`name_search:${cardName}`)
+  // ── Strategy C: Name search with set/number filtering (fuzzy fallback) ────
+  if (!matchedCard) {
+    tried.push(`name_search:${cardName}`)
+    try {
       const matchResult = await findBestMatch(
         cardName,
         setName,
         ptcgInfo.fullNumber ?? cardNumber,
-        ptcgInfo.tcgplayerId ?? undefined
+        ptcgInfo.tcgplayerId ?? undefined,
+        poketraceSetSlug ?? undefined,
       )
-      if (matchResult) {
-        matchedCard = matchResult.card
-        matchReason = matchResult.debug.matchReason
+      if (matchResult) { matchedCard = matchResult.card; matchReason = matchResult.debug.matchReason }
+    } catch (err) {
+      if (err instanceof PoketraceApiError) {
+        if (cached) return NextResponse.json({ source: 'stale_cache', data: cached })
+        return NextResponse.json({ error: poketraceApiMessage(err.status) }, { status: 503 })
       }
     }
-  } catch (err) {
-    // A PoketraceApiError from any strategy means the API itself failed (401/403/429/5xx)
-    // — not that the card is missing. Return a specific error so the client knows to retry.
-    if (err instanceof PoketraceApiError) {
-      if (cached) return NextResponse.json({ source: 'stale_cache', data: cached })
-      return NextResponse.json({ error: poketraceApiMessage(err.status) }, { status: 503 })
-    }
-    // Unknown error — fall through to not-found
   }
 
   if (!matchedCard) {

@@ -286,6 +286,8 @@ export default function CardPage() {
   const [liveData, setLiveData] = useState<LiveData | null>(null)
   const [liveLoading, setLiveLoading] = useState(false)
   const [liveError, setLiveError] = useState<string | null>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [liveDebug, setLiveDebug] = useState<Record<string, any> | null>(null)
 
   // Watchlist state
   const [watchlistAdded, setWatchlistAdded] = useState(false)
@@ -328,6 +330,7 @@ export default function CardPage() {
     if (!cardName) return
     setLiveLoading(true)
     setLiveError(null)
+    setLiveDebug(null)
     const params = new URLSearchParams({ grade, name: cardName })
     if (urlSet)    params.set('set', urlSet)
     if (urlNumber) params.set('number', urlNumber)
@@ -344,6 +347,7 @@ export default function CardPage() {
             : raw === 'POKETRACE_API_KEY not configured' ? 'Pricing service unavailable'
             : raw
           setLiveError(msg)
+          if (json?.debug) setLiveDebug(json.debug)
         }
       })
       .catch(() => setLiveError('Network error — please try again'))
@@ -547,6 +551,14 @@ export default function CardPage() {
                     ↺ Retry
                   </button>
                 </div>
+                {liveDebug && (
+                  <details style={{ marginTop: 12, fontSize: 10, color: 'var(--ink3)' }}>
+                    <summary style={{ cursor: 'pointer', userSelect: 'none', letterSpacing: 0.5 }}>Debug info</summary>
+                    <pre style={{ marginTop: 6, padding: '8px 10px', borderRadius: 6, background: 'rgba(0,0,0,0.3)', overflow: 'auto', fontSize: 10, lineHeight: 1.5, color: 'var(--ink2)' }}>
+                      {JSON.stringify(liveDebug, null, 2)}
+                    </pre>
+                  </details>
+                )}
               </div>
             )}
 

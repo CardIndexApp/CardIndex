@@ -49,7 +49,7 @@ interface PokemonTcgCardInfo {
 async function getPokemonTcgCardInfo(pokemontcgId: string): Promise<PokemonTcgCardInfo> {
   try {
     const res = await fetch(`https://api.pokemontcg.io/v2/cards/${pokemontcgId}`, {
-      next: { revalidate: 86400 },
+      next: { revalidate: 3600 }, // 1h — short enough to pick up new cards/TCGPlayer IDs
     })
     if (!res.ok) return { tcgplayerId: null, fullNumber: null, bareNumber: null, subtypes: [], supertypes: [], imageUrl: null }
     const json = await res.json()

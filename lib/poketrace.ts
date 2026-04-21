@@ -188,7 +188,7 @@ export async function getPoketraceSetSlug(setName: string): Promise<string | nul
     const params = new URLSearchParams({ search: setName, limit: '10' })
     const res = await fetch(`${BASE}/sets?${params}`, {
       headers: apiHeaders(),
-      next: { revalidate: 86400 },
+      cache: 'no-store', // don't cache nulls — new sets get indexed regularly
     })
     if (!res.ok) return null
     const json = await res.json()
@@ -473,34 +473,49 @@ function namesMatch(a: string, b: string): boolean {
  *   6. Broader search using first word of card name (handles name differences)
  *   7. First result from original search
  */
+/** Build name variants to try — handles "Umbreon ex" ↔ "Umbreon EX", "Charizard-EX" etc. */
+function nameVariants(name: string): string[] {
+  const variants = new Set<string>([name])
+  // lowercase suffix → uppercase (pokemontcg.io uses lowercase ex/gx/v/vmax/vstar)
+  const upper = name.replace(/\s+(ex|gx|v|vmax|vstar|v-union)$/i, (_, s) => ' ' + s.toUpperCase())
+  if (upper !== name) variants.add(upper)
+  // uppercase → lowercase
+  const lower = name.replace(/\s+(EX|GX|V|VMAX|VSTAR)$/, (_, s) => ' ' + s.toLowerCase())
+  if (lower !== name) variants.add(lower)
+  // bare name (first word only) as last resort
+  const bare = name.split(' ')[0]
+  if (bare && bare !== name) variants.add(bare)
+  return Array.from(variants)
+}
+
 export async function findBestMatch(
   cardName: string,
   setName: string,
   cardNumber?: string,
   tcgplayerId?: string
 ): Promise<{ card: PokétraceCard; debug: MatchDebug } | null> {
-  const results = await searchPokétraceCards(cardName, { limit: 50 })
+  // Try name variants in sequence until we get results
+  const variants = nameVariants(cardName)
+  let results: PokétraceCard[] = []
+  let searchedWith = cardName
+
+  for (const variant of variants) {
+    const r = await searchPokétraceCards(variant, { limit: 50 })
+    if (r.length) {
+      results = r
+      searchedWith = variant
+      break
+    }
+  }
 
   const debug: MatchDebug = {
-    searched: cardName,
+    searched: searchedWith !== cardName ? `${cardName} (tried: ${variants.join(', ')})` : cardName,
     resultCount: results.length,
     matched: null,
     matchReason: 'none',
   }
 
-  if (!results.length) {
-    // Retry with just the first word (handles "Charizard ex" → search "Charizard")
-    const firstWord = cardName.split(' ')[0]
-    if (firstWord && firstWord !== cardName) {
-      const broader = await searchPokétraceCards(firstWord, { limit: 50 })
-      if (!broader.length) return null
-      results.push(...broader)
-      debug.searched = `${cardName} + broader:${firstWord}`
-      debug.resultCount = results.length
-    } else {
-      return null
-    }
-  }
+  if (!results.length) return null
 
   // 1. TCGPlayer ID cross-match — most precise possible
   if (tcgplayerId) {

@@ -1,13 +1,13 @@
 /**
- * GET /api/card/[id]?grade=PSA+10&name=Charizard&set=Base+Set&number=125
+ * GET /api/card/[id]?grade=PSA+10&name=Charizard&set=Base+Set&number=4
  *
  * Returns card price data + CardIndex score via Poketrace API.
  * Checks search_cache first (24h TTL), falls back to live fetch.
  *
  * Matching strategy (in order):
- *   1. TCGPlayer ID → GET /cards?tcgplayer_ids={id}   (most accurate)
- *   2. Set slug + card number → GET /cards?set={slug}&card_number={num}
- *   3. Name search fallback → GET /cards?search={name} + set slug matching
+ *   1. TCGPlayer ID  → GET /cards?tcgplayer_ids={id}            (most accurate)
+ *   2. Set slug + number → findBySetAndNumber                   (deterministic)
+ *   3. Name search fallback → findBestMatch                     (fuzzy, last resort)
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -15,10 +15,13 @@ import { createClient } from '@supabase/supabase-js'
 import {
   searchByTcgPlayerId,
   findBestMatch,
+  findBySetAndNumber,
   getPokétraceCard,
   getPriceHistory,
+  getPoketraceSetSlug,
   gradeToTier,
   getTierPrice,
+  toPoketraceVariants,
 } from '@/lib/poketrace'
 import { computeScore } from '@/lib/score'
 
@@ -33,11 +36,12 @@ const CACHE_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
 
 interface PokemonTcgCardInfo {
   tcgplayerId: string | null
-  /** Full Poketrace-style number e.g. "125/094" */
+  /** Full Poketrace-style number e.g. "004/102" */
   fullNumber: string | null
+  /** Bare number e.g. "4" */
+  bareNumber: string | null
   subtypes: string[]
   supertypes: string[]
-  /** pokemontcg.io image URL (large preferred) */
   imageUrl: string | null
 }
 
@@ -45,9 +49,9 @@ interface PokemonTcgCardInfo {
 async function getPokemonTcgCardInfo(pokemontcgId: string): Promise<PokemonTcgCardInfo> {
   try {
     const res = await fetch(`https://api.pokemontcg.io/v2/cards/${pokemontcgId}`, {
-      next: { revalidate: 86400 }, // cache for 24h — this data doesn't change
+      next: { revalidate: 86400 },
     })
-    if (!res.ok) return { tcgplayerId: null, fullNumber: null, subtypes: [], supertypes: [], imageUrl: null }
+    if (!res.ok) return { tcgplayerId: null, fullNumber: null, bareNumber: null, subtypes: [], supertypes: [], imageUrl: null }
     const json = await res.json()
     const data = json.data
 
@@ -56,12 +60,15 @@ async function getPokemonTcgCardInfo(pokemontcgId: string): Promise<PokemonTcgCa
     const tcgMatch = url?.match(/\/product\/(\d+)/)
     const tcgplayerId = tcgMatch ? tcgMatch[1] : null
 
-    // Build full card number "number/printedTotal" e.g. "125/094"
+    // Build full card number "number/printedTotal" e.g. "004/102"
     const number = data?.number as string | undefined
     const printedTotal = data?.set?.printedTotal as number | undefined
     const totalCards   = data?.set?.total as number | undefined
     let fullNumber: string | null = null
+    let bareNumber: string | null = null
+
     if (number) {
+      bareNumber = number
       const total = printedTotal ?? totalCards
       if (total) {
         const numPart  = number.replace(/[^0-9]/g, '')
@@ -76,12 +83,13 @@ async function getPokemonTcgCardInfo(pokemontcgId: string): Promise<PokemonTcgCa
     return {
       tcgplayerId,
       fullNumber,
+      bareNumber,
       subtypes:   data?.subtypes  ?? [],
       supertypes: data?.supertypes ?? [],
       imageUrl:   (data?.images?.large ?? data?.images?.small) as string | null ?? null,
     }
   } catch {
-    return { tcgplayerId: null, fullNumber: null, subtypes: [], supertypes: [], imageUrl: null }
+    return { tcgplayerId: null, fullNumber: null, bareNumber: null, subtypes: [], supertypes: [], imageUrl: null }
   }
 }
 
@@ -123,15 +131,21 @@ export async function GET(
     return NextResponse.json({ error: 'POKETRACE_API_KEY not configured' }, { status: 503 })
   }
 
-  // ── 2. Find the card on Poketrace ─────────────────────────────────────────
-  // Fetch pokemontcg.io card info once — used by multiple strategies
-  const ptcgInfo = await getPokemonTcgCardInfo(id)
+  // ── 2. Fetch pokemontcg.io info + Poketrace set slug in parallel ──────────
+  const [ptcgInfo, poketraceSetSlug] = await Promise.all([
+    getPokemonTcgCardInfo(id),
+    setName ? getPoketraceSetSlug(setName) : Promise.resolve(null),
+  ])
 
-  // Strategy A: TCGPlayer ID lookup via GET /cards?tcgplayer_ids=
+  const variants = toPoketraceVariants(ptcgInfo.subtypes, ptcgInfo.supertypes)
+
   let matchedCard = null
   let matchReason = ''
+  const tried: string[] = []
 
+  // ── Strategy A: TCGPlayer ID (most precise) ───────────────────────────────
   if (ptcgInfo.tcgplayerId) {
+    tried.push(`tcgplayer_id:${ptcgInfo.tcgplayerId}`)
     const found = await searchByTcgPlayerId(ptcgInfo.tcgplayerId)
     if (found) {
       matchedCard = found
@@ -139,10 +153,29 @@ export async function GET(
     }
   }
 
-  // Strategy B: Name search with TCGPlayer ID cross-match + set slug + card number
-  // The name search returns refs.tcgplayerId which we can match against our extracted ID.
-  // Falls back to set-slug matching + card number disambiguation within the name results.
+  // ── Strategy B: Set slug + card number (deterministic) ────────────────────
+  if (!matchedCard && poketraceSetSlug) {
+    // Try both the full padded number ("004/102") and the bare number ("4")
+    const numbersToTry = [
+      ptcgInfo.fullNumber,
+      ptcgInfo.bareNumber,
+      cardNumber || null,
+    ].filter((n, i, a): n is string => !!n && a.indexOf(n) === i)
+
+    for (const num of numbersToTry) {
+      tried.push(`set_slug:${poketraceSetSlug}+number:${num}`)
+      const found = await findBySetAndNumber(cardName, poketraceSetSlug, num, variants)
+      if (found) {
+        matchedCard = found
+        matchReason = `set_slug:${poketraceSetSlug}+number:${num}`
+        break
+      }
+    }
+  }
+
+  // ── Strategy C: Name search with set/number filtering (fuzzy fallback) ────
   if (!matchedCard) {
+    tried.push(`name_search:${cardName}`)
     try {
       const matchResult = await findBestMatch(
         cardName,
@@ -163,7 +196,15 @@ export async function GET(
     if (cached) return NextResponse.json({ source: 'stale_cache', data: cached })
     return NextResponse.json({
       error: 'Card not found on Poketrace',
-      debug: { searched: cardName, setName, cardNumber, tcgplayerId: ptcgInfo.tcgplayerId, fullNumber: ptcgInfo.fullNumber }
+      debug: {
+        searched: cardName,
+        setName,
+        cardNumber,
+        tcgplayerId: ptcgInfo.tcgplayerId,
+        fullNumber: ptcgInfo.fullNumber,
+        poketraceSetSlug,
+        tried,
+      }
     }, { status: 404 })
   }
 
@@ -171,7 +212,7 @@ export async function GET(
   const fullCard = await getPokétraceCard(matchedCard.id)
   if (!fullCard) {
     if (cached) return NextResponse.json({ source: 'stale_cache', data: cached })
-    return NextResponse.json({ error: 'Failed to fetch card pricing' }, { status: 502 })
+    return NextResponse.json({ error: 'Failed to fetch card pricing', debug: { matchedCard: matchedCard.id, matchReason } }, { status: 502 })
   }
 
   const tier   = gradeToTier(grade)
@@ -179,7 +220,19 @@ export async function GET(
 
   if (!result) {
     if (cached) return NextResponse.json({ source: 'stale_cache', data: cached })
-    return NextResponse.json({ error: `No price data for ${grade}`, debug: { matchedCard: fullCard.name, matchedSet: fullCard.set.name, matchReason } }, { status: 404 })
+    return NextResponse.json({
+      error: `No price data for ${grade}`,
+      debug: {
+        matchedCard: fullCard.name,
+        matchedSet: fullCard.set.name,
+        matchReason,
+        tier,
+        availableTiers: [
+          ...Object.keys(fullCard.prices.ebay ?? {}),
+          ...Object.keys(fullCard.prices.tcgplayer ?? {}),
+        ],
+      }
+    }, { status: 404 })
   }
 
   const { tierPrice, resolvedTier } = result
@@ -206,8 +259,7 @@ export async function GET(
     price: h.avg,
   }))
 
-  // ── 8. Build all-tier price ladder ───────────────────────────────────────
-  // eBay = graded tiers; TCGPlayer = raw condition tiers; prefer TCGPlayer for raw
+  // ── 8. Build all-tier price ladder ────────────────────────────────────────
   const RAW_TIERS = ['NEAR_MINT', 'LIGHTLY_PLAYED', 'MODERATELY_PLAYED', 'HEAVILY_PLAYED', 'DAMAGED']
   const allTierPrices: Record<string, { avg: number; source: string; saleCount?: number }> = {}
 
@@ -215,7 +267,6 @@ export async function GET(
     allTierPrices[t] = { avg: tp.avg, source: 'eBay', saleCount: tp.saleCount }
   }
   for (const [t, tp] of Object.entries(fullCard.prices.tcgplayer ?? {})) {
-    // Prefer TCGPlayer for raw conditions; keep eBay for graded
     if (RAW_TIERS.includes(t) || !allTierPrices[t]) {
       allTierPrices[t] = { avg: tp.avg, source: 'TCGPlayer', saleCount: tp.saleCount }
     }
@@ -228,7 +279,7 @@ export async function GET(
     }
   }
 
-  // ── 9. Build cache record ─────────────────────────────────────────────────
+  // ── 9. Build + upsert cache record ───────────────────────────────────────
   const record = {
     cache_key:           cacheKey,
     card_id:             id,
@@ -261,7 +312,6 @@ export async function GET(
     last_updated_pt:     fullCard.lastUpdated ?? null,
   }
 
-  // ── 9. Upsert cache + log ─────────────────────────────────────────────────
   await Promise.all([
     supabase.from('search_cache').upsert(record),
     supabase.from('search_log').insert({ card_id: id, card_name: cardName, grade }),

@@ -1,0 +1,36 @@
+/**
+ * GET /api/pt/cards?set={slug}&search=&cursor=
+ * Proxy for Poketrace /cards — keeps API key server-side.
+ */
+import { NextRequest, NextResponse } from 'next/server'
+
+export async function GET(req: NextRequest) {
+  if (!process.env.POKETRACE_API_KEY) {
+    return NextResponse.json({ data: [], pagination: { hasMore: false, count: 0 } })
+  }
+
+  const set    = req.nextUrl.searchParams.get('set')    ?? ''
+  const search = req.nextUrl.searchParams.get('search') ?? ''
+  const cursor = req.nextUrl.searchParams.get('cursor') ?? ''
+
+  if (!set && !search) {
+    return NextResponse.json({ data: [], pagination: { hasMore: false, count: 0 } })
+  }
+
+  const params = new URLSearchParams({ game: 'pokemon', market: 'US', limit: '20' })
+  if (set)    params.set('set', set)
+  if (search) params.set('search', search)
+  if (cursor) params.set('cursor', cursor)
+
+  try {
+    const res = await fetch(`https://api.poketrace.com/v1/cards?${params}`, {
+      headers: { 'X-API-Key': process.env.POKETRACE_API_KEY },
+      cache: 'no-store',
+    })
+    if (!res.ok) return NextResponse.json({ data: [], pagination: { hasMore: false, count: 0 } })
+    const json = await res.json()
+    return NextResponse.json(json)
+  } catch {
+    return NextResponse.json({ data: [], pagination: { hasMore: false, count: 0 } })
+  }
+}

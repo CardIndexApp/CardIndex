@@ -1,164 +1,249 @@
 'use client'
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Navbar from '@/components/Navbar'
-import { tcgImg } from '@/lib/img'
 
-interface TcgSet {
-  id: string
+// ── Types from Poketrace API ─────────────────────────────────────────────────
+
+interface PtSet {
+  slug: string
   name: string
-  series: string
-  releaseDate: string
-  total: number
-  images: { logo: string; symbol: string }
+  releaseDate: string | null
+  cardCount: number
 }
 
-interface TcgCard {
-  id: string
+interface PtCard {
+  id: string          // Poketrace UUID — used directly as card page ID
   name: string
-  number: string
-  rarity?: string
-  set: { id: string; name: string }
-  images: { small: string; large: string }
+  cardNumber: string
+  set: { slug: string; name: string }
+  variant: string
+  rarity: string | null
+  image: string
 }
+
+interface Pagination {
+  hasMore: boolean
+  nextCursor: string | null
+  count: number
+}
+
+// ── Constants ────────────────────────────────────────────────────────────────
 
 const GRADES = [
-  { label: 'Raw', sub: 'Ungraded' },
-  { label: 'PSA 10', sub: 'Gem Mint' },
-  { label: 'PSA 9', sub: 'Mint' },
-  { label: 'PSA 8', sub: 'NM-Mint' },
-  { label: 'PSA 7', sub: 'Near Mint' },
-  { label: 'PSA 6', sub: 'Ex-Mt' },
-  { label: 'BGS 10', sub: 'Pristine' },
-  { label: 'BGS 9.5', sub: 'Gem Mint' },
-  { label: 'CGC 10', sub: 'Pristine' },
-  { label: 'CGC 9', sub: 'Mint' },
+  { label: 'Raw',     sub: 'Ungraded'  },
+  { label: 'PSA 10',  sub: 'Gem Mint'  },
+  { label: 'PSA 9',   sub: 'Mint'      },
+  { label: 'PSA 8',   sub: 'NM-Mint'   },
+  { label: 'PSA 7',   sub: 'Near Mint' },
+  { label: 'PSA 6',   sub: 'Ex-Mt'     },
+  { label: 'BGS 10',  sub: 'Pristine'  },
+  { label: 'BGS 9.5', sub: 'Gem Mint'  },
+  { label: 'CGC 10',  sub: 'Pristine'  },
+  { label: 'CGC 9',   sub: 'Mint'      },
 ]
+
+const VARIANT_LABELS: Record<string, string> = {
+  Holofoil:            'Holo',
+  Normal:              'Normal',
+  Reverse_Holofoil:    'Rev Holo',
+  '1st_Edition_Holofoil': '1st Ed Holo',
+  '1st_Edition':       '1st Ed',
+  Unlimited:           'Unlimited',
+}
 
 type Step = 1 | 2 | 3
 
-function SetLogo({ set }: { set: TcgSet }) {
-  const [src, setSrc] = useState<string | null>(
-    set.images?.logo ? tcgImg(set.images.logo) : null
+// ── Components ───────────────────────────────────────────────────────────────
+
+function SetInitials({ name }: { name: string }) {
+  const initials = name.split(' ').filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('')
+  return (
+    <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink3)', letterSpacing: 0.5 }}>{initials}</span>
+    </div>
   )
-  const [failed, setFailed] = useState(!set.images?.logo)
+}
 
-  if (failed) {
-    const initials = set.name.split(' ').filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('')
-    return (
-      <div style={{ width: 36, height: 36, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink3)', letterSpacing: 0.5 }}>{initials}</span>
-      </div>
-    )
+function CardImage({ src, alt }: { src: string; alt: string }) {
+  const [failed, setFailed] = useState(false)
+  if (failed || !src) {
+    return <div style={{ width: '100%', paddingTop: '140%', background: 'var(--surface2)' }} />
   }
-
   return (
     <img
-      src={src!}
-      alt={set.name}
-      style={{ maxHeight: 36, maxWidth: '100%', objectFit: 'contain', objectPosition: 'left center' }}
-      onError={() => {
-        if (set.images?.symbol && src !== tcgImg(set.images.symbol)) {
-          setSrc(tcgImg(set.images.symbol))
-        } else {
-          setFailed(true)
-        }
-      }}
+      src={src}
+      alt={alt}
+      style={{ width: '100%', display: 'block' }}
+      onError={() => setFailed(true)}
     />
   )
 }
+
+// ── Main page ────────────────────────────────────────────────────────────────
 
 export default function SearchPage() {
   const router = useRouter()
   const [step, setStep] = useState<Step>(1)
 
   // Step 1 — Set selection
-  const [sets, setSets] = useState<TcgSet[]>([])
+  const [sets, setSets] = useState<PtSet[]>([])
   const [setsLoading, setSetsLoading] = useState(true)
   const [setQuery, setSetQuery] = useState('')
-  const [selectedSet, setSelectedSet] = useState<TcgSet | null>(null)
+  const [selectedSet, setSelectedSet] = useState<PtSet | null>(null)
+  const [setsPagination, setSetsPagination] = useState<Pagination>({ hasMore: false, nextCursor: null, count: 0 })
+  const [setsLoadingMore, setSetsLoadingMore] = useState(false)
 
   // Step 2 — Card selection
-  const [cardQuery, setCardQuery] = useState('')
-  const [cards, setCards] = useState<TcgCard[]>([])
+  const [cards, setCards] = useState<PtCard[]>([])
+  const [cardsPagination, setCardsPagination] = useState<Pagination>({ hasMore: false, nextCursor: null, count: 0 })
   const [cardsLoading, setCardsLoading] = useState(false)
-  const [selectedCard, setSelectedCard] = useState<TcgCard | null>(null)
+  const [cardsLoadingMore, setCardsLoadingMore] = useState(false)
+  const [cardQuery, setCardQuery] = useState('')
+  const [selectedCard, setSelectedCard] = useState<PtCard | null>(null)
+  const cardSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Step 3 — Grade selection
   const [selectedGrade, setSelectedGrade] = useState<string | null>(null)
 
-  // Load sets via cached proxy — instant after first server load
+  // ── Load sets on mount ────────────────────────────────────────────────────
   useEffect(() => {
-    fetch('/api/tcg/sets')
+    fetch('/api/pt/sets')
       .then(r => r.json())
-      .then(d => setSets(d.data || []))
+      .then(d => { setSets(d.data ?? []); setSetsPagination(d.pagination ?? { hasMore: false, nextCursor: null, count: 0 }) })
       .catch(() => setSets([]))
       .finally(() => setSetsLoading(false))
   }, [])
 
-  // Load cards via cached proxy when set is selected
+  // ── Debounced set search ──────────────────────────────────────────────────
+  const setSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
-    if (!selectedSet) return
-    setCardsLoading(true)
-    setCards([])
-    fetch(`/api/tcg/cards?setId=${encodeURIComponent(selectedSet.id)}`)
+    if (setSearchTimeout.current) clearTimeout(setSearchTimeout.current)
+    if (!setQuery.trim()) {
+      // Re-load default set list
+      setSetsLoading(true)
+      fetch('/api/pt/sets')
+        .then(r => r.json())
+        .then(d => { setSets(d.data ?? []); setSetsPagination(d.pagination ?? { hasMore: false }) })
+        .catch(() => setSets([]))
+        .finally(() => setSetsLoading(false))
+      return
+    }
+    setSearchTimeout.current = setTimeout(() => {
+      setSetsLoading(true)
+      fetch(`/api/pt/sets?search=${encodeURIComponent(setQuery.trim())}`)
+        .then(r => r.json())
+        .then(d => { setSets(d.data ?? []); setSetsPagination(d.pagination ?? { hasMore: false }) })
+        .catch(() => setSets([]))
+        .finally(() => setSetsLoading(false))
+    }, 300)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setQuery])
+
+  // ── Load more sets ────────────────────────────────────────────────────────
+  const loadMoreSets = useCallback(async () => {
+    if (!setsPagination.nextCursor || setsLoadingMore) return
+    setSetsLoadingMore(true)
+    const url = `/api/pt/sets?cursor=${encodeURIComponent(setsPagination.nextCursor)}${setQuery ? `&search=${encodeURIComponent(setQuery)}` : ''}`
+    fetch(url)
       .then(r => r.json())
-      .then(d => setCards(d.data || []))
-      .catch(() => setCards([]))
-      .finally(() => setCardsLoading(false))
-  }, [selectedSet])
+      .then(d => { setSets(prev => [...prev, ...(d.data ?? [])]); setSetsPagination(d.pagination ?? { hasMore: false }) })
+      .catch(() => {})
+      .finally(() => setSetsLoadingMore(false))
+  }, [setsPagination.nextCursor, setsLoadingMore, setQuery])
 
-  const filteredSets = useMemo(() => {
-    const q = setQuery.trim().toLowerCase()
-    if (!q) return sets
-    return sets.filter(s =>
-      s.name.toLowerCase().includes(q) || s.series.toLowerCase().includes(q)
-    )
-  }, [sets, setQuery])
+  // ── Load cards when set selected ──────────────────────────────────────────
+  const loadCardsForSet = useCallback((slug: string, cursor?: string) => {
+    const url = `/api/pt/cards?set=${encodeURIComponent(slug)}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`
+    return fetch(url).then(r => r.json())
+  }, [])
 
-  const filteredCards = useMemo(() => {
-    const q = cardQuery.trim().toLowerCase()
-    if (!q) return cards
-    return cards.filter(c =>
-      c.name.toLowerCase().includes(q) ||
-      c.number.includes(cardQuery) ||
-      (c.rarity?.toLowerCase().includes(q))
-    )
-  }, [cards, cardQuery])
-
-  const seriesGroups = useMemo(() =>
-    filteredSets.reduce<Record<string, TcgSet[]>>((acc, s) => {
-      if (!acc[s.series]) acc[s.series] = []
-      acc[s.series].push(s)
-      return acc
-    }, {}),
-  [filteredSets])
-
-  const handleSetSelect = useCallback((set: TcgSet) => {
+  const handleSetSelect = useCallback((set: PtSet) => {
     setSelectedSet(set)
     setSelectedCard(null)
     setSelectedGrade(null)
+    setCardQuery('')
+    setCards([])
     setStep(2)
-  }, [])
+    setCardsLoading(true)
+    loadCardsForSet(set.slug)
+      .then(d => { setCards(d.data ?? []); setCardsPagination(d.pagination ?? { hasMore: false }) })
+      .catch(() => setCards([]))
+      .finally(() => setCardsLoading(false))
+  }, [loadCardsForSet])
 
-  const handleCardSelect = useCallback((card: TcgCard) => {
+  // ── Debounced card search within set ─────────────────────────────────────
+  useEffect(() => {
+    if (!selectedSet) return
+    if (cardSearchTimeout.current) clearTimeout(cardSearchTimeout.current)
+
+    const q = cardQuery.trim()
+    if (!q) {
+      // Reset to full set listing
+      setCardsLoading(true)
+      loadCardsForSet(selectedSet.slug)
+        .then(d => { setCards(d.data ?? []); setCardsPagination(d.pagination ?? { hasMore: false }) })
+        .catch(() => setCards([]))
+        .finally(() => setCardsLoading(false))
+      return
+    }
+
+    cardSearchTimeout.current = setTimeout(() => {
+      setCardsLoading(true)
+      fetch(`/api/pt/cards?set=${encodeURIComponent(selectedSet.slug)}&search=${encodeURIComponent(q)}`)
+        .then(r => r.json())
+        .then(d => { setCards(d.data ?? []); setCardsPagination(d.pagination ?? { hasMore: false }) })
+        .catch(() => setCards([]))
+        .finally(() => setCardsLoading(false))
+    }, 300)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cardQuery, selectedSet])
+
+  // ── Load more cards ───────────────────────────────────────────────────────
+  const loadMoreCards = useCallback(async () => {
+    if (!selectedSet || !cardsPagination.nextCursor || cardsLoadingMore) return
+    setCardsLoadingMore(true)
+    const url = `/api/pt/cards?set=${encodeURIComponent(selectedSet.slug)}&cursor=${encodeURIComponent(cardsPagination.nextCursor)}${cardQuery ? `&search=${encodeURIComponent(cardQuery)}` : ''}`
+    fetch(url)
+      .then(r => r.json())
+      .then(d => { setCards(prev => [...prev, ...(d.data ?? [])]); setCardsPagination(d.pagination ?? { hasMore: false }) })
+      .catch(() => {})
+      .finally(() => setCardsLoadingMore(false))
+  }, [selectedSet, cardsPagination.nextCursor, cardsLoadingMore, cardQuery])
+
+  const handleCardSelect = useCallback((card: PtCard) => {
     setSelectedCard(card)
     setSelectedGrade(null)
     setStep(3)
   }, [])
 
-  const handleGradeSelect = useCallback((grade: string, card: TcgCard | null) => {
+  const handleGradeSelect = useCallback((grade: string, card: PtCard | null) => {
     setSelectedGrade(grade)
-    if (card) {
-      const params = new URLSearchParams({
-        grade,
-        name: card.name,
-        set: card.set.name,
-        number: card.number,
-      })
-      router.push(`/card/${card.id}?${params.toString()}`)
-    }
+    if (!card) return
+    const params = new URLSearchParams({
+      grade,
+      name: card.name,
+      set:  card.set.name,
+      number: card.cardNumber,
+    })
+    // Use Poketrace UUID as the card page ID — no translation needed
+    router.push(`/card/${card.id}?${params.toString()}`)
   }, [router])
+
+  // ── Set grouping by year ──────────────────────────────────────────────────
+  const yearGroups = useMemo(() => {
+    const groups: Record<string, PtSet[]> = {}
+    for (const s of sets) {
+      const year = s.releaseDate ? s.releaseDate.slice(0, 4) : 'Unknown'
+      if (!groups[year]) groups[year] = []
+      groups[year].push(s)
+    }
+    return Object.entries(groups).sort(([a], [b]) => {
+      if (a === 'Unknown') return 1
+      if (b === 'Unknown') return -1
+      return b.localeCompare(a)
+    })
+  }, [sets])
 
   const stepLabel = (n: number) => {
     if (n < step) return 'done'
@@ -170,14 +255,11 @@ export default function SearchPage() {
     <>
       <Navbar />
       <main style={{ maxWidth: 900, margin: '0 auto', padding: '80px 24px 100px' }}>
+
         {/* Steps indicator */}
         <div style={{ display: 'flex', marginBottom: 40, position: 'relative' }}>
           <div style={{ position: 'absolute', left: 0, right: 0, top: 13, height: 1, background: 'var(--border)', zIndex: 0 }} />
-          {[
-            { n: 1, label: 'SET' },
-            { n: 2, label: 'CARD' },
-            { n: 3, label: 'GRADE' },
-          ].map(({ n, label }) => {
+          {[{ n: 1, label: 'SET' }, { n: 2, label: 'CARD' }, { n: 3, label: 'GRADE' }].map(({ n, label }) => {
             const state = stepLabel(n)
             return (
               <div key={n} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, position: 'relative', zIndex: 1 }}>
@@ -195,10 +277,7 @@ export default function SearchPage() {
                 >
                   {state === 'done' ? '✓' : n}
                 </div>
-                <span
-                  className="font-mono-custom"
-                  style={{ fontSize: 9, letterSpacing: 1, color: state === 'act' ? 'var(--gold)' : state === 'done' ? 'var(--green)' : 'var(--ink3)' }}
-                >
+                <span className="font-mono-custom" style={{ fontSize: 9, letterSpacing: 1, color: state === 'act' ? 'var(--gold)' : state === 'done' ? 'var(--green)' : 'var(--ink3)' }}>
                   {label}
                 </span>
               </div>
@@ -206,56 +285,69 @@ export default function SearchPage() {
           })}
         </div>
 
-        {/* Step 1: Set */}
+        {/* ── Step 1: Set ──────────────────────────────────────────────────── */}
         {step === 1 && (
           <div>
             <p className="font-mono-custom" style={{ fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8 }}>STEP 1 OF 3</p>
             <h2 className="font-display" style={{ fontSize: 26, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.5px', marginBottom: 24 }}>Choose a set</h2>
 
-            <div style={{ position: 'relative', marginBottom: 24 }}>
-              <input
-                type="text"
-                value={setQuery}
-                onChange={e => setSetQuery(e.target.value)}
-                placeholder="Filter sets…"
-                style={{ width: '100%', paddingLeft: 16, paddingRight: 16, paddingTop: 12, paddingBottom: 12, borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 14, outline: 'none' }}
-                onFocus={e => (e.currentTarget.style.borderColor = 'var(--gold)')}
-                onBlur={e => (e.currentTarget.style.borderColor = 'var(--border2)')}
-              />
-            </div>
+            <input
+              type="text"
+              value={setQuery}
+              onChange={e => setSetQuery(e.target.value)}
+              placeholder="Search sets…"
+              autoFocus
+              style={{ width: '100%', padding: '12px 16px', borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 14, outline: 'none', marginBottom: 24, boxSizing: 'border-box' }}
+              onFocus={e => (e.currentTarget.style.borderColor = 'var(--gold)')}
+              onBlur={e => (e.currentTarget.style.borderColor = 'var(--border2)')}
+            />
 
             {setsLoading ? (
               <div style={{ textAlign: 'center', padding: 48, color: 'var(--ink3)', fontSize: 13 }}>Loading sets…</div>
+            ) : sets.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 48, color: 'var(--ink3)', fontSize: 13 }}>No sets found</div>
             ) : (
-              Object.entries(seriesGroups).map(([series, seriesSets]) => (
-                <div key={series} style={{ marginBottom: 28 }}>
-                  <p className="font-mono-custom" style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 2, marginBottom: 10 }}>{series.toUpperCase()}</p>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 8 }}>
-                    {seriesSets.map(set => (
-                      <button
-                        key={set.id}
-                        onClick={() => handleSetSelect(set)}
-                        style={{ background: 'var(--surface)', border: '1.5px solid var(--border)', borderRadius: 10, padding: '12px', cursor: 'pointer', textAlign: 'left', transition: 'all 0.18s', display: 'flex', flexDirection: 'column', gap: 8 }}
-                        onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.transform = 'translateY(-1px)' }}
-                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.transform = 'translateY(0)' }}
-                      >
-                        <div style={{ height: 36, display: 'flex', alignItems: 'center' }}>
-                          <SetLogo set={set} />
-                        </div>
-                        <div>
-                          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3, marginBottom: 2 }}>{set.name}</div>
-                          <div style={{ fontSize: 10, color: 'var(--ink3)' }}>{set.releaseDate?.slice(0, 4)} · {set.total} cards</div>
-                        </div>
-                      </button>
-                    ))}
+              <>
+                {yearGroups.map(([year, yearSets]) => (
+                  <div key={year} style={{ marginBottom: 28 }}>
+                    <p className="font-mono-custom" style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 2, marginBottom: 10 }}>{year}</p>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 8 }}>
+                      {yearSets.map(set => (
+                        <button
+                          key={set.slug}
+                          onClick={() => handleSetSelect(set)}
+                          style={{ background: 'var(--surface)', border: '1.5px solid var(--border)', borderRadius: 10, padding: '12px', cursor: 'pointer', textAlign: 'left', transition: 'all 0.18s', display: 'flex', alignItems: 'center', gap: 10 }}
+                          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.transform = 'translateY(-1px)' }}
+                          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.transform = 'translateY(0)' }}
+                        >
+                          <SetInitials name={set.name} />
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3, marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{set.name}</div>
+                            <div style={{ fontSize: 10, color: 'var(--ink3)' }}>{set.cardCount} cards</div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))
+                ))}
+
+                {setsPagination.hasMore && (
+                  <div style={{ textAlign: 'center', marginTop: 16 }}>
+                    <button
+                      onClick={loadMoreSets}
+                      disabled={setsLoadingMore}
+                      style={{ padding: '8px 24px', borderRadius: 8, background: 'var(--surface)', border: '1px solid var(--border2)', color: 'var(--ink3)', fontSize: 12, cursor: 'pointer' }}
+                    >
+                      {setsLoadingMore ? 'Loading…' : 'Load more sets'}
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
 
-        {/* Step 2: Card */}
+        {/* ── Step 2: Card ──────────────────────────────────────────────────── */}
         {step === 2 && selectedSet && (
           <div>
             <button onClick={() => setStep(1)} style={{ background: 'none', border: 'none', color: 'var(--ink3)', cursor: 'pointer', fontSize: 13, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 6, padding: 0 }}>
@@ -263,50 +355,66 @@ export default function SearchPage() {
             </button>
             <p className="font-mono-custom" style={{ fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8 }}>STEP 2 OF 3</p>
             <h2 className="font-display" style={{ fontSize: 26, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.5px', marginBottom: 4 }}>Choose a card</h2>
-            <p style={{ fontSize: 13, color: 'var(--ink3)', marginBottom: 24 }}>{selectedSet.name} · {cards.length} cards</p>
+            <p style={{ fontSize: 13, color: 'var(--ink3)', marginBottom: 20 }}>{selectedSet.name} · {selectedSet.cardCount} cards</p>
 
-            <div style={{ position: 'relative', marginBottom: 20 }}>
-              <input
-                type="text"
-                value={cardQuery}
-                onChange={e => setCardQuery(e.target.value)}
-                placeholder="Filter by name, number, or rarity…"
-                style={{ width: '100%', paddingLeft: 16, paddingRight: 16, paddingTop: 12, paddingBottom: 12, borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 14, outline: 'none' }}
-                onFocus={e => (e.currentTarget.style.borderColor = 'var(--gold)')}
-                onBlur={e => (e.currentTarget.style.borderColor = 'var(--border2)')}
-              />
-            </div>
+            <input
+              type="text"
+              value={cardQuery}
+              onChange={e => setCardQuery(e.target.value)}
+              placeholder="Search by name, number, or rarity…"
+              autoFocus
+              style={{ width: '100%', padding: '12px 16px', borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 14, outline: 'none', marginBottom: 20, boxSizing: 'border-box' }}
+              onFocus={e => (e.currentTarget.style.borderColor = 'var(--gold)')}
+              onBlur={e => (e.currentTarget.style.borderColor = 'var(--border2)')}
+            />
 
             {cardsLoading ? (
               <div style={{ textAlign: 'center', padding: 48, color: 'var(--ink3)', fontSize: 13 }}>Loading cards…</div>
+            ) : cards.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 48, color: 'var(--ink3)', fontSize: 13 }}>No cards found</div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(128px, 1fr))', gap: 10 }}>
-                {filteredCards.map(card => (
-                  <button
-                    key={card.id}
-                    onClick={() => handleCardSelect(card)}
-                    style={{ background: 'var(--surface)', border: '2px solid var(--border)', borderRadius: 10, overflow: 'hidden', cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s', padding: 0 }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.transform = 'translateY(-2px)' }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.transform = 'translateY(0)' }}
-                  >
-                    {card.images?.small ? (
-                      <img src={tcgImg(card.images.small)} alt={card.name} style={{ width: '100%', display: 'block' }} />
-                    ) : (
-                      <div style={{ width: '100%', paddingTop: '140%', background: 'var(--surface2)' }} />
-                    )}
-                    <div style={{ padding: '7px 9px' }}>
-                      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3 }}>{card.name}</div>
-                      <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>#{card.number}</div>
-                      {card.rarity && <div style={{ fontSize: 9, color: 'var(--gold)', marginTop: 2, fontWeight: 600 }}>{card.rarity}</div>}
-                    </div>
-                  </button>
-                ))}
-              </div>
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(128px, 1fr))', gap: 10 }}>
+                  {cards.map(card => (
+                    <button
+                      key={card.id}
+                      onClick={() => handleCardSelect(card)}
+                      style={{ background: 'var(--surface)', border: '2px solid var(--border)', borderRadius: 10, overflow: 'hidden', cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s', padding: 0 }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.transform = 'translateY(-2px)' }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.transform = 'translateY(0)' }}
+                    >
+                      <CardImage src={card.image} alt={card.name} />
+                      <div style={{ padding: '7px 9px' }}>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3 }}>{card.name}</div>
+                        <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>#{card.cardNumber}</div>
+                        {card.variant && card.variant !== 'Normal' && (
+                          <div style={{ fontSize: 9, color: 'var(--ink3)', marginTop: 2 }}>{VARIANT_LABELS[card.variant] ?? card.variant}</div>
+                        )}
+                        {card.rarity && (
+                          <div style={{ fontSize: 9, color: 'var(--gold)', marginTop: 2, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{card.rarity}</div>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                {cardsPagination.hasMore && (
+                  <div style={{ textAlign: 'center', marginTop: 20 }}>
+                    <button
+                      onClick={loadMoreCards}
+                      disabled={cardsLoadingMore}
+                      style={{ padding: '10px 28px', borderRadius: 8, background: 'var(--surface)', border: '1px solid var(--border2)', color: 'var(--ink3)', fontSize: 12, cursor: 'pointer' }}
+                    >
+                      {cardsLoadingMore ? 'Loading…' : `Load more cards`}
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
 
-        {/* Step 3: Grade */}
+        {/* ── Step 3: Grade ────────────────────────────────────────────────── */}
         {step === 3 && selectedCard && (
           <div>
             <button onClick={() => setStep(2)} style={{ background: 'none', border: 'none', color: 'var(--ink3)', cursor: 'pointer', fontSize: 13, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 6, padding: 0 }}>
@@ -316,19 +424,26 @@ export default function SearchPage() {
             <h2 className="font-display" style={{ fontSize: 26, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.5px', marginBottom: 24 }}>Select grade</h2>
 
             <div className="search-card-summary" style={{ display: 'flex', gap: 20, background: 'var(--surface)', border: '1.5px solid var(--border2)', borderRadius: 14, padding: 18, marginBottom: 28, alignItems: 'flex-start' }}>
-              {selectedCard.images?.small ? (
-                <img src={tcgImg(selectedCard.images.small)} alt={selectedCard.name} style={{ width: 80, borderRadius: 8, boxShadow: '0 8px 28px rgba(0,0,0,0.6)', flexShrink: 0 }} />
+              {selectedCard.image ? (
+                <img src={selectedCard.image} alt={selectedCard.name} style={{ width: 80, borderRadius: 8, boxShadow: '0 8px 28px rgba(0,0,0,0.6)', flexShrink: 0 }} />
               ) : (
                 <div style={{ width: 80, height: 112, borderRadius: 8, background: 'var(--surface2)', flexShrink: 0 }} />
               )}
               <div>
                 <div className="font-display" style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>{selectedCard.name}</div>
-                <div style={{ fontSize: 12, color: 'var(--ink3)', marginBottom: 8 }}>{selectedCard.set.name} · #{selectedCard.number}</div>
-                {selectedCard.rarity && (
-                  <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 99, background: 'rgba(232,197,71,0.08)', border: '1px solid rgba(232,197,71,0.25)', fontSize: 11, color: 'var(--gold)', fontWeight: 600 }}>
-                    {selectedCard.rarity}
-                  </span>
-                )}
+                <div style={{ fontSize: 12, color: 'var(--ink3)', marginBottom: 6 }}>{selectedCard.set.name} · #{selectedCard.cardNumber}</div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {selectedCard.variant && (
+                    <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 99, background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border2)', fontSize: 11, color: 'var(--ink3)' }}>
+                      {VARIANT_LABELS[selectedCard.variant] ?? selectedCard.variant}
+                    </span>
+                  )}
+                  {selectedCard.rarity && (
+                    <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 99, background: 'rgba(232,197,71,0.08)', border: '1px solid rgba(232,197,71,0.25)', fontSize: 11, color: 'var(--gold)', fontWeight: 600 }}>
+                      {selectedCard.rarity}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 

@@ -210,49 +210,60 @@ function setNameToSlug(name: string): string {
 }
 
 /**
- * Look up the Poketrace set slug for a given set name.
- * Poketrace set slugs include a code prefix (e.g. "me02-phantasmal-flames")
- * that pokemontcg.io doesn't have ("Phantasmal Flames").
+ * Return ALL Poketrace set slugs that match a pokemontcg.io set name.
+ * Returns multiple because Poketrace splits sets (e.g. "Prismatic Evolutions" →
+ * "prismatic-evolutions", "sv-prismatic-evolutions", "prismatic-evolutions-additionals").
+ * Callers should try each slug until they find a card match.
+ * Results are ordered: exact name match first, then slug/partial matches.
  */
-export async function getPoketraceSetSlug(setName: string): Promise<string | null> {
+export async function getPoketraceSetSlugs(setName: string): Promise<string[]> {
   try {
     const params = new URLSearchParams({ search: setName, limit: '20', game: 'pokemon' })
     const res = await fetch(`${BASE}/sets?${params}`, {
       headers: apiHeaders(),
-      cache: 'no-store', // don't cache nulls — new sets get indexed regularly
+      cache: 'no-store',
     })
     assertOkOrNotFound(res)
-    if (!res.ok) return null
+    if (!res.ok) return []
     const json = await res.json()
     const sets = (json.data as PoketraceSet[]) ?? []
-    if (!sets.length) return null
+    if (!sets.length) return []
 
     const nameLower = setName.toLowerCase()
     const setSlug   = setNameToSlug(setName)
 
-    // 1. Exact name match
-    const exact = sets.find(s => s.name.toLowerCase() === nameLower)
-    if (exact) return exact.slug
+    const tier1: string[] = [] // exact name match
+    const tier2: string[] = [] // slug contains our fragment (or vice versa)
+    const tier3: string[] = [] // partial name match
 
-    // 2. Poketrace slug contains our slug fragment
-    // e.g. "me02-phantasmal-flames" contains "phantasmal-flames"
-    const slugMatch = sets.find(s => {
-      const sl = s.slug.toLowerCase()
-      return sl === setSlug || sl.includes(setSlug) || setSlug.includes(sl)
-    })
-    if (slugMatch) return slugMatch.slug
+    for (const s of sets) {
+      const sl      = s.slug.toLowerCase()
+      const snLower = s.name.toLowerCase()
+      const snSlug  = setNameToSlug(s.name)
 
-    // 3. Partial name match
-    const partial = sets.find(s =>
-      s.name.toLowerCase().includes(nameLower) || nameLower.includes(s.name.toLowerCase())
-    )
-    if (partial) return partial.slug
+      if (snLower === nameLower) {
+        tier1.push(s.slug)
+      } else if (
+        sl === setSlug || sl.includes(setSlug) || setSlug.includes(sl) ||
+        snSlug === setSlug || snSlug.includes(setSlug) || setSlug.includes(snSlug)
+      ) {
+        tier2.push(s.slug)
+      } else if (snLower.includes(nameLower) || nameLower.includes(snLower)) {
+        tier3.push(s.slug)
+      }
+    }
 
-    return null
+    return [...tier1, ...tier2, ...tier3]
   } catch (err) {
     if (err instanceof PoketraceApiError) throw err
-    return null
+    return []
   }
+}
+
+/** @deprecated Use getPoketraceSetSlugs (returns all matches). Kept for compatibility. */
+export async function getPoketraceSetSlug(setName: string): Promise<string | null> {
+  const slugs = await getPoketraceSetSlugs(setName)
+  return slugs[0] ?? null
 }
 
 // ── Card search ────────────────────────────────────────────────────────────────
@@ -338,60 +349,62 @@ export async function searchPokétraceCards(
 }
 
 /**
- * Find a card using set slug + card number.
- * Uses GET /cards?set=&card_number= with variant filters.
- * NOTE: GET /cards/:id requires a UUID — slug-style IDs don't work.
+ * Find a card using set slug(s) + card number.
+ * Accepts multiple set slugs because Poketrace splits sets — e.g. "Prismatic Evolutions"
+ * maps to "prismatic-evolutions", "sv-prismatic-evolutions", and "prismatic-evolutions-additionals".
+ * Tries each slug with each variant until a match is found.
+ * NOTE: GET /cards/:id requires a UUID — only query params are used here.
  */
 export async function findBySetAndNumber(
   _cardName: string,
-  setSlug: string,
+  setSlugs: string | string[],
   cardNumber: string,
   variants?: PoketraceVariant[]
 ): Promise<PokétraceCard | null> {
-  try {
-    const variantsToTry = variants?.length ? variants : [...POKETRACE_VARIANTS]
+  const slugList   = Array.isArray(setSlugs) ? setSlugs : [setSlugs]
+  const variantsToTry = variants?.length ? variants : [...POKETRACE_VARIANTS]
 
-    const searches: Promise<PokétraceCard | null>[] = []
+  for (const setSlug of slugList) {
+    try {
+      const searches: Promise<PokétraceCard | null>[] = []
 
-    // Try each variant with set + card_number filter
-    for (const variant of variantsToTry) {
-      const params = new URLSearchParams({
-        set: setSlug,
-        card_number: cardNumber,
-        variant,
-        market: 'US',
-        game: 'pokemon',
-        limit: '20',
+      // Try each variant with set + card_number filter
+      for (const variant of variantsToTry) {
+        const params = new URLSearchParams({
+          set: setSlug, card_number: cardNumber, variant,
+          market: 'US', game: 'pokemon', limit: '20',
+        })
+        searches.push(
+          fetch(`${BASE}/cards?${params}`, { headers: apiHeaders(), cache: 'no-store' })
+            .then(r => { assertOkOrNotFound(r); return r.ok ? r.json() : null })
+            .then(json => (json?.data as PokétraceCard[])?.[0] ?? null)
+            .catch(err => { if (err instanceof PoketraceApiError) throw err; return null })
+        )
+      }
+
+      // Also try without variant filter — catches unexpected variant values
+      const noVariantParams = new URLSearchParams({
+        set: setSlug, card_number: cardNumber,
+        market: 'US', game: 'pokemon', limit: '20',
       })
       searches.push(
-        fetch(`${BASE}/cards?${params}`, { headers: apiHeaders(), cache: 'no-store' })
+        fetch(`${BASE}/cards?${noVariantParams}`, { headers: apiHeaders(), cache: 'no-store' })
           .then(r => { assertOkOrNotFound(r); return r.ok ? r.json() : null })
           .then(json => (json?.data as PokétraceCard[])?.[0] ?? null)
           .catch(err => { if (err instanceof PoketraceApiError) throw err; return null })
       )
+
+      const results = await Promise.all(searches)
+      const found = results.find(r => r !== null)
+      if (found) return found
+      // No match for this slug — try next slug
+    } catch (err) {
+      if (err instanceof PoketraceApiError) throw err
+      // Network error on this slug — try next
     }
-
-    // Also try without variant filter — catches cards with unexpected variants
-    const noVariantParams = new URLSearchParams({
-      set: setSlug,
-      card_number: cardNumber,
-      market: 'US',
-      game: 'pokemon',
-      limit: '20',
-    })
-    searches.push(
-      fetch(`${BASE}/cards?${noVariantParams}`, { headers: apiHeaders(), cache: 'no-store' })
-        .then(r => { assertOkOrNotFound(r); return r.ok ? r.json() : null })
-        .then(json => (json?.data as PokétraceCard[])?.[0] ?? null)
-        .catch(err => { if (err instanceof PoketraceApiError) throw err; return null })
-    )
-
-    const results = await Promise.all(searches)
-    return results.find(r => r !== null) ?? null
-  } catch (err) {
-    if (err instanceof PoketraceApiError) throw err
-    return null
   }
+
+  return null
 }
 
 /**

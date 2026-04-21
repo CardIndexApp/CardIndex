@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import { tcgImg } from '@/lib/img'
@@ -58,7 +58,6 @@ function SetLogo({ set }: { set: TcgSet }) {
       alt={set.name}
       style={{ maxHeight: 36, maxWidth: '100%', objectFit: 'contain', objectPosition: 'left center' }}
       onError={() => {
-        // Logo failed — try symbol next
         if (set.images?.symbol && src !== tcgImg(set.images.symbol)) {
           setSrc(tcgImg(set.images.symbol))
         } else {
@@ -88,67 +87,78 @@ export default function SearchPage() {
   // Step 3 — Grade selection
   const [selectedGrade, setSelectedGrade] = useState<string | null>(null)
 
-  // Load sets on mount
+  // Load sets via cached proxy — instant after first server load
   useEffect(() => {
-    fetch('https://api.pokemontcg.io/v2/sets?orderBy=-releaseDate&pageSize=250')
+    fetch('/api/tcg/sets')
       .then(r => r.json())
       .then(d => setSets(d.data || []))
       .catch(() => setSets([]))
       .finally(() => setSetsLoading(false))
   }, [])
 
-  // Load all cards in set when set is selected
+  // Load cards via cached proxy when set is selected
   useEffect(() => {
     if (!selectedSet) return
     setCardsLoading(true)
     setCards([])
-    fetch(`https://api.pokemontcg.io/v2/cards?q=set.id:${selectedSet.id}&pageSize=250&orderBy=number`)
+    fetch(`/api/tcg/cards?setId=${encodeURIComponent(selectedSet.id)}`)
       .then(r => r.json())
       .then(d => setCards(d.data || []))
       .catch(() => setCards([]))
       .finally(() => setCardsLoading(false))
   }, [selectedSet])
 
-  const filteredSets = sets.filter(s =>
-    !setQuery.trim() || s.name.toLowerCase().includes(setQuery.toLowerCase()) || s.series.toLowerCase().includes(setQuery.toLowerCase())
-  )
+  const filteredSets = useMemo(() => {
+    const q = setQuery.trim().toLowerCase()
+    if (!q) return sets
+    return sets.filter(s =>
+      s.name.toLowerCase().includes(q) || s.series.toLowerCase().includes(q)
+    )
+  }, [sets, setQuery])
 
-  const filteredCards = cards.filter(c =>
-    !cardQuery.trim() || c.name.toLowerCase().includes(cardQuery.toLowerCase()) || c.number.includes(cardQuery) || (c.rarity?.toLowerCase().includes(cardQuery.toLowerCase()))
-  )
+  const filteredCards = useMemo(() => {
+    const q = cardQuery.trim().toLowerCase()
+    if (!q) return cards
+    return cards.filter(c =>
+      c.name.toLowerCase().includes(q) ||
+      c.number.includes(cardQuery) ||
+      (c.rarity?.toLowerCase().includes(q))
+    )
+  }, [cards, cardQuery])
 
-  // Group sets by series
-  const seriesGroups = filteredSets.reduce<Record<string, TcgSet[]>>((acc, s) => {
-    if (!acc[s.series]) acc[s.series] = []
-    acc[s.series].push(s)
-    return acc
-  }, {})
+  const seriesGroups = useMemo(() =>
+    filteredSets.reduce<Record<string, TcgSet[]>>((acc, s) => {
+      if (!acc[s.series]) acc[s.series] = []
+      acc[s.series].push(s)
+      return acc
+    }, {}),
+  [filteredSets])
 
-  const handleSetSelect = (set: TcgSet) => {
+  const handleSetSelect = useCallback((set: TcgSet) => {
     setSelectedSet(set)
     setSelectedCard(null)
     setSelectedGrade(null)
     setStep(2)
-  }
+  }, [])
 
-  const handleCardSelect = (card: TcgCard) => {
+  const handleCardSelect = useCallback((card: TcgCard) => {
     setSelectedCard(card)
     setSelectedGrade(null)
     setStep(3)
-  }
+  }, [])
 
-  const handleGradeSelect = (grade: string) => {
+  const handleGradeSelect = useCallback((grade: string, card: TcgCard | null) => {
     setSelectedGrade(grade)
-    if (selectedCard) {
+    if (card) {
       const params = new URLSearchParams({
         grade,
-        name: selectedCard.name,
-        set: selectedCard.set.name,
-        number: selectedCard.number,
+        name: card.name,
+        set: card.set.name,
+        number: card.number,
       })
-      router.push(`/card/${selectedCard.id}?${params.toString()}`)
+      router.push(`/card/${card.id}?${params.toString()}`)
     }
-  }
+  }, [router])
 
   const stepLabel = (n: number) => {
     if (n < step) return 'done'
@@ -202,7 +212,6 @@ export default function SearchPage() {
             <p className="font-mono-custom" style={{ fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8 }}>STEP 1 OF 3</p>
             <h2 className="font-display" style={{ fontSize: 26, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.5px', marginBottom: 24 }}>Choose a set</h2>
 
-            {/* Search */}
             <div style={{ position: 'relative', marginBottom: 24 }}>
               <input
                 type="text"
@@ -256,7 +265,6 @@ export default function SearchPage() {
             <h2 className="font-display" style={{ fontSize: 26, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.5px', marginBottom: 4 }}>Choose a card</h2>
             <p style={{ fontSize: 13, color: 'var(--ink3)', marginBottom: 24 }}>{selectedSet.name} · {cards.length} cards</p>
 
-            {/* Filter */}
             <div style={{ position: 'relative', marginBottom: 20 }}>
               <input
                 type="text"
@@ -307,7 +315,6 @@ export default function SearchPage() {
             <p className="font-mono-custom" style={{ fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8 }}>STEP 3 OF 3</p>
             <h2 className="font-display" style={{ fontSize: 26, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.5px', marginBottom: 24 }}>Select grade</h2>
 
-            {/* Selected card summary */}
             <div className="search-card-summary" style={{ display: 'flex', gap: 20, background: 'var(--surface)', border: '1.5px solid var(--border2)', borderRadius: 14, padding: 18, marginBottom: 28, alignItems: 'flex-start' }}>
               {selectedCard.images?.small ? (
                 <img src={tcgImg(selectedCard.images.small)} alt={selectedCard.name} style={{ width: 80, borderRadius: 8, boxShadow: '0 8px 28px rgba(0,0,0,0.6)', flexShrink: 0 }} />
@@ -325,12 +332,11 @@ export default function SearchPage() {
               </div>
             </div>
 
-            {/* Grade grid */}
             <div className="search-grade-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
               {GRADES.map(g => (
                 <button
                   key={g.label}
-                  onClick={() => handleGradeSelect(g.label)}
+                  onClick={() => handleGradeSelect(g.label, selectedCard)}
                   style={{
                     background: selectedGrade === g.label ? 'rgba(232,197,71,0.08)' : 'var(--surface)',
                     border: `1.5px solid ${selectedGrade === g.label ? 'var(--gold)' : 'var(--border2)'}`,

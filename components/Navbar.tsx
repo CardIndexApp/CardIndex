@@ -1,6 +1,6 @@
 'use client'
 import Link from 'next/link'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import AuthModal from './AuthModal'
 import { createClient } from '@/lib/supabase/client'
 import type { User } from '@supabase/supabase-js'
@@ -17,6 +17,15 @@ const NAV_LINKS_GUEST = [
   { label: 'Pricing',   href: '/pricing' },
 ]
 
+async function fetchUsername(userId: string): Promise<string | null> {
+  const { data } = await createClient()
+    .from('profiles')
+    .select('username')
+    .eq('id', userId)
+    .single()
+  return data?.username ?? null
+}
+
 export default function Navbar() {
   const [authModal, setAuthModal] = useState<'signin' | 'signup' | null>(null)
   const [open, setOpen] = useState(false)
@@ -24,22 +33,27 @@ export default function Navbar() {
   const [username, setUsername] = useState<string | null>(null)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
 
-  const supabase = createClient()
-
   useEffect(() => {
-    async function loadUser() {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
-      if (user) {
-        const { data } = await supabase.from('profiles').select('username').eq('id', user.id).single()
-        setUsername(data?.username ?? null)
-      }
-    }
-    loadUser()
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
-      setUser(session?.user ?? null)
-      if (!session?.user) setUsername(null)
+    const supabase = createClient()
+
+    // getSession() reads from localStorage — no network request, instant
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const u = session?.user ?? null
+      setUser(u)
+      if (u) fetchUsername(u.id).then(setUsername)
     })
+
+    // Keep in sync when auth state changes (sign in / sign out in another tab, etc.)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      const u = session?.user ?? null
+      setUser(u)
+      if (!u) {
+        setUsername(null)
+      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        fetchUsername(u.id).then(setUsername)
+      }
+    })
+
     return () => subscription.unsubscribe()
   }, [])
 
@@ -54,14 +68,20 @@ export default function Navbar() {
     return () => { document.body.style.overflow = '' }
   }, [open])
 
-  const signOut = async () => {
-    await supabase.auth.signOut()
+  const signOut = useCallback(async () => {
+    await createClient().auth.signOut()
     setUserMenuOpen(false)
     window.location.href = '/'
-  }
+  }, [])
 
-  const displayName = username ?? user?.email?.split('@')[0] ?? ''
-  const initials = displayName.slice(0, 2).toUpperCase() || '?'
+  const displayName = useMemo(
+    () => username ?? user?.email?.split('@')[0] ?? '',
+    [username, user]
+  )
+  const initials = useMemo(
+    () => displayName.slice(0, 2).toUpperCase() || '?',
+    [displayName]
+  )
 
   return (
     <>

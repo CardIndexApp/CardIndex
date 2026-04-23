@@ -238,7 +238,6 @@ export default function SearchPage() {
   const eraGroups = useMemo(() => {
     const groups: Record<string, PtSet[]> = {}
     for (const s of sets) {
-      if (s.cardCount === 0) continue // skip sets with no priced cards
       const key = getSetEra(s.slug)
       if (!groups[key]) groups[key] = []
       groups[key].push(s)

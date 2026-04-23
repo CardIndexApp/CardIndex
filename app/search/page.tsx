@@ -34,6 +34,7 @@ interface Pagination {
 // Listed newest → oldest.
 
 const ERAS = [
+  { key: 'me',    label: 'Mega Evolution'         },
   { key: 'sv',    label: 'Scarlet & Violet'      },
   { key: 'swsh',  label: 'Sword & Shield'         },
   { key: 'sm',    label: 'Sun & Moon'             },
@@ -50,6 +51,9 @@ const ERAS = [
 // Named slugs that don't carry an era prefix — mapped by era (newest first).
 // Derived from live Poketrace API dump (452 sets, game=pokemon).
 const NAMED_ERA: Record<string, string> = {
+  // ── Mega Evolution ────────────────────────────────────────────────────────
+  'mega-evolution': 'me', 'mega-evolution-additionals': 'me',
+  'mega-evolution-energies': 'me', 'mega-evolution-products': 'me',
   // ── Scarlet & Violet ──────────────────────────────────────────────────────
   '151': 'sv', 'paldea-evolved': 'sv', 'paldean-fates': 'sv',
   'paradox-rift': 'sv', 'obsidian-flames': 'sv', 'twilight-masquerade': 'sv',
@@ -125,6 +129,7 @@ function getSetEra(slug: string): string {
   if (NAMED_ERA[slug]) return NAMED_ERA[slug]
   // 2. Prefix patterns
   if (/^sv\d|^sv-|^sve-/.test(slug)) return 'sv'
+  if (/^me\d|^me-|^mee-|^mep-/.test(slug)) return 'me'
   if (/^swsh/.test(slug)) return 'swsh'
   if (/^sm\d|^sm-/.test(slug)) return 'sm'
   if (/^xy/.test(slug)) return 'xy'

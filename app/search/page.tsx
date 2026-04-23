@@ -29,28 +29,110 @@ interface Pagination {
 }
 
 // ── Era groupings ────────────────────────────────────────────────────────────
-// Poketrace releaseDate is always null, so we derive era from slug prefix.
-// Listed newest → oldest; sets not matching any prefix fall into "Other".
+// Poketrace releaseDate is always null for all sets. We derive era from a
+// combination of slug prefix patterns and known named slugs from the live API.
+// Listed newest → oldest.
 
-const ERAS: { key: string; label: string; prefixes: string[] }[] = [
-  { key: 'sv',    label: 'Scarlet & Violet',      prefixes: ['sv'] },
-  { key: 'swsh',  label: 'Sword & Shield',         prefixes: ['swsh'] },
-  { key: 'sm',    label: 'Sun & Moon',             prefixes: ['sm'] },
-  { key: 'xy',    label: 'XY',                     prefixes: ['xy'] },
-  { key: 'bw',    label: 'Black & White',          prefixes: ['bw'] },
-  { key: 'pl',    label: 'Platinum',               prefixes: ['pl-'] },
-  { key: 'hgss',  label: 'HeartGold & SoulSilver', prefixes: ['hgss'] },
-  { key: 'dp',    label: 'Diamond & Pearl',        prefixes: ['dp-'] },
-  { key: 'ex',    label: 'EX Series',              prefixes: ['ex-', 'pop'] },
-  { key: 'ecard', label: 'E-Card',                 prefixes: ['e-', 'aquapolis', 'skyridge', 'expedition'] },
-  { key: 'wb',    label: 'Classic',                prefixes: ['base-set', 'jungle', 'fossil', 'team-rocket', 'gym', 'neo', 'pokemon-', 'legendary'] },
-  { key: 'other', label: 'Other',                  prefixes: [] },
+const ERAS = [
+  { key: 'sv',    label: 'Scarlet & Violet'      },
+  { key: 'swsh',  label: 'Sword & Shield'         },
+  { key: 'sm',    label: 'Sun & Moon'             },
+  { key: 'xy',    label: 'XY'                     },
+  { key: 'bw',    label: 'Black & White'          },
+  { key: 'hgss',  label: 'HeartGold & SoulSilver' },
+  { key: 'dp',    label: 'Diamond & Pearl'        },
+  { key: 'ex',    label: 'EX Series'              },
+  { key: 'ecard', label: 'E-Card'                 },
+  { key: 'classic', label: 'Classic'              },
+  { key: 'other', label: 'Other'                  },
 ]
 
+// Named slugs that don't carry an era prefix — mapped by era (newest first).
+// Derived from live Poketrace API dump (452 sets, game=pokemon).
+const NAMED_ERA: Record<string, string> = {
+  // ── Scarlet & Violet ──────────────────────────────────────────────────────
+  '151': 'sv', 'paldea-evolved': 'sv', 'paldean-fates': 'sv',
+  'paradox-rift': 'sv', 'obsidian-flames': 'sv', 'twilight-masquerade': 'sv',
+  'stellar-crown': 'sv', 'shrouded-fable': 'sv', 'journey-together': 'sv',
+  'journey-together-additionals': 'sv', 'destined-rivals': 'sv',
+  'destined-rivals-additionals': 'sv', 'ascended-heroes': 'sv',
+  'ascended-heroes-additionals': 'sv', 'phantasmal-flames': 'sv',
+  'phantasmal-flames-additionals': 'sv', 'perfect-order': 'sv',
+  'perfect-order-additionals': 'sv', 'brilliant-fantasy': 'sv',
+  'black-bolt': 'sv', 'black-bolt-additionals': 'sv',
+  'white-flare': 'sv', 'white-flare-additionals': 'sv',
+  'chaos-rising': 'sv', 'alternate-art-promos': 'sv',
+  // ── Sword & Shield ────────────────────────────────────────────────────────
+  'sword-and-shield': 'swsh', 'rebel-clash': 'swsh',
+  'darkness-ablaze': 'swsh', 'vivid-voltage': 'swsh',
+  'battle-styles': 'swsh', 'chilling-reign': 'swsh',
+  'evolving-skies': 'swsh', 'fusion-strike': 'swsh',
+  'brilliant-stars': 'swsh', 'astral-radiance': 'swsh',
+  'lost-origin': 'swsh', 'silver-tempest': 'swsh',
+  'crown-zenith': 'swsh', 'crown-zenith-galarian-gallery': 'swsh',
+  'celebrations': 'swsh', 'celebrations-classic-collection': 'swsh',
+  'champions-path': 'swsh', 'shining-fates': 'swsh', 'pokemon-go': 'swsh',
+  // ── Sun & Moon ────────────────────────────────────────────────────────────
+  'sun-and-moon': 'sm', 'guardians-rising': 'sm', 'burning-shadows': 'sm',
+  'crimson-invasion': 'sm', 'ultra-prism': 'sm', 'forbidden-light': 'sm',
+  'celestial-storm': 'sm', 'dragon-majesty': 'sm', 'lost-thunder': 'sm',
+  'team-up': 'sm', 'unbroken-bonds': 'sm', 'unified-minds': 'sm',
+  'cosmic-eclipse': 'sm', 'hidden-fates': 'sm',
+  'hidden-fates-shiny-vault': 'sm', 'shining-legends': 'sm',
+  // ── XY ───────────────────────────────────────────────────────────────────
+  'flashfire': 'xy', 'furious-fists': 'xy', 'phantom-forces': 'xy',
+  'primal-clash': 'xy', 'roaring-skies': 'xy', 'ancient-origins': 'xy',
+  'breakpoint': 'xy', 'breakthrough': 'xy', 'fates-collide': 'xy',
+  'steam-siege': 'xy', 'evolutions': 'xy', 'generations': 'xy',
+  'generations-radiant-collection': 'xy', 'kalos-starter-set': 'xy',
+  'double-crisis': 'xy',
+  // ── Black & White ─────────────────────────────────────────────────────────
+  'black-and-white': 'bw', 'black-white': 'bw', 'emerging-powers': 'bw',
+  'noble-victories': 'bw', 'next-destinies': 'bw', 'dark-explorers': 'bw',
+  'dragons-exalted': 'bw', 'dragon-vault': 'bw', 'boundaries-crossed': 'bw',
+  'plasma-storm': 'bw', 'plasma-freeze': 'bw', 'plasma-blast': 'bw',
+  'legendary-treasures': 'bw', 'legendary-treasures-radiant-collection': 'bw',
+  // ── HeartGold & SoulSilver ────────────────────────────────────────────────
+  'heartgold-soulsilver': 'hgss', 'unleashed': 'hgss',
+  'undaunted': 'hgss', 'triumphant': 'hgss', 'call-of-legends': 'hgss',
+  // ── Diamond & Pearl / Platinum ────────────────────────────────────────────
+  'diamond-and-pearl': 'dp', 'diamond-pearl': 'dp',
+  'mysterious-treasures': 'dp', 'secret-wonders': 'dp',
+  'great-encounters': 'dp', 'majestic-dawn': 'dp',
+  'legends-awakened': 'dp', 'stormfront': 'dp',
+  'platinum': 'dp', 'rising-rivals': 'dp', 'supreme-victors': 'dp',
+  'arceus': 'dp',
+  // ── EX Series ─────────────────────────────────────────────────────────────
+  'sandstorm': 'ex', 'deoxys': 'ex', 'emerald': 'ex',
+  'firered-and-leafgreen': 'ex', 'hidden-legends': 'ex',
+  'holon-phantoms': 'ex', 'crystal-guardians': 'ex',
+  'legend-maker': 'ex', 'delta-species': 'ex', 'dragon-frontiers': 'ex',
+  'power-keepers': 'ex', 'team-rocket-returns': 'ex',
+  // ── E-Card ────────────────────────────────────────────────────────────────
+  'aquapolis': 'ecard', 'skyridge': 'ecard',
+  'expedition': 'ecard', 'expedition-base-set': 'ecard',
+  'legendary-collection': 'ecard',
+  // ── Classic ───────────────────────────────────────────────────────────────
+  'base-set': 'classic', 'base-set-shadowless': 'classic',
+  'base-set-2': 'classic', 'jungle': 'classic', 'fossil': 'classic',
+  'team-rocket': 'classic', 'gym-heroes': 'classic', 'gym-challenge': 'classic',
+  'neo-genesis': 'classic', 'neo-discovery': 'classic',
+  'neo-revelation': 'classic', 'neo-destiny': 'classic',
+}
+
 function getSetEra(slug: string): string {
-  for (const era of ERAS) {
-    if (era.prefixes.some(p => slug.startsWith(p))) return era.key
-  }
+  // 1. Named lookup (most accurate)
+  if (NAMED_ERA[slug]) return NAMED_ERA[slug]
+  // 2. Prefix patterns
+  if (/^sv\d|^sv-|^sve-/.test(slug)) return 'sv'
+  if (/^swsh/.test(slug)) return 'swsh'
+  if (/^sm\d|^sm-/.test(slug)) return 'sm'
+  if (/^xy/.test(slug)) return 'xy'
+  if (/^bw/.test(slug)) return 'bw'
+  if (/^hgss|^hs-/.test(slug)) return 'hgss'
+  if (/^dp-|^dp\d/.test(slug)) return 'dp'
+  if (/^ex-/.test(slug)) return 'ex'
+  if (/^sandstorm-/.test(slug)) return 'ex' // EX Sandstorm variants
   return 'other'
 }
 

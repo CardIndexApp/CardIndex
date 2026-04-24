@@ -59,14 +59,15 @@ function TileInfo({ id, text, activeTip, setActiveTip }: {
 }) {
   const open = activeTip === id
   return (
+    /* Sits at position: absolute top-right — parent tile must have position: relative */
     <span
-      style={{ position: 'relative', display: 'inline-flex', verticalAlign: 'middle', marginLeft: 5 }}
+      style={{ position: 'absolute', top: 8, right: 8, zIndex: 10 }}
       onMouseEnter={() => setActiveTip(id)}
       onMouseLeave={() => setActiveTip(null)}
     >
       <button
         onClick={e => { e.stopPropagation(); setActiveTip(open ? null : id) }}
-        style={{ width: 14, height: 14, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)', color: 'rgba(255,255,255,0.4)', fontSize: 8, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0, lineHeight: 1, flexShrink: 0 }}
+        style={{ width: 16, height: 16, borderRadius: '50%', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.13)', color: 'rgba(255,255,255,0.35)', fontSize: 9, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, lineHeight: 1 }}
         aria-label="More info"
       >i</button>
       {open && (
@@ -74,9 +75,10 @@ function TileInfo({ id, text, activeTip, setActiveTip }: {
           onMouseEnter={() => setActiveTip(id)}
           onMouseLeave={() => setActiveTip(null)}
           onClick={e => e.stopPropagation()}
-          style={{ position: 'absolute', bottom: 'calc(100% + 6px)', left: '50%', transform: 'translateX(-50%)', zIndex: 200, background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: '10px 13px', width: 210, maxWidth: '75vw', fontSize: 11, color: 'rgba(255,255,255,0.7)', lineHeight: 1.55, boxShadow: '0 8px 32px rgba(0,0,0,0.6)', pointerEvents: 'auto' }}
+          style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 300, background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: '10px 13px', width: 210, maxWidth: '72vw', fontSize: 11, color: 'rgba(255,255,255,0.7)', lineHeight: 1.55, boxShadow: '0 8px 32px rgba(0,0,0,0.6)' }}
         >
-          <div style={{ position: 'absolute', bottom: -5, left: '50%', transform: 'translateX(-50%)', width: 8, height: 8, background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.12)', borderTop: 'none', borderLeft: 'none', rotate: '45deg' }} />
+          {/* caret */}
+          <div style={{ position: 'absolute', top: -5, right: 5, width: 8, height: 8, background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.12)', borderBottom: 'none', borderRight: 'none', rotate: '45deg' }} />
           {text}
         </div>
       )}
@@ -122,6 +124,10 @@ const PAGE_STYLES = `
     .ci-hold-metrics { grid-template-columns: 1fr 1fr; }
     .ci-proj { grid-template-columns: 1fr; }
     .ci-hide-mobile { display: none !important; }
+  }
+
+  @media (min-width: 701px) {
+    .ci-hide-desktop { display: none !important; }
   }
 
   /* ── Print / PDF ─────────────────────────────────────── */
@@ -659,18 +665,23 @@ export default function CardPage() {
                       <div className="font-num" style={{ fontSize: 42, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-2px', lineHeight: 1 }}>
                         {liveData.price > 0 ? fmtCurrency(liveData.price) : '—'}
                       </div>
-                      <div style={{ display: 'flex', gap: 10, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                        <span className="font-num" style={{ fontSize: 13, color: liveData.price_change_pct >= 0 ? 'var(--green)' : 'var(--red)', whiteSpace: 'nowrap' }}>
-                          {liveData.price_change_pct >= 0 ? '+' : ''}{liveData.price_change_pct.toFixed(1)}% (30d)
-                        </span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginTop: 8 }}>
+                        {/* Desktop: Range first */}
                         {liveData.price_range_low > 0 && (
                           <span className="ci-hide-mobile" style={{ fontSize: 12, color: 'var(--ink3)' }}>
                             Range: {fmtCurrency(liveData.price_range_low)} – {fmtCurrency(liveData.price_range_high)}
                           </span>
                         )}
+                        {/* Mobile: Sales first */}
                         {liveData.sales_count_30d > 0 && (
-                          <span style={{ fontSize: 12, color: 'var(--ink3)', whiteSpace: 'nowrap' }}>{liveData.sales_count_30d.toLocaleString()} sales (30d)</span>
+                          <span className="ci-hide-desktop" style={{ fontSize: 12, color: 'var(--ink3)', whiteSpace: 'nowrap' }}>
+                            {liveData.sales_count_30d.toLocaleString()} sales (30d)
+                          </span>
                         )}
+                        {/* Both: % change */}
+                        <span className="font-num" style={{ fontSize: 13, color: liveData.price_change_pct >= 0 ? 'var(--green)' : 'var(--red)', whiteSpace: 'nowrap' }}>
+                          {liveData.price_change_pct >= 0 ? '+' : ''}{liveData.price_change_pct.toFixed(1)}% (30d)
+                        </span>
                       </div>
                       <div style={{ marginTop: 10 }}>
                         <TrendBadge trend={liveData.trend} confidence={liveData.confidence} />
@@ -721,11 +732,9 @@ export default function CardPage() {
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
 
                         {/* Price Momentum — split 7d / 30d */}
-                        <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
-                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 10, display: 'flex', alignItems: 'center' }}>
-                            PRICE MOMENTUM
-                            <TileInfo id="momentum" text="How the current price compares to its 7-day and 30-day moving averages. Positive means the price is trading above recent averages — a bullish signal." activeTip={activeTip} setActiveTip={setActiveTip} />
-                          </div>
+                        <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)', position: 'relative' }}>
+                          <TileInfo id="momentum" text="How the current price compares to its 7-day and 30-day moving averages. Positive means the price is trading above recent averages — a bullish signal." activeTip={activeTip} setActiveTip={setActiveTip} />
+                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 10 }}>PRICE MOMENTUM</div>
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                             {/* 7d */}
                             <div style={{ textAlign: 'center', padding: '8px 4px', borderRadius: 8, background: 'rgba(255,255,255,0.03)' }}>
@@ -761,11 +770,9 @@ export default function CardPage() {
                         </div>
 
                         {/* Trend — mini sparkline */}
-                        <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
-                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8, display: 'flex', alignItems: 'center' }}>
-                            PRICE TREND
-                            <TileInfo id="trend" text="Direction and rate of price change over the available history. Shows whether the card is appreciating, declining, or holding steady over time." activeTip={activeTip} setActiveTip={setActiveTip} />
-                          </div>
+                        <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)', position: 'relative' }}>
+                          <TileInfo id="trend" text="Direction and rate of price change over the available history. Shows whether the card is appreciating, declining, or holding steady over time." activeTip={activeTip} setActiveTip={setActiveTip} />
+                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>PRICE TREND</div>
                           {(() => {
                             // Build sparkline data: prefer real history, fall back to synthetic 3-point from avg30d→avg7d→price
                             const histPrices = liveData.price_history?.length >= 2 ? liveData.price_history.map(p => p.price) : null
@@ -823,11 +830,9 @@ export default function CardPage() {
                         </div>
 
                         {/* Liquidity — graduated bar */}
-                        <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
-                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8, display: 'flex', alignItems: 'center' }}>
-                            LIQUIDITY
-                            <TileInfo id="liquidity" text="How actively this card trades on the market. Higher liquidity means it's easier to buy or sell at a fair price. Based on the number of eBay sales in the last 30 days." activeTip={activeTip} setActiveTip={setActiveTip} />
-                          </div>
+                        <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)', position: 'relative', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                          <TileInfo id="liquidity" text="How actively this card trades on the market. Higher liquidity means it's easier to buy or sell at a fair price. Based on the number of eBay sales in the last 30 days." activeTip={activeTip} setActiveTip={setActiveTip} />
+                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>LIQUIDITY</div>
                           <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: a.liqColor, marginBottom: 7 }}>{a.liqLabel}</div>
                           {/* 5-segment bar: thresholds 5 / 15 / 50 / 200 / 500 sales */}
                           {(() => {
@@ -848,11 +853,9 @@ export default function CardPage() {
                         </div>
 
                         {/* Price position — gradient spectrum */}
-                        <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
-                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6, display: 'flex', alignItems: 'center' }}>
-                            PRICE POSITION
-                            <TileInfo id="position" text="Where the current market price sits within its 30-day trading range. Near the high end suggests strong buying pressure; near the low end may signal weakness or a buying opportunity." activeTip={activeTip} setActiveTip={setActiveTip} />
-                          </div>
+                        <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)', position: 'relative', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                          <TileInfo id="position" text="Where the current market price sits within its 30-day trading range. Near the high end suggests strong buying pressure; near the low end may signal weakness or a buying opportunity." activeTip={activeTip} setActiveTip={setActiveTip} />
+                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6 }}>PRICE POSITION</div>
                           <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: a.rangeColor, marginBottom: 9 }}>{a.rangeLabel}</div>
                           {/* Gradient track + marker */}
                           <div style={{ position: 'relative', marginBottom: 6 }}>
@@ -879,11 +882,9 @@ export default function CardPage() {
                         </div>
 
                         {/* Consistency — ring progress */}
-                        <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)', textAlign: 'center' }}>
-                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            CONSISTENCY
-                            <TileInfo id="consistency" text="How stable the price has been over time. A high score means low volatility — the card holds its value reliably. A low score means the price swings around a lot." activeTip={activeTip} setActiveTip={setActiveTip} />
-                          </div>
+                        <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)', textAlign: 'center', position: 'relative' }}>
+                          <TileInfo id="consistency" text="How stable the price has been over time. A high score means low volatility — the card holds its value reliably. A low score means the price swings around a lot." activeTip={activeTip} setActiveTip={setActiveTip} />
+                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 10 }}>CONSISTENCY</div>
                           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
                             <div style={{
                               width: 52, height: 52, borderRadius: '50%',
@@ -899,11 +900,9 @@ export default function CardPage() {
                         </div>
 
                         {/* Value score — ring progress */}
-                        <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)', textAlign: 'center' }}>
-                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            VALUE SCORE
-                            <TileInfo id="value" text="Measures whether the current price represents good value relative to the card's trading history and market fundamentals. High means undervalued; low means priced at a premium." activeTip={activeTip} setActiveTip={setActiveTip} />
-                          </div>
+                        <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)', textAlign: 'center', position: 'relative' }}>
+                          <TileInfo id="value" text="Measures whether the current price represents good value relative to the card's trading history and market fundamentals. High means undervalued; low means priced at a premium." activeTip={activeTip} setActiveTip={setActiveTip} />
+                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 10 }}>VALUE SCORE</div>
                           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
                             <div style={{
                               width: 52, height: 52, borderRadius: '50%',

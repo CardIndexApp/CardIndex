@@ -55,12 +55,12 @@ const SparkTooltip = ({ active, payload, formatter }: { active?: boolean; payloa
 function ScoreBar({ label, value, color }: { label: string; value: number; color: string }) {
   return (
     <div style={{ flex: 1 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-        <span style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', fontWeight: 600 }}>{label}</span>
-        <span className="font-num" style={{ fontSize: 11, color, fontWeight: 600 }}>{value}</span>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+        <span style={{ fontSize: 10, letterSpacing: 1, color: 'var(--ink2)', fontWeight: 600 }}>{label}</span>
+        <span className="font-num" style={{ fontSize: 12, color, fontWeight: 700 }}>{value}</span>
       </div>
-      <div style={{ height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-        <div style={{ height: '100%', width: `${value}%`, background: color, borderRadius: 2 }} />
+      <div style={{ height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+        <div style={{ height: '100%', width: `${value}%`, background: color, borderRadius: 3, transition: 'width 0.6s ease' }} />
       </div>
     </div>
   )
@@ -639,23 +639,15 @@ export default function CardPage() {
                     {(() => {
                       const sig = computeAnalysis(liveData)
                       return (
-                        <div style={{ minWidth: 0 }}>
-                          <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', display: 'block', marginBottom: 8 }}>CARDINDEX SCORE</span>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                            {/* Score number */}
-                            <div style={{ flexShrink: 0 }}>
-                              <div className="font-num" style={{ fontSize: 48, fontWeight: 800, color: scoreColor(liveData.score), letterSpacing: '-2px', lineHeight: 1 }}>{liveData.score}</div>
-                              <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 2 }}>{liveData.score_breakdown?.label ?? ''}</div>
-                            </div>
-                            {/* Full signal badge — same style as Analysis panel */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, background: sig.sigBg, border: `1px solid ${sig.sigBorder}`, flex: 1, minWidth: 160, maxWidth: 300 }}>
-                              <div style={{ flexShrink: 0 }}>
-                                <div className="font-num" style={{ fontSize: 14, fontWeight: 800, color: sig.sigColor, letterSpacing: 1.5 }}>{sig.signal}</div>
-                              </div>
-                              <div style={{ width: 1, alignSelf: 'stretch', background: sig.sigBorder, flexShrink: 0 }} />
-                              <p style={{ fontSize: 11, color: 'var(--ink2)', lineHeight: 1.55, margin: 0 }}>{sig.reasoning}</p>
-                            </div>
-                          </div>
+                        <div style={{ flexShrink: 0, textAlign: 'right' }}>
+                          <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', display: 'block', marginBottom: 6 }}>CARDINDEX SCORE</span>
+                          {/* Score + label */}
+                          <div className="font-num" style={{ fontSize: 48, fontWeight: 800, color: scoreColor(liveData.score), letterSpacing: '-2px', lineHeight: 1 }}>{liveData.score}</div>
+                          <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 2, marginBottom: 8 }}>{liveData.score_breakdown?.label ?? ''}</div>
+                          {/* Compact signal pill */}
+                          <span style={{ display: 'inline-block', padding: '4px 14px', borderRadius: 99, background: sig.sigBg, border: `1px solid ${sig.sigBorder}`, fontSize: 11, fontWeight: 800, color: sig.sigColor, letterSpacing: 1.5 }}>
+                            {sig.signal}
+                          </span>
                         </div>
                       )
                     })()}
@@ -679,70 +671,6 @@ export default function CardPage() {
                   )}
                 </div>
 
-                {/* Trend Analysis */}
-                {(() => {
-                  const prices = liveData.price_history?.length >= 2 ? liveData.price_history.map(p => p.price) : null
-                  const gp = prices ? analyzeGrowthProfile(prices) : { profile: 'unknown' as const, label: '', desc: '', color: 'var(--ink3)' }
-                  // Use history-derived % if available, else fall back to the 30d change field
-                  const sparkPct = prices
-                    ? (prices[0] > 0 ? ((prices[prices.length - 1] - prices[0]) / prices[0] * 100) : 0)
-                    : (liveData.price_change_pct ?? 0)
-                  const sparkColor = sparkPct >= 0 ? '#3de88a' : '#e8524a'
-                  // Derive direction if trend field is absent
-                  const dir = liveData.trend ?? (sparkPct > 2 ? 'up' : sparkPct < -2 ? 'down' : 'stable')
-                  const borderColor = gp.profile !== 'unknown' ? `${gp.color}44` : 'var(--border)'
-                  return (
-                    <div style={{ borderRadius: 14, background: 'var(--surface)', border: `1px solid ${borderColor}`, padding: '20px', marginBottom: 10 }}>
-
-                      {/* Header */}
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                        <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)' }}>PRICE TREND</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <TrendBadge trend={dir} confidence={liveData.confidence} />
-                          <span className="font-num" style={{ fontSize: 13, fontWeight: 700, color: sparkColor }}>
-                            {sparkPct >= 0 ? '+' : ''}{sparkPct.toFixed(1)}%
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Growth profile badge — prominent when enough data */}
-                      {gp.profile !== 'unknown' ? (
-                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '14px', borderRadius: 10, background: `${gp.color}0d`, border: `1px solid ${gp.color}33`, marginBottom: 14 }}>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0, padding: '5px 12px', borderRadius: 99, background: `${gp.color}22`, border: `1px solid ${gp.color}66`, fontSize: 11, fontWeight: 800, color: gp.color, letterSpacing: 0.5, whiteSpace: 'nowrap' }}>
-                            {gp.label.toUpperCase()}
-                          </span>
-                          <p style={{ fontSize: 13, color: 'var(--ink2)', lineHeight: 1.6, margin: 0 }}>{gp.desc}</p>
-                        </div>
-                      ) : (
-                        /* Fallback when no history — show avg comparisons */
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
-                          {[
-                            { label: '7D AVG', value: liveData.avg7d },
-                            { label: '30D AVG', value: liveData.avg30d },
-                          ].map(({ label, value }) => (
-                            <div key={label} style={{ padding: '10px 12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
-                              <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 5 }}>{label}</div>
-                              <div className="font-num" style={{ fontSize: 14, fontWeight: 700, color: value != null ? 'var(--ink)' : 'var(--ink3)' }}>
-                                {value != null ? fmtCurrency(value) : '—'}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Sparkline — only when history exists */}
-                      {prices && (
-                        <ResponsiveContainer width="100%" height={90}>
-                          <LineChart data={liveData.price_history} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
-                            <XAxis dataKey="month" tick={{ fill: '#55556a', fontSize: 9, fontFamily: 'Helvetica' }} axisLine={false} tickLine={false} interval={Math.max(1, Math.floor(liveData.price_history.length / 5) - 1)} />
-                            <Tooltip content={<SparkTooltip formatter={fmtCurrency} />} cursor={{ stroke: 'rgba(255,255,255,0.06)', strokeWidth: 1 }} />
-                            <Line type="monotone" dataKey="price" stroke={sparkColor} strokeWidth={2} dot={false} activeDot={{ r: 4, fill: sparkColor, stroke: 'var(--surface)' }} />
-                          </LineChart>
-                        </ResponsiveContainer>
-                      )}
-                    </div>
-                  )
-                })()}
 
                 {/* Analysis panel */}
                 {liveData.score_breakdown && (() => {
@@ -750,15 +678,6 @@ export default function CardPage() {
                   return (
                     <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', padding: '20px', marginBottom: 10 }}>
                       <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', display: 'block', marginBottom: 14 }}>ANALYSIS</span>
-
-                      {/* Signal + reasoning */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16, padding: '14px 16px', borderRadius: 10, background: a.sigBg, border: `1px solid ${a.sigBorder}` }}>
-                        <div style={{ flexShrink: 0, textAlign: 'center', minWidth: 80 }}>
-                          <div className="font-num" style={{ fontSize: 17, fontWeight: 800, color: a.sigColor, letterSpacing: 2 }}>{a.signal}</div>
-                        </div>
-                        <div style={{ width: 1, alignSelf: 'stretch', background: a.sigBorder, flexShrink: 0 }} />
-                        <p style={{ fontSize: 12, color: 'var(--ink2)', lineHeight: 1.65, margin: 0 }}>{a.reasoning}</p>
-                      </div>
 
                       {/* 6 metric tiles — 3-col on desktop, 2-col on mobile */}
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
@@ -802,7 +721,7 @@ export default function CardPage() {
 
                         {/* Trend — mini sparkline */}
                         <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
-                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>TREND</div>
+                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>PRICE TREND</div>
                           {(() => {
                             // Build sparkline data: prefer real history, fall back to synthetic 3-point from avg30d→avg7d→price
                             const histPrices = liveData.price_history?.length >= 2 ? liveData.price_history.map(p => p.price) : null
@@ -951,14 +870,17 @@ export default function CardPage() {
                 {/* Score breakdown */}
                 {liveData.score_breakdown && (
                   <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', padding: '20px', marginBottom: 10 }}>
-                    <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', display: 'block', marginBottom: 16 }}>SCORE BREAKDOWN</span>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 32px' }}>
-                      <ScoreBar label="TREND"       value={Math.round(liveData.score_breakdown.trend / 30 * 100)}       color={scoreColor(Math.round(liveData.score_breakdown.trend / 30 * 100))} />
-                      <ScoreBar label="LIQUIDITY"   value={Math.round(liveData.score_breakdown.liquidity / 25 * 100)}   color={scoreColor(Math.round(liveData.score_breakdown.liquidity / 25 * 100))} />
-                      <ScoreBar label="CONSISTENCY" value={Math.round(liveData.score_breakdown.consistency / 25 * 100)} color={scoreColor(Math.round(liveData.score_breakdown.consistency / 25 * 100))} />
-                      <ScoreBar label="VALUE"       value={Math.round(liveData.score_breakdown.value / 20 * 100)}       color={scoreColor(Math.round(liveData.score_breakdown.value / 20 * 100))} />
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                      <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)' }}>SCORE BREAKDOWN</span>
+                      <span className="font-num" style={{ fontSize: 11, color: 'var(--ink3)' }}>out of 100</span>
                     </div>
-                    <p style={{ fontSize: 12, color: 'var(--ink3)', marginTop: 14, lineHeight: 1.6 }}>{liveData.score_breakdown.summary}</p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                      <ScoreBar label="Trend"       value={Math.round(liveData.score_breakdown.trend / 30 * 100)}       color={scoreColor(Math.round(liveData.score_breakdown.trend / 30 * 100))} />
+                      <ScoreBar label="Liquidity"   value={Math.round(liveData.score_breakdown.liquidity / 25 * 100)}   color={scoreColor(Math.round(liveData.score_breakdown.liquidity / 25 * 100))} />
+                      <ScoreBar label="Consistency" value={Math.round(liveData.score_breakdown.consistency / 25 * 100)} color={scoreColor(Math.round(liveData.score_breakdown.consistency / 25 * 100))} />
+                      <ScoreBar label="Value"       value={Math.round(liveData.score_breakdown.value / 20 * 100)}       color={scoreColor(Math.round(liveData.score_breakdown.value / 20 * 100))} />
+                    </div>
+                    <p style={{ fontSize: 12, color: 'var(--ink3)', marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)', lineHeight: 1.65 }}>{liveData.score_breakdown.summary}</p>
                   </div>
                 )}
 

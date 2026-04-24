@@ -903,7 +903,7 @@ export default function CardPage() {
 
                         {/* Consistency — ring progress */}
                         <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)', textAlign: 'center', position: 'relative' }}>
-                          <TileInfo id="consistency" text="How stable the price has been over time. A high score means low volatility — the card holds its value reliably. A low score means the price swings around a lot." activeTip={activeTip} setActiveTip={setActiveTip} />
+                          <TileInfo id="consistency" text={a.consPct === 0 ? "Score is 0 because the card's price is extremely volatile — the gap between its high and low sale prices is as wide as the average price itself. This makes future pricing unpredictable." : "How stable the price has been over time. A high score means low volatility — the card holds its value reliably. A low score means the price swings around a lot."} activeTip={activeTip} setActiveTip={setActiveTip} />
                           <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 10 }}>CONSISTENCY</div>
                           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
                             <div style={{
@@ -921,7 +921,7 @@ export default function CardPage() {
 
                         {/* Value score — ring progress */}
                         <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)', textAlign: 'center', position: 'relative' }}>
-                          <TileInfo id="value" text="Measures whether the current price represents good value relative to the card's trading history and market fundamentals. High means undervalued; low means priced at a premium." activeTip={activeTip} setActiveTip={setActiveTip} />
+                          <TileInfo id="value" text={a.valuePct === 0 ? "Score is 0 because the card is trading significantly above its 30-day average price — at least 20% higher. This means you'd be buying at a notable premium to recent market value." : "Measures whether the current price represents good value relative to the card's trading history. High means undervalued; low means priced at a premium."} activeTip={activeTip} setActiveTip={setActiveTip} />
                           <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 10 }}>VALUE SCORE</div>
                           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
                             <div style={{

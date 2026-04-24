@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import Navbar from '@/components/Navbar'
 import AuthModal from '@/components/AuthModal'
@@ -8,6 +8,7 @@ import { tcgImg } from '@/lib/img'
 import { createClient } from '@/lib/supabase/client'
 import type { User } from '@supabase/supabase-js'
 import { useCurrency } from '@/lib/currency'
+import { usePullToRefresh } from '@/lib/usePullToRefresh'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -27,8 +28,11 @@ interface WatchlistItem {
 interface PriceData {
   price: number
   price_change_pct: number
-  price_history: { date: string; price: number }[]
+  price_history: { month: string; price: number; volume?: number }[]
   score: number
+  avg7d?: number | null
+  avg30d?: number | null
+  trend?: 'up' | 'down' | 'stable' | null
 }
 
 interface EnrichedItem extends WatchlistItem {
@@ -215,27 +219,31 @@ export default function Watchlist() {
   }
 
   // ── Fetch watchlist ───────────────────────────────────────────────────────
-  useEffect(() => {
+  const loadWatchlist = useCallback(async () => {
     if (!user) return
-
     setListLoading(true)
-    fetch('/api/watchlist')
-      .then(r => r.json())
-      .then(({ items: raw }: { items: WatchlistItem[] }) => {
-        const enriched: EnrichedItem[] = (raw ?? []).map(item => ({
-          ...item,
-          priceData: null,
-          priceLoading: true,
-          priceError: null,
-        }))
-        setItems(enriched)
-        setListLoading(false)
-
-        // Kick off per-card price fetches
-        enriched.forEach(item => fetchPriceForItem(item))
+    try {
+      const r = await fetch('/api/watchlist')
+      const { items: raw }: { items: WatchlistItem[] } = await r.json()
+      const enriched: EnrichedItem[] = (raw ?? []).map(item => ({
+        ...item,
+        priceData: null,
+        priceLoading: true,
+        priceError: null,
+      }))
+      setItems(enriched)
+      // Kick off per-card price fetches — staggered to avoid hitting Poketrace rate limit
+      enriched.forEach((item, i) => {
+        setTimeout(() => fetchPriceForItem(item), i * 300)
       })
-      .catch(() => setListLoading(false))
+    } finally {
+      setListLoading(false)
+    }
   }, [user])
+
+  useEffect(() => { loadWatchlist() }, [loadWatchlist])
+
+  const { pullY, refreshing } = usePullToRefresh(loadWatchlist)
 
   // ── Remove handler ────────────────────────────────────────────────────────
   async function handleRemove(e: React.MouseEvent, id: string) {
@@ -269,6 +277,7 @@ export default function Watchlist() {
     <>
       <Navbar />
       <style>{`
+        @keyframes ptr-spin { to { transform: rotate(360deg); } }
         @keyframes sk-pulse {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.4; }
@@ -283,6 +292,34 @@ export default function Watchlist() {
       `}</style>
 
       <main style={{ paddingTop: 72, paddingBottom: 96, minHeight: '100vh' }}>
+        {/* Pull-to-refresh indicator */}
+        {(pullY > 0 || refreshing) && (
+          <div style={{
+            position: 'fixed', top: 0, left: 0, right: 0, zIndex: 200,
+            display: 'flex', justifyContent: 'center',
+            transform: `translateY(${refreshing ? 56 : pullY - 8}px)`,
+            transition: refreshing ? 'transform 0.2s ease' : 'none',
+            pointerEvents: 'none',
+          }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: '50%',
+              background: 'var(--surface)', border: '1px solid var(--border2)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+            }}>
+              <svg
+                width="14" height="14" viewBox="0 0 14 14" fill="none"
+                stroke="var(--gold)" strokeWidth="2" strokeLinecap="round"
+                style={{ animation: refreshing ? 'ptr-spin 0.7s linear infinite' : 'none',
+                         opacity: pullY / 72 > 1 ? 1 : pullY / 72 }}
+              >
+                {refreshing
+                  ? <path d="M7 1a6 6 0 1 0 6 6" />
+                  : <path d="M7 1v6M4 4l3 3 3-3" />}
+              </svg>
+            </div>
+          </div>
+        )}
         <div style={{ maxWidth: 1100, margin: '0 auto', padding: '48px 24px 0' }}>
 
           {/* Header */}

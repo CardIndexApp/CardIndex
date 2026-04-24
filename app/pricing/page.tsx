@@ -1,7 +1,8 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Navbar from '@/components/Navbar'
 import BetaModal from '@/components/BetaModal'
+import { createClient } from '@/lib/supabase/client'
 
 const tiers = [
   {
@@ -87,10 +88,42 @@ const faqs = [
   },
 ]
 
+type UserTier = 'free' | 'standard' | 'pro' | null
+
 export default function Pricing() {
   const [annual, setAnnual] = useState(false)
   const [showBeta, setShowBeta] = useState(false)
   const [openFaq, setOpenFaq] = useState<number | null>(null)
+  const [userTier, setUserTier] = useState<UserTier>(null)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [requested, setRequested] = useState<string | null>(null)  // tier name just requested
+  const [requesting, setRequesting] = useState(false)
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(async ({ data }) => {
+      if (!data.user) return
+      setUserId(data.user.id)
+      const { data: prof } = await supabase
+        .from('profiles').select('tier').eq('id', data.user.id).single()
+      setUserTier((prof?.tier ?? 'free') as UserTier)
+    })
+  }, [])
+
+  async function handleUpgradeRequest(tierName: string) {
+    if (!userId) { setShowBeta(true); return }
+    setRequesting(true)
+    try {
+      const supabase = createClient()
+      await supabase.from('upgrade_requests').upsert(
+        { user_id: userId, requested_tier: tierName.toLowerCase(), requested_at: new Date().toISOString() },
+        { onConflict: 'user_id' }
+      )
+      setRequested(tierName)
+    } finally {
+      setRequesting(false)
+    }
+  }
 
   return (
     <>
@@ -145,9 +178,14 @@ export default function Pricing() {
                   boxShadow: tier.highlight ? '0 0 40px rgba(232,197,71,0.06)' : 'none',
                 }}
               >
-                {tier.badge && (
+                {tier.badge && userTier !== tier.name.toLowerCase() && (
                   <div style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', background: 'var(--gold)', color: '#080810', fontSize: 10, fontWeight: 700, letterSpacing: 1, padding: '3px 12px', borderRadius: 99, whiteSpace: 'nowrap' }}>
                     {tier.badge.toUpperCase()}
+                  </div>
+                )}
+                {userTier === tier.name.toLowerCase() && (
+                  <div style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', background: 'var(--green)', color: '#080810', fontSize: 10, fontWeight: 700, letterSpacing: 1, padding: '3px 12px', borderRadius: 99, whiteSpace: 'nowrap' }}>
+                    YOUR PLAN
                   </div>
                 )}
 
@@ -175,26 +213,52 @@ export default function Pricing() {
                   )}
                 </div>
 
-                <button
-                  onClick={() => setShowBeta(true)}
-                  style={{
-                    width: '100%',
-                    padding: '11px 0',
-                    borderRadius: 12,
-                    border: tier.highlight ? 'none' : '1px solid var(--border2)',
-                    background: tier.highlight ? 'var(--gold)' : 'transparent',
-                    color: tier.highlight ? '#080810' : 'var(--ink)',
-                    fontSize: 14,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    marginBottom: 28,
-                    transition: 'opacity 0.15s',
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
-                  onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
-                >
-                  {tier.cta} →
-                </button>
+                {(() => {
+                  const isCurrent = userTier === tier.name.toLowerCase()
+                  const isFree = tier.name === 'Free'
+                  const justRequested = requested === tier.name
+                  const label = isCurrent
+                    ? 'Your current plan'
+                    : justRequested
+                    ? '✓ Request received'
+                    : requesting
+                    ? 'Sending…'
+                    : userTier && !isFree
+                    ? tier.cta + ' →'
+                    : tier.cta + ' →'
+                  return (
+                    <button
+                      disabled={isCurrent || justRequested || requesting}
+                      onClick={() => isFree ? null : handleUpgradeRequest(tier.name)}
+                      style={{
+                        width: '100%',
+                        padding: '11px 0',
+                        borderRadius: 12,
+                        border: tier.highlight ? 'none' : '1px solid var(--border2)',
+                        background: isCurrent || justRequested
+                          ? 'rgba(255,255,255,0.04)'
+                          : tier.highlight ? 'var(--gold)' : 'transparent',
+                        color: isCurrent || justRequested
+                          ? 'var(--ink3)'
+                          : tier.highlight ? '#080810' : 'var(--ink)',
+                        fontSize: 14,
+                        fontWeight: 600,
+                        cursor: isCurrent || justRequested || isFree ? 'default' : 'pointer',
+                        marginBottom: 28,
+                        transition: 'opacity 0.15s',
+                      }}
+                      onMouseEnter={e => { if (!isCurrent && !justRequested) e.currentTarget.style.opacity = '0.85' }}
+                      onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+                    >
+                      {label}
+                    </button>
+                  )
+                })()}
+                {requested === tier.name && (
+                  <p style={{ fontSize: 11, color: 'var(--ink3)', textAlign: 'center', marginTop: -20, marginBottom: 20, lineHeight: 1.5 }}>
+                    We'll be in touch shortly to complete your upgrade.
+                  </p>
+                )}
 
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 11 }}>
                   {tier.features.map((f, j) => (

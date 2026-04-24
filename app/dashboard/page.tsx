@@ -1,10 +1,11 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Navbar from '@/components/Navbar'
 import { createClient } from '@/lib/supabase/client'
 import { rising, scoreColor } from '@/lib/data'
+import { usePullToRefresh } from '@/lib/usePullToRefresh'
 
 type Tier = 'free' | 'standard' | 'pro'
 
@@ -106,32 +107,33 @@ export default function Dashboard() {
   const [recentlyViewed, setRecentlyViewed] = useState<RecentlyViewedItem[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    async function load() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.replace('/'); return }
+  const load = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { router.replace('/'); return }
 
-      const [{ data: prof }, { data: wl }] = await Promise.all([
-        supabase.from('profiles').select('email, username, tier').eq('id', user.id).single(),
-        supabase.from('watchlists').select('id, card_name, set_name, grade').eq('user_id', user.id).order('added_at', { ascending: false }).limit(5),
-      ])
+    const [{ data: prof }, { data: wl }] = await Promise.all([
+      supabase.from('profiles').select('email, username, tier').eq('id', user.id).single(),
+      supabase.from('watchlists').select('id, card_name, set_name, grade').eq('user_id', user.id).order('added_at', { ascending: false }).limit(5),
+    ])
 
-      setProfile(prof ?? { email: user.email ?? '', username: null, tier: 'free' })
-      setWatchlist(wl ?? [])
+    setProfile(prof ?? { email: user.email ?? '', username: null, tier: 'free' })
+    setWatchlist(wl ?? [])
 
-      // Recently viewed — stored in localStorage under the user's key
-      try {
-        const rvKey = `ci_rv_${user.id}`
-        const stored: RecentlyViewedItem[] = JSON.parse(localStorage.getItem(rvKey) ?? '[]')
-        setRecentlyViewed(stored.slice(0, 10))
-      } catch {
-        setRecentlyViewed([])
-      }
-
-      setLoading(false)
+    // Recently viewed — stored in localStorage under the user's key
+    try {
+      const rvKey = `ci_rv_${user.id}`
+      const stored: RecentlyViewedItem[] = JSON.parse(localStorage.getItem(rvKey) ?? '[]')
+      setRecentlyViewed(stored.slice(0, 10))
+    } catch {
+      setRecentlyViewed([])
     }
-    load()
+
+    setLoading(false)
   }, [])
+
+  useEffect(() => { load() }, [load])
+
+  const { pullY, refreshing } = usePullToRefresh(load)
 
   const displayName = profile?.username ?? profile?.email?.split('@')[0] ?? ''
   const tier = (profile?.tier ?? 'free') as Tier
@@ -151,6 +153,34 @@ export default function Dashboard() {
     <>
       <Navbar />
       <main style={{ paddingTop: 88, paddingBottom: 88, minHeight: '100vh' }}>
+        {/* Pull-to-refresh indicator */}
+        {(pullY > 0 || refreshing) && (
+          <div style={{
+            position: 'fixed', top: 0, left: 0, right: 0, zIndex: 200,
+            display: 'flex', justifyContent: 'center',
+            transform: `translateY(${refreshing ? 56 : pullY - 8}px)`,
+            transition: refreshing ? 'transform 0.2s ease' : 'none',
+            pointerEvents: 'none',
+          }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: '50%',
+              background: 'var(--surface)', border: '1px solid var(--border2)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+            }}>
+              <svg
+                width="14" height="14" viewBox="0 0 14 14" fill="none"
+                stroke="var(--gold)" strokeWidth="2" strokeLinecap="round"
+                style={{ animation: refreshing ? 'ptr-spin 0.7s linear infinite' : 'none',
+                         opacity: pullY / 72 > 1 ? 1 : pullY / 72 }}
+              >
+                {refreshing
+                  ? <path d="M7 1a6 6 0 1 0 6 6" />
+                  : <path d="M7 1v6M4 4l3 3 3-3" />}
+              </svg>
+            </div>
+          </div>
+        )}
         <div style={{ maxWidth: 960, margin: '0 auto', padding: '0 16px' }}>
 
           {/* ── Welcome ── */}
@@ -306,6 +336,7 @@ export default function Dashboard() {
       </main>
 
       <style>{`
+        @keyframes ptr-spin { to { transform: rotate(360deg); } }
         @media (max-width: 640px) {
           .dash-two-col { grid-template-columns: 1fr !important; }
           .dash-quick-actions { grid-template-columns: repeat(2, 1fr) !important; }

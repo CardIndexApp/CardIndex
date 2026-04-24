@@ -111,6 +111,7 @@ const PAGE_STYLES = `
   .ci-hold-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
   .ci-proj { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
   .ci-grade-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
+  .ci-analysis-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 
   @media (max-width: 700px) {
     .ci-controls { grid-template-columns: 1fr; }
@@ -124,6 +125,12 @@ const PAGE_STYLES = `
     .ci-hold-metrics { grid-template-columns: 1fr 1fr; }
     .ci-proj { grid-template-columns: 1fr; }
     .ci-hide-mobile { display: none !important; }
+    .ci-analysis-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .ci-tile-label { font-size: 8px !important; letter-spacing: 1px !important; }
+    .ci-tile { padding: 10px !important; }
+    .ci-analysis-panel { padding: 14px !important; }
+    .ci-page-outer { padding: 0 12px !important; }
+    .ci-section { margin-bottom: 8px !important; }
   }
 
   @media (min-width: 701px) {
@@ -595,7 +602,7 @@ export default function CardPage() {
         <style>{PAGE_STYLES}</style>
         <Navbar />
         <main className="ci-main" style={{ paddingTop: 72, paddingBottom: 80, minHeight: '100vh' }}>
-          <div style={{ maxWidth: 860, margin: '0 auto', padding: '0 16px' }}>
+          <div className="ci-page-outer" style={{ maxWidth: 860, margin: '0 auto', padding: '0 16px' }}>
 
             {/* Card header */}
             <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', overflow: 'hidden', marginTop: 24, marginBottom: 10 }}>
@@ -741,16 +748,16 @@ export default function CardPage() {
                 {liveData.score_breakdown && (() => {
                   const a = computeAnalysis(liveData)
                   return (
-                    <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', padding: '20px', marginBottom: 10 }}>
+                    <div className="ci-analysis-panel ci-section" style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', padding: '20px', marginBottom: 10 }}>
                       <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', display: 'block', marginBottom: 14 }}>ANALYSIS</span>
 
                       {/* 6 metric tiles — 3-col on desktop, 2-col on mobile */}
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                      <div className="ci-analysis-grid">
 
                         {/* Price Momentum — split 7d / 30d */}
-                        <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)', position: 'relative' }}>
+                        <div className="ci-tile" style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)', position: 'relative' }}>
                           <TileInfo id="momentum" text="How the current price compares to its 7-day and 30-day moving averages. Positive means the price is trading above recent averages — a bullish signal." activeTip={activeTip} setActiveTip={setActiveTip} />
-                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 10 }}>PRICE MOMENTUM</div>
+                          <div className="ci-tile-label" style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 10, paddingRight: 22 }}>PRICE MOMENTUM</div>
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                             {/* 7d */}
                             <div style={{ textAlign: 'center', padding: '8px 4px', borderRadius: 8, background: 'rgba(255,255,255,0.03)' }}>
@@ -786,9 +793,9 @@ export default function CardPage() {
                         </div>
 
                         {/* Trend — mini sparkline */}
-                        <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)', position: 'relative' }}>
+                        <div className="ci-tile" style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)', position: 'relative' }}>
                           <TileInfo id="trend" text="Direction and rate of price change over the available history. Shows whether the card is appreciating, declining, or holding steady over time." activeTip={activeTip} setActiveTip={setActiveTip} />
-                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>PRICE TREND</div>
+                          <div className="ci-tile-label" style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8, paddingRight: 22 }}>PRICE TREND</div>
                           {(() => {
                             // Build sparkline data: prefer real history, fall back to synthetic 3-point from avg30d→avg7d→price
                             const histPrices = liveData.price_history?.length >= 2 ? liveData.price_history.map(p => p.price) : null
@@ -846,9 +853,9 @@ export default function CardPage() {
                         </div>
 
                         {/* Liquidity — graduated bar */}
-                        <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)', position: 'relative', display: 'flex', flexDirection: 'column' }}>
+                        <div className="ci-tile" style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)', position: 'relative', display: 'flex', flexDirection: 'column' }}>
                           <TileInfo id="liquidity" text="How actively this card trades on the market. Higher liquidity means it's easier to buy or sell at a fair price. Based on the number of eBay sales in the last 30 days." activeTip={activeTip} setActiveTip={setActiveTip} />
-                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>LIQUIDITY</div>
+                          <div className="ci-tile-label" style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8, paddingRight: 22 }}>LIQUIDITY</div>
                           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                           <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: a.liqColor, marginBottom: 7 }}>{a.liqLabel}</div>
                           {/* 5-segment bar: thresholds 5 / 15 / 50 / 200 / 500 sales */}
@@ -871,9 +878,9 @@ export default function CardPage() {
                         </div>
 
                         {/* Price position — gradient spectrum */}
-                        <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)', position: 'relative', display: 'flex', flexDirection: 'column' }}>
+                        <div className="ci-tile" style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)', position: 'relative', display: 'flex', flexDirection: 'column' }}>
                           <TileInfo id="position" text="Where the current market price sits within its 30-day trading range. Near the high end suggests strong buying pressure; near the low end may signal weakness or a buying opportunity." activeTip={activeTip} setActiveTip={setActiveTip} />
-                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6 }}>PRICE POSITION</div>
+                          <div className="ci-tile-label" style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6, paddingRight: 22 }}>PRICE POSITION</div>
                           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                           <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: a.rangeColor, marginBottom: 9 }}>{a.rangeLabel}</div>
                           {/* Gradient track + marker */}
@@ -902,9 +909,9 @@ export default function CardPage() {
                         </div>
 
                         {/* Consistency — ring progress */}
-                        <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)', textAlign: 'center', position: 'relative' }}>
+                        <div className="ci-tile" style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)', textAlign: 'center', position: 'relative' }}>
                           <TileInfo id="consistency" text={a.consPct === 0 ? "Score is 0 because the card's price is extremely volatile — the gap between its high and low sale prices is as wide as the average price itself. This makes future pricing unpredictable." : "How stable the price has been over time. A high score means low volatility — the card holds its value reliably. A low score means the price swings around a lot."} activeTip={activeTip} setActiveTip={setActiveTip} />
-                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 10 }}>CONSISTENCY</div>
+                          <div className="ci-tile-label" style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 10, paddingRight: 22 }}>CONSISTENCY</div>
                           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
                             <div style={{
                               width: 52, height: 52, borderRadius: '50%',
@@ -920,9 +927,9 @@ export default function CardPage() {
                         </div>
 
                         {/* Value score — ring progress */}
-                        <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)', textAlign: 'center', position: 'relative' }}>
+                        <div className="ci-tile" style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)', textAlign: 'center', position: 'relative' }}>
                           <TileInfo id="value" text={a.valuePct === 0 ? `Score is 0 because the card is trading significantly above its 30-day average — at least 20% higher. You'd be buying at a notable premium to recent market value.${a.consPct >= 80 ? " Note: the price may look stable right now, but it's elevated compared to where it was 30 days ago." : ""}` : "Measures whether the current price represents good value relative to the card's trading history. High means undervalued; low means priced at a premium."} activeTip={activeTip} setActiveTip={setActiveTip} />
-                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 10 }}>VALUE SCORE</div>
+                          <div className="ci-tile-label" style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 10, paddingRight: 22 }}>VALUE SCORE</div>
                           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
                             <div style={{
                               width: 52, height: 52, borderRadius: '50%',

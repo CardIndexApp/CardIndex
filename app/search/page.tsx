@@ -124,6 +124,22 @@ const NAMED_ERA: Record<string, string> = {
   'neo-revelation': 'classic', 'neo-destiny': 'classic',
 }
 
+// Accent colour per era — used for card left-borders, section headers, and filter pills
+const ERA_COLORS: Record<string, string> = {
+  me:      '#a855f7', // violet
+  sv:      '#ef4444', // red
+  swsh:    '#14b8a6', // teal
+  sm:      '#f97316', // orange
+  xy:      '#3b82f6', // blue
+  bw:      '#8b8fa8', // slate
+  hgss:    '#eab308', // gold
+  dp:      '#818cf8', // indigo
+  ex:      '#e11d48', // rose-red
+  ecard:   '#22c55e', // green
+  classic: '#d97706', // amber
+  other:   '#4b5563', // gray
+}
+
 function getSetEra(slug: string): string {
   // 1. Named lookup (most accurate)
   if (NAMED_ERA[slug]) return NAMED_ERA[slug]
@@ -169,14 +185,6 @@ type Step = 1 | 2 | 3
 
 // ── Components ───────────────────────────────────────────────────────────────
 
-function SetInitials({ name }: { name: string }) {
-  const initials = name.split(' ').filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('')
-  return (
-    <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink3)', letterSpacing: 0.5 }}>{initials}</span>
-    </div>
-  )
-}
 
 function CardImage({ src, alt }: { src: string; alt: string }) {
   const [failed, setFailed] = useState(false)
@@ -204,6 +212,7 @@ export default function SearchPage() {
   const [setsLoading, setSetsLoading] = useState(true)
   const [setQuery, setSetQuery] = useState('')
   const [selectedSet, setSelectedSet] = useState<PtSet | null>(null)
+  const [selectedEra, setSelectedEra] = useState<string | null>(null)
 
   // Step 2 — Card selection
   const [cards, setCards] = useState<PtCard[]>([])
@@ -223,8 +232,12 @@ export default function SearchPage() {
   useEffect(() => {
     fetch('/api/pt/sets')
       .then(r => r.json())
-      .then(d => { setAllSets(d.data ?? []) })
-      .catch(() => setAllSets([]))
+      .then(d => {
+        const data = d.data ?? []
+        setAllSets(data)
+        setSets(data) // set both at once — avoids flash of "No sets found"
+      })
+      .catch(() => { setAllSets([]); setSets([]) })
       .finally(() => setSetsLoading(false))
   }, [])
 
@@ -281,7 +294,14 @@ export default function SearchPage() {
 
     cardSearchTimeout.current = setTimeout(() => {
       setCardsLoading(true)
-      fetch(`/api/pt/cards?set=${encodeURIComponent(selectedSet.slug)}&search=${encodeURIComponent(q)}`)
+      // If the query looks like a card number (digits, optional leading #, optional /total),
+      // pass it as card_number rather than search (which is name-only in the Poketrace API).
+      const isNumber = /^#?\d+(?:\/\d+)?$/.test(q)
+      const qClean   = q.replace(/^#/, '') // strip leading # from number queries
+      const qParam   = isNumber
+        ? `card_number=${encodeURIComponent(qClean)}`
+        : `search=${encodeURIComponent(q)}`
+      fetch(`/api/pt/cards?set=${encodeURIComponent(selectedSet.slug)}&${qParam}`)
         .then(r => r.json())
         .then(d => { setCards(d.data ?? []); setCardsPagination(d.pagination ?? { hasMore: false }) })
         .catch(() => setCards([]))
@@ -294,7 +314,11 @@ export default function SearchPage() {
   const loadMoreCards = useCallback(async () => {
     if (!selectedSet || !cardsPagination.nextCursor || cardsLoadingMore) return
     setCardsLoadingMore(true)
-    const url = `/api/pt/cards?set=${encodeURIComponent(selectedSet.slug)}&cursor=${encodeURIComponent(cardsPagination.nextCursor)}${cardQuery ? `&search=${encodeURIComponent(cardQuery)}` : ''}`
+    const q        = cardQuery.trim()
+    const isNumber = /^#?\d+(?:\/\d+)?$/.test(q)
+    const qClean   = q.replace(/^#/, '')
+    const qParam   = q ? (isNumber ? `&card_number=${encodeURIComponent(qClean)}` : `&search=${encodeURIComponent(q)}`) : ''
+    const url = `/api/pt/cards?set=${encodeURIComponent(selectedSet.slug)}&cursor=${encodeURIComponent(cardsPagination.nextCursor)}${qParam}`
     fetch(url)
       .then(r => r.json())
       .then(d => { setCards(prev => [...prev, ...(d.data ?? [])]); setCardsPagination(d.pagination ?? { hasMore: false }) })
@@ -382,48 +406,130 @@ export default function SearchPage() {
         {step === 1 && (
           <div>
             <p className="font-mono-custom" style={{ fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8 }}>STEP 1 OF 3</p>
-            <h2 className="font-display" style={{ fontSize: 26, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.5px', marginBottom: 24 }}>Choose a set</h2>
+            <h2 className="font-display" style={{ fontSize: 26, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.5px', marginBottom: 20 }}>Choose a set</h2>
 
             <input
               type="text"
               value={setQuery}
-              onChange={e => setSetQuery(e.target.value)}
+              onChange={e => { setSetQuery(e.target.value); setSelectedEra(null) }}
               placeholder="Search sets…"
               autoFocus
-              style={{ width: '100%', padding: '12px 16px', borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 14, outline: 'none', marginBottom: 24, boxSizing: 'border-box' }}
+              style={{ width: '100%', padding: '12px 16px', borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 14, outline: 'none', marginBottom: 16, boxSizing: 'border-box' }}
               onFocus={e => (e.currentTarget.style.borderColor = 'var(--gold)')}
               onBlur={e => (e.currentTarget.style.borderColor = 'var(--border2)')}
             />
 
             {setsLoading ? (
-              <div style={{ textAlign: 'center', padding: 48, color: 'var(--ink3)', fontSize: 13 }}>Loading sets…</div>
-            ) : sets.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 48, color: 'var(--ink3)', fontSize: 13 }}>No sets found</div>
-            ) : (
-              <>
-                {eraGroups.map(({ key, label, sets: eraSets }) => (
-                  <div key={key} style={{ marginBottom: 28 }}>
-                    <p className="font-mono-custom" style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 2, marginBottom: 10 }}>{label.toUpperCase()}</p>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 8 }}>
-                      {eraSets.map(set => (
-                        <button
-                          key={set.slug}
-                          onClick={() => handleSetSelect(set)}
-                          style={{ background: 'var(--surface)', border: '1.5px solid var(--border)', borderRadius: 10, padding: '12px', cursor: 'pointer', textAlign: 'left', transition: 'all 0.18s', display: 'flex', alignItems: 'center', gap: 10 }}
-                          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.transform = 'translateY(-1px)' }}
-                          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.transform = 'translateY(0)' }}
-                        >
-                          <SetInitials name={set.name} />
-                          <div style={{ minWidth: 0 }}>
-                            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3, marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{set.name}</div>
-                            <div style={{ fontSize: 10, color: 'var(--ink3)' }}>{set.cardCount} cards</div>
-                          </div>
-                        </button>
+              /* ── Skeleton loader ─────────────────────────────────────────── */
+              <div>
+                {[6, 8, 5].map((count, i) => (
+                  <div key={i} style={{ marginBottom: 32 }}>
+                    <div style={{ width: 120, height: 10, background: 'var(--surface2)', borderRadius: 4, marginBottom: 14, opacity: 0.5 }} />
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 6 }}>
+                      {Array.from({ length: count }).map((_, j) => (
+                        <div key={j} style={{ height: 58, background: 'var(--surface)', border: '1px solid var(--border)', borderLeft: '3px solid var(--border2)', borderRadius: 8, opacity: 0.45 }} />
                       ))}
                     </div>
                   </div>
                 ))}
+              </div>
+            ) : sets.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 60, color: 'var(--ink3)', fontSize: 13 }}>No sets found</div>
+            ) : (
+              <>
+                {/* ── Era filter pills ─────────────────────────────────────── */}
+                <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 6, marginBottom: 28, scrollbarWidth: 'none' }}>
+                  <button
+                    onClick={() => setSelectedEra(null)}
+                    style={{
+                      padding: '5px 14px', borderRadius: 99, fontSize: 11, fontWeight: 600, cursor: 'pointer', flexShrink: 0,
+                      background: !selectedEra ? 'var(--gold)' : 'var(--surface)',
+                      border: `1px solid ${!selectedEra ? 'var(--gold)' : 'var(--border2)'}`,
+                      color: !selectedEra ? '#080810' : 'var(--ink3)',
+                      transition: 'all 0.15s', whiteSpace: 'nowrap',
+                    }}
+                  >All eras</button>
+                  {eraGroups.map(({ key, label }) => {
+                    const c = ERA_COLORS[key] ?? ERA_COLORS.other
+                    const active = selectedEra === key
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => setSelectedEra(active ? null : key)}
+                        style={{
+                          padding: '5px 14px', borderRadius: 99, fontSize: 11, fontWeight: 600, cursor: 'pointer', flexShrink: 0,
+                          background: active ? `${c}22` : 'var(--surface)',
+                          border: `1px solid ${active ? c : 'var(--border2)'}`,
+                          color: active ? c : 'var(--ink3)',
+                          transition: 'all 0.15s', whiteSpace: 'nowrap',
+                        }}
+                      >{label}</button>
+                    )
+                  })}
+                </div>
 
+                {/* ── Era groups ───────────────────────────────────────────── */}
+                {eraGroups
+                  .filter(g => !selectedEra || g.key === selectedEra)
+                  .map(({ key, label, sets: eraSets }) => {
+                    const eraColor = ERA_COLORS[key] ?? ERA_COLORS.other
+                    return (
+                      <div key={key} style={{ marginBottom: 36 }}>
+
+                        {/* Era heading */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                          <div style={{ width: 3, height: 16, borderRadius: 2, background: eraColor, flexShrink: 0 }} />
+                          <span className="font-mono-custom" style={{ fontSize: 10, fontWeight: 700, color: eraColor, letterSpacing: 1.5 }}>
+                            {label.toUpperCase()}
+                          </span>
+                          <span style={{ fontSize: 10, color: 'var(--ink3)' }}>· {eraSets.length} sets</span>
+                        </div>
+
+                        {/* Set cards */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 6 }}>
+                          {eraSets.map(set => (
+                            <button
+                              key={set.slug}
+                              onClick={() => handleSetSelect(set)}
+                              style={{
+                                background: 'var(--surface)',
+                                border: '1px solid var(--border)',
+                                borderLeft: `3px solid ${eraColor}`,
+                                borderRadius: 8,
+                                padding: '12px 14px',
+                                cursor: 'pointer',
+                                textAlign: 'left',
+                                transition: 'transform 0.15s, box-shadow 0.15s, border-color 0.15s',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: 4,
+                              }}
+                              onMouseEnter={e => {
+                                e.currentTarget.style.borderColor = 'var(--gold)'
+                                e.currentTarget.style.borderLeftColor = eraColor
+                                e.currentTarget.style.transform = 'translateY(-2px)'
+                                e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.3)'
+                              }}
+                              onMouseLeave={e => {
+                                e.currentTarget.style.borderColor = 'var(--border)'
+                                e.currentTarget.style.borderLeftColor = eraColor
+                                e.currentTarget.style.transform = 'none'
+                                e.currentTarget.style.boxShadow = 'none'
+                              }}
+                            >
+                              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.4 }}>
+                                {set.name}
+                              </span>
+                              <span style={{ fontSize: 10, color: 'var(--ink3)' }}>
+                                {set.cardCount.toLocaleString()} cards
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+
+                      </div>
+                    )
+                  })}
               </>
             )}
           </div>
@@ -443,7 +549,7 @@ export default function SearchPage() {
               type="text"
               value={cardQuery}
               onChange={e => setCardQuery(e.target.value)}
-              placeholder="Search by name, number, or rarity…"
+              placeholder="Search by name or number…"
               autoFocus
               style={{ width: '100%', padding: '12px 16px', borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 14, outline: 'none', marginBottom: 20, boxSizing: 'border-box' }}
               onFocus={e => (e.currentTarget.style.borderColor = 'var(--gold)')}

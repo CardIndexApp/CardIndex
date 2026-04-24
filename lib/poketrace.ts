@@ -52,6 +52,7 @@ export interface TierPrice {
   low?: number
   high?: number
   saleCount?: number
+  approxSaleCount?: boolean
   trend?: 'up' | 'down' | 'stable'
   confidence?: 'high' | 'medium' | 'low'
   avg1d?: number
@@ -416,6 +417,7 @@ export async function searchByTcgPlayerId(tcgplayerId: string): Promise<Pokétra
     const params = new URLSearchParams({
       tcgplayer_ids: tcgplayerId,
       market: 'US',
+      game: 'pokemon',
       limit: '20',
     })
     const res = await fetch(`${BASE}/cards?${params}`, {

@@ -313,7 +313,7 @@ export async function GET(
   }))
 
   // ── 8. Build all-tier price ladder ────────────────────────────────────────
-  const RAW_TIERS = ['NEAR_MINT', 'LIGHTLY_PLAYED', 'MODERATELY_PLAYED', 'HEAVILY_PLAYED', 'DAMAGED']
+  const RAW_TIERS = ['NEAR_MINT', 'MINT', 'LIGHTLY_PLAYED', 'MODERATELY_PLAYED', 'HEAVILY_PLAYED', 'DAMAGED']
   const allTierPrices: Record<string, { avg: number; source: string; saleCount?: number }> = {}
 
   for (const [t, tp] of Object.entries(fullCard.prices.ebay ?? {})) {

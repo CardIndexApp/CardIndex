@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Navbar from '@/components/Navbar'
+import { ptImg } from '@/lib/img'
 
 // ── Types from Poketrace API ─────────────────────────────────────────────────
 
@@ -577,7 +578,7 @@ export default function SearchPage() {
                       onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.transform = 'translateY(-2px)' }}
                       onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.transform = 'translateY(0)' }}
                     >
-                      <CardImage src={card.image} alt={card.name} />
+                      <CardImage src={ptImg(card.image)} alt={card.name} />
                       <div style={{ padding: '7px 9px' }}>
                         <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3 }}>{card.name}</div>
                         <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>#{card.cardNumber}</div>
@@ -619,7 +620,7 @@ export default function SearchPage() {
 
             <div className="search-card-summary" style={{ display: 'flex', gap: 20, background: 'var(--surface)', border: '1.5px solid var(--border2)', borderRadius: 14, padding: 18, marginBottom: 28, alignItems: 'flex-start' }}>
               {selectedCard.image ? (
-                <img src={selectedCard.image} alt={selectedCard.name} style={{ width: 80, borderRadius: 8, boxShadow: '0 8px 28px rgba(0,0,0,0.6)', flexShrink: 0 }} />
+                <img src={ptImg(selectedCard.image)} alt={selectedCard.name} style={{ width: 80, borderRadius: 8, boxShadow: '0 8px 28px rgba(0,0,0,0.6)', flexShrink: 0 }} />
               ) : (
                 <div style={{ width: 80, height: 112, borderRadius: 8, background: 'var(--surface2)', flexShrink: 0 }} />
               )}

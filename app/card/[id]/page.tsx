@@ -1,5 +1,6 @@
 'use client'
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { ComposedChart, LineChart, Line, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
@@ -58,29 +59,65 @@ function TileInfo({ id, text, activeTip, setActiveTip }: {
   setActiveTip: (v: string | null) => void
 }) {
   const open = activeTip === id
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const [tipRect, setTipRect] = useState<{ top: number; left: number; alignRight: boolean } | null>(null)
+
+  function openTip() {
+    if (btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect()
+      const tipW = Math.min(210, window.innerWidth - 24)
+      // Prefer aligning right edge of tooltip to right edge of icon.
+      // If that would overflow left, flip to align left edge of tooltip to left edge of icon.
+      const alignRight = r.right - tipW >= 8
+      setTipRect({ top: r.bottom + 6, left: alignRight ? r.right : r.left, alignRight })
+    }
+    setActiveTip(id)
+  }
+
   return (
-    /* Sits at position: absolute top-right — parent tile must have position: relative */
-    <span
-      style={{ position: 'absolute', top: 8, right: 8, zIndex: 10 }}
-      onMouseEnter={() => setActiveTip(id)}
-      onMouseLeave={() => setActiveTip(null)}
-    >
+    <span style={{ position: 'absolute', top: 8, right: 8, zIndex: 10 }}>
       <button
-        onClick={e => { e.stopPropagation(); setActiveTip(open ? null : id) }}
+        ref={btnRef}
+        onMouseEnter={() => openTip()}
+        onMouseLeave={() => setActiveTip(null)}
+        onClick={e => { e.stopPropagation(); open ? setActiveTip(null) : openTip() }}
         style={{ width: 16, height: 16, borderRadius: '50%', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.13)', color: 'rgba(255,255,255,0.35)', fontSize: 9, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, lineHeight: 1 }}
         aria-label="More info"
       >i</button>
-      {open && (
+      {open && tipRect && typeof document !== 'undefined' && createPortal(
         <div
           onMouseEnter={() => setActiveTip(id)}
           onMouseLeave={() => setActiveTip(null)}
           onClick={e => e.stopPropagation()}
-          style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 300, background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: '10px 13px', width: 210, maxWidth: '72vw', fontSize: 11, color: 'rgba(255,255,255,0.7)', lineHeight: 1.55, boxShadow: '0 8px 32px rgba(0,0,0,0.6)' }}
+          style={{
+            position: 'fixed',
+            top: tipRect.top,
+            ...(tipRect.alignRight
+              ? { right: window.innerWidth - tipRect.left }
+              : { left: tipRect.left }),
+            zIndex: 9999,
+            background: '#1a1a2e',
+            border: '1px solid rgba(255,255,255,0.12)',
+            borderRadius: 10,
+            padding: '10px 13px',
+            width: Math.min(210, window.innerWidth - 24),
+            fontSize: 11,
+            color: 'rgba(255,255,255,0.7)',
+            lineHeight: 1.55,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+            pointerEvents: 'auto',
+          }}
         >
-          {/* caret */}
-          <div style={{ position: 'absolute', top: -5, right: 5, width: 8, height: 8, background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.12)', borderBottom: 'none', borderRight: 'none', rotate: '45deg' }} />
+          <div style={{
+            position: 'absolute', top: -5,
+            ...(tipRect.alignRight ? { right: 5 } : { left: 5 }),
+            width: 8, height: 8, background: '#1a1a2e',
+            border: '1px solid rgba(255,255,255,0.12)',
+            borderBottom: 'none', borderRight: 'none', rotate: '45deg',
+          }} />
           {text}
-        </div>
+        </div>,
+        document.body
       )}
     </span>
   )

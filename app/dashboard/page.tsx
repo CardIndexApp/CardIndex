@@ -17,6 +17,7 @@ interface Profile {
 
 interface WatchlistItem {
   id: string
+  card_id: string
   card_name: string
   set_name: string
   grade: string
@@ -113,7 +114,7 @@ export default function Dashboard() {
 
     const [{ data: prof }, { data: wl }] = await Promise.all([
       supabase.from('profiles').select('email, username, tier').eq('id', user.id).single(),
-      supabase.from('watchlists').select('id, card_name, set_name, grade').eq('user_id', user.id).order('added_at', { ascending: false }).limit(5),
+      supabase.from('watchlists').select('id, card_id, card_name, set_name, grade').eq('user_id', user.id).order('added_at', { ascending: false }).limit(5),
     ])
 
     setProfile(prof ?? { email: user.email ?? '', username: null, tier: 'free' })
@@ -236,14 +237,25 @@ export default function Dashboard() {
                 </div>
               ) : (
                 <>
-                  {watchlist.map((item, i) => (
-                    <div key={item.id} style={{ padding: '12px 20px', borderBottom: i < watchlist.length - 1 ? '1px solid var(--border)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.card_name}</div>
-                        <div style={{ fontSize: 11, color: 'var(--ink3)' }}>{item.set_name} · {item.grade}</div>
-                      </div>
-                    </div>
-                  ))}
+                  {watchlist.map((item, i) => {
+                    const params = new URLSearchParams({ name: item.card_name, grade: item.grade })
+                    if (item.set_name) params.set('set', item.set_name)
+                    return (
+                      <Link
+                        key={item.id}
+                        href={`/card/${item.card_id}?${params.toString()}`}
+                        style={{ padding: '12px 20px', borderBottom: i < watchlist.length - 1 ? '1px solid var(--border)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, textDecoration: 'none', background: 'transparent', transition: 'background 0.12s' }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.card_name}</div>
+                          <div style={{ fontSize: 11, color: 'var(--ink3)' }}>{item.set_name} · {item.grade}</div>
+                        </div>
+                        <span style={{ fontSize: 14, color: 'var(--ink3)', flexShrink: 0 }}>›</span>
+                      </Link>
+                    )
+                  })}
                   {watchlist.length === 5 && (
                     <div style={{ padding: '10px 20px', borderTop: '1px solid var(--border)' }}>
                       <Link href="/watchlist" style={{ fontSize: 12, color: 'var(--ink3)', textDecoration: 'none' }}>See all cards →</Link>

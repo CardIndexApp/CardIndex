@@ -12,9 +12,8 @@ const NAV_LINKS_AUTHED = [
 ]
 
 const NAV_LINKS_GUEST = [
-  { label: 'Market',    href: '/market' },
-  { label: 'Watchlist', href: '/watchlist' },
-  { label: 'Pricing',   href: '/pricing' },
+  { label: 'Market',  href: '/market' },
+  { label: 'Pricing', href: '/pricing' },
 ]
 
 async function fetchUsername(userId: string): Promise<string | null> {

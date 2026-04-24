@@ -2,7 +2,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { LineChart, Line, XAxis, Tooltip, ResponsiveContainer } from 'recharts'
+import { ComposedChart, LineChart, Line, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import Navbar from '@/components/Navbar'
 import { getCard, fmt, scoreColor } from '@/lib/data'
 import { tcgImg } from '@/lib/img'
@@ -122,7 +122,7 @@ interface LiveData {
   price_change_pct: number
   price_range_low: number
   price_range_high: number
-  price_history: { month: string; price: number }[]
+  price_history: { month: string; price: number; volume?: number }[]
   ebay_listings: { title: string; price: number; date: string; url: string }[]
   score: number
   score_breakdown: { total: number; trend: number; liquidity: number; consistency: number; value: number; label: string; summary: string }
@@ -185,6 +185,41 @@ function TrendBadge({ trend, confidence }: { trend?: string | null; confidence?:
       )}
     </div>
   )
+}
+
+// ── Growth profile analysis ───────────────────────────────────────────────
+type GrowthProfile = 'hype' | 'organic' | 'correction' | 'volatile' | 'stable' | 'unknown'
+function analyzeGrowthProfile(prices: number[]): { profile: GrowthProfile; label: string; desc: string; color: string } {
+  const fallback = { profile: 'unknown' as GrowthProfile, label: '—', desc: 'Not enough data', color: 'var(--ink3)' }
+  if (prices.length < 5) return fallback
+  const n = prices.length
+  const first = prices[0], last = prices[n - 1]
+  const totalPct = first > 0 ? (last - first) / first : 0
+  const changes: number[] = []
+  for (let i = 1; i < n; i++) { if (prices[i-1] > 0) changes.push((prices[i] - prices[i-1]) / prices[i-1]) }
+  if (!changes.length) return fallback
+  const mean = changes.reduce((s, c) => s + c, 0) / changes.length
+  const stdDev = Math.sqrt(changes.reduce((s, c) => s + (c - mean) ** 2, 0) / changes.length)
+  const dir = totalPct >= 0 ? 1 : -1
+  const consistency = changes.filter(c => c * dir > 0).length / changes.length
+  const t = Math.floor(n / 3)
+  const earlyEnd = prices[t] ?? first, midEnd = prices[t * 2] ?? earlyEnd
+  const ep = first > 0 ? Math.abs((earlyEnd - first) / first) : 0
+  const mp = earlyEnd > 0 ? Math.abs((midEnd - earlyEnd) / earlyEnd) : 0
+  const lp = midEnd > 0 ? Math.abs((last - midEnd) / midEnd) : 0
+  const lateWeight = lp / (ep + mp + lp + 0.001)
+  if (Math.abs(totalPct) < 0.03) return { profile: 'stable', label: 'Stable', desc: 'Price has been flat — no strong trend', color: '#8b8fa8' }
+  const isHype = lateWeight > 0.55 && Math.abs(totalPct) > 0.08
+  const isOrganic = consistency >= 0.55 && stdDev < 0.06
+  if (totalPct > 0.03) {
+    if (isHype) return { profile: 'hype', label: 'Hype-driven', desc: 'Price surged recently — likely a demand spike or viral interest. Watch for a pullback.', color: '#f97316' }
+    if (isOrganic) return { profile: 'organic', label: 'Organic growth', desc: 'Steady, consistent gains across the full period — reflects sustained collector demand.', color: '#3de88a' }
+    return { profile: 'volatile', label: 'Mixed signals', desc: 'Irregular price action — gains are present but no consistent pattern.', color: '#e8c547' }
+  } else {
+    if (isHype) return { profile: 'correction', label: 'Sharp correction', desc: 'Price dropped sharply — likely a reversal after a hype spike.', color: '#e8524a' }
+    if (isOrganic) return { profile: 'correction', label: 'Gradual decline', desc: 'Slow, consistent fade — waning collector interest over time.', color: '#e8524a' }
+    return { profile: 'volatile', label: 'Mixed signals', desc: 'Choppy decline — no clear direction established yet.', color: '#e8c547' }
+  }
 }
 
 // ── Analysis engine ──────────────────────────────────────────────────────────
@@ -269,10 +304,11 @@ function gradeToPoketraceTier(grade: string): string {
 export default function CardPage() {
   const { id } = useParams<{ id: string }>()
   const searchParams = useSearchParams()
-  const urlGrade  = searchParams.get('grade')  ?? null
-  const urlName   = searchParams.get('name')   ?? null
-  const urlSet    = searchParams.get('set')    ?? null
-  const urlNumber = searchParams.get('number') ?? null
+  const urlGrade   = searchParams.get('grade')    ?? null
+  const urlName    = searchParams.get('name')     ?? null
+  const urlSet     = searchParams.get('set')      ?? null
+  const urlNumber  = searchParams.get('number')   ?? null
+  const urlSetSlug = searchParams.get('set_slug') ?? null
   const card = getCard(id)
 
   // Currency conversion
@@ -438,6 +474,7 @@ export default function CardPage() {
   const [priceInput, setPriceInput] = useState(card ? String(card.price) : '')
   const [userPrice, setUserPrice] = useState(card ? card.price : 0)
   const [analysisWindow, setAnalysisWindow] = useState<'1M' | '3M' | '6M'>('3M')
+  const [chartWindow, setChartWindow] = useState<'7d' | '30d' | '90d'>('30d')
   const [showAnalysis, setShowAnalysis] = useState(false)
 
   const handleAnalyse = useCallback(() => {
@@ -526,7 +563,7 @@ export default function CardPage() {
                     </button>
                   )}
                 </div>
-                <Link href="/search" style={{ fontSize: 12, color: 'var(--ink3)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 14 }}>← Change card</Link>
+                <Link href={urlSetSlug ? `/search?return_to_set=${encodeURIComponent(urlSetSlug)}` : '/search'} style={{ fontSize: 12, color: 'var(--ink3)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 14 }}>← Change card</Link>
               </div>
             </div>
 
@@ -602,15 +639,30 @@ export default function CardPage() {
                     <div style={{ textAlign: 'center' }}>
                       <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', display: 'block', marginBottom: 6 }}>CARDINDEX SCORE</span>
                       <div className="font-num" style={{ fontSize: 48, fontWeight: 800, color: scoreColor(liveData.score), letterSpacing: '-2px', lineHeight: 1 }}>{liveData.score}</div>
-                      <div style={{ fontSize: 11, color: 'var(--ink3)' }}>{liveData.score_breakdown?.label ?? ''}</div>
+                      <div style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 6 }}>{liveData.score_breakdown?.label ?? ''}</div>
+                      {(() => {
+                        const sig = computeAnalysis(liveData)
+                        const sigColorMap: Record<string, string> = {
+                          BUY: '#3de88a', ACCUMULATE: '#3de88a', HOLD: '#e8c547', REDUCE: '#e8524a', AVOID: '#e8524a'
+                        }
+                        const sigBgMap: Record<string, string> = {
+                          BUY: 'rgba(61,232,138,0.1)', ACCUMULATE: 'rgba(61,232,138,0.08)', HOLD: 'rgba(232,197,71,0.1)', REDUCE: 'rgba(232,82,74,0.08)', AVOID: 'rgba(232,82,74,0.12)'
+                        }
+                        const c = sigColorMap[sig.signal] ?? '#e8c547'
+                        const bg = sigBgMap[sig.signal] ?? 'rgba(232,197,71,0.08)'
+                        return (
+                          <span style={{ display: 'inline-block', padding: '4px 12px', borderRadius: 99, background: bg, border: `1px solid ${c}33`, fontSize: 11, fontWeight: 800, color: c, letterSpacing: 1 }}>
+                            {sig.signal}
+                          </span>
+                        )
+                      })()}
                     </div>
                   </div>
 
                   {/* Moving averages row */}
-                  {(liveData.avg1d != null || liveData.avg7d != null || liveData.avg30d != null) && (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+                  {(liveData.avg7d != null || liveData.avg30d != null) && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
                       {[
-                        { label: '1D AVG', value: liveData.avg1d },
                         { label: '7D AVG', value: liveData.avg7d },
                         { label: '30D AVG', value: liveData.avg30d },
                       ].map(({ label, value }) => (
@@ -658,39 +710,41 @@ export default function CardPage() {
                       {/* 6 metric tiles — 3-col on desktop, 2-col on mobile */}
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
 
-                        {/* Momentum */}
+                        {/* Momentum — split 7d / 30d */}
                         <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
-                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>MOMENTUM</div>
-                          {a.vs7d != null ? (
-                            <>
-                              <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: a.vs7d >= 0 ? '#3de88a' : '#e8524a', marginBottom: 4 }}>
-                                {a.vs7d >= 0 ? '+' : ''}{a.vs7d.toFixed(1)}%
-                              </div>
-                              {/* Diverging bar — 7d */}
-                              <div style={{ position: 'relative', height: 4, background: 'rgba(255,255,255,0.07)', borderRadius: 2, marginBottom: 7 }}>
-                                <div style={{ position: 'absolute', left: '50%', top: -1, width: 1, height: 6, background: 'rgba(255,255,255,0.18)' }} />
-                                <div style={{ position: 'absolute', ...(a.vs7d >= 0 ? { left: '50%' } : { right: '50%' }), width: `${Math.min(Math.abs(a.vs7d), 25) / 25 * 50}%`, height: '100%', background: a.vs7d >= 0 ? '#3de88a' : '#e8524a', borderRadius: 2 }} />
-                              </div>
-                              {a.vs30d != null && (
+                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 10 }}>MOMENTUM</div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                            {/* 7d */}
+                            <div style={{ textAlign: 'center', padding: '8px 4px', borderRadius: 8, background: 'rgba(255,255,255,0.03)' }}>
+                              <div style={{ fontSize: 8, letterSpacing: 1, color: 'var(--ink3)', marginBottom: 4 }}>7D AVG</div>
+                              {a.vs7d != null ? (
                                 <>
-                                  <div className="font-num" style={{ fontSize: 11, color: a.vs30d >= 0 ? '#3de88a' : '#e8524a', opacity: 0.75, marginBottom: 4 }}>
-                                    {a.vs30d >= 0 ? '+' : ''}{a.vs30d.toFixed(1)}%
+                                  <div className="font-num" style={{ fontSize: 14, fontWeight: 700, color: a.vs7d >= 0 ? '#3de88a' : '#e8524a' }}>
+                                    {a.vs7d >= 0 ? '+' : ''}{a.vs7d.toFixed(1)}%
                                   </div>
-                                  {/* Diverging bar — 30d */}
-                                  <div style={{ position: 'relative', height: 3, background: 'rgba(255,255,255,0.07)', borderRadius: 2 }}>
-                                    <div style={{ position: 'absolute', left: '50%', top: -1, width: 1, height: 5, background: 'rgba(255,255,255,0.18)' }} />
-                                    <div style={{ position: 'absolute', ...(a.vs30d >= 0 ? { left: '50%' } : { right: '50%' }), width: `${Math.min(Math.abs(a.vs30d), 25) / 25 * 50}%`, height: '100%', background: a.vs30d >= 0 ? '#3de88a' : '#e8524a', borderRadius: 2, opacity: 0.6 }} />
+                                  <div style={{ marginTop: 6, height: 3, background: 'rgba(255,255,255,0.07)', borderRadius: 2, position: 'relative' }}>
+                                    <div style={{ position: 'absolute', left: '50%', top: -1, width: 1, height: 5, background: 'rgba(255,255,255,0.2)' }} />
+                                    <div style={{ position: 'absolute', ...(a.vs7d >= 0 ? { left: '50%' } : { right: '50%' }), width: `${Math.min(Math.abs(a.vs7d), 25) / 25 * 50}%`, height: '100%', background: a.vs7d >= 0 ? '#3de88a' : '#e8524a', borderRadius: 2 }} />
                                   </div>
                                 </>
-                              )}
-                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: 'var(--ink3)', marginTop: 5 }}>
-                                <span>7d avg</span>
-                                {a.vs30d != null && <span>30d avg</span>}
-                              </div>
-                            </>
-                          ) : (
-                            <div style={{ fontSize: 12, color: 'var(--ink3)' }}>—</div>
-                          )}
+                              ) : <div style={{ fontSize: 12, color: 'var(--ink3)' }}>—</div>}
+                            </div>
+                            {/* 30d */}
+                            <div style={{ textAlign: 'center', padding: '8px 4px', borderRadius: 8, background: 'rgba(255,255,255,0.03)' }}>
+                              <div style={{ fontSize: 8, letterSpacing: 1, color: 'var(--ink3)', marginBottom: 4 }}>30D AVG</div>
+                              {a.vs30d != null ? (
+                                <>
+                                  <div className="font-num" style={{ fontSize: 14, fontWeight: 700, color: a.vs30d >= 0 ? '#3de88a' : '#e8524a' }}>
+                                    {a.vs30d >= 0 ? '+' : ''}{a.vs30d.toFixed(1)}%
+                                  </div>
+                                  <div style={{ marginTop: 6, height: 3, background: 'rgba(255,255,255,0.07)', borderRadius: 2, position: 'relative' }}>
+                                    <div style={{ position: 'absolute', left: '50%', top: -1, width: 1, height: 5, background: 'rgba(255,255,255,0.2)' }} />
+                                    <div style={{ position: 'absolute', ...(a.vs30d >= 0 ? { left: '50%' } : { right: '50%' }), width: `${Math.min(Math.abs(a.vs30d), 25) / 25 * 50}%`, height: '100%', background: a.vs30d >= 0 ? '#3de88a' : '#e8524a', borderRadius: 2 }} />
+                                  </div>
+                                </>
+                              ) : <div style={{ fontSize: 12, color: 'var(--ink3)' }}>—</div>}
+                            </div>
+                          </div>
                         </div>
 
                         {/* Trend — mini sparkline */}
@@ -731,6 +785,19 @@ export default function CardPage() {
                                   {/* End dot */}
                                   <circle cx={pts[pts.length - 1].x.toFixed(1)} cy={pts[pts.length - 1].y.toFixed(1)} r="2.5" fill={tc} />
                                 </svg>
+                                {/* Growth profile */}
+                                {(() => {
+                                  const gp = analyzeGrowthProfile(prices)
+                                  if (gp.profile === 'unknown') return null
+                                  return (
+                                    <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
+                                      <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 99, background: `${gp.color}18`, border: `1px solid ${gp.color}44`, fontSize: 9, fontWeight: 700, color: gp.color, letterSpacing: 0.5, marginBottom: 5 }}>
+                                        {gp.label.toUpperCase()}
+                                      </span>
+                                      <p style={{ fontSize: 10, color: 'var(--ink3)', lineHeight: 1.5, margin: 0 }}>{gp.desc}</p>
+                                    </div>
+                                  )
+                                })()}
                                 {liveData.confidence && (
                                   <div style={{ fontSize: 9, color: 'var(--ink3)', marginTop: 3 }}>
                                     {liveData.confidence === 'high' ? '●●●' : liveData.confidence === 'medium' ? '●●○' : '●○○'} {liveData.confidence}
@@ -801,43 +868,37 @@ export default function CardPage() {
                         </div>
 
                         {/* Consistency — ring progress */}
-                        <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
-                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>CONSISTENCY</div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)', textAlign: 'center' }}>
+                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 10 }}>CONSISTENCY</div>
+                          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
                             <div style={{
-                              width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
+                              width: 52, height: 52, borderRadius: '50%',
                               background: `conic-gradient(${scoreColor(a.consPct)} 0% ${a.consPct}%, rgba(255,255,255,0.07) ${a.consPct}% 100%)`,
                               display: 'flex', alignItems: 'center', justifyContent: 'center',
                             }}>
-                              <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <span className="font-num" style={{ fontSize: 9, fontWeight: 700, color: scoreColor(a.consPct) }}>{a.consPct}</span>
+                              <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <span className="font-num" style={{ fontSize: 10, fontWeight: 700, color: scoreColor(a.consPct) }}>{a.consPct}</span>
                               </div>
                             </div>
-                            <div>
-                              <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: scoreColor(a.consPct), marginBottom: 2 }}>{a.consPct}/100</div>
-                              <div style={{ fontSize: 10, color: 'var(--ink3)' }}>{a.consLabel}</div>
-                            </div>
                           </div>
+                          <div style={{ fontSize: 10, color: 'var(--ink3)' }}>{a.consLabel}</div>
                         </div>
 
                         {/* Value score — ring progress */}
-                        <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
-                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>VALUE SCORE</div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)', textAlign: 'center' }}>
+                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 10 }}>VALUE SCORE</div>
+                          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
                             <div style={{
-                              width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
+                              width: 52, height: 52, borderRadius: '50%',
                               background: `conic-gradient(${scoreColor(a.valuePct)} 0% ${a.valuePct}%, rgba(255,255,255,0.07) ${a.valuePct}% 100%)`,
                               display: 'flex', alignItems: 'center', justifyContent: 'center',
                             }}>
-                              <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <span className="font-num" style={{ fontSize: 9, fontWeight: 700, color: scoreColor(a.valuePct) }}>{a.valuePct}</span>
+                              <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <span className="font-num" style={{ fontSize: 10, fontWeight: 700, color: scoreColor(a.valuePct) }}>{a.valuePct}</span>
                               </div>
                             </div>
-                            <div>
-                              <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: scoreColor(a.valuePct), marginBottom: 2 }}>{a.valuePct}/100</div>
-                              <div style={{ fontSize: 10, color: 'var(--ink3)' }}>{a.valueLabel}</div>
-                            </div>
                           </div>
+                          <div style={{ fontSize: 10, color: 'var(--ink3)' }}>{a.valueLabel}</div>
                         </div>
 
                       </div>
@@ -858,6 +919,86 @@ export default function CardPage() {
                     <p style={{ fontSize: 12, color: 'var(--ink3)', marginTop: 14, lineHeight: 1.6 }}>{liveData.score_breakdown.summary}</p>
                   </div>
                 )}
+
+                {/* Price & Volume Chart */}
+                {liveData.price_history && liveData.price_history.length >= 2 && (() => {
+                  const pts = chartWindow === '7d' ? 7 : chartWindow === '30d' ? 30 : 90
+                  const sliced = liveData.price_history.slice(-pts)
+                  const hasVolume = sliced.some(p => (p.volume ?? 0) > 0)
+                  const first = sliced[0]?.price ?? 0
+                  const last  = sliced[sliced.length - 1]?.price ?? 0
+                  const pct   = first > 0 ? ((last - first) / first * 100) : 0
+                  const lineColor = pct >= 0 ? '#3de88a' : '#e8524a'
+                  const maxVol = Math.max(...sliced.map(p => p.volume ?? 0), 1)
+
+                  // Tick stride: show ~6 labels regardless of window size
+                  const stride = Math.max(1, Math.floor(sliced.length / 6))
+
+                  const ChartTooltip = ({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number; color: string }[]; label?: string }) => {
+                    if (!active || !payload?.length) return null
+                    return (
+                      <div style={{ background: '#181828', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '8px 12px', minWidth: 120 }}>
+                        <div style={{ fontSize: 10, color: 'var(--ink3)', marginBottom: 6 }}>{label}</div>
+                        {payload.map((p, i) => (
+                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: p.color, display: 'inline-block', flexShrink: 0 }} />
+                            <span style={{ fontSize: 11, color: 'var(--ink2)' }}>{p.name === 'price' ? fmtCurrency(p.value) : `${p.value} sales`}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  }
+
+                  return (
+                    <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', padding: '20px', marginBottom: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)' }}>PRICE &amp; VOLUME</span>
+                          <span className="font-num" style={{ fontSize: 13, fontWeight: 700, color: lineColor }}>{pct >= 0 ? '+' : ''}{pct.toFixed(1)}%</span>
+                        </div>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          {(['7d', '30d', '90d'] as const).map(w => (
+                            <button key={w} onClick={() => setChartWindow(w)} style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6, border: `1px solid ${chartWindow === w ? lineColor : 'var(--border2)'}`, background: chartWindow === w ? `${lineColor}18` : 'transparent', color: chartWindow === w ? lineColor : 'var(--ink3)', cursor: 'pointer', fontWeight: chartWindow === w ? 700 : 400, transition: 'all 0.15s' }}>
+                              {w}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <ResponsiveContainer width="100%" height={180}>
+                        <ComposedChart data={sliced} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                          <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.04)" />
+                          <XAxis
+                            dataKey="month"
+                            tick={{ fill: '#55556a', fontSize: 9, fontFamily: 'Helvetica' }}
+                            axisLine={false} tickLine={false}
+                            interval={stride - 1}
+                          />
+                          <YAxis yAxisId="price" hide domain={['auto', 'auto']} />
+                          {hasVolume && <YAxis yAxisId="vol" orientation="right" hide domain={[0, maxVol * 3]} />}
+                          <Tooltip content={<ChartTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.06)', strokeWidth: 1 }} />
+                          {hasVolume && (
+                            <Bar yAxisId="vol" dataKey="volume" name="volume" fill={lineColor} opacity={0.18} radius={[2, 2, 0, 0]} />
+                          )}
+                          <Line yAxisId="price" type="monotone" dataKey="price" name="price" stroke={lineColor} strokeWidth={2} dot={false} activeDot={{ r: 4, fill: lineColor, stroke: 'var(--surface)' }} />
+                        </ComposedChart>
+                      </ResponsiveContainer>
+
+                      {hasVolume && (
+                        <div style={{ display: 'flex', gap: 16, marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                            <div style={{ width: 10, height: 2, background: lineColor, borderRadius: 1 }} />
+                            <span style={{ fontSize: 10, color: 'var(--ink3)' }}>Price</span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                            <div style={{ width: 10, height: 8, background: lineColor, opacity: 0.35, borderRadius: 2 }} />
+                            <span style={{ fontSize: 10, color: 'var(--ink3)' }}>Sales volume</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
 
                 {/* Grade / condition price ladder */}
                 {liveData.all_tier_prices && Object.keys(liveData.all_tier_prices).length > 0 && (() => {
@@ -1055,7 +1196,7 @@ export default function CardPage() {
                         <span key={tag} style={{ fontSize: 10, padding: '3px 10px', borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border2)', color: 'var(--ink2)', letterSpacing: 0.3 }}>{tag}</span>
                       ))}
                     </div>
-                    <Link href="/market" style={{ fontSize: 12, color: 'var(--ink3)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 14 }}>← Change card</Link>
+                    <Link href={urlSetSlug ? `/search?return_to_set=${encodeURIComponent(urlSetSlug)}` : '/search'} style={{ fontSize: 12, color: 'var(--ink3)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 14 }}>← Change card</Link>
                   </div>
                 </div>
                 {/* Action buttons */}

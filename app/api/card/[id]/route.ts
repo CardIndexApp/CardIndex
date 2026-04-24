@@ -291,7 +291,7 @@ export async function GET(
   const { tierPrice, resolvedTier } = result
 
   // ── 4. Fetch price history ────────────────────────────────────────────────
-  const history = await getPriceHistory(matchedCard.id, resolvedTier, '30d')
+  const history = await getPriceHistory(matchedCard.id, resolvedTier, '90d')
 
   // ── 5. Compute score ──────────────────────────────────────────────────────
   const scoreBreakdown = computeScore(tierPrice, history)
@@ -306,10 +306,11 @@ export async function GET(
     priceChangePct = oldest > 0 ? ((newest - oldest) / oldest) * 100 : 0
   }
 
-  // ── 7. Format history for sparkline ──────────────────────────────────────
+  // ── 7. Format history for sparkline / chart ──────────────────────────────
   const priceHistory = history.map(h => ({
     month: new Date(h.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
     price: h.avg,
+    volume: h.saleCount ?? 0,
   }))
 
   // ── 8. Build all-tier price ladder ────────────────────────────────────────

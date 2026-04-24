@@ -208,6 +208,11 @@ export default function SearchPage() {
   const router = useRouter()
   const [step, setStep] = useState<Step>(1)
 
+  // Return navigation — when arriving from a card page with ?return_to_set=slug
+  const searchParamsObj = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
+  const returnSetSlug = searchParamsObj?.get('return_to_set') ?? null
+  const returnHandled = useRef(false)
+
   // Step 1 — Set selection
   const [sets, setSets] = useState<PtSet[]>([])
   const [setsLoading, setSetsLoading] = useState(true)
@@ -281,6 +286,16 @@ export default function SearchPage() {
       .finally(() => { setCardsLoading(false); initialLoadInFlight.current = false })
   }, [loadCardsForSet])
 
+  // ── Auto-select set when returning from card page ────────────────────────
+  useEffect(() => {
+    if (!returnSetSlug || !allSets.length || returnHandled.current) return
+    const target = allSets.find(s => s.slug === returnSetSlug)
+    if (target) {
+      returnHandled.current = true
+      handleSetSelect(target)
+    }
+  }, [returnSetSlug, allSets, handleSetSelect])
+
   // ── Debounced card search within set ─────────────────────────────────────
   useEffect(() => {
     if (!selectedSet) return
@@ -347,6 +362,7 @@ export default function SearchPage() {
       name: card.name,
       set:  card.set.name,
       number: card.cardNumber,
+      set_slug: card.set.slug,
     })
     // Use Poketrace UUID as the card page ID — no translation needed
     router.push(`/card/${card.id}?${params.toString()}`)

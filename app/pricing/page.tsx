@@ -15,7 +15,7 @@ const tiers = [
       { text: 'Basic card search', included: true },
       { text: 'Basic pricing information', included: true },
       { text: 'Recently viewed cards on home page', included: true },
-      { text: 'Watchlist (up to 15 cards)', included: true },
+      { text: 'Watchlist (up to 5 cards)', included: true },
       { text: 'Price history charts', included: false },
       { text: 'Trend indicators', included: false },
       { text: 'Saved searches', included: false },
@@ -34,7 +34,7 @@ const tiers = [
     badge: 'Most popular',
     features: [
       { text: 'Everything in Free', included: true },
-      { text: 'Larger watchlist (up to 100 cards)', included: true },
+      { text: 'Watchlist (up to 30 cards)', included: true },
       { text: 'Full price history charts', included: true },
       { text: 'Trend indicators (% change, momentum)', included: true },
       { text: 'Saved searches', included: true },
@@ -54,7 +54,7 @@ const tiers = [
     highlight: false,
     features: [
       { text: 'Everything in Standard', included: true },
-      { text: 'Unlimited watchlist', included: true },
+      { text: 'Watchlist (up to 100 cards)', included: true },
       { text: 'Real-time price alerts', included: true },
       { text: 'Advanced analytics', included: true },
       { text: 'Portfolio tracking', included: true },
@@ -63,6 +63,7 @@ const tiers = [
       { text: 'Early access to new features', included: true },
       { text: 'Priority support', included: true },
       { text: 'Data export (CSV)', included: true },
+      { text: 'Portfolio import via CSV upload', included: true },
     ],
   },
 ]

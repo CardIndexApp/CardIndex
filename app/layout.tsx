@@ -3,7 +3,7 @@ import './globals.css'
 import { CurrencyProvider } from '@/lib/currency'
 
 export const metadata: Metadata = {
-  title: 'CardIndex — The market index for trading cards',
+  title: 'CardIndex — TCG Market Intelligence',
   description: 'Real-time price intelligence, CardIndex scores, and market analysis for trading card collectors and investors.',
 }
 

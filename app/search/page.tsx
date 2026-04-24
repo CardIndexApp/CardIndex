@@ -222,6 +222,9 @@ export default function SearchPage() {
   const [cardQuery, setCardQuery] = useState('')
   const [selectedCard, setSelectedCard] = useState<PtCard | null>(null)
   const cardSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Guards against the useEffect double-fetching when handleSetSelect already kicked off the
+  // initial load. Set to true before the initial fetch, false after the user types a query.
+  const initialLoadInFlight = useRef(false)
 
   // Step 3 — Grade selection
   const [selectedGrade, setSelectedGrade] = useState<string | null>(null)
@@ -263,6 +266,7 @@ export default function SearchPage() {
   }, [])
 
   const handleSetSelect = useCallback((set: PtSet) => {
+    initialLoadInFlight.current = true  // tell the effect not to double-fetch
     setSelectedSet(set)
     setSelectedCard(null)
     setSelectedGrade(null)
@@ -273,7 +277,7 @@ export default function SearchPage() {
     loadCardsForSet(set.slug)
       .then(d => { setCards(d.data ?? []); setCardsPagination(d.pagination ?? { hasMore: false }) })
       .catch(() => setCards([]))
-      .finally(() => setCardsLoading(false))
+      .finally(() => { setCardsLoading(false); initialLoadInFlight.current = false })
   }, [loadCardsForSet])
 
   // ── Debounced card search within set ─────────────────────────────────────
@@ -283,7 +287,9 @@ export default function SearchPage() {
 
     const q = cardQuery.trim()
     if (!q) {
-      // Reset to full set listing
+      // If handleSetSelect already fired the initial load, skip — don't double-fetch.
+      if (initialLoadInFlight.current) return
+      // Otherwise the user cleared an active search — reload the full set.
       setCardsLoading(true)
       loadCardsForSet(selectedSet.slug)
         .then(d => { setCards(d.data ?? []); setCardsPagination(d.pagination ?? { hasMore: false }) })

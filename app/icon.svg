@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Dark rounded background -->
+  <rect width="32" height="32" rx="6" fill="#0d0d1e"/>
+
+  <!-- Portrait card shape -->
+  <rect x="5" y="3" width="22" height="26" rx="3.5"
+        fill="#141428" stroke="#e8c547" stroke-width="1.5"/>
+
+  <!-- Ascending bar chart inside card (bottom-aligned at y=27) -->
+  <!-- Short bar -->
+  <rect x="8"  y="22" width="4" height="5"  rx="1" fill="#e8c547" opacity="0.48"/>
+  <!-- Medium bar -->
+  <rect x="14" y="17" width="4" height="10" rx="1" fill="#e8c547" opacity="0.76"/>
+  <!-- Tall bar -->
+  <rect x="20" y="11" width="4" height="16" rx="1" fill="#e8c547"/>
+</svg>

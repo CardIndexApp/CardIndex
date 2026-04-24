@@ -94,7 +94,14 @@ export default function Navbar() {
         backdropFilter: 'blur(12px)',
       }}>
         {/* Logo */}
-        <Link href={user ? '/dashboard' : '/'} onClick={() => setOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
+        <Link href={user ? '/dashboard' : '/'} onClick={() => setOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none' }}>
+          <svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+            <rect width="32" height="32" rx="6" fill="#141428"/>
+            <rect x="5" y="3" width="22" height="26" rx="3.5" fill="#0d0d1e" stroke="#e8c547" strokeWidth="1.5"/>
+            <rect x="8"  y="22" width="4" height="5"  rx="1" fill="#e8c547" opacity="0.48"/>
+            <rect x="14" y="17" width="4" height="10" rx="1" fill="#e8c547" opacity="0.76"/>
+            <rect x="20" y="11" width="4" height="16" rx="1" fill="#e8c547"/>
+          </svg>
           <span className="font-display" style={{ fontSize: 18, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px' }}>
             Card<span style={{ color: 'var(--gold)' }}>Index</span>
           </span>

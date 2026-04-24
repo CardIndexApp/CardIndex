@@ -172,7 +172,7 @@ export default function Dashboard() {
           </div>
 
           {/* ── Quick Actions ── */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 32 }}>
+          <div className="dash-quick-actions" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 32 }}>
             {QUICK_ACTIONS.map(action => (
               <Link key={action.href} href={action.href} style={{ textDecoration: 'none', borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', padding: '20px', display: 'flex', flexDirection: 'column', gap: 12, transition: 'border-color 0.15s, transform 0.15s' }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = action.border; e.currentTarget.style.transform = 'translateY(-1px)' }}
@@ -308,6 +308,7 @@ export default function Dashboard() {
       <style>{`
         @media (max-width: 640px) {
           .dash-two-col { grid-template-columns: 1fr !important; }
+          .dash-quick-actions { grid-template-columns: repeat(2, 1fr) !important; }
         }
       `}</style>
     </>

@@ -636,27 +636,29 @@ export default function CardPage() {
                         <TrendBadge trend={liveData.trend} confidence={liveData.confidence} />
                       </div>
                     </div>
-                    <div style={{ textAlign: 'center' }}>
-                      <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', display: 'block', marginBottom: 6 }}>CARDINDEX SCORE</span>
-                      <div className="font-num" style={{ fontSize: 48, fontWeight: 800, color: scoreColor(liveData.score), letterSpacing: '-2px', lineHeight: 1 }}>{liveData.score}</div>
-                      <div style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 6 }}>{liveData.score_breakdown?.label ?? ''}</div>
-                      {(() => {
-                        const sig = computeAnalysis(liveData)
-                        const sigColorMap: Record<string, string> = {
-                          BUY: '#3de88a', ACCUMULATE: '#3de88a', HOLD: '#e8c547', REDUCE: '#e8524a', AVOID: '#e8524a'
-                        }
-                        const sigBgMap: Record<string, string> = {
-                          BUY: 'rgba(61,232,138,0.1)', ACCUMULATE: 'rgba(61,232,138,0.08)', HOLD: 'rgba(232,197,71,0.1)', REDUCE: 'rgba(232,82,74,0.08)', AVOID: 'rgba(232,82,74,0.12)'
-                        }
-                        const c = sigColorMap[sig.signal] ?? '#e8c547'
-                        const bg = sigBgMap[sig.signal] ?? 'rgba(232,197,71,0.08)'
-                        return (
-                          <span style={{ display: 'inline-block', padding: '4px 12px', borderRadius: 99, background: bg, border: `1px solid ${c}33`, fontSize: 11, fontWeight: 800, color: c, letterSpacing: 1 }}>
-                            {sig.signal}
-                          </span>
-                        )
-                      })()}
-                    </div>
+                    {(() => {
+                      const sig = computeAnalysis(liveData)
+                      return (
+                        <div style={{ minWidth: 0 }}>
+                          <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', display: 'block', marginBottom: 8 }}>CARDINDEX SCORE</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                            {/* Score number */}
+                            <div style={{ flexShrink: 0 }}>
+                              <div className="font-num" style={{ fontSize: 48, fontWeight: 800, color: scoreColor(liveData.score), letterSpacing: '-2px', lineHeight: 1 }}>{liveData.score}</div>
+                              <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 2 }}>{liveData.score_breakdown?.label ?? ''}</div>
+                            </div>
+                            {/* Full signal badge — same style as Analysis panel */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, background: sig.sigBg, border: `1px solid ${sig.sigBorder}`, flex: 1, minWidth: 160, maxWidth: 300 }}>
+                              <div style={{ flexShrink: 0 }}>
+                                <div className="font-num" style={{ fontSize: 14, fontWeight: 800, color: sig.sigColor, letterSpacing: 1.5 }}>{sig.signal}</div>
+                              </div>
+                              <div style={{ width: 1, alignSelf: 'stretch', background: sig.sigBorder, flexShrink: 0 }} />
+                              <p style={{ fontSize: 11, color: 'var(--ink2)', lineHeight: 1.55, margin: 0 }}>{sig.reasoning}</p>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })()}
                   </div>
 
                   {/* Moving averages row */}
@@ -677,19 +679,48 @@ export default function CardPage() {
                   )}
                 </div>
 
-                {/* Price chart */}
-                {liveData.price_history.length > 1 && (
-                  <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', padding: '20px', marginBottom: 10 }}>
-                    <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', display: 'block', marginBottom: 16 }}>PRICE HISTORY</span>
-                    <ResponsiveContainer width="100%" height={160}>
-                      <LineChart data={liveData.price_history}>
-                        <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'var(--ink3)' }} axisLine={false} tickLine={false} />
-                        <Tooltip content={<SparkTooltip formatter={fmtCurrency} />} />
-                        <Line type="monotone" dataKey="price" stroke={liveData.price_change_pct >= 0 ? '#3de88a' : '#e8524a'} strokeWidth={2} dot={false} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                )}
+                {/* Trend Analysis */}
+                {liveData.price_history.length >= 2 && (() => {
+                  const prices = liveData.price_history.map(p => p.price)
+                  const gp = analyzeGrowthProfile(prices)
+                  const trendColor = liveData.trend === 'up' ? '#3de88a' : liveData.trend === 'down' ? '#e8524a' : '#e8c547'
+                  const first = prices[0], last = prices[prices.length - 1]
+                  const sparkPct = first > 0 ? ((last - first) / first * 100) : 0
+                  const sparkColor = sparkPct >= 0 ? '#3de88a' : '#e8524a'
+                  return (
+                    <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', padding: '20px', marginBottom: 10 }}>
+                      {/* Header */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
+                        <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)' }}>TREND ANALYSIS</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <TrendBadge trend={liveData.trend} confidence={liveData.confidence} />
+                          <span className="font-num" style={{ fontSize: 13, fontWeight: 700, color: sparkColor }}>
+                            {sparkPct >= 0 ? '+' : ''}{sparkPct.toFixed(1)}%
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Sparkline */}
+                      <ResponsiveContainer width="100%" height={100}>
+                        <LineChart data={liveData.price_history} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
+                          <XAxis dataKey="month" tick={{ fill: '#55556a', fontSize: 9, fontFamily: 'Helvetica' }} axisLine={false} tickLine={false} interval={Math.max(1, Math.floor(liveData.price_history.length / 5) - 1)} />
+                          <Tooltip content={<SparkTooltip formatter={fmtCurrency} />} cursor={{ stroke: 'rgba(255,255,255,0.06)', strokeWidth: 1 }} />
+                          <Line type="monotone" dataKey="price" stroke={sparkColor} strokeWidth={2} dot={false} activeDot={{ r: 4, fill: sparkColor, stroke: 'var(--surface)' }} />
+                        </LineChart>
+                      </ResponsiveContainer>
+
+                      {/* Growth profile */}
+                      {gp.profile !== 'unknown' && (
+                        <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0, padding: '4px 10px', borderRadius: 99, background: `${gp.color}18`, border: `1px solid ${gp.color}44`, fontSize: 10, fontWeight: 700, color: gp.color, letterSpacing: 0.5, whiteSpace: 'nowrap' }}>
+                            {gp.label.toUpperCase()}
+                          </span>
+                          <p style={{ fontSize: 12, color: 'var(--ink2)', lineHeight: 1.6, margin: 0 }}>{gp.desc}</p>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
 
                 {/* Analysis panel */}
                 {liveData.score_breakdown && (() => {
@@ -747,73 +778,24 @@ export default function CardPage() {
                           </div>
                         </div>
 
-                        {/* Trend — mini sparkline */}
+                        {/* Trend — direction + confidence */}
                         <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
-                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6 }}>TREND</div>
-                          {liveData.price_history && liveData.price_history.length >= 2 ? (() => {
+                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>TREND</div>
+                          <TrendBadge trend={liveData.trend} confidence={null} />
+                          {liveData.price_history && liveData.price_history.length >= 2 && (() => {
                             const prices = liveData.price_history.map(p => p.price)
-                            const minP = Math.min(...prices)
-                            const maxP = Math.max(...prices)
-                            const rng = maxP - minP || 1
-                            const W = 200, H = 38
-                            const pts = prices.map((p, i) => ({
-                              x: (i / (prices.length - 1)) * W,
-                              y: H - 3 - ((p - minP) / rng) * (H - 6),
-                            }))
-                            const line = pts.map((pt, i) => `${i === 0 ? 'M' : 'L'}${pt.x.toFixed(1)},${pt.y.toFixed(1)}`).join(' ')
-                            const area = `${line} L${W},${H} L0,${H} Z`
-                            const tc = liveData.trend === 'up' ? '#3de88a' : liveData.trend === 'down' ? '#e8524a' : '#e8c547'
                             const first = prices[0], last = prices[prices.length - 1]
-                            const sparkPct = first > 0 ? ((last - first) / first * 100) : 0
+                            const pct = first > 0 ? ((last - first) / first * 100) : 0
                             return (
-                              <>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                                  <TrendBadge trend={liveData.trend} confidence={null} />
-                                  <span className="font-num" style={{ fontSize: 11, fontWeight: 600, color: sparkPct >= 0 ? '#3de88a' : '#e8524a' }}>
-                                    {sparkPct >= 0 ? '+' : ''}{sparkPct.toFixed(1)}%
-                                  </span>
-                                </div>
-                                <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: '100%', height: 38, display: 'block' }}>
-                                  <defs>
-                                    <linearGradient id="ci-spark-grad" x1="0" y1="0" x2="0" y2="1">
-                                      <stop offset="0%" stopColor={tc} stopOpacity="0.22" />
-                                      <stop offset="100%" stopColor={tc} stopOpacity="0" />
-                                    </linearGradient>
-                                  </defs>
-                                  <path d={area} fill="url(#ci-spark-grad)" />
-                                  <path d={line} fill="none" stroke={tc} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                  {/* End dot */}
-                                  <circle cx={pts[pts.length - 1].x.toFixed(1)} cy={pts[pts.length - 1].y.toFixed(1)} r="2.5" fill={tc} />
-                                </svg>
-                                {/* Growth profile */}
-                                {(() => {
-                                  const gp = analyzeGrowthProfile(prices)
-                                  if (gp.profile === 'unknown') return null
-                                  return (
-                                    <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
-                                      <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 99, background: `${gp.color}18`, border: `1px solid ${gp.color}44`, fontSize: 9, fontWeight: 700, color: gp.color, letterSpacing: 0.5, marginBottom: 5 }}>
-                                        {gp.label.toUpperCase()}
-                                      </span>
-                                      <p style={{ fontSize: 10, color: 'var(--ink3)', lineHeight: 1.5, margin: 0 }}>{gp.desc}</p>
-                                    </div>
-                                  )
-                                })()}
-                                {liveData.confidence && (
-                                  <div style={{ fontSize: 9, color: 'var(--ink3)', marginTop: 3 }}>
-                                    {liveData.confidence === 'high' ? '●●●' : liveData.confidence === 'medium' ? '●●○' : '●○○'} {liveData.confidence}
-                                  </div>
-                                )}
-                              </>
+                              <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: pct >= 0 ? '#3de88a' : '#e8524a', marginTop: 6 }}>
+                                {pct >= 0 ? '+' : ''}{pct.toFixed(1)}%
+                              </div>
                             )
-                          })() : (
-                            <>
-                              <TrendBadge trend={liveData.trend} confidence={null} />
-                              {liveData.confidence && (
-                                <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 6 }}>
-                                  {liveData.confidence === 'high' ? '●●●' : liveData.confidence === 'medium' ? '●●○' : '●○○'} {liveData.confidence}
-                                </div>
-                              )}
-                            </>
+                          })()}
+                          {liveData.confidence && (
+                            <div style={{ fontSize: 9, color: 'var(--ink3)', marginTop: 6 }}>
+                              {liveData.confidence === 'high' ? '●●●' : liveData.confidence === 'medium' ? '●●○' : '●○○'} {liveData.confidence}
+                            </div>
                           )}
                         </div>
 

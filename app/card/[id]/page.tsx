@@ -830,9 +830,10 @@ export default function CardPage() {
                         </div>
 
                         {/* Liquidity — graduated bar */}
-                        <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)', position: 'relative', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                        <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)', position: 'relative', display: 'flex', flexDirection: 'column' }}>
                           <TileInfo id="liquidity" text="How actively this card trades on the market. Higher liquidity means it's easier to buy or sell at a fair price. Based on the number of eBay sales in the last 30 days." activeTip={activeTip} setActiveTip={setActiveTip} />
                           <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>LIQUIDITY</div>
+                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                           <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: a.liqColor, marginBottom: 7 }}>{a.liqLabel}</div>
                           {/* 5-segment bar: thresholds 5 / 15 / 50 / 200 / 500 sales */}
                           {(() => {
@@ -850,12 +851,14 @@ export default function CardPage() {
                           {(liveData.sales_count_30d ?? 0) > 0 && (
                             <div style={{ fontSize: 10, color: 'var(--ink3)' }}>{(liveData.sales_count_30d ?? 0).toLocaleString()} sales / 30d</div>
                           )}
+                          </div>
                         </div>
 
                         {/* Price position — gradient spectrum */}
-                        <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)', position: 'relative', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                        <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)', position: 'relative', display: 'flex', flexDirection: 'column' }}>
                           <TileInfo id="position" text="Where the current market price sits within its 30-day trading range. Near the high end suggests strong buying pressure; near the low end may signal weakness or a buying opportunity." activeTip={activeTip} setActiveTip={setActiveTip} />
                           <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6 }}>PRICE POSITION</div>
+                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                           <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: a.rangeColor, marginBottom: 9 }}>{a.rangeLabel}</div>
                           {/* Gradient track + marker */}
                           <div style={{ position: 'relative', marginBottom: 6 }}>
@@ -878,6 +881,7 @@ export default function CardPage() {
                             <span>{fmtCurrency(liveData.price_range_low)}</span>
                             <span style={{ fontSize: 9, color: 'var(--ink3)', opacity: 0.5 }}>{a.rangePct}th pct.</span>
                             <span>{fmtCurrency(liveData.price_range_high)}</span>
+                          </div>
                           </div>
                         </div>
 

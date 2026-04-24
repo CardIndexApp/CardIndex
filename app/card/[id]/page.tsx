@@ -311,22 +311,38 @@ function computeAnalysis(d: LiveData) {
   const rangeLabel = rangePos >= 0.8 ? 'Near range high' : rangePos >= 0.6 ? 'Above midpoint' : rangePos >= 0.4 ? 'Near midpoint' : rangePos >= 0.2 ? 'Below midpoint' : 'Near range low'
   const rangeColor = rangePos >= 0.75 ? '#e8c547' : '#3de88a'
 
-  // Reasoning sentence
+  // Reasoning sentence — fully data-driven
   const parts: string[] = []
   if (signal === 'BUY' || signal === 'ACCUMULATE') {
-    parts.push(`CardIndex score ${score}/100`)
-    if (trend === 'up') parts.push('rising price trend')
-    if (sales >= 50)    parts.push(`liquid market — ${sales.toLocaleString()} sales in 30 days`)
-    if (confidence === 'high') parts.push('high data confidence')
+    parts.push(`Score ${score}/100`)
+    if (trend === 'up')          parts.push('price trending up')
+    else if (trend === 'stable') parts.push('stable price trend')
+    if (sales >= 50)             parts.push(`strong liquidity — ${sales.toLocaleString()} sales in 30d`)
+    else if (sales >= 15)        parts.push(`moderate liquidity — ${sales.toLocaleString()} sales in 30d`)
+    if (vs30d !== null && vs30d < -5) parts.push(`trading ${Math.abs(vs30d).toFixed(1)}% below 30d avg`)
+    if (confidence === 'high')   parts.push('high data confidence')
   } else if (signal === 'HOLD') {
-    parts.push(`Score ${score}/100 with ${trend} trend`)
-    if (consPct >= 70) parts.push('consistent price history')
-    else parts.push('mixed signals — no clear direction')
+    parts.push(`Score ${score}/100`)
+    if (trend === 'up')          parts.push('price edging up')
+    else if (trend === 'down')   parts.push('slight downward drift')
+    else                         parts.push('no clear price direction')
+    if (consPct >= 70)           parts.push('consistent price history')
+    else if (consPct < 40)       parts.push('volatile price history')
+    if (sales < 15)              parts.push('low sales volume')
   } else {
-    if (score < 45)          parts.push(`low score of ${score}/100`)
-    if (trend === 'down')    parts.push('declining price trend')
-    if (sales < 10)          parts.push('thin market liquidity')
-    if (confidence === 'low') parts.push('insufficient trade data for confidence')
+    // REDUCE / AVOID
+    if (score === 0 || score === 1) {
+      parts.push('no market data available')
+      parts.push('unable to assess value')
+    } else {
+      if (score < 45)            parts.push(`weak score of ${score}/100`)
+      if (trend === 'down')      parts.push('declining price trend')
+      if (sales === 0)           parts.push('no recent sales recorded')
+      else if (sales < 5)        parts.push(`only ${sales} sale${sales === 1 ? '' : 's'} in 30d`)
+      else if (sales < 15)       parts.push('thin market liquidity')
+      if (vs30d !== null && vs30d > 10) parts.push(`trading ${vs30d.toFixed(1)}% above 30d avg`)
+      if (confidence === 'low')  parts.push('insufficient data for confidence')
+    }
   }
   const reasoning = parts.length > 0
     ? parts.join(', ').replace(/^(.)/, c => c.toUpperCase()) + '.'
@@ -927,7 +943,9 @@ export default function CardPage() {
                 })()}
 
                 {/* Score breakdown */}
-                {liveData.score_breakdown && (
+                {liveData.score_breakdown && (() => {
+                  const a = computeAnalysis(liveData)
+                  return (
                   <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', padding: '20px', marginBottom: 10 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                       <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)' }}>SCORE BREAKDOWN</span>
@@ -939,9 +957,10 @@ export default function CardPage() {
                       <ScoreBar label="Consistency" value={Math.round(liveData.score_breakdown.consistency / 25 * 100)} color={scoreColor(Math.round(liveData.score_breakdown.consistency / 25 * 100))} />
                       <ScoreBar label="Value"       value={Math.round(liveData.score_breakdown.value / 20 * 100)}       color={scoreColor(Math.round(liveData.score_breakdown.value / 20 * 100))} />
                     </div>
-                    <p style={{ fontSize: 12, color: 'var(--ink3)', marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)', lineHeight: 1.65 }}>{liveData.score_breakdown.summary}</p>
+                    <p style={{ fontSize: 12, color: 'var(--ink3)', marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)', lineHeight: 1.65 }}>{a.reasoning}</p>
                   </div>
-                )}
+                  )
+                })()}
 
                 {/* Price & Volume Chart */}
                 {liveData.price_history && liveData.price_history.length >= 2 && (() => {

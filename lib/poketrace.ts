@@ -367,37 +367,33 @@ export async function findBySetAndNumber(
 
   for (const setSlug of slugList) {
     try {
-      const searches: Promise<PokétraceCard | null>[] = []
+      // Try without variant filter first — fewest requests, catches unexpected variants
+      const noVariantParams = new URLSearchParams({
+        set: setSlug, card_number: cardNumber,
+        market: 'US', game: 'pokemon', limit: '20',
+      })
+      const noVariantRes = await fetch(`${BASE}/cards?${noVariantParams}`, { headers: apiHeaders(), cache: 'no-store' })
+      assertOkOrNotFound(noVariantRes)
+      if (noVariantRes.ok) {
+        const json = await noVariantRes.json()
+        const found = (json?.data as PokétraceCard[])?.[0] ?? null
+        if (found) return found
+      }
 
-      // Try each variant with set + card_number filter
+      // Try each variant sequentially — stop as soon as one matches
       for (const variant of variantsToTry) {
         const params = new URLSearchParams({
           set: setSlug, card_number: cardNumber, variant,
           market: 'US', game: 'pokemon', limit: '20',
         })
-        searches.push(
-          fetch(`${BASE}/cards?${params}`, { headers: apiHeaders(), cache: 'no-store' })
-            .then(r => { assertOkOrNotFound(r); return r.ok ? r.json() : null })
-            .then(json => (json?.data as PokétraceCard[])?.[0] ?? null)
-            .catch(err => { if (err instanceof PoketraceApiError) throw err; return null })
-        )
+        const res = await fetch(`${BASE}/cards?${params}`, { headers: apiHeaders(), cache: 'no-store' })
+        assertOkOrNotFound(res)
+        if (res.ok) {
+          const json = await res.json()
+          const found = (json?.data as PokétraceCard[])?.[0] ?? null
+          if (found) return found
+        }
       }
-
-      // Also try without variant filter — catches unexpected variant values
-      const noVariantParams = new URLSearchParams({
-        set: setSlug, card_number: cardNumber,
-        market: 'US', game: 'pokemon', limit: '20',
-      })
-      searches.push(
-        fetch(`${BASE}/cards?${noVariantParams}`, { headers: apiHeaders(), cache: 'no-store' })
-          .then(r => { assertOkOrNotFound(r); return r.ok ? r.json() : null })
-          .then(json => (json?.data as PokétraceCard[])?.[0] ?? null)
-          .catch(err => { if (err instanceof PoketraceApiError) throw err; return null })
-      )
-
-      const results = await Promise.all(searches)
-      const found = results.find(r => r !== null)
-      if (found) return found
       // No match for this slug — try next slug
     } catch (err) {
       if (err instanceof PoketraceApiError) throw err

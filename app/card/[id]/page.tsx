@@ -800,31 +800,60 @@ export default function CardPage() {
                           </div>
                         </div>
 
-                        {/* Trend — direction + confidence */}
+                        {/* Trend — mini sparkline */}
                         <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
                           <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>TREND</div>
                           {(() => {
-                            // Derive % from history if available, else fall back to price_change_pct
-                            const prices = liveData.price_history?.length >= 2 ? liveData.price_history.map(p => p.price) : null
-                            const pct = prices
-                              ? (prices[0] > 0 ? ((prices[prices.length - 1] - prices[0]) / prices[0] * 100) : 0)
-                              : (liveData.price_change_pct ?? null)
-                            const pctColor = pct != null ? (pct >= 0 ? '#3de88a' : '#e8524a') : 'var(--ink3)'
-                            // Derive direction from pct if trend field is absent
-                            const dir = liveData.trend ?? (pct == null ? null : pct > 2 ? 'up' : pct < -2 ? 'down' : 'stable')
+                            // Build sparkline data: prefer real history, fall back to synthetic 3-point from avg30d→avg7d→price
+                            const histPrices = liveData.price_history?.length >= 2 ? liveData.price_history.map(p => p.price) : null
+                            const synthetic: number[] | null = (!histPrices && liveData.avg30d && liveData.avg7d && liveData.price)
+                              ? [liveData.avg30d, liveData.avg7d, liveData.price]
+                              : null
+                            const pts = histPrices ?? synthetic
+                            const pct = pts && pts[0] > 0 ? ((pts[pts.length - 1] - pts[0]) / pts[0] * 100) : (liveData.price_change_pct ?? null)
+                            const pctColor = pct != null && pct >= 0 ? '#3de88a' : '#e8524a'
+                            const dir = liveData.trend ?? (pct == null ? 'stable' : pct > 2 ? 'up' : pct < -2 ? 'down' : 'stable')
+
+                            const W = 200, H = 44
+                            const sparkLine = pts && pts.length >= 2 ? (() => {
+                              const min = Math.min(...pts), max = Math.max(...pts)
+                              const rng = max - min || pts[0] * 0.01 || 1
+                              const coords = pts.map((p, i) => ({
+                                x: (i / (pts.length - 1)) * W,
+                                y: H - 4 - ((p - min) / rng) * (H - 8),
+                              }))
+                              const line = coords.map((c, i) => `${i === 0 ? 'M' : 'L'}${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(' ')
+                              const area = `${line} L${W},${H} L0,${H} Z`
+                              return { coords, line, area }
+                            })() : null
+
                             return (
                               <>
-                                {dir ? <TrendBadge trend={dir} confidence={null} /> : <span style={{ fontSize: 11, color: 'var(--ink3)' }}>—</span>}
-                                {pct != null && (
-                                  <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: pctColor, marginTop: 6 }}>
-                                    {pct >= 0 ? '+' : ''}{pct.toFixed(1)}%
+                                {sparkLine ? (
+                                  <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: '100%', height: 44, display: 'block', marginBottom: 10 }}>
+                                    <defs>
+                                      <linearGradient id="trend-tile-grad" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor={pctColor} stopOpacity="0.3" />
+                                        <stop offset="100%" stopColor={pctColor} stopOpacity="0" />
+                                      </linearGradient>
+                                    </defs>
+                                    <path d={sparkLine.area} fill="url(#trend-tile-grad)" />
+                                    <path d={sparkLine.line} fill="none" stroke={pctColor} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                                    <circle cx={sparkLine.coords[sparkLine.coords.length - 1].x.toFixed(1)} cy={sparkLine.coords[sparkLine.coords.length - 1].y.toFixed(1)} r="2.5" fill={pctColor} />
+                                  </svg>
+                                ) : (
+                                  <div style={{ height: 44, display: 'flex', alignItems: 'center', marginBottom: 10 }}>
+                                    <div style={{ height: 2, width: '100%', background: 'rgba(255,255,255,0.08)', borderRadius: 1 }} />
                                   </div>
                                 )}
-                                {liveData.confidence && (
-                                  <div style={{ fontSize: 9, color: 'var(--ink3)', marginTop: 6 }}>
-                                    {liveData.confidence === 'high' ? '●●●' : liveData.confidence === 'medium' ? '●●○' : '●○○'} {liveData.confidence}
-                                  </div>
-                                )}
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                  <TrendBadge trend={dir} confidence={null} />
+                                  {pct != null && (
+                                    <span className="font-num" style={{ fontSize: 12, fontWeight: 700, color: pctColor }}>
+                                      {pct >= 0 ? '+' : ''}{pct.toFixed(1)}%
+                                    </span>
+                                  )}
+                                </div>
                               </>
                             )
                           })()}

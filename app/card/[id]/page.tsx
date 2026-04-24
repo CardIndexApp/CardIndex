@@ -680,43 +680,65 @@ export default function CardPage() {
                 </div>
 
                 {/* Trend Analysis */}
-                {liveData.price_history.length >= 2 && (() => {
-                  const prices = liveData.price_history.map(p => p.price)
-                  const gp = analyzeGrowthProfile(prices)
-                  const trendColor = liveData.trend === 'up' ? '#3de88a' : liveData.trend === 'down' ? '#e8524a' : '#e8c547'
-                  const first = prices[0], last = prices[prices.length - 1]
-                  const sparkPct = first > 0 ? ((last - first) / first * 100) : 0
+                {(() => {
+                  const prices = liveData.price_history?.length >= 2 ? liveData.price_history.map(p => p.price) : null
+                  const gp = prices ? analyzeGrowthProfile(prices) : { profile: 'unknown' as const, label: '', desc: '', color: 'var(--ink3)' }
+                  // Use history-derived % if available, else fall back to the 30d change field
+                  const sparkPct = prices
+                    ? (prices[0] > 0 ? ((prices[prices.length - 1] - prices[0]) / prices[0] * 100) : 0)
+                    : (liveData.price_change_pct ?? 0)
                   const sparkColor = sparkPct >= 0 ? '#3de88a' : '#e8524a'
+                  // Derive direction if trend field is absent
+                  const dir = liveData.trend ?? (sparkPct > 2 ? 'up' : sparkPct < -2 ? 'down' : 'stable')
+                  const borderColor = gp.profile !== 'unknown' ? `${gp.color}44` : 'var(--border)'
                   return (
-                    <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', padding: '20px', marginBottom: 10 }}>
+                    <div style={{ borderRadius: 14, background: 'var(--surface)', border: `1px solid ${borderColor}`, padding: '20px', marginBottom: 10 }}>
+
                       {/* Header */}
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
-                        <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)' }}>TREND ANALYSIS</span>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                        <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)' }}>PRICE TREND</span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <TrendBadge trend={liveData.trend} confidence={liveData.confidence} />
+                          <TrendBadge trend={dir} confidence={liveData.confidence} />
                           <span className="font-num" style={{ fontSize: 13, fontWeight: 700, color: sparkColor }}>
                             {sparkPct >= 0 ? '+' : ''}{sparkPct.toFixed(1)}%
                           </span>
                         </div>
                       </div>
 
-                      {/* Sparkline */}
-                      <ResponsiveContainer width="100%" height={100}>
-                        <LineChart data={liveData.price_history} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
-                          <XAxis dataKey="month" tick={{ fill: '#55556a', fontSize: 9, fontFamily: 'Helvetica' }} axisLine={false} tickLine={false} interval={Math.max(1, Math.floor(liveData.price_history.length / 5) - 1)} />
-                          <Tooltip content={<SparkTooltip formatter={fmtCurrency} />} cursor={{ stroke: 'rgba(255,255,255,0.06)', strokeWidth: 1 }} />
-                          <Line type="monotone" dataKey="price" stroke={sparkColor} strokeWidth={2} dot={false} activeDot={{ r: 4, fill: sparkColor, stroke: 'var(--surface)' }} />
-                        </LineChart>
-                      </ResponsiveContainer>
-
-                      {/* Growth profile */}
-                      {gp.profile !== 'unknown' && (
-                        <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0, padding: '4px 10px', borderRadius: 99, background: `${gp.color}18`, border: `1px solid ${gp.color}44`, fontSize: 10, fontWeight: 700, color: gp.color, letterSpacing: 0.5, whiteSpace: 'nowrap' }}>
+                      {/* Growth profile badge — prominent when enough data */}
+                      {gp.profile !== 'unknown' ? (
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '14px', borderRadius: 10, background: `${gp.color}0d`, border: `1px solid ${gp.color}33`, marginBottom: 14 }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0, padding: '5px 12px', borderRadius: 99, background: `${gp.color}22`, border: `1px solid ${gp.color}66`, fontSize: 11, fontWeight: 800, color: gp.color, letterSpacing: 0.5, whiteSpace: 'nowrap' }}>
                             {gp.label.toUpperCase()}
                           </span>
-                          <p style={{ fontSize: 12, color: 'var(--ink2)', lineHeight: 1.6, margin: 0 }}>{gp.desc}</p>
+                          <p style={{ fontSize: 13, color: 'var(--ink2)', lineHeight: 1.6, margin: 0 }}>{gp.desc}</p>
                         </div>
+                      ) : (
+                        /* Fallback when no history — show avg comparisons */
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
+                          {[
+                            { label: '7D AVG', value: liveData.avg7d },
+                            { label: '30D AVG', value: liveData.avg30d },
+                          ].map(({ label, value }) => (
+                            <div key={label} style={{ padding: '10px 12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+                              <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 5 }}>{label}</div>
+                              <div className="font-num" style={{ fontSize: 14, fontWeight: 700, color: value != null ? 'var(--ink)' : 'var(--ink3)' }}>
+                                {value != null ? fmtCurrency(value) : '—'}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Sparkline — only when history exists */}
+                      {prices && (
+                        <ResponsiveContainer width="100%" height={90}>
+                          <LineChart data={liveData.price_history} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
+                            <XAxis dataKey="month" tick={{ fill: '#55556a', fontSize: 9, fontFamily: 'Helvetica' }} axisLine={false} tickLine={false} interval={Math.max(1, Math.floor(liveData.price_history.length / 5) - 1)} />
+                            <Tooltip content={<SparkTooltip formatter={fmtCurrency} />} cursor={{ stroke: 'rgba(255,255,255,0.06)', strokeWidth: 1 }} />
+                            <Line type="monotone" dataKey="price" stroke={sparkColor} strokeWidth={2} dot={false} activeDot={{ r: 4, fill: sparkColor, stroke: 'var(--surface)' }} />
+                          </LineChart>
+                        </ResponsiveContainer>
                       )}
                     </div>
                   )
@@ -781,22 +803,31 @@ export default function CardPage() {
                         {/* Trend — direction + confidence */}
                         <div style={{ padding: '12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
                           <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>TREND</div>
-                          <TrendBadge trend={liveData.trend} confidence={null} />
-                          {liveData.price_history && liveData.price_history.length >= 2 && (() => {
-                            const prices = liveData.price_history.map(p => p.price)
-                            const first = prices[0], last = prices[prices.length - 1]
-                            const pct = first > 0 ? ((last - first) / first * 100) : 0
+                          {(() => {
+                            // Derive % from history if available, else fall back to price_change_pct
+                            const prices = liveData.price_history?.length >= 2 ? liveData.price_history.map(p => p.price) : null
+                            const pct = prices
+                              ? (prices[0] > 0 ? ((prices[prices.length - 1] - prices[0]) / prices[0] * 100) : 0)
+                              : (liveData.price_change_pct ?? null)
+                            const pctColor = pct != null ? (pct >= 0 ? '#3de88a' : '#e8524a') : 'var(--ink3)'
+                            // Derive direction from pct if trend field is absent
+                            const dir = liveData.trend ?? (pct == null ? null : pct > 2 ? 'up' : pct < -2 ? 'down' : 'stable')
                             return (
-                              <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: pct >= 0 ? '#3de88a' : '#e8524a', marginTop: 6 }}>
-                                {pct >= 0 ? '+' : ''}{pct.toFixed(1)}%
-                              </div>
+                              <>
+                                {dir ? <TrendBadge trend={dir} confidence={null} /> : <span style={{ fontSize: 11, color: 'var(--ink3)' }}>—</span>}
+                                {pct != null && (
+                                  <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: pctColor, marginTop: 6 }}>
+                                    {pct >= 0 ? '+' : ''}{pct.toFixed(1)}%
+                                  </div>
+                                )}
+                                {liveData.confidence && (
+                                  <div style={{ fontSize: 9, color: 'var(--ink3)', marginTop: 6 }}>
+                                    {liveData.confidence === 'high' ? '●●●' : liveData.confidence === 'medium' ? '●●○' : '●○○'} {liveData.confidence}
+                                  </div>
+                                )}
+                              </>
                             )
                           })()}
-                          {liveData.confidence && (
-                            <div style={{ fontSize: 9, color: 'var(--ink3)', marginTop: 6 }}>
-                              {liveData.confidence === 'high' ? '●●●' : liveData.confidence === 'medium' ? '●●○' : '●○○'} {liveData.confidence}
-                            </div>
-                          )}
                         </div>
 
                         {/* Liquidity — graduated bar */}
@@ -1499,73 +1530,6 @@ export default function CardPage() {
                 </div>
               </div>
 
-              {/* Hold Analysis */}
-              <div style={{ ...C }} className="ci-card-surface">
-                <div style={{ ...P }}>
-                  <span style={{ ...L }}>HOLD ANALYSIS</span>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-                    <div style={{ flex: 1, minWidth: 200, paddingRight: 16 }}>
-                      <div className="font-display" style={{ fontSize: 'clamp(20px, 4vw, 26px)', fontWeight: 800, color: holdColor, letterSpacing: '-0.5px', marginBottom: 10 }}>{card.holdVerdict}</div>
-                      <p style={{ fontSize: 13, color: 'var(--ink2)', lineHeight: 1.65 }}>{card.holdDescription}</p>
-                    </div>
-                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                      <div className="font-num" style={{ fontSize: 52, fontWeight: 800, color: holdColor, letterSpacing: '-3px', lineHeight: 1 }}>{card.holdScore}</div>
-                      <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>hold score / 100</div>
-                    </div>
-                  </div>
-
-                  <div className="ci-hold-metrics">
-                    {[
-                      { label: 'MONTHLY GROWTH', value: `${card.monthlyGrowth >= 0 ? '+' : ''}${card.monthlyGrowth}%`, sub: 'avg/month', color: card.monthlyGrowth >= 0 ? '#3de88a' : '#e8524a' },
-                      { label: 'PROJ. 12MO', value: fmtCurrency(card.projections.m12.price), sub: `+${card.projections.m12.pct}% projected`, color: '#3de88a' },
-                      { label: 'BREAK-EVEN', value: breakevenDisplay.label, sub: breakevenDisplay.sub, color: vsMarketPct < 0 ? '#3de88a' : 'var(--ink)' },
-                    ].map((m, i) => (
-                      <div key={i} style={{ borderRadius: 10, padding: '14px', background: 'var(--surface2)', border: '1px solid var(--border)' }}>
-                        <div style={{ fontSize: 8, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>{m.label}</div>
-                        <div className="font-num" style={{ fontSize: 15, fontWeight: 700, color: m.color, marginBottom: 4, lineHeight: 1.2 }}>{m.value}</div>
-                        <div style={{ fontSize: 10, color: 'var(--ink3)', lineHeight: 1.4 }}>{m.sub}</div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
-                    {card.holdFactors.map((factor, i) => {
-                      const isDown = factor.title.startsWith('↓')
-                      const isNeutral = factor.title.startsWith('→')
-                      const arrowColor = isDown ? '#e8524a' : isNeutral ? '#e8c547' : '#3de88a'
-                      const arrowBg = isDown ? 'rgba(232,82,74,0.1)' : isNeutral ? 'rgba(232,197,71,0.1)' : 'rgba(61,232,138,0.1)'
-                      const arrowBorder = isDown ? 'rgba(232,82,74,0.2)' : isNeutral ? 'rgba(232,197,71,0.2)' : 'rgba(61,232,138,0.2)'
-                      const arrow = isDown ? '↓' : isNeutral ? '→' : '↑'
-                      return (
-                        <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: '14px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
-                          <div style={{ width: 22, height: 22, borderRadius: 6, background: arrowBg, border: `1px solid ${arrowBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <span style={{ fontSize: 11, color: arrowColor, fontWeight: 700 }}>{arrow}</span>
-                          </div>
-                          <div>
-                            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 4 }}>{factor.title.replace(/^[↑↓→]\s*/, '')}</p>
-                            <p style={{ fontSize: 12, color: 'var(--ink2)', lineHeight: 1.6 }}>{factor.description}</p>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-
-                  <div className="ci-proj">
-                    {[
-                      { label: '3 MONTHS',  price: card.projections.m3.price,  pct: card.projections.m3.pct,  desc: `+${card.projections.m3.pct}% as supply stabilises` },
-                      { label: '6 MONTHS',  price: card.projections.m6.price,  pct: card.projections.m6.pct,  desc: `+${card.projections.m6.pct}% post-launch appreciation` },
-                      { label: '12 MONTHS', price: card.projections.m12.price, pct: card.projections.m12.pct, desc: `+${card.projections.m12.pct}% flagship card premium` },
-                    ].map((proj, i) => (
-                      <div key={i} style={{ borderRadius: 10, padding: '16px 14px', background: 'rgba(61,232,138,0.04)', border: '1px solid rgba(61,232,138,0.1)' }}>
-                        <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 10 }}>{proj.label}</div>
-                        <div className="font-num" style={{ fontSize: 18, fontWeight: 700, color: proj.pct >= 0 ? '#3de88a' : '#e8524a', marginBottom: 4 }}>{fmtCurrency(proj.price)}</div>
-                        <div style={{ fontSize: 10, color: proj.pct >= 0 ? '#3de88a' : '#e8524a', marginBottom: 4 }}>{proj.pct >= 0 ? '+' : ''}{proj.pct}%</div>
-                        <div style={{ fontSize: 10, color: 'var(--ink3)', lineHeight: 1.4 }}>{proj.desc}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
             </>
           )}
 

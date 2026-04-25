@@ -44,41 +44,26 @@ const MIN_CHARS = 2
 const DEBOUNCE_MS = 320
 
 // ── Query parser ──────────────────────────────────────────────────────────────
-// "Charizard 4"      → { name: "Charizard",    number: "4"  }
-// "Pikachu #25"      → { name: "Pikachu",      number: "25" }
-// "Charizard ex 6"   → { name: "Charizard ex", number: "6"  }
-// "Charizard ex"     → { name: "Charizard ex", number: null }
 
 function parseQuery(q: string): { name: string; number: string | null } {
   const t = q.trim()
-  // Explicit hash: "Pikachu #25" or "Charizard #4/102"
   const hashMatch = t.match(/^(.*?)\s*#(\d+)(?:\/\d+)?\s*$/)
-  if (hashMatch && hashMatch[1].trim()) {
-    return { name: hashMatch[1].trim(), number: hashMatch[2] }
-  }
-  // Trailing number not part of a known suffix (ex, gx, v, vmax, vstar, etc.)
+  if (hashMatch && hashMatch[1].trim()) return { name: hashMatch[1].trim(), number: hashMatch[2] }
   const trailMatch = t.match(/^(.*?)\s+(\d+(?:\/\d+)?)$/)
-  if (trailMatch && trailMatch[1].trim()) {
-    return { name: trailMatch[1].trim(), number: trailMatch[2].split('/')[0] }
-  }
+  if (trailMatch && trailMatch[1].trim()) return { name: trailMatch[1].trim(), number: trailMatch[2].split('/')[0] }
   return { name: t, number: null }
 }
 
-// ── Card image with fallback ───────────────────────────────────────────────────
+// ── Card thumbnail ─────────────────────────────────────────────────────────────
 
 function CardThumb({ src, alt }: { src: string; alt: string }) {
   const [failed, setFailed] = useState(false)
-  if (failed || !src) {
-    return (
-      <div style={{ width: 44, height: 62, borderRadius: 6, background: 'var(--surface2)', flexShrink: 0 }} />
-    )
-  }
+  if (failed || !src) return <div className="search-thumb" style={{ background: 'var(--surface2)', borderRadius: 6, flexShrink: 0 }} />
   return (
     <img
-      src={src}
-      alt={alt}
-      onError={() => setFailed(true)}
-      style={{ width: 44, height: 62, objectFit: 'contain', borderRadius: 6, flexShrink: 0, background: 'var(--surface2)' }}
+      src={src} alt={alt} onError={() => setFailed(true)}
+      className="search-thumb"
+      style={{ objectFit: 'contain', borderRadius: 6, flexShrink: 0, background: 'var(--surface2)' }}
     />
   )
 }
@@ -88,23 +73,27 @@ function CardThumb({ src, alt }: { src: string; alt: string }) {
 export default function SearchPage() {
   const router = useRouter()
 
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState<PtCard[]>([])
-  const [loading, setLoading] = useState(false)
+  const [query, setQuery]             = useState('')
+  const [results, setResults]         = useState<PtCard[]>([])
+  const [loading, setLoading]         = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
-  const [selectedCard, setSelectedCard] = useState<PtCard | null>(null)
+  const [selectedCard, setSelectedCard]   = useState<PtCard | null>(null)
   const [selectedGrade, setSelectedGrade] = useState<string | null>(null)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const [isMobile, setIsMobile]       = useState(false)
+
+  const debounceRef  = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const inputRef     = useRef<HTMLInputElement>(null)
+  const selectedRef  = useRef<HTMLDivElement>(null)
+
+  // Detect mobile to skip autoFocus (keyboard-on-mount is jarring in PWA)
+  useEffect(() => {
+    setIsMobile(window.matchMedia('(max-width: 700px)').matches)
+  }, [])
 
   // ── Search ────────────────────────────────────────────────────────────────
   const runSearch = useCallback(async (raw: string) => {
     const { name, number } = parseQuery(raw)
-    if (name.length < MIN_CHARS) {
-      setResults([])
-      setHasSearched(false)
-      return
-    }
+    if (name.length < MIN_CHARS) { setResults([]); setHasSearched(false); return }
 
     setLoading(true)
     setSelectedCard(null)
@@ -114,7 +103,7 @@ export default function SearchPage() {
     if (number) params.set('card_number', number)
 
     try {
-      const res = await fetch(`/api/pt/cards?${params}`)
+      const res  = await fetch(`/api/pt/cards?${params}`)
       const json = await res.json()
       setResults(json.data ?? [])
       setHasSearched(true)
@@ -127,74 +116,87 @@ export default function SearchPage() {
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    if (!query.trim()) {
-      setResults([])
-      setHasSearched(false)
-      setLoading(false)
-      return
-    }
+    if (!query.trim()) { setResults([]); setHasSearched(false); setLoading(false); return }
     setLoading(true)
     debounceRef.current = setTimeout(() => runSearch(query), DEBOUNCE_MS)
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
   }, [query, runSearch])
 
-  // ── Grade select → navigate ───────────────────────────────────────────────
+  // Scroll selected card + grade picker into view on mobile
+  useEffect(() => {
+    if (selectedCard && selectedRef.current) {
+      setTimeout(() => {
+        selectedRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      }, 80)
+    }
+  }, [selectedCard])
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
   function handleGrade(grade: string, card: PtCard) {
     setSelectedGrade(grade)
     const params = new URLSearchParams({
-      grade,
-      name: card.name,
-      set: card.set.name,
-      number: card.cardNumber,
-      set_slug: card.set.slug,
+      grade, name: card.name, set: card.set.name,
+      number: card.cardNumber, set_slug: card.set.slug,
     })
     router.push(`/card/${card.id}?${params}`)
   }
 
-  // ── Card select ───────────────────────────────────────────────────────────
   function handleCardClick(card: PtCard) {
     setSelectedCard(prev => prev?.id === card.id ? null : card)
     setSelectedGrade(null)
   }
 
+  function clearSearch() {
+    setQuery(''); setResults([]); setHasSearched(false)
+    inputRef.current?.focus()
+  }
+
   const { name: parsedName, number: parsedNumber } = parseQuery(query)
-  const showParsedHint = parsedNumber !== null && query.trim().length >= MIN_CHARS
+  const showHint = parsedNumber !== null && query.trim().length >= MIN_CHARS
 
   return (
     <>
       <Navbar />
-      <main style={{ maxWidth: 680, margin: '0 auto', padding: '80px 16px 100px' }}>
+      <main style={{ maxWidth: 680, margin: '0 auto', padding: '72px 16px 100px' }}>
 
         {/* Header */}
-        <div style={{ marginBottom: 28 }}>
-          <p style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8 }}>SEARCH</p>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px', marginBottom: 6 }}>
+        <div style={{ marginBottom: 24 }}>
+          <p style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 2, marginBottom: 6 }}>SEARCH</p>
+          <h1 style={{ fontSize: 26, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px', marginBottom: 6, lineHeight: 1.1 }}>
             Find a card
           </h1>
-          <p style={{ fontSize: 13, color: 'var(--ink3)' }}>
-            Search by name, or include a number to narrow results — e.g. <em style={{ color: 'var(--ink2)' }}>Charizard ex 6</em>
+          <p style={{ fontSize: 13, color: 'var(--ink3)', lineHeight: 1.5 }}>
+            Type a name or add a number — e.g. <em style={{ color: 'var(--ink2)' }}>Charizard ex 6</em>
           </p>
         </div>
 
         {/* Search input */}
         <div style={{ position: 'relative', marginBottom: 8 }}>
-          <div style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+          <div style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', zIndex: 1 }}>
             {loading
-              ? <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--ink3)" strokeWidth="1.8" strokeLinecap="round" style={{ animation: 'spin 0.7s linear infinite' }}><path d="M8 1a7 7 0 1 0 7 7" /></svg>
-              : <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--ink3)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="6.5" cy="6.5" r="4.5"/><path d="M14 14l-3-3"/></svg>
+              ? <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--ink3)" strokeWidth="2" strokeLinecap="round" style={{ animation: 'srch-spin 0.7s linear infinite', display: 'block' }}><path d="M8 1a7 7 0 1 0 7 7"/></svg>
+              : <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--ink3)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}><circle cx="6.5" cy="6.5" r="4.5"/><path d="M14 14l-3-3"/></svg>
             }
           </div>
           <input
             ref={inputRef}
-            type="text"
+            type="search"
+            inputMode="search"
+            enterKeyHint="search"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Charizard ex · Pikachu 25 · Umbreon #17"
-            autoFocus
+            placeholder="Pikachu · Charizard ex 6 · Umbreon #17"
+            autoFocus={!isMobile}
             style={{
-              width: '100%', padding: '14px 44px 14px 40px',
-              borderRadius: 14, background: 'var(--surface)', border: '1.5px solid var(--border2)',
-              color: 'var(--ink)', fontSize: 16, outline: 'none', boxSizing: 'border-box',
+              width: '100%', padding: '15px 48px 15px 42px',
+              borderRadius: 14, background: 'var(--surface)',
+              border: '1.5px solid var(--border2)', color: 'var(--ink)',
+              fontSize: 16, outline: 'none', boxSizing: 'border-box',
+              WebkitAppearance: 'none', appearance: 'none',
               transition: 'border-color 0.15s',
             }}
             onFocus={e => (e.currentTarget.style.borderColor = 'var(--gold)')}
@@ -202,28 +204,44 @@ export default function SearchPage() {
           />
           {query && (
             <button
-              onClick={() => { setQuery(''); setResults([]); setHasSearched(false); inputRef.current?.focus() }}
-              style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--ink3)', cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: 4 }}
+              onClick={clearSearch}
+              style={{
+                position: 'absolute', right: 0, top: 0, bottom: 0,
+                width: 48, background: 'none', border: 'none',
+                color: 'var(--ink3)', cursor: 'pointer', fontSize: 20,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+              aria-label="Clear search"
             >×</button>
           )}
         </div>
 
         {/* Parsed hint */}
-        {showParsedHint && (
-          <p style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 16, paddingLeft: 4 }}>
+        {showHint && (
+          <p style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 14, paddingLeft: 2 }}>
             Searching <span style={{ color: 'var(--ink2)' }}>"{parsedName}"</span> · card #{parsedNumber}
           </p>
         )}
 
-        {/* Browse by set fallback */}
+        {/* Empty state — browse fallback */}
         {!hasSearched && !loading && (
-          <div style={{ textAlign: 'center', marginTop: 48 }}>
-            <p style={{ fontSize: 13, color: 'var(--ink3)', marginBottom: 16 }}>
-              Prefer to browse a specific set?
+          <div style={{ textAlign: 'center', marginTop: 56, padding: '0 8px' }}>
+            <div style={{ fontSize: 32, marginBottom: 12 }}>🔍</div>
+            <p style={{ fontSize: 14, color: 'var(--ink2)', fontWeight: 600, marginBottom: 6 }}>
+              Search any Pokémon card
+            </p>
+            <p style={{ fontSize: 13, color: 'var(--ink3)', marginBottom: 28, lineHeight: 1.6 }}>
+              Results appear as you type.<br />Add a card number to get exact matches.
             </p>
             <a
               href="/search/sets"
-              style={{ display: 'inline-block', padding: '9px 22px', borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--border2)', color: 'var(--ink2)', fontSize: 13, fontWeight: 600, textDecoration: 'none', transition: 'border-color 0.15s' }}
+              className="srch-browse-btn"
+              style={{
+                display: 'block', padding: '14px 0', borderRadius: 12,
+                background: 'var(--surface)', border: '1px solid var(--border2)',
+                color: 'var(--ink2)', fontSize: 14, fontWeight: 600,
+                textDecoration: 'none', transition: 'border-color 0.15s',
+              }}
               onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--gold)')}
               onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border2)')}
             >
@@ -232,81 +250,119 @@ export default function SearchPage() {
           </div>
         )}
 
-        {/* Results */}
+        {/* No results */}
         {hasSearched && !loading && results.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--ink3)', fontSize: 13 }}>
-            No cards found for <strong style={{ color: 'var(--ink2)' }}>"{query}"</strong>
-            <br />
-            <span style={{ fontSize: 12, marginTop: 8, display: 'block' }}>Try a different name or remove the card number</span>
+          <div style={{ textAlign: 'center', padding: '48px 0' }}>
+            <div style={{ fontSize: 28, marginBottom: 12 }}>¯\_(ツ)_/¯</div>
+            <p style={{ fontSize: 14, color: 'var(--ink2)', fontWeight: 600, marginBottom: 6 }}>
+              No cards found for "{query}"
+            </p>
+            <p style={{ fontSize: 13, color: 'var(--ink3)' }}>
+              Try a different name, or remove the number
+            </p>
           </div>
         )}
 
+        {/* Results list */}
         {results.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: showParsedHint ? 0 : 16 }}>
-            <p style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 8, paddingLeft: 2 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: showHint ? 0 : 16 }}>
+            <p style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 4, paddingLeft: 2 }}>
               {results.length} result{results.length !== 1 ? 's' : ''}
             </p>
+
             {results.map(card => {
               const isSelected = selectedCard?.id === card.id
-              const variant = card.variant && card.variant !== 'Normal' ? VARIANT_LABELS[card.variant] ?? card.variant : null
+              const variant = card.variant && card.variant !== 'Normal'
+                ? VARIANT_LABELS[card.variant] ?? card.variant
+                : null
 
               return (
-                <div key={card.id}>
+                <div key={card.id} ref={isSelected ? selectedRef : undefined}>
+
                   {/* Result row */}
                   <button
                     onClick={() => handleCardClick(card)}
                     style={{
                       width: '100%', display: 'flex', alignItems: 'center', gap: 14,
-                      padding: '12px 14px', borderRadius: isSelected ? '12px 12px 0 0' : 12,
+                      padding: '12px 14px',
+                      borderRadius: isSelected ? '12px 12px 0 0' : 12,
                       background: isSelected ? 'var(--surface)' : 'var(--surface)',
                       border: `1.5px solid ${isSelected ? 'var(--gold)' : 'var(--border)'}`,
                       borderBottom: isSelected ? '1.5px solid transparent' : `1.5px solid ${isSelected ? 'var(--gold)' : 'var(--border)'}`,
-                      cursor: 'pointer', textAlign: 'left', transition: 'border-color 0.15s',
+                      cursor: 'pointer', textAlign: 'left',
+                      transition: 'border-color 0.15s',
+                      minHeight: 72,   // comfortable tap target
                     }}
                     onMouseEnter={e => { if (!isSelected) e.currentTarget.style.borderColor = 'rgba(232,197,71,0.4)' }}
                     onMouseLeave={e => { if (!isSelected) e.currentTarget.style.borderColor = 'var(--border)' }}
                   >
                     <CardThumb src={ptImg(card.image)} alt={card.name} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>{card.name}</span>
-                        <span style={{ fontSize: 11, color: 'var(--ink3)' }}>#{card.cardNumber}</span>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.3 }}>{card.name}</span>
+                        <span style={{ fontSize: 11, color: 'var(--ink3)', flexShrink: 0 }}>#{card.cardNumber}</span>
                       </div>
-                      <div style={{ fontSize: 12, color: 'var(--ink3)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {card.set.name}
-                        {variant ? ` · ${variant}` : ''}
+                      <div style={{ fontSize: 12, color: 'var(--ink3)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {card.set.name}{variant ? ` · ${variant}` : ''}
                       </div>
                       {card.rarity && (
                         <div style={{ fontSize: 10, color: 'var(--gold)', marginTop: 3, fontWeight: 600 }}>{card.rarity}</div>
                       )}
                     </div>
-                    <span style={{ fontSize: 18, color: isSelected ? 'var(--gold)' : 'var(--ink3)', flexShrink: 0, transition: 'transform 0.2s, color 0.15s', transform: isSelected ? 'rotate(90deg)' : 'none' }}>›</span>
+                    <span style={{
+                      fontSize: 20, color: isSelected ? 'var(--gold)' : 'var(--ink3)',
+                      flexShrink: 0, lineHeight: 1,
+                      transition: 'transform 0.2s, color 0.15s',
+                      transform: isSelected ? 'rotate(90deg)' : 'none',
+                    }}>›</span>
                   </button>
 
                   {/* Inline grade picker */}
                   {isSelected && (
                     <div style={{
                       border: '1.5px solid var(--gold)', borderTop: 'none',
-                      borderRadius: '0 0 12px 12px', background: 'var(--surface)',
-                      padding: '16px 14px 14px',
+                      borderRadius: '0 0 12px 12px',
+                      background: 'var(--surface)',
+                      padding: '14px 14px 16px',
                     }}>
-                      <p style={{ fontSize: 10, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 12 }}>SELECT GRADE</p>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>
+                      <p style={{ fontSize: 10, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 12 }}>
+                        SELECT GRADE
+                      </p>
+                      <div className="srch-grade-grid">
                         {GRADES.map(g => (
                           <button
                             key={g.label}
                             onClick={() => handleGrade(g.label, card)}
                             style={{
-                              padding: '8px 4px', borderRadius: 8, cursor: 'pointer', textAlign: 'center',
-                              background: selectedGrade === g.label ? 'rgba(232,197,71,0.1)' : 'var(--surface2)',
+                              padding: '10px 4px', borderRadius: 8,
+                              cursor: 'pointer', textAlign: 'center',
+                              background: selectedGrade === g.label
+                                ? 'rgba(232,197,71,0.1)' : 'var(--surface2)',
                               border: `1.5px solid ${selectedGrade === g.label ? 'var(--gold)' : 'var(--border2)'}`,
                               transition: 'all 0.15s',
+                              minHeight: 52,  // comfortable tap target
                             }}
-                            onMouseEnter={e => { if (selectedGrade !== g.label) { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.background = 'rgba(232,197,71,0.05)' } }}
-                            onMouseLeave={e => { if (selectedGrade !== g.label) { e.currentTarget.style.borderColor = 'var(--border2)'; e.currentTarget.style.background = 'var(--surface2)' } }}
+                            onMouseEnter={e => {
+                              if (selectedGrade !== g.label) {
+                                e.currentTarget.style.borderColor = 'var(--gold)'
+                                e.currentTarget.style.background = 'rgba(232,197,71,0.05)'
+                              }
+                            }}
+                            onMouseLeave={e => {
+                              if (selectedGrade !== g.label) {
+                                e.currentTarget.style.borderColor = 'var(--border2)'
+                                e.currentTarget.style.background = 'var(--surface2)'
+                              }
+                            }}
                           >
-                            <span style={{ display: 'block', fontSize: g.label === 'Raw' ? 12 : 11, fontWeight: 700, color: selectedGrade === g.label ? 'var(--gold)' : 'var(--ink)' }}>{g.label}</span>
-                            <span style={{ display: 'block', fontSize: 8, color: 'var(--ink3)', marginTop: 1 }}>{g.sub}</span>
+                            <span style={{
+                              display: 'block',
+                              fontSize: g.label === 'Raw' ? 13 : 11,
+                              fontWeight: 700,
+                              color: selectedGrade === g.label ? 'var(--gold)' : 'var(--ink)',
+                              lineHeight: 1.2,
+                            }}>{g.label}</span>
+                            <span style={{ display: 'block', fontSize: 8, color: 'var(--ink3)', marginTop: 2 }}>{g.sub}</span>
                           </button>
                         ))}
                       </div>
@@ -321,9 +377,29 @@ export default function SearchPage() {
       </main>
 
       <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes srch-spin { to { transform: rotate(360deg); } }
+
+        /* Thumbnail size */
+        .search-thumb { width: 48px; height: 67px; }
+
+        /* Grade grid: 5-col desktop → 3-col mobile */
+        .srch-grade-grid {
+          display: grid;
+          grid-template-columns: repeat(5, 1fr);
+          gap: 6px;
+        }
+
+        /* Browse button: auto-width desktop → full-width mobile */
+        .srch-browse-btn { max-width: 240px; margin: 0 auto; }
+
+        /* Hide native search cancel button (Chrome/Safari) */
+        input[type="search"]::-webkit-search-cancel-button { display: none; }
+        input[type="search"]::-webkit-search-decoration { display: none; }
+
         @media (max-width: 480px) {
-          .grade-grid { grid-template-columns: repeat(3, 1fr) !important; }
+          .srch-grade-grid { grid-template-columns: repeat(3, 1fr) !important; gap: 8px !important; }
+          .search-thumb { width: 42px; height: 59px; }
+          .srch-browse-btn { max-width: 100% !important; }
         }
       `}</style>
     </>

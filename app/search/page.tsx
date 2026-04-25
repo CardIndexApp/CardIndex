@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import { ptImg } from '@/lib/img'
+import { cacheGet, cacheSet, cacheKey } from '@/lib/searchCache'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -95,18 +96,30 @@ export default function SearchPage() {
     const { name, number } = parseQuery(raw)
     if (name.length < MIN_CHARS) { setResults([]); setHasSearched(false); return }
 
-    setLoading(true)
     setSelectedCard(null)
     setSelectedGrade(null)
 
     const params = new URLSearchParams({ search: name })
     if (number) params.set('card_number', number)
 
+    // Check 24-hour client-side cache first
+    const key = cacheKey(params)
+    const cached = cacheGet<PtCard[]>(key)
+    if (cached) {
+      setResults(cached)
+      setHasSearched(true)
+      setLoading(false)
+      return
+    }
+
+    setLoading(true)
     try {
       const res  = await fetch(`/api/pt/cards?${params}`)
       const json = await res.json()
-      setResults(json.data ?? [])
+      const data: PtCard[] = json.data ?? []
+      setResults(data)
       setHasSearched(true)
+      if (data.length > 0) cacheSet(key, data)
     } catch {
       setResults([])
     } finally {

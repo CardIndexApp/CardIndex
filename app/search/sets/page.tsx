@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import { ptImg } from '@/lib/img'
+import { cacheGet, cacheSet, cacheKey } from '@/lib/searchCache'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -214,11 +215,22 @@ export default function BrowseSetsPage() {
   const [selectedCard, setSelectedCard] = useState<PtCard | null>(null)
   const [selectedGrade, setSelectedGrade] = useState<string | null>(null)
 
-  // Load sets
+  // Load sets (cached 24h)
   useEffect(() => {
+    const SETS_KEY = 'sets_all'
+    const cached = cacheGet<PtSet[]>(SETS_KEY)
+    if (cached) {
+      setSets(cached)
+      setLoading(false)
+      return
+    }
     fetch('/api/pt/sets')
       .then(r => r.json())
-      .then(json => setSets(json.data ?? []))
+      .then(json => {
+        const data: PtSet[] = json.data ?? []
+        setSets(data)
+        if (data.length > 0) cacheSet(SETS_KEY, data)
+      })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
@@ -248,24 +260,44 @@ export default function BrowseSetsPage() {
     return all.filter(s => s.name.toLowerCase().includes(q))
   }, [grouped, activeEra, filterText])
 
-  // Load cards for a set
+  // Load cards for a set (first page cached 24h; "load more" pages also cached)
   async function loadSetCards(slug: string, cursor = '') {
     setCardsLoading(true)
     try {
       const params = new URLSearchParams({ set: slug, limit: '20' })
       if (cursor) params.set('cursor', cursor)
-      const res  = await fetch(`/api/pt/cards?${params}`)
-      const json = await res.json()
-      const newCards: PtCard[] = json.data ?? []
-      if (cursor) {
-        setSetCards(prev => [...prev, ...newCards])
+
+      const key = cacheKey(params)
+
+      interface PageData { cards: PtCard[]; hasMore: boolean; nextCursor: string }
+      const cached = cacheGet<PageData>(key)
+
+      let pageCards: PtCard[]
+      let hasMore: boolean
+      let nextCursor: string
+
+      if (cached) {
+        pageCards  = cached.cards
+        hasMore    = cached.hasMore
+        nextCursor = cached.nextCursor
       } else {
-        setSetCards(newCards)
+        const res  = await fetch(`/api/pt/cards?${params}`)
+        const json = await res.json()
+        pageCards  = json.data ?? []
+        hasMore    = json.pagination?.hasMore ?? false
+        nextCursor = json.pagination?.nextCursor ?? ''
+        if (pageCards.length > 0) cacheSet<PageData>(key, { cards: pageCards, hasMore, nextCursor })
+      }
+
+      if (cursor) {
+        setSetCards(prev => [...prev, ...pageCards])
+      } else {
+        setSetCards(pageCards)
         setSelectedCard(null)
         setSelectedGrade(null)
       }
-      setCardsHasMore(json.pagination?.hasMore ?? false)
-      setCardsCursor(json.pagination?.nextCursor ?? '')
+      setCardsHasMore(hasMore)
+      setCardsCursor(nextCursor)
     } catch {
       if (!cursor) setSetCards([])
     } finally {

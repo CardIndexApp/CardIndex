@@ -620,6 +620,7 @@ export default function PortfolioPage() {
           .pf-hide-mobile { display: none !important; }
           .pf-row { padding: 12px 14px; min-height: 56px; }
           .pf-header { padding: 8px 14px; }
+          .pf-stats-bar { grid-template-columns: repeat(2, 1fr) !important; }
         }
       `}</style>
 
@@ -648,7 +649,7 @@ export default function PortfolioPage() {
           )}
 
           {/* ── Stats bar ── */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 24 }}>
+          <div className="pf-stats-bar" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 24 }}>
             {[
               {
                 label: 'Portfolio Value',

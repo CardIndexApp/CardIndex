@@ -266,48 +266,45 @@ export default function Dashboard() {
 
           {/* ── Portfolio Snapshot ── */}
           {portfolioStats && portfolioStats.posCount > 0 && (() => {
-            const rate = rates[currency] ?? 1
+            const rate       = rates[currency] ?? 1
             const costLocal  = portfolioStats.costBasis * rate
             const hasPrices  = portfolioStats.cachedCount > 0
             const valueLocal = portfolioStats.currentValue * rate
             const pnlLocal   = hasPrices ? valueLocal - costLocal : null
-            const pnlPct     = hasPrices && costLocal > 0 ? (pnlLocal! / costLocal) * 100 : null
+            const pnlPct     = pnlLocal != null && costLocal > 0 ? (pnlLocal / costLocal) * 100 : null
             const pnlPos     = pnlLocal == null ? null : pnlLocal >= 0
             return (
-              <Link href="/portfolio" className="dash-pf-snap" style={{ textDecoration: 'none', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0, marginBottom: 16, borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden', transition: 'border-color 0.15s' }}
+              <Link href="/portfolio" style={{ textDecoration: 'none', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0, marginBottom: 16, borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden', transition: 'border-color 0.15s' }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(61,232,138,0.3)' }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border2)' }}
               >
+                {/* Total Value */}
                 <div style={{ padding: '14px 20px', borderRight: '1px solid var(--border)' }}>
-                  <div style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', marginBottom: 5, fontWeight: 600 }}>PORTFOLIO VALUE</div>
-                  <div className="font-num" style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>
+                  <div style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', marginBottom: 5, fontWeight: 600 }}>TOTAL VALUE</div>
+                  <div className="font-num" style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)' }}>
                     {hasPrices ? fmtCurrency(valueLocal) : fmtCurrency(costLocal)}
                   </div>
-                  <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>
+                  <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 3 }}>
                     {portfolioStats.posCount} position{portfolioStats.posCount !== 1 ? 's' : ''}
-                    {hasPrices && portfolioStats.cachedCount < portfolioStats.posCount ? ` · ${portfolioStats.cachedCount} priced` : ''}
+                    {!hasPrices ? ' · cost basis' : portfolioStats.cachedCount < portfolioStats.posCount ? ` · ${portfolioStats.cachedCount}/${portfolioStats.posCount} priced` : ''}
                   </div>
                 </div>
-                <div style={{ padding: '14px 20px', borderRight: '1px solid var(--border)' }}>
-                  <div style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', marginBottom: 5, fontWeight: 600 }}>COST BASIS</div>
-                  <div className="font-num" style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>{fmtCurrency(costLocal)}</div>
-                  <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>total invested</div>
-                </div>
+                {/* Total P&L */}
                 <div style={{ padding: '14px 20px' }}>
                   <div style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', marginBottom: 5, fontWeight: 600 }}>TOTAL P&amp;L</div>
                   {pnlLocal != null ? (
                     <>
-                      <div className="font-num" style={{ fontSize: 18, fontWeight: 700, color: pnlPos ? 'var(--green)' : '#ff6b6b' }}>
+                      <div className="font-num" style={{ fontSize: 20, fontWeight: 700, color: pnlPos ? 'var(--green)' : '#ff6b6b' }}>
                         {pnlPos ? '+' : '−'}{fmtCurrency(Math.abs(pnlLocal))}
                       </div>
-                      <div style={{ fontSize: 10, color: pnlPos ? 'var(--green)' : '#ff6b6b', marginTop: 2, opacity: 0.75 }}>
+                      <div style={{ fontSize: 10, color: pnlPos ? 'var(--green)' : '#ff6b6b', marginTop: 3, opacity: 0.8 }}>
                         {pnlPos ? '+' : ''}{pnlPct?.toFixed(1)}%
                       </div>
                     </>
                   ) : (
                     <>
-                      <div className="font-num" style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink3)' }}>—</div>
-                      <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>visit portfolio to load</div>
+                      <div className="font-num" style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink3)' }}>—</div>
+                      <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 3 }}>visit portfolio to load prices</div>
                     </>
                   )}
                 </div>
@@ -448,9 +445,6 @@ export default function Dashboard() {
           .dash-two-col { grid-template-columns: 1fr !important; }
           .dash-quick-actions { grid-template-columns: repeat(2, 1fr) !important; }
           .dash-qa-account { grid-column: span 2 !important; }
-          .dash-pf-snap { grid-template-columns: 1fr 1fr !important; }
-          .dash-pf-snap > div:last-child { grid-column: span 2; border-right: none !important; border-top: 1px solid var(--border); }
-          .dash-pf-snap > div:nth-child(2) { border-right: none !important; }
         }
       `}</style>
     </>

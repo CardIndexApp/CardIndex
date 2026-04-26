@@ -13,7 +13,10 @@ import Stripe from 'stripe'
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { Tier } from '@/lib/tier'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2026-04-22.dahlia' })
+function getStripe() {
+  if (!process.env.STRIPE_SECRET_KEY) throw new Error('STRIPE_SECRET_KEY not configured')
+  return new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-04-22.dahlia' })
+}
 
 // Map Stripe Price IDs → internal tier names
 const PRICE_TO_TIER: Record<string, Tier> = {
@@ -36,6 +39,7 @@ export async function POST(req: NextRequest) {
   const secret = process.env.STRIPE_WEBHOOK_SECRET
   if (!sig || !secret) return NextResponse.json({ error: 'Missing signature or secret' }, { status: 400 })
 
+  const stripe = getStripe()
   let event: Stripe.Event
   try {
     const body = await req.text()
@@ -86,5 +90,4 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ received: true })
 }
 
-// Stripe sends raw body — disable body parsing
-export const config = { api: { bodyParser: false } }
+// Note: Next.js App Router passes the raw request body natively — no bodyParser config needed.

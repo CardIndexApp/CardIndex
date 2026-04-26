@@ -496,6 +496,14 @@ export default function CardPage() {
   const [watchlistLoading, setWatchlistLoading] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
 
+  // Portfolio state
+  const [pfLoading, setPfLoading] = useState(false)
+  const [pfShowForm, setPfShowForm] = useState(false)
+  const [pfPrice, setPfPrice] = useState('')
+  const [pfQty, setPfQty] = useState('1')
+  const [pfError, setPfError] = useState<string | null>(null)
+  const [pfSuccess, setPfSuccess] = useState(false)
+
   // Check auth
   const [userId, setUserId] = useState<string | null>(null)
   useEffect(() => {
@@ -564,6 +572,15 @@ export default function CardPage() {
     fetchLiveData()
   }, [fetchLiveData])
 
+  // Pre-fill portfolio price from live data
+  useEffect(() => {
+    if (liveData?.price && !pfPrice) {
+      const localPrice = liveData.price * (rates[currency] ?? 1)
+      setPfPrice(localPrice.toFixed(2))
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveData])
+
   // Write recently viewed to localStorage — separate from price fetch so userId is always available
   useEffect(() => {
     if (!liveData || !userId) return
@@ -629,6 +646,44 @@ export default function CardPage() {
       setWatchlistItemId(json.item?.id ?? null)
     }
     setWatchlistLoading(false)
+  }
+
+  const submitPortfolio = async () => {
+    const localPrice = parseFloat(pfPrice.replace(/[^0-9.]/g, ''))
+    const qty = parseInt(pfQty, 10)
+    if (!localPrice || localPrice <= 0) { setPfError('Enter a valid price'); return }
+    if (!qty || qty < 1) { setPfError('Enter a valid quantity'); return }
+    setPfError(null)
+    setPfLoading(true)
+    const cardName   = urlName ?? card?.name ?? apiCard?.name ?? ''
+    const grade      = urlGrade ?? (card ? card.grade : 'PSA 10')
+    const imageUrl   = card?.imageUrl ?? liveData?.image_url ?? apiCard?.imageUrl ?? ''
+    const setName    = urlSet ?? card?.set ?? apiCard?.set ?? liveData?.set_name ?? ''
+    const cardNumber = urlNumber ?? card?.cardNumber ?? apiCard?.number ?? ''
+    const res = await fetch('/api/portfolio', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        card_id: id,
+        card_name: cardName,
+        set_name: setName,
+        grade,
+        image_url: imageUrl,
+        card_number: cardNumber,
+        purchase_price: toUSD(localPrice),
+        quantity: qty,
+      }),
+    })
+    setPfLoading(false)
+    if (res.ok) {
+      setPfSuccess(true)
+      setPfShowForm(false)
+      setPfPrice('')
+      setPfQty('1')
+    } else {
+      const j = await res.json().catch(() => ({}))
+      setPfError(j.error ?? 'Failed to add to portfolio')
+    }
   }
 
   const removeFromWatchlist = async () => {
@@ -741,13 +796,55 @@ export default function CardPage() {
                     )}
                   </div>
                   {isLoggedIn && (
-                    <button
-                      onClick={watchlistAdded ? removeFromWatchlist : addToWatchlist}
-                      disabled={watchlistLoading}
-                      style={{ padding: '8px 14px', borderRadius: 10, background: watchlistAdded ? 'rgba(61,232,138,0.1)' : 'var(--surface2)', border: `1.5px solid ${watchlistAdded ? 'rgba(61,232,138,0.4)' : 'var(--border2)'}`, fontSize: 11, fontWeight: 600, color: watchlistAdded ? 'var(--green)' : 'var(--ink2)', cursor: watchlistLoading ? 'default' : 'pointer', flexShrink: 0 }}
-                    >
-                      {watchlistLoading ? '…' : watchlistAdded ? '★ Watching · Remove' : '☆ Watch'}
-                    </button>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end', flexShrink: 0 }}>
+                      <button
+                        onClick={watchlistAdded ? removeFromWatchlist : addToWatchlist}
+                        disabled={watchlistLoading}
+                        style={{ padding: '8px 14px', borderRadius: 10, background: watchlistAdded ? 'rgba(61,232,138,0.1)' : 'var(--surface2)', border: `1.5px solid ${watchlistAdded ? 'rgba(61,232,138,0.4)' : 'var(--border2)'}`, fontSize: 11, fontWeight: 600, color: watchlistAdded ? 'var(--green)' : 'var(--ink2)', cursor: watchlistLoading ? 'default' : 'pointer', width: '100%' }}
+                      >
+                        {watchlistLoading ? '…' : watchlistAdded ? '★ Watching · Remove' : '☆ Watch'}
+                      </button>
+                      <button
+                        onClick={() => { setPfShowForm(f => !f); setPfError(null) }}
+                        style={{ padding: '8px 14px', borderRadius: 10, background: pfSuccess ? 'rgba(61,232,138,0.1)' : 'var(--surface2)', border: `1.5px solid ${pfSuccess ? 'rgba(61,232,138,0.4)' : 'var(--border2)'}`, fontSize: 11, fontWeight: 600, color: pfSuccess ? 'var(--green)' : 'var(--ink2)', cursor: 'pointer', width: '100%' }}
+                      >
+                        {pfSuccess ? '✓ Added to Portfolio' : '＋ Portfolio'}
+                      </button>
+                      {pfShowForm && (
+                        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 12, width: 200 }}>
+                          <div style={{ fontSize: 10, color: 'var(--ink3)', marginBottom: 8, fontWeight: 600, letterSpacing: 0.5 }}>ADD TO PORTFOLIO</div>
+                          <div style={{ marginBottom: 6 }}>
+                            <div style={{ fontSize: 10, color: 'var(--ink3)', marginBottom: 3 }}>Purchase price ({currency})</div>
+                            <input
+                              type="number"
+                              value={pfPrice}
+                              onChange={e => setPfPrice(e.target.value)}
+                              placeholder="0.00"
+                              style={{ width: '100%', padding: '6px 8px', borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border2)', fontSize: 12, color: 'var(--ink)', outline: 'none', boxSizing: 'border-box' }}
+                            />
+                          </div>
+                          <div style={{ marginBottom: 8 }}>
+                            <div style={{ fontSize: 10, color: 'var(--ink3)', marginBottom: 3 }}>Quantity</div>
+                            <input
+                              type="number"
+                              value={pfQty}
+                              onChange={e => setPfQty(e.target.value)}
+                              min={1}
+                              placeholder="1"
+                              style={{ width: '100%', padding: '6px 8px', borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border2)', fontSize: 12, color: 'var(--ink)', outline: 'none', boxSizing: 'border-box' }}
+                            />
+                          </div>
+                          {pfError && <div style={{ fontSize: 10, color: '#ff6b6b', marginBottom: 6 }}>{pfError}</div>}
+                          <button
+                            onClick={submitPortfolio}
+                            disabled={pfLoading}
+                            style={{ width: '100%', padding: '7px 0', borderRadius: 7, background: 'var(--gold)', border: 'none', fontSize: 12, fontWeight: 700, color: '#0f0f1c', cursor: pfLoading ? 'default' : 'pointer' }}
+                          >
+                            {pfLoading ? '…' : 'Add'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
                 <Link href={urlSetSlug ? `/search?return_to_set=${encodeURIComponent(urlSetSlug)}` : '/search'} style={{ fontSize: 12, color: 'var(--ink3)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 14 }}>← Change card</Link>
@@ -1515,6 +1612,53 @@ export default function CardPage() {
                     >
                       {watchlistLoading ? '…' : watchlistAdded ? '★ Watching · Remove' : '☆ Watch'}
                     </button>
+                  )}
+                  {/* Portfolio button */}
+                  {isLoggedIn && (
+                    <div className="ci-no-print">
+                      <button
+                        onClick={() => { setPfShowForm(f => !f); setPfError(null) }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 6, background: pfSuccess ? 'rgba(61,232,138,0.1)' : 'var(--surface2)', border: `1.5px solid ${pfSuccess ? 'rgba(61,232,138,0.4)' : 'var(--border2)'}`, borderRadius: 10, padding: '9px 14px', fontSize: 11, fontWeight: 600, color: pfSuccess ? 'var(--green)' : 'var(--ink2)', cursor: 'pointer', transition: 'all 0.2s', width: '100%' }}
+                        onMouseEnter={e => { if (!pfSuccess) { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.color = 'var(--gold)' } }}
+                        onMouseLeave={e => { if (!pfSuccess) { e.currentTarget.style.borderColor = 'var(--border2)'; e.currentTarget.style.color = 'var(--ink2)' } }}
+                      >
+                        {pfSuccess ? '✓ Added to Portfolio' : '＋ Portfolio'}
+                      </button>
+                      {pfShowForm && (
+                        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 12, marginTop: 4 }}>
+                          <div style={{ fontSize: 10, color: 'var(--ink3)', marginBottom: 8, fontWeight: 600, letterSpacing: 0.5 }}>ADD TO PORTFOLIO</div>
+                          <div style={{ marginBottom: 6 }}>
+                            <div style={{ fontSize: 10, color: 'var(--ink3)', marginBottom: 3 }}>Purchase price ({currency})</div>
+                            <input
+                              type="number"
+                              value={pfPrice}
+                              onChange={e => setPfPrice(e.target.value)}
+                              placeholder="0.00"
+                              style={{ width: '100%', padding: '6px 8px', borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border2)', fontSize: 12, color: 'var(--ink)', outline: 'none', boxSizing: 'border-box' }}
+                            />
+                          </div>
+                          <div style={{ marginBottom: 8 }}>
+                            <div style={{ fontSize: 10, color: 'var(--ink3)', marginBottom: 3 }}>Quantity</div>
+                            <input
+                              type="number"
+                              value={pfQty}
+                              onChange={e => setPfQty(e.target.value)}
+                              min={1}
+                              placeholder="1"
+                              style={{ width: '100%', padding: '6px 8px', borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border2)', fontSize: 12, color: 'var(--ink)', outline: 'none', boxSizing: 'border-box' }}
+                            />
+                          </div>
+                          {pfError && <div style={{ fontSize: 10, color: '#ff6b6b', marginBottom: 6 }}>{pfError}</div>}
+                          <button
+                            onClick={submitPortfolio}
+                            disabled={pfLoading}
+                            style={{ width: '100%', padding: '7px 0', borderRadius: 7, background: 'var(--gold)', border: 'none', fontSize: 12, fontWeight: 700, color: '#0f0f1c', cursor: pfLoading ? 'default' : 'pointer' }}
+                          >
+                            {pfLoading ? '…' : 'Add'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   )}
                   {/* Live data badge + force refresh */}
                   {liveData && (

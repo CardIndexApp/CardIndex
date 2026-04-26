@@ -48,7 +48,7 @@ interface SearchResult {
   image?: string
 }
 
-type SortKey = 'pl' | 'plpct' | 'current' | 'cost' | 'change24h' | 'change30d' | 'name'
+type SortKey = 'pl' | 'plpct' | 'current' | 'cost' | 'change24h' | 'change7d' | 'change30d' | 'name'
 
 const GRADES = [
   'Raw', 'PSA 10', 'PSA 9', 'PSA 8', 'PSA 7', 'PSA 6',
@@ -69,6 +69,11 @@ function fmtPct(n: number | null) {
   return `${pctSign(n)}${n.toFixed(1)}%`
 }
 
+/** Format a USD amount with the sign BEFORE the currency symbol (−A$698, not A$−698) */
+function fmtSigned(fmtFn: (n: number) => string, usd: number): string {
+  return (usd >= 0 ? '+' : '−') + fmtFn(Math.abs(usd))
+}
+
 function calcChanges(pd: PriceData) {
   const cur = pd.price
   const c7  = pd.avg7d  ? ((cur - pd.avg7d)  / pd.avg7d)  * 100 : null
@@ -82,18 +87,18 @@ function SkeletonRow({ last }: { last: boolean }) {
   return (
     <div className="pf-row" style={{ borderBottom: last ? 'none' : '1px solid var(--border)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--surface2)' }} className="sk-pulse" />
+        <div style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--surface2)', flexShrink: 0 }} className="sk-pulse" />
         <div>
-          <div style={{ width: 130, height: 12, borderRadius: 4, background: 'var(--surface2)', marginBottom: 6 }} className="sk-pulse" />
-          <div style={{ width: 80, height: 10, borderRadius: 4, background: 'var(--surface2)' }} className="sk-pulse" />
+          <div style={{ width: 120, height: 12, borderRadius: 4, background: 'var(--surface2)', marginBottom: 6 }} className="sk-pulse" />
+          <div style={{ width: 75, height: 10, borderRadius: 4, background: 'var(--surface2)' }} className="sk-pulse" />
         </div>
       </div>
-      {[60, 70, 70, 52, 52, 52, 80].map((w, i) => (
-        <div key={i} style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <div style={{ width: w, height: 13, borderRadius: 4, background: 'var(--surface2)' }} className="sk-pulse" />
+      {[38, 68, 68, 44, 44, 44, 80].map((w, i) => (
+        <div key={i} className="pf-hide-mobile" style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <div style={{ width: w, height: 12, borderRadius: 4, background: 'var(--surface2)' }} className="sk-pulse" />
         </div>
       ))}
-      <div />
+      <div className="pf-hide-mobile" />
     </div>
   )
 }
@@ -522,9 +527,14 @@ export default function PortfolioPage() {
       if (sort === 'current')  return dir * ((bp?.price ?? 0) - (ap?.price ?? 0))
       if (sort === 'cost')     return dir * (b.purchase_price - a.purchase_price)
       if (sort === 'change24h') return dir * ((bp?.price_change_pct ?? 0) - (ap?.price_change_pct ?? 0))
+      if (sort === 'change7d') {
+        const ac = ap?.avg7d  ? ((ap.price - ap.avg7d)  / ap.avg7d)  * 100 : 0
+        const bc = bp?.avg7d  ? ((bp.price - bp.avg7d)  / bp.avg7d)  * 100 : 0
+        return dir * (bc - ac)
+      }
       if (sort === 'change30d') {
-        const ac = ap ? ((ap.price - (ap.avg30d ?? ap.price)) / (ap.avg30d ?? ap.price)) * 100 : 0
-        const bc = bp ? ((bp.price - (bp.avg30d ?? bp.price)) / (bp.avg30d ?? bp.price)) * 100 : 0
+        const ac = ap?.avg30d ? ((ap.price - ap.avg30d) / ap.avg30d) * 100 : 0
+        const bc = bp?.avg30d ? ((bp.price - bp.avg30d) / bp.avg30d) * 100 : 0
         return dir * (bc - ac)
       }
       if (sort === 'plpct') {
@@ -586,19 +596,30 @@ export default function PortfolioPage() {
         .sk-pulse { animation: sk-pulse 1.6s ease-in-out infinite; }
         .pf-row, .pf-header {
           display: grid;
-          grid-template-columns: 2fr 48px 96px 96px 64px 64px 64px 96px 52px;
+          grid-template-columns: minmax(160px,2fr) 48px 96px 96px 60px 60px 60px 110px 64px;
           align-items: center;
           padding: 0 20px;
-          gap: 4px;
+          gap: 6px;
         }
         .pf-header { padding: 10px 20px; }
-        .pf-row    { padding: 12px 20px; min-height: 64px; }
+        .pf-row    { padding: 11px 20px; min-height: 62px; }
         .pf-hide-mobile { display: flex; }
-        @media (max-width: 700px) {
+        .pf-act-btn {
+          height: 28px; padding: 0 10px; border-radius: 7px;
+          border: 1px solid var(--border); background: transparent;
+          color: var(--ink3); font-size: 11px; font-weight: 600;
+          cursor: pointer; white-space: nowrap; transition: all 0.15s;
+        }
+        .pf-act-btn:hover { border-color: var(--gold); color: var(--gold); }
+        .pf-act-btn.del:hover { border-color: var(--red); color: var(--red); }
+        @media (max-width: 760px) {
           .pf-row, .pf-header {
-            grid-template-columns: 1fr 72px 72px 44px;
+            grid-template-columns: 1fr 88px 64px;
+            gap: 4px;
           }
           .pf-hide-mobile { display: none !important; }
+          .pf-row { padding: 12px 14px; min-height: 56px; }
+          .pf-header { padding: 8px 14px; }
         }
       `}</style>
 
@@ -643,13 +664,13 @@ export default function PortfolioPage() {
               },
               {
                 label: 'Total P&L',
-                value: `${totalPLUSD >= 0 ? '+' : ''}${fmtCurrency(totalPLUSD)}`,
+                value: fmtSigned(fmtCurrency, totalPLUSD),
                 sub: `${pctSign(totalPLPct)}${totalPLPct.toFixed(1)}% overall`,
                 color: totalPLUSD >= 0 ? 'var(--green)' : 'var(--red)',
               },
               {
-                label: 'Today\'s Gain',
-                value: `${dayGainUSD >= 0 ? '+' : ''}${fmtCurrency(dayGainUSD)}`,
+                label: "Today's Gain",
+                value: fmtSigned(fmtCurrency, dayGainUSD),
                 sub: '24h change',
                 color: dayGainUSD >= 0 ? 'var(--green)' : 'var(--red)',
               },
@@ -684,14 +705,14 @@ export default function PortfolioPage() {
               <button onClick={() => handleSort('name')} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', fontSize: 10, letterSpacing: 1, color: sort === 'name' ? 'var(--gold)' : 'var(--ink3)', fontWeight: sort === 'name' ? 700 : 500, display: 'flex', gap: 4, alignItems: 'center' }}>
                 CARD {sort === 'name' && <span style={{ fontSize: 9 }}>{sortDir === 'desc' ? '▼' : '▲'}</span>}
               </button>
+              <SortTh label="CURRENT" k="current" />
+              <SortTh label="P&amp;L" k="plpct" />
               <div className="pf-hide-mobile" style={{ textAlign: 'right', fontSize: 10, letterSpacing: 1, color: 'var(--ink3)' }}>QTY</div>
               <SortTh label="COST/EA" k="cost" />
-              <SortTh label="CURRENT" k="current" />
               <SortTh label="24H" k="change24h" />
-              <SortTh label="7D" k="pl" />
+              <SortTh label="7D" k="change7d" />
               <SortTh label="30D" k="change30d" />
-              <SortTh label="P&L" k="plpct" />
-              <div />
+              <div className="pf-hide-mobile" />
             </div>
 
             {/* Loading skeletons */}
@@ -748,90 +769,76 @@ export default function PortfolioPage() {
                       <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pos.card_name}</div>
                       <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>
                         {pos.set_name ? `${pos.set_name} · ` : ''}{pos.grade}
+                        {pos.purchased_at && <span style={{ opacity: 0.55 }}> · {new Date(pos.purchased_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })}</span>}
                       </div>
-                      {pos.purchased_at && (
-                        <div style={{ fontSize: 10, color: 'var(--ink3)', opacity: 0.6 }}>
-                          {new Date(pos.purchased_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                        </div>
-                      )}
+                      {/* Current price shown in card cell on mobile */}
+                      <div className="pf-show-mobile" style={{ fontSize: 11, color: 'var(--ink2)', marginTop: 3, fontWeight: 600 }}>
+                        {pd ? fmtCurrency(pd.price) : pos.priceLoading ? '…' : '—'}
+                        {pos.quantity > 1 && pd && <span style={{ color: 'var(--ink3)', fontWeight: 400 }}> × {pos.quantity}</span>}
+                      </div>
                     </div>
                   </Link>
 
-                  {/* Qty */}
-                  <div className="pf-hide-mobile" style={{ textAlign: 'right' }}>
-                    <span className="font-num" style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{pos.quantity}</span>
-                  </div>
-
-                  {/* Cost/card */}
-                  <div className="pf-hide-mobile" style={{ textAlign: 'right' }}>
-                    <div className="font-num" style={{ fontSize: 13, color: 'var(--ink2)' }}>{fmtCurrency(costUSD)}</div>
-                    <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>basis</div>
-                  </div>
-
-                  {/* Current */}
+                  {/* Current (desktop col 2, hidden on mobile — shown in card cell instead) */}
                   <div style={{ textAlign: 'right' }}>
                     {pos.priceLoading ? (
-                      <div style={{ width: 56, height: 14, borderRadius: 4, background: 'var(--surface2)', marginLeft: 'auto' }} className="sk-pulse" />
+                      <div style={{ width: 56, height: 13, borderRadius: 4, background: 'var(--surface2)', marginLeft: 'auto' }} className="sk-pulse" />
                     ) : pd ? (
                       <>
                         <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{fmtCurrency(pd.price)}</div>
-                        <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>× {pos.quantity}</div>
+                        {pos.quantity > 1 && <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>× {pos.quantity}</div>}
                       </>
                     ) : pos.priceError ? (
-                      <button
-                        onClick={() => fetchPrice(pos, true)}
-                        style={{ fontSize: 9, color: 'var(--ink3)', background: 'var(--surface2)', border: '1px solid var(--border2)', borderRadius: 4, padding: '2px 6px', cursor: 'pointer' }}
-                      >↺</button>
+                      <button onClick={() => fetchPrice(pos, true)} style={{ fontSize: 9, color: 'var(--ink3)', background: 'var(--surface2)', border: '1px solid var(--border2)', borderRadius: 4, padding: '2px 7px', cursor: 'pointer' }}>↺ retry</button>
                     ) : <span style={{ fontSize: 12, color: 'var(--ink3)' }}>—</span>}
                   </div>
 
-                  {/* 24h */}
-                  <div className="pf-hide-mobile" style={{ textAlign: 'right' }}>
-                    {pos.priceLoading ? <div style={{ width: 44, height: 12, borderRadius: 4, background: 'var(--surface2)', marginLeft: 'auto' }} className="sk-pulse" /> : <ChangePill value={changes?.c24 ?? null} />}
-                  </div>
-
-                  {/* 7d */}
-                  <div className="pf-hide-mobile" style={{ textAlign: 'right' }}>
-                    {pos.priceLoading ? <div style={{ width: 44, height: 12, borderRadius: 4, background: 'var(--surface2)', marginLeft: 'auto' }} className="sk-pulse" /> : <ChangePill value={changes?.c7 ?? null} />}
-                  </div>
-
-                  {/* 30d */}
-                  <div className="pf-hide-mobile" style={{ textAlign: 'right' }}>
-                    {pos.priceLoading ? <div style={{ width: 44, height: 12, borderRadius: 4, background: 'var(--surface2)', marginLeft: 'auto' }} className="sk-pulse" /> : <ChangePill value={changes?.c30 ?? null} />}
-                  </div>
-
-                  {/* P&L */}
+                  {/* P&L — shown on mobile too */}
                   <div style={{ textAlign: 'right' }}>
                     {pos.priceLoading ? (
-                      <div style={{ width: 64, height: 14, borderRadius: 4, background: 'var(--surface2)', marginLeft: 'auto' }} className="sk-pulse" />
+                      <div style={{ width: 60, height: 13, borderRadius: 4, background: 'var(--surface2)', marginLeft: 'auto' }} className="sk-pulse" />
                     ) : plTotalUSD != null ? (
                       <>
-                        <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: isUp ? 'var(--green)' : 'var(--red)' }}>
-                          {plTotalUSD >= 0 ? '+' : ''}{fmtCurrency(plTotalUSD)}
+                        <div className="font-num" style={{ fontSize: 12, fontWeight: 700, color: isUp ? 'var(--green)' : 'var(--red)' }}>
+                          {fmtSigned(fmtCurrency, plTotalUSD)}
                         </div>
-                        <div className="font-num" style={{ fontSize: 10, color: isUp ? 'var(--green)' : 'var(--red)', opacity: 0.75, marginTop: 2 }}>
+                        <div className="font-num" style={{ fontSize: 10, color: isUp ? 'var(--green)' : 'var(--red)', opacity: 0.8, marginTop: 2 }}>
                           {fmtPct(plPct)}
                         </div>
                       </>
                     ) : <span style={{ fontSize: 12, color: 'var(--ink3)' }}>—</span>}
                   </div>
 
+                  {/* Qty — desktop only */}
+                  <div className="pf-hide-mobile" style={{ textAlign: 'right' }}>
+                    <span className="font-num" style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{pos.quantity}</span>
+                  </div>
+
+                  {/* Cost/card — desktop only */}
+                  <div className="pf-hide-mobile" style={{ textAlign: 'right' }}>
+                    <div className="font-num" style={{ fontSize: 12, color: 'var(--ink2)' }}>{fmtCurrency(costUSD)}</div>
+                    <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>avg cost</div>
+                  </div>
+
+                  {/* 24h — desktop only */}
+                  <div className="pf-hide-mobile" style={{ textAlign: 'right' }}>
+                    {pos.priceLoading ? <div style={{ width: 40, height: 12, borderRadius: 4, background: 'var(--surface2)', marginLeft: 'auto' }} className="sk-pulse" /> : <ChangePill value={changes?.c24 ?? null} />}
+                  </div>
+
+                  {/* 7d — desktop only */}
+                  <div className="pf-hide-mobile" style={{ textAlign: 'right' }}>
+                    {pos.priceLoading ? <div style={{ width: 40, height: 12, borderRadius: 4, background: 'var(--surface2)', marginLeft: 'auto' }} className="sk-pulse" /> : <ChangePill value={changes?.c7 ?? null} />}
+                  </div>
+
+                  {/* 30d — desktop only */}
+                  <div className="pf-hide-mobile" style={{ textAlign: 'right' }}>
+                    {pos.priceLoading ? <div style={{ width: 40, height: 12, borderRadius: 4, background: 'var(--surface2)', marginLeft: 'auto' }} className="sk-pulse" /> : <ChangePill value={changes?.c30 ?? null} />}
+                  </div>
+
                   {/* Actions */}
-                  <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
-                    <button
-                      onClick={() => setEditPos(pos)}
-                      title="Edit"
-                      style={{ width: 26, height: 26, borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--ink3)', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.color = 'var(--gold)' }}
-                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--ink3)' }}
-                    >✎</button>
-                    <button
-                      onClick={e => handleRemove(e, pos.id)}
-                      title="Remove"
-                      style={{ width: 26, height: 26, borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--ink3)', fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--red)'; e.currentTarget.style.color = 'var(--red)' }}
-                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--ink3)' }}
-                    >×</button>
+                  <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end', alignItems: 'center' }}>
+                    <button className="pf-act-btn" onClick={() => setEditPos(pos)} title="Edit position">Edit</button>
+                    <button className="pf-act-btn del" onClick={e => handleRemove(e, pos.id)} title="Remove position">✕</button>
                   </div>
                 </div>
               )

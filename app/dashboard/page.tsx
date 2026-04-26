@@ -6,6 +6,8 @@ import Navbar from '@/components/Navbar'
 import { createClient } from '@/lib/supabase/client'
 import { rising, scoreColor } from '@/lib/data'
 import { usePullToRefresh } from '@/lib/usePullToRefresh'
+import { cacheGet } from '@/lib/searchCache'
+import { useCurrency } from '@/lib/currency'
 
 type Tier = 'free' | 'standard' | 'pro'
 
@@ -29,6 +31,13 @@ interface RecentlyViewedItem {
   grade: string
   set_name: string | null
   viewed_at: string
+}
+
+interface PortfolioStats {
+  posCount: number
+  costBasis: number       // USD
+  currentValue: number    // USD, from cache (0 if no cache hits)
+  cachedCount: number     // how many positions have a cached price
 }
 
 const QUICK_ACTIONS = [
@@ -117,23 +126,41 @@ function timeAgo(iso: string): string {
 export default function Dashboard() {
   const router = useRouter()
   const supabase = createClient()
+  const { fmtCurrency, currency, rates } = useCurrency()
 
   const [profile, setProfile] = useState<Profile | null>(null)
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([])
   const [recentlyViewed, setRecentlyViewed] = useState<RecentlyViewedItem[]>([])
+  const [portfolioStats, setPortfolioStats] = useState<PortfolioStats | null>(null)
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.replace('/'); return }
 
-    const [{ data: prof }, { data: wl }] = await Promise.all([
+    const [{ data: prof }, { data: wl }, { data: pf }] = await Promise.all([
       supabase.from('profiles').select('email, username, tier').eq('id', user.id).single(),
       supabase.from('watchlists').select('id, card_id, card_name, set_name, grade').eq('user_id', user.id).order('added_at', { ascending: false }).limit(5),
+      supabase.from('portfolios').select('id, card_id, grade, purchase_price, quantity').eq('user_id', user.id),
     ])
 
     setProfile(prof ?? { email: user.email ?? '', username: null, tier: 'free' })
     setWatchlist(wl ?? [])
+
+    // Portfolio stats — use locally cached prices where available
+    const positions = pf ?? []
+    let costBasis = 0
+    let currentValue = 0
+    let cachedCount = 0
+    for (const pos of positions) {
+      costBasis += (pos.purchase_price as number) * (pos.quantity as number)
+      const hit = cacheGet<{ price: number }>(`${pos.card_id}:${pos.grade}`)
+      if (hit?.price) {
+        currentValue += hit.price * (pos.quantity as number)
+        cachedCount++
+      }
+    }
+    setPortfolioStats({ posCount: positions.length, costBasis, currentValue, cachedCount })
 
     // Recently viewed — stored in localStorage under the user's key
     try {
@@ -218,9 +245,11 @@ export default function Dashboard() {
           </div>
 
           {/* ── Quick Actions ── */}
-          <div className="dash-quick-actions" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 32 }}>
+          <div className="dash-quick-actions" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: portfolioStats && portfolioStats.posCount > 0 ? 16 : 32 }}>
             {QUICK_ACTIONS.map(action => (
-              <Link key={action.href} href={action.href} style={{ textDecoration: 'none', borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', padding: '20px', display: 'flex', flexDirection: 'column', gap: 12, transition: 'border-color 0.15s, transform 0.15s' }}
+              <Link key={action.href} href={action.href}
+                className={action.href === '/account' ? 'dash-qa-account' : undefined}
+                style={{ textDecoration: 'none', borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', padding: '20px', display: 'flex', flexDirection: 'column', gap: 12, transition: 'border-color 0.15s, transform 0.15s' }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = action.border; e.currentTarget.style.transform = 'translateY(-1px)' }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border2)'; e.currentTarget.style.transform = 'translateY(0)' }}
               >
@@ -234,6 +263,57 @@ export default function Dashboard() {
               </Link>
             ))}
           </div>
+
+          {/* ── Portfolio Snapshot ── */}
+          {portfolioStats && portfolioStats.posCount > 0 && (() => {
+            const rate = rates[currency] ?? 1
+            const costLocal  = portfolioStats.costBasis * rate
+            const hasPrices  = portfolioStats.cachedCount > 0
+            const valueLocal = portfolioStats.currentValue * rate
+            const pnlLocal   = hasPrices ? valueLocal - costLocal : null
+            const pnlPct     = hasPrices && costLocal > 0 ? (pnlLocal! / costLocal) * 100 : null
+            const pnlPos     = pnlLocal == null ? null : pnlLocal >= 0
+            return (
+              <Link href="/portfolio" className="dash-pf-snap" style={{ textDecoration: 'none', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0, marginBottom: 16, borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden', transition: 'border-color 0.15s' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(61,232,138,0.3)' }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border2)' }}
+              >
+                <div style={{ padding: '14px 20px', borderRight: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', marginBottom: 5, fontWeight: 600 }}>PORTFOLIO VALUE</div>
+                  <div className="font-num" style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>
+                    {hasPrices ? fmtCurrency(valueLocal) : fmtCurrency(costLocal)}
+                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>
+                    {portfolioStats.posCount} position{portfolioStats.posCount !== 1 ? 's' : ''}
+                    {hasPrices && portfolioStats.cachedCount < portfolioStats.posCount ? ` · ${portfolioStats.cachedCount} priced` : ''}
+                  </div>
+                </div>
+                <div style={{ padding: '14px 20px', borderRight: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', marginBottom: 5, fontWeight: 600 }}>COST BASIS</div>
+                  <div className="font-num" style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>{fmtCurrency(costLocal)}</div>
+                  <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>total invested</div>
+                </div>
+                <div style={{ padding: '14px 20px' }}>
+                  <div style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', marginBottom: 5, fontWeight: 600 }}>TOTAL P&amp;L</div>
+                  {pnlLocal != null ? (
+                    <>
+                      <div className="font-num" style={{ fontSize: 18, fontWeight: 700, color: pnlPos ? 'var(--green)' : '#ff6b6b' }}>
+                        {pnlPos ? '+' : '−'}{fmtCurrency(Math.abs(pnlLocal))}
+                      </div>
+                      <div style={{ fontSize: 10, color: pnlPos ? 'var(--green)' : '#ff6b6b', marginTop: 2, opacity: 0.75 }}>
+                        {pnlPos ? '+' : ''}{pnlPct?.toFixed(1)}%
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="font-num" style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink3)' }}>—</div>
+                      <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>visit portfolio to load</div>
+                    </>
+                  )}
+                </div>
+              </Link>
+            )
+          })()}
 
           {/* ── Two column: Watchlist + Market movers ── */}
           <div className="dash-two-col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
@@ -366,7 +446,11 @@ export default function Dashboard() {
         @keyframes ptr-spin { to { transform: rotate(360deg); } }
         @media (max-width: 640px) {
           .dash-two-col { grid-template-columns: 1fr !important; }
-          .dash-quick-actions { grid-template-columns: repeat(2, 1fr) !important; grid-template-rows: auto auto auto !important; }
+          .dash-quick-actions { grid-template-columns: repeat(2, 1fr) !important; }
+          .dash-qa-account { grid-column: span 2 !important; }
+          .dash-pf-snap { grid-template-columns: 1fr 1fr !important; }
+          .dash-pf-snap > div:last-child { grid-column: span 2; border-right: none !important; border-top: 1px solid var(--border); }
+          .dash-pf-snap > div:nth-child(2) { border-right: none !important; }
         }
       `}</style>
     </>

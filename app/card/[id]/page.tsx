@@ -168,6 +168,8 @@ const PAGE_STYLES = `
     .ci-analysis-panel { padding: 14px !important; }
     .ci-page-outer { padding: 0 12px !important; }
     .ci-section { margin-bottom: 8px !important; }
+    .ci-pc-row { grid-template-columns: 1fr 1fr !important; }
+    .ci-pc-row > div:last-child { grid-column: 1 / -1; }
   }
 
   @media (min-width: 701px) {
@@ -395,6 +397,32 @@ function computeAnalysis(d: LiveData) {
   return { signal, sigColor, sigBg, sigBorder, vs7d, vs30d, liqLabel, liqColor, consPct, consLabel, valuePct, valueLabel, rangePct, rangeLabel, rangeColor, reasoning }
 }
 
+// ── Price Check ───────────────────────────────────────────────────────────────
+// Produces a modified LiveData snapshot where the "price" the user is paying
+// replaces the market price for the purposes of analysis. The value component
+// is recalculated using the same formula as lib/score.ts, which pushes the
+// signal toward BUY when the found price is significantly below market.
+function buildPriceCheckData(base: LiveData, userPrice: number): LiveData {
+  const market = base.price
+  if (!market || market <= 0 || !base.score_breakdown) return base
+
+  // Compare user price against 30d avg (fair-value proxy), or market if unavailable
+  const valueBase = base.avg30d ?? market
+  const diffPct   = valueBase > 0 ? ((userPrice - valueBase) / valueBase) * 100 : 0
+
+  // Same clamp formula as lib/score.ts value component
+  const newValue  = Math.max(0, Math.min(20, Math.round(10 - diffPct / 2)))
+  const delta     = newValue - base.score_breakdown.value
+  const newTotal  = Math.max(1, Math.min(100, base.score_breakdown.total + delta))
+
+  return {
+    ...base,
+    price: userPrice,  // so computeAnalysis recalculates vs7d / vs30d from buyer's POV
+    score: newTotal,
+    score_breakdown: { ...base.score_breakdown, value: newValue, total: newTotal },
+  }
+}
+
 function gradeToPoketraceTier(grade: string): string {
   if (!grade || grade === 'Raw' || grade === 'Ungraded') return 'NEAR_MINT'
   return grade.trim().replace(/\s+/g, '_').replace(/\./g, '_')
@@ -581,7 +609,18 @@ export default function CardPage() {
   const [analysisWindow, setAnalysisWindow] = useState<'1M' | '3M' | '6M'>('3M')
   const [chartWindow, setChartWindow] = useState<'7d' | '30d' | '90d'>('30d')
   const [showAnalysis, setShowAnalysis] = useState(false)
-  const [activeTip, setActiveTip] = useState<string | null>(null)
+  const [activeTip, setActiveTip]             = useState<string | null>(null)
+  const [priceCheckOpen, setPriceCheckOpen]   = useState(false)
+  const [priceCheckInput, setPriceCheckInput] = useState('')
+  const [priceCheckPrice, setPriceCheckPrice] = useState<number | null>(null)
+
+  function commitPriceCheck() {
+    const p = parseFloat(priceCheckInput.replace(/[^0-9.]/g, ''))
+    if (p > 0) { setPriceCheckPrice(p); setPriceCheckOpen(false) }
+  }
+  function clearPriceCheck() {
+    setPriceCheckPrice(null); setPriceCheckInput(''); setPriceCheckOpen(false)
+  }
 
   const handleAnalyse = useCallback(() => {
     const parsed = parseFloat(priceInput.replace(/[^0-9.]/g, ''))
@@ -778,8 +817,133 @@ export default function CardPage() {
                       ))}
                     </div>
                   )}
+
+                  {/* ── Price Check trigger ─────────────────────────────── */}
+                  <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+                    {priceCheckOpen ? (
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <div style={{ position: 'relative', flex: 1 }}>
+                          <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink3)', fontSize: 13, pointerEvents: 'none' }}>$</span>
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            value={priceCheckInput}
+                            onChange={e => setPriceCheckInput(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && commitPriceCheck()}
+                            placeholder="Enter found price…"
+                            autoFocus
+                            style={{
+                              width: '100%', padding: '9px 10px 9px 22px',
+                              borderRadius: 8, background: 'var(--surface2)',
+                              border: '1.5px solid var(--border2)', color: 'var(--ink)',
+                              fontSize: 14, outline: 'none', boxSizing: 'border-box',
+                              WebkitAppearance: 'none', appearance: 'none',
+                            }}
+                            onFocus={e => (e.currentTarget.style.borderColor = 'var(--gold)')}
+                            onBlur={e => (e.currentTarget.style.borderColor = 'var(--border2)')}
+                          />
+                        </div>
+                        <button onClick={commitPriceCheck} style={{ padding: '9px 16px', borderRadius: 8, background: 'var(--gold)', color: '#080810', fontSize: 13, fontWeight: 700, border: 'none', cursor: 'pointer', flexShrink: 0 }}>
+                          Check
+                        </button>
+                        <button onClick={clearPriceCheck} style={{ padding: '9px 10px', borderRadius: 8, background: 'none', border: '1px solid var(--border2)', color: 'var(--ink3)', fontSize: 13, cursor: 'pointer', flexShrink: 0 }}>
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => { setPriceCheckOpen(true); if (priceCheckPrice) setPriceCheckInput(String(priceCheckPrice)) }}
+                        style={{ width: '100%', padding: '9px 0', borderRadius: 8, background: 'none', border: '1px solid var(--border2)', color: priceCheckPrice ? 'var(--gold)' : 'var(--ink2)', fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'border-color 0.15s' }}
+                        onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--gold)')}
+                        onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border2)')}
+                      >
+                        {priceCheckPrice ? `🔎 Price Check · ${fmtCurrency(priceCheckPrice)} — tap to update` : '🔎 Price Check'}
+                      </button>
+                    )}
+                  </div>
                 </div>
 
+                {/* ── Price Check result panel ──────────────────────────── */}
+                {priceCheckPrice && priceCheckPrice > 0 && liveData.price > 0 && liveData.score_breakdown && (() => {
+                  const pct      = ((priceCheckPrice - liveData.price) / liveData.price) * 100
+                  const verdict  = getPriceVerdict(pct)
+                  const pcData   = buildPriceCheckData(liveData, priceCheckPrice)
+                  const pa       = computeAnalysis(pcData)
+                  const ma       = computeAnalysis(liveData)
+                  const scoreGain = pcData.score - liveData.score
+                  const origValue = liveData.score_breakdown.value
+                  const newValue  = pcData.score_breakdown!.value
+                  return (
+                    <div style={{ borderRadius: 14, background: 'var(--surface)', border: `1.5px solid ${verdict.border}`, padding: '20px', marginBottom: 10 }}>
+
+                      {/* Header */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                        <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)' }}>PRICE CHECK</span>
+                        <button onClick={clearPriceCheck} style={{ fontSize: 11, color: 'var(--ink3)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px' }}>
+                          ✕ Clear
+                        </button>
+                      </div>
+
+                      {/* Price comparison */}
+                      <div className="ci-pc-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 14 }}>
+                        <div style={{ textAlign: 'center', padding: '12px 8px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)' }}>
+                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6 }}>YOU FOUND</div>
+                          <div className="font-num" style={{ fontSize: 20, fontWeight: 800, color: pct <= 0 ? '#3de88a' : '#e8524a', letterSpacing: '-1px' }}>{fmtCurrency(priceCheckPrice)}</div>
+                        </div>
+                        <div style={{ textAlign: 'center', padding: '12px 8px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)' }}>
+                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6 }}>MARKET</div>
+                          <div className="font-num" style={{ fontSize: 20, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-1px' }}>{fmtCurrency(liveData.price)}</div>
+                        </div>
+                        <div style={{ textAlign: 'center', padding: '12px 8px', borderRadius: 10, background: verdict.bg, border: `1px solid ${verdict.border}` }}>
+                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: verdict.color, marginBottom: 6, opacity: 0.8 }}>VS MARKET</div>
+                          <div className="font-num" style={{ fontSize: 20, fontWeight: 800, color: verdict.color, letterSpacing: '-1px' }}>
+                            {pct <= 0 ? '' : '+'}{pct.toFixed(1)}%
+                          </div>
+                          <div style={{ fontSize: 9, fontWeight: 700, color: verdict.color, marginTop: 4, letterSpacing: 1 }}>{verdict.label}</div>
+                        </div>
+                      </div>
+
+                      {/* Signal / Score / Value row */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
+                        {/* Adjusted signal */}
+                        <div style={{ textAlign: 'center', padding: '14px 8px', borderRadius: 10, background: pa.sigBg, border: `1px solid ${pa.sigBorder}` }}>
+                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: pa.sigColor, marginBottom: 8, opacity: 0.75 }}>AT YOUR PRICE</div>
+                          <div style={{ fontSize: 16, fontWeight: 800, color: pa.sigColor, letterSpacing: 1.5 }}>{pa.signal}</div>
+                          {pa.signal !== ma.signal && (
+                            <div style={{ fontSize: 9, color: 'var(--ink3)', marginTop: 6 }}>
+                              was <span style={{ color: ma.sigColor, fontWeight: 700 }}>{ma.signal}</span>
+                            </div>
+                          )}
+                        </div>
+                        {/* Adjusted score */}
+                        <div style={{ textAlign: 'center', padding: '14px 8px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>SCORE</div>
+                          <div className="font-num" style={{ fontSize: 22, fontWeight: 800, color: scoreColor(pcData.score), letterSpacing: '-1px' }}>{pcData.score}</div>
+                          {scoreGain !== 0 && (
+                            <div style={{ fontSize: 9, color: scoreGain > 0 ? '#3de88a' : '#e8524a', marginTop: 4, fontWeight: 700 }}>
+                              {scoreGain > 0 ? '+' : ''}{scoreGain} vs market
+                            </div>
+                          )}
+                        </div>
+                        {/* Value score */}
+                        <div style={{ textAlign: 'center', padding: '14px 8px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>VALUE</div>
+                          <div className="font-num" style={{ fontSize: 22, fontWeight: 800, color: scoreColor(Math.round(newValue / 20 * 100)), letterSpacing: '-1px' }}>{newValue}/20</div>
+                          {newValue !== origValue && (
+                            <div style={{ fontSize: 9, color: 'var(--ink3)', marginTop: 4 }}>
+                              was {origValue}/20
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Reasoning */}
+                      <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)' }}>
+                        <p style={{ fontSize: 12, color: 'var(--ink2)', lineHeight: 1.7, margin: 0 }}>{pa.reasoning}</p>
+                      </div>
+                    </div>
+                  )
+                })()}
 
                 {/* Analysis panel */}
                 {liveData.score_breakdown && (() => {

@@ -74,15 +74,19 @@ function CardThumb({ src, alt }: { src: string; alt: string }) {
 export default function SearchPage() {
   const router = useRouter()
 
-  const [query, setQuery]             = useState('')
-  const [results, setResults]         = useState<PtCard[]>([])
-  const [loading, setLoading]         = useState(false)
-  const [hasSearched, setHasSearched] = useState(false)
-  const [selectedCard, setSelectedCard]   = useState<PtCard | null>(null)
-  const [selectedGrade, setSelectedGrade] = useState<string | null>(null)
-  const [isMobile, setIsMobile]       = useState(false)
+  const [query, setQuery]                   = useState('')
+  const [results, setResults]               = useState<PtCard[]>([])
+  const [loading, setLoading]               = useState(false)
+  // committedQuery: the query string whose results are currently displayed.
+  // "No results" is only shown when this matches what the user has typed,
+  // preventing false empties while the user is still mid-word.
+  const [committedQuery, setCommittedQuery] = useState('')
+  const [selectedCard, setSelectedCard]     = useState<PtCard | null>(null)
+  const [selectedGrade, setSelectedGrade]   = useState<string | null>(null)
+  const [isMobile, setIsMobile]             = useState(false)
 
   const debounceRef  = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const abortRef     = useRef<AbortController | null>(null)
   const inputRef     = useRef<HTMLInputElement>(null)
   const selectedRef  = useRef<HTMLDivElement>(null)
 
@@ -94,7 +98,17 @@ export default function SearchPage() {
   // ── Search ────────────────────────────────────────────────────────────────
   const runSearch = useCallback(async (raw: string) => {
     const { name, number } = parseQuery(raw)
-    if (name.length < MIN_CHARS) { setResults([]); setHasSearched(false); return }
+    if (name.length < MIN_CHARS) {
+      setResults([])
+      setCommittedQuery('')
+      setLoading(false)
+      return
+    }
+
+    // Cancel any in-flight request so stale responses never overwrite newer ones
+    if (abortRef.current) abortRef.current.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
 
     setSelectedCard(null)
     setSelectedGrade(null)
@@ -106,30 +120,42 @@ export default function SearchPage() {
     const key = cacheKey(params)
     const cached = cacheGet<PtCard[]>(key)
     if (cached) {
+      if (controller.signal.aborted) return
       setResults(cached)
-      setHasSearched(true)
+      setCommittedQuery(raw.trim())
       setLoading(false)
       return
     }
 
-    setLoading(true)
     try {
-      const res  = await fetch(`/api/pt/cards?${params}`)
+      const res  = await fetch(`/api/pt/cards?${params}`, { signal: controller.signal })
+      if (controller.signal.aborted) return   // newer search already running — discard
       const json = await res.json()
       const data: PtCard[] = json.data ?? []
       setResults(data)
-      setHasSearched(true)
+      setCommittedQuery(raw.trim())
       if (data.length > 0) cacheSet(key, data)
-    } catch {
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return  // intentionally cancelled
       setResults([])
+      setCommittedQuery(raw.trim())
     } finally {
-      setLoading(false)
+      if (!controller.signal.aborted) setLoading(false)
     }
   }, [])
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    if (!query.trim()) { setResults([]); setHasSearched(false); setLoading(false); return }
+
+    if (!query.trim()) {
+      // Abort any in-flight fetch immediately when the box is cleared
+      if (abortRef.current) abortRef.current.abort()
+      setResults([])
+      setCommittedQuery('')
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     debounceRef.current = setTimeout(() => runSearch(query), DEBOUNCE_MS)
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
@@ -160,7 +186,7 @@ export default function SearchPage() {
   }
 
   function clearSearch() {
-    setQuery(''); setResults([]); setHasSearched(false)
+    setQuery(''); setResults([]); setCommittedQuery('')
     inputRef.current?.focus()
   }
 
@@ -237,7 +263,7 @@ export default function SearchPage() {
         )}
 
         {/* Empty state — browse fallback */}
-        {!hasSearched && !loading && (
+        {!committedQuery && !loading && (
           <div style={{ textAlign: 'center', marginTop: 56, padding: '0 8px' }}>
             <div style={{ fontSize: 32, marginBottom: 12 }}>🔍</div>
             <p style={{ fontSize: 14, color: 'var(--ink2)', fontWeight: 600, marginBottom: 6 }}>
@@ -263,12 +289,13 @@ export default function SearchPage() {
           </div>
         )}
 
-        {/* No results */}
-        {hasSearched && !loading && results.length === 0 && (
+        {/* No results — only shown when the committed (fetched) query matches
+            what the user currently has typed, preventing false empties mid-word */}
+        {committedQuery && committedQuery === query.trim() && !loading && results.length === 0 && (
           <div style={{ textAlign: 'center', padding: '48px 0' }}>
             <div style={{ fontSize: 28, marginBottom: 12 }}>¯\_(ツ)_/¯</div>
             <p style={{ fontSize: 14, color: 'var(--ink2)', fontWeight: 600, marginBottom: 6 }}>
-              No cards found for "{query}"
+              No cards found for "{committedQuery}"
             </p>
             <p style={{ fontSize: 13, color: 'var(--ink3)' }}>
               Try a different name, or remove the number

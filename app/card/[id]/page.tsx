@@ -8,7 +8,7 @@ import Navbar from '@/components/Navbar'
 import { getCard, fmt, scoreColor } from '@/lib/data'
 import { tcgImg } from '@/lib/img'
 import { createClient } from '@/lib/supabase/client'
-import { useCurrency } from '@/lib/currency'
+import { useCurrency, CURRENCIES } from '@/lib/currency'
 
 const GRADES = [
   { key: 'RAW', label: 'Ungraded' },
@@ -58,62 +58,91 @@ function TileInfo({ id, text, activeTip, setActiveTip }: {
   activeTip: string | null
   setActiveTip: (v: string | null) => void
 }) {
-  const open = activeTip === id
+  const open   = activeTip === id
   const btnRef = useRef<HTMLButtonElement>(null)
-  const [tipRect, setTipRect] = useState<{ top: number; left: number; alignRight: boolean } | null>(null)
+  const [tipRect, setTipRect] = useState<{
+    top: number; left: number; alignRight: boolean; above: boolean
+  } | null>(null)
 
   function openTip() {
-    if (btnRef.current) {
-      const r = btnRef.current.getBoundingClientRect()
-      const tipW = Math.min(210, window.innerWidth - 24)
-      // Prefer aligning right edge of tooltip to right edge of icon.
-      // If that would overflow left, flip to align left edge of tooltip to left edge of icon.
-      const alignRight = r.right - tipW >= 8
-      setTipRect({ top: r.bottom + 6, left: alignRight ? r.right : r.left, alignRight })
-    }
+    if (!btnRef.current) { setActiveTip(id); return }
+    const r     = btnRef.current.getBoundingClientRect()
+    const tipW  = Math.min(220, window.innerWidth - 24)
+    // Horizontal: align right edge of tooltip to button right unless that would clip left edge
+    const alignRight = r.right - tipW >= 8
+    // Vertical: place below by default; flip above if less than 120px below the button
+    const above = window.innerHeight - r.bottom < 120
+    const top   = above ? r.top - 8 : r.bottom + 8  // 8px gap in both directions
+    setTipRect({ top, left: alignRight ? r.right : r.left, alignRight, above })
     setActiveTip(id)
   }
 
   return (
-    <span style={{ position: 'absolute', top: 8, right: 8, zIndex: 10 }}>
+    // Outer hit area is 32×32 for comfortable mobile tapping
+    <span
+      style={{ position: 'absolute', top: 4, right: 4, zIndex: 10,
+        width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+    >
       <button
         ref={btnRef}
-        onMouseEnter={() => openTip()}
-        onMouseLeave={() => setActiveTip(null)}
+        // Hover (mouse only) — pointer events let us distinguish mouse vs touch
+        onPointerEnter={e => { if (e.pointerType !== 'touch') openTip() }}
+        onPointerLeave={e => { if (e.pointerType !== 'touch') setActiveTip(null) }}
+        // Tap / click toggle
         onClick={e => { e.stopPropagation(); open ? setActiveTip(null) : openTip() }}
-        style={{ width: 16, height: 16, borderRadius: '50%', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.13)', color: 'rgba(255,255,255,0.35)', fontSize: 9, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, lineHeight: 1 }}
+        style={{
+          width: 18, height: 18, borderRadius: '50%',
+          background: open ? 'rgba(232,197,71,0.18)' : 'rgba(255,255,255,0.07)',
+          border: `1px solid ${open ? 'rgba(232,197,71,0.4)' : 'rgba(255,255,255,0.13)'}`,
+          color: open ? 'var(--gold)' : 'rgba(255,255,255,0.4)',
+          fontSize: 9, fontWeight: 700, cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: 0, lineHeight: 1, transition: 'all 0.15s',
+        }}
         aria-label="More info"
+        aria-expanded={open}
       >i</button>
+
       {open && tipRect && typeof document !== 'undefined' && createPortal(
         <div
-          onMouseEnter={() => setActiveTip(id)}
-          onMouseLeave={() => setActiveTip(null)}
+          // Keep open while hovering the tooltip itself (mouse only)
+          onPointerEnter={e => { if (e.pointerType !== 'touch') setActiveTip(id) }}
+          onPointerLeave={e => { if (e.pointerType !== 'touch') setActiveTip(null) }}
           onClick={e => e.stopPropagation()}
           style={{
             position: 'fixed',
-            top: tipRect.top,
+            // Vertical placement — above or below the button
+            ...(tipRect.above
+              ? { bottom: window.innerHeight - tipRect.top }
+              : { top: tipRect.top }),
+            // Horizontal placement — right- or left-aligned
             ...(tipRect.alignRight
               ? { right: window.innerWidth - tipRect.left }
               : { left: tipRect.left }),
             zIndex: 9999,
             background: '#1a1a2e',
-            border: '1px solid rgba(255,255,255,0.12)',
+            border: '1px solid rgba(255,255,255,0.14)',
             borderRadius: 10,
-            padding: '10px 13px',
-            width: Math.min(210, window.innerWidth - 24),
-            fontSize: 11,
-            color: 'rgba(255,255,255,0.7)',
-            lineHeight: 1.55,
-            boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+            padding: '11px 14px',
+            width: Math.min(220, window.innerWidth - 24),
+            fontSize: 12,
+            color: 'rgba(255,255,255,0.75)',
+            lineHeight: 1.6,
+            boxShadow: '0 8px 40px rgba(0,0,0,0.7)',
             pointerEvents: 'auto',
           }}
         >
+          {/* Arrow — points down when above, up when below */}
           <div style={{
-            position: 'absolute', top: -5,
-            ...(tipRect.alignRight ? { right: 5 } : { left: 5 }),
-            width: 8, height: 8, background: '#1a1a2e',
-            border: '1px solid rgba(255,255,255,0.12)',
-            borderBottom: 'none', borderRight: 'none', rotate: '45deg',
+            position: 'absolute',
+            ...(tipRect.above
+              ? { bottom: -5, borderBottom: 'none', borderLeft: 'none' }
+              : { top: -5,    borderTop: 'none',    borderRight: 'none' }),
+            ...(tipRect.alignRight ? { right: 10 } : { left: 10 }),
+            width: 8, height: 8,
+            background: '#1a1a2e',
+            border: '1px solid rgba(255,255,255,0.14)',
+            rotate: '45deg',
           }} />
           {text}
         </div>,
@@ -175,6 +204,11 @@ const PAGE_STYLES = `
   @media (min-width: 701px) {
     .ci-hide-desktop { display: none !important; }
   }
+
+  /* Hide number-input spinners (price check field) */
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  input[type="number"] { -moz-appearance: textfield; }
 
   /* ── Print / PDF ─────────────────────────────────────── */
   #ci-print-header { display: none; }
@@ -439,7 +473,11 @@ export default function CardPage() {
   const card = getCard(id)
 
   // Currency conversion
-  const { fmtCurrency } = useCurrency()
+  const { fmtCurrency, currency, rates, convert } = useCurrency()
+  // Symbol for the active currency (e.g. "A$", "£")
+  const currencySymbol = CURRENCIES[currency]?.symbol ?? '$'
+  // Convert a user-entered local-currency amount → USD (what all internal prices use)
+  const toUSD = (localAmount: number) => localAmount / (rates[currency] ?? 1)
 
   const [apiCard, setApiCard] = useState<{ name: string; set: string; number: string; imageUrl: string; tags: string[] } | null>(null)
   const [imgError, setImgError] = useState(false)
@@ -615,8 +653,12 @@ export default function CardPage() {
   const [priceCheckPrice, setPriceCheckPrice] = useState<number | null>(null)
 
   function commitPriceCheck() {
-    const p = parseFloat(priceCheckInput.replace(/[^0-9.]/g, ''))
-    if (p > 0) { setPriceCheckPrice(p); setPriceCheckOpen(false) }
+    const local = parseFloat(priceCheckInput.replace(/[^0-9.]/g, ''))
+    if (local > 0) {
+      // Store as USD internally — all liveData prices are USD
+      setPriceCheckPrice(toUSD(local))
+      setPriceCheckOpen(false)
+    }
   }
   function clearPriceCheck() {
     setPriceCheckPrice(null); setPriceCheckInput(''); setPriceCheckOpen(false)
@@ -823,17 +865,19 @@ export default function CardPage() {
                     {priceCheckOpen ? (
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                         <div style={{ position: 'relative', flex: 1 }}>
-                          <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink3)', fontSize: 13, pointerEvents: 'none' }}>$</span>
+                          <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink3)', fontSize: 13, pointerEvents: 'none', userSelect: 'none' }}>
+                            {currencySymbol}
+                          </span>
                           <input
                             type="number"
                             inputMode="decimal"
                             value={priceCheckInput}
                             onChange={e => setPriceCheckInput(e.target.value)}
                             onKeyDown={e => e.key === 'Enter' && commitPriceCheck()}
-                            placeholder="Enter found price…"
+                            placeholder={`Price in ${currency}…`}
                             autoFocus
                             style={{
-                              width: '100%', padding: '9px 10px 9px 22px',
+                              width: '100%', padding: `9px 10px 9px ${currencySymbol.length > 1 ? '30px' : '22px'}`,
                               borderRadius: 8, background: 'var(--surface2)',
                               border: '1.5px solid var(--border2)', color: 'var(--ink)',
                               fontSize: 14, outline: 'none', boxSizing: 'border-box',
@@ -852,7 +896,15 @@ export default function CardPage() {
                       </div>
                     ) : (
                       <button
-                        onClick={() => { setPriceCheckOpen(true); if (priceCheckPrice) setPriceCheckInput(String(priceCheckPrice)) }}
+                        onClick={() => {
+                          setPriceCheckOpen(true)
+                          // Pre-fill with the local-currency equivalent of the stored USD value
+                          if (priceCheckPrice) {
+                            const localVal = convert(priceCheckPrice)
+                            const decimals = CURRENCIES[currency]?.decimals ?? 2
+                            setPriceCheckInput(localVal.toFixed(decimals))
+                          }
+                        }}
                         style={{ width: '100%', padding: '9px 0', borderRadius: 8, background: 'none', border: '1px solid var(--border2)', color: priceCheckPrice ? 'var(--gold)' : 'var(--ink2)', fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'border-color 0.15s' }}
                         onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--gold)')}
                         onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border2)')}

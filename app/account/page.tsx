@@ -51,6 +51,21 @@ export default function AccountPage() {
   const { currency, setCurrency, fmtCurrency, rates, ratesLoading } = useCurrency()
   const [currencyMsg, setCurrencyMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
 
+  // Billing portal
+  const [portalLoading, setPortalLoading] = useState(false)
+
+  async function openBillingPortal() {
+    setPortalLoading(true)
+    try {
+      const res = await fetch('/api/stripe/portal', { method: 'POST' })
+      const json = await res.json()
+      if (json.url) window.location.href = json.url
+      else alert(json.error ?? 'Could not open billing portal.')
+    } finally {
+      setPortalLoading(false)
+    }
+  }
+
   // Delete account
   const [deleteInput, setDeleteInput] = useState('')
   const [deleteLoading, setDeleteLoading] = useState(false)
@@ -254,9 +269,9 @@ export default function AccountPage() {
                 <div>
                   <div style={{ fontSize: 20, fontWeight: 800, color: TIER_COLORS[tier], marginBottom: 4 }}>{TIER_LABELS[tier]} plan</div>
                   <div style={{ fontSize: 13, color: 'var(--ink3)' }}>
-                    {tier === 'free' && 'Watchlist limited to 15 cards. Upgrade for more features.'}
-                    {tier === 'standard' && 'Watchlist up to 100 cards + price history charts.'}
-                    {tier === 'pro' && 'Unlimited watchlist + all features included.'}
+                    {tier === 'free' && 'Watchlist limited to 5 cards. Upgrade for more features.'}
+                    {tier === 'standard' && 'Watchlist up to 30 cards + price history charts.'}
+                    {tier === 'pro' && 'Watchlist up to 100 cards + all features included.'}
                   </div>
                 </div>
                 {tier === 'free' ? (
@@ -269,14 +284,13 @@ export default function AccountPage() {
                       Change plan
                     </Link>
                     {profile?.stripe_customer_id && (
-                      <a
-                        href="https://billing.stripe.com/p/login/test_placeholder"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ fontSize: 12, color: 'var(--ink3)', textDecoration: 'underline', cursor: 'pointer' }}
+                      <button
+                        onClick={openBillingPortal}
+                        disabled={portalLoading}
+                        style={{ background: 'none', border: 'none', padding: 0, fontSize: 12, color: 'var(--ink3)', textDecoration: 'underline', cursor: portalLoading ? 'default' : 'pointer', opacity: portalLoading ? 0.6 : 1 }}
                       >
-                        Manage billing →
-                      </a>
+                        {portalLoading ? 'Opening…' : 'Manage billing →'}
+                      </button>
                     )}
                   </div>
                 )}

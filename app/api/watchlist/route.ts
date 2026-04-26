@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getTierLimits } from '@/lib/tier'
 
 export async function GET() {
   const supabase = await createClient()
@@ -49,8 +50,7 @@ export async function POST(req: NextRequest) {
     .select('*', { count: 'exact', head: true })
     .eq('user_id', user.id)
 
-  const limits: Record<string, number> = { free: 15, standard: 100, pro: Infinity }
-  const limit = limits[profile?.tier ?? 'free'] ?? 15
+  const limit = getTierLimits(profile?.tier).watchlist
   if ((count ?? 0) >= limit) {
     return NextResponse.json(
       { error: 'Watchlist limit reached', tier: profile?.tier, limit },

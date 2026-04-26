@@ -96,7 +96,6 @@ export default function Pricing() {
   const [openFaq, setOpenFaq] = useState<number | null>(null)
   const [userTier, setUserTier] = useState<UserTier>(null)
   const [userId, setUserId] = useState<string | null>(null)
-  const [requested, setRequested] = useState<string | null>(null)  // tier name just requested
   const [requesting, setRequesting] = useState(false)
 
   useEffect(() => {
@@ -110,16 +109,39 @@ export default function Pricing() {
     })
   }, [])
 
-  async function handleUpgradeRequest(tierName: string) {
+  // Map tier name + billing cycle → Stripe price ID
+  const PRICE_IDS: Record<string, Record<string, string>> = {
+    standard: {
+      monthly: process.env.NEXT_PUBLIC_STRIPE_PRICE_STANDARD_MONTHLY ?? '',
+      annual:  process.env.NEXT_PUBLIC_STRIPE_PRICE_STANDARD_ANNUAL  ?? '',
+    },
+    pro: {
+      monthly: process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO_MONTHLY ?? '',
+      annual:  process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO_ANNUAL  ?? '',
+    },
+  }
+
+  async function handleCheckout(tierName: string) {
     if (!userId) { setShowBeta(true); return }
     setRequesting(true)
     try {
-      const supabase = createClient()
-      await supabase.from('upgrade_requests').upsert(
-        { user_id: userId, requested_tier: tierName.toLowerCase(), requested_at: new Date().toISOString() },
-        { onConflict: 'user_id' }
-      )
-      setRequested(tierName)
+      const cycle = annual ? 'annual' : 'monthly'
+      const priceId = PRICE_IDS[tierName.toLowerCase()]?.[cycle]
+      if (!priceId) {
+        alert('Stripe price not configured. Please contact support.')
+        return
+      }
+      const res = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priceId }),
+      })
+      const json = await res.json()
+      if (json.url) {
+        window.location.href = json.url
+      } else {
+        alert(json.error ?? 'Something went wrong.')
+      }
     } finally {
       setRequesting(false)
     }
@@ -216,49 +238,39 @@ export default function Pricing() {
                 {(() => {
                   const isCurrent = userTier === tier.name.toLowerCase()
                   const isFree = tier.name === 'Free'
-                  const justRequested = requested === tier.name
                   const label = isCurrent
                     ? 'Your current plan'
-                    : justRequested
-                    ? '✓ Request received'
                     : requesting
-                    ? 'Sending…'
-                    : userTier && !isFree
-                    ? tier.cta + ' →'
+                    ? 'Redirecting…'
                     : tier.cta + ' →'
                   return (
                     <button
-                      disabled={isCurrent || justRequested || requesting}
-                      onClick={() => isFree ? null : handleUpgradeRequest(tier.name)}
+                      disabled={isCurrent || requesting}
+                      onClick={() => isFree ? null : handleCheckout(tier.name)}
                       style={{
                         width: '100%',
                         padding: '11px 0',
                         borderRadius: 12,
                         border: tier.highlight ? 'none' : '1px solid var(--border2)',
-                        background: isCurrent || justRequested
+                        background: isCurrent
                           ? 'rgba(255,255,255,0.04)'
                           : tier.highlight ? 'var(--gold)' : 'transparent',
-                        color: isCurrent || justRequested
+                        color: isCurrent
                           ? 'var(--ink3)'
                           : tier.highlight ? '#080810' : 'var(--ink)',
                         fontSize: 14,
                         fontWeight: 600,
-                        cursor: isCurrent || justRequested || isFree ? 'default' : 'pointer',
+                        cursor: isCurrent || isFree ? 'default' : 'pointer',
                         marginBottom: 28,
                         transition: 'opacity 0.15s',
                       }}
-                      onMouseEnter={e => { if (!isCurrent && !justRequested) e.currentTarget.style.opacity = '0.85' }}
+                      onMouseEnter={e => { if (!isCurrent) e.currentTarget.style.opacity = '0.85' }}
                       onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
                     >
                       {label}
                     </button>
                   )
                 })()}
-                {requested === tier.name && (
-                  <p style={{ fontSize: 11, color: 'var(--ink3)', textAlign: 'center', marginTop: -20, marginBottom: 20, lineHeight: 1.5 }}>
-                    We'll be in touch shortly to complete your upgrade.
-                  </p>
-                )}
 
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 11 }}>
                   {tier.features.map((f, j) => (

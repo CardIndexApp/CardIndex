@@ -176,42 +176,55 @@ export default function Watchlist() {
     })
   }, [])
 
-  // ── Per-card price fetch (also used by retry) ────────────────────────────
-  function fetchPriceForItem(item: EnrichedItem, bustCache = false) {
+  // ── Per-card price fetch with auto-retry ─────────────────────────────────
+  async function fetchPriceForItem(item: EnrichedItem, bustCache = false, attempt = 0) {
     const params = new URLSearchParams({ grade: item.grade, name: item.card_name })
-    if (item.set_name)    params.set('set', item.set_name)
-    if (item.card_number) params.set('number', item.card_number)
-    if (bustCache)        params.set('bust_cache', '1')
+    if (item.set_name)               params.set('set', item.set_name)
+    if (item.card_number)            params.set('number', item.card_number)
+    if (bustCache || attempt > 0)    params.set('bust_cache', '1')  // always bust on retry
 
-    setItems(prev => prev.map(p => p.id === item.id ? { ...p, priceLoading: true, priceError: null } : p))
+    if (attempt === 0) {
+      setItems(prev => prev.map(p => p.id === item.id ? { ...p, priceLoading: true, priceError: null } : p))
+    }
 
-    fetch(`/api/card/${item.card_id}?${params.toString()}`)
-      .then(async r => {
-        const json = await r.json().catch(() => null)
-        if (!r.ok || !json?.data) {
-          const raw = json?.error ?? `HTTP ${r.status}`
-          // Humanise common errors
-          const errMsg = raw === 'Card not found on Poketrace'
-            ? 'Not in database'
-            : raw.startsWith('No price data')
-            ? 'No price data'
-            : raw === 'POKETRACE_API_KEY not configured'
-            ? 'Service unavailable'
-            : raw
-          setItems(prev => prev.map(p =>
-            p.id === item.id ? { ...p, priceLoading: false, priceError: errMsg } : p
-          ))
-          return
+    try {
+      const r = await fetch(`/api/card/${item.card_id}?${params.toString()}`)
+      const json = await r.json().catch(() => null)
+
+      if (!r.ok || !json?.data) {
+        // Rate limited or transient server error — retry up to 2 times with backoff
+        if (r.status !== 404 && attempt < 2) {
+          const delay = r.status === 429 ? (attempt + 1) * 3000 : (attempt + 1) * 1500
+          await new Promise(res => setTimeout(res, delay))
+          return fetchPriceForItem(item, bustCache, attempt + 1)
         }
+
+        const raw = json?.error ?? `HTTP ${r.status}`
+        const errMsg = raw === 'Card not found on Poketrace'
+          ? 'Not in database'
+          : raw.startsWith('No price data')
+          ? 'No price data'
+          : raw === 'POKETRACE_API_KEY not configured'
+          ? 'Service unavailable'
+          : raw
         setItems(prev => prev.map(p =>
-          p.id === item.id ? { ...p, priceData: json.data, priceLoading: false, priceError: null } : p
+          p.id === item.id ? { ...p, priceLoading: false, priceError: errMsg } : p
         ))
-      })
-      .catch(() => {
-        setItems(prev => prev.map(p =>
-          p.id === item.id ? { ...p, priceLoading: false, priceError: 'Network error' } : p
-        ))
-      })
+        return
+      }
+
+      setItems(prev => prev.map(p =>
+        p.id === item.id ? { ...p, priceData: json.data, priceLoading: false, priceError: null } : p
+      ))
+    } catch {
+      if (attempt < 2) {
+        await new Promise(res => setTimeout(res, (attempt + 1) * 1500))
+        return fetchPriceForItem(item, bustCache, attempt + 1)
+      }
+      setItems(prev => prev.map(p =>
+        p.id === item.id ? { ...p, priceLoading: false, priceError: 'Network error' } : p
+      ))
+    }
   }
 
   function retryItem(item: EnrichedItem) {
@@ -234,7 +247,7 @@ export default function Watchlist() {
       setItems(enriched)
       // Kick off per-card price fetches — staggered to avoid hitting Poketrace rate limit
       enriched.forEach((item, i) => {
-        setTimeout(() => fetchPriceForItem(item), i * 300)
+        setTimeout(() => fetchPriceForItem(item), i * 600)
       })
     } finally {
       setListLoading(false)

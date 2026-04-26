@@ -97,6 +97,7 @@ export default function Pricing() {
   const [userTier, setUserTier] = useState<UserTier>(null)
   const [userId, setUserId] = useState<string | null>(null)
   const [requesting, setRequesting] = useState(false)
+  const [checkoutError, setCheckoutError] = useState<string | null>(null)
 
   useEffect(() => {
     const supabase = createClient()
@@ -124,11 +125,13 @@ export default function Pricing() {
   async function handleCheckout(tierName: string) {
     if (!userId) { setShowBeta(true); return }
     setRequesting(true)
+    setCheckoutError(null)
     try {
       const cycle = annual ? 'annual' : 'monthly'
       const priceId = PRICE_IDS[tierName.toLowerCase()]?.[cycle]
+      console.log('[checkout] tierName:', tierName, 'cycle:', cycle, 'priceId:', priceId)
       if (!priceId) {
-        alert('Stripe price not configured. Please contact support.')
+        setCheckoutError('Price ID not configured — check Vercel environment variables.')
         return
       }
       const res = await fetch('/api/stripe/checkout', {
@@ -137,11 +140,15 @@ export default function Pricing() {
         body: JSON.stringify({ priceId }),
       })
       const json = await res.json()
+      console.log('[checkout] response:', json)
       if (json.url) {
         window.location.href = json.url
       } else {
-        alert(json.error ?? 'Something went wrong.')
+        setCheckoutError(json.error ?? 'Something went wrong. Please try again.')
       }
+    } catch (err) {
+      console.error('[checkout] error:', err)
+      setCheckoutError('Network error — please try again.')
     } finally {
       setRequesting(false)
     }
@@ -153,6 +160,13 @@ export default function Pricing() {
       {showBeta && <BetaModal onClose={() => setShowBeta(false)} />}
       <main style={{ paddingTop: 72, paddingBottom: 96, minHeight: '100vh' }}>
         <div style={{ maxWidth: 1100, margin: '0 auto', padding: '64px 24px 0' }}>
+
+          {/* Checkout error banner */}
+          {checkoutError && (
+            <div style={{ marginBottom: 24, padding: '14px 20px', borderRadius: 12, background: 'rgba(232,82,74,0.08)', border: '1px solid rgba(232,82,74,0.25)', fontSize: 13, color: '#ff6b6b', textAlign: 'center' }}>
+              {checkoutError}
+            </div>
+          )}
 
           {/* Header */}
           <div style={{ textAlign: 'center', marginBottom: 56 }}>

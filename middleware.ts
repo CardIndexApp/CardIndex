@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 // Pages that logged-in users should not see (pricing excluded so they can upgrade)
 const AUTH_REDIRECT_PATHS = ['/']
 // Pages that require login
-const PROTECTED_PATHS = ['/dashboard', '/watchlist', '/account', '/admin']
+const PROTECTED_PATHS = ['/dashboard', '/watchlist', '/account', '/admin', '/portfolio']
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })

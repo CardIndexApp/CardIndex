@@ -9,6 +9,7 @@ const NAV_LINKS_AUTHED = [
   { label: 'Dashboard', href: '/dashboard' },
   { label: 'Market',    href: '/market' },
   { label: 'Watchlist', href: '/watchlist' },
+  { label: 'Portfolio', href: '/portfolio' },
 ]
 
 const NAV_LINKS_GUEST = [

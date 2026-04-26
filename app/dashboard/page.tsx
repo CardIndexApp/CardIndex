@@ -41,9 +41,9 @@ const QUICK_ACTIONS = [
         <circle cx="6.5" cy="6.5" r="4.5"/><path d="M14 14l-3-3"/>
       </svg>
     ),
-    color: 'var(--gold)',
-    bg: 'var(--gold2)',
-    border: 'rgba(232,197,71,0.2)',
+    color: 'var(--ink2)',
+    bg: 'var(--surface2)',
+    border: 'var(--border2)',
   },
   {
     label: 'My Watchlist',
@@ -54,9 +54,9 @@ const QUICK_ACTIONS = [
         <path d="M8 2l1.5 3 3.5.5-2.5 2.5.6 3.5L8 10l-3.1 1.5.6-3.5L3 5.5l3.5-.5z"/>
       </svg>
     ),
-    color: 'var(--blue)',
-    bg: 'rgba(74,158,255,0.1)',
-    border: 'rgba(74,158,255,0.2)',
+    color: 'var(--gold)',
+    bg: 'var(--gold2)',
+    border: 'rgba(232,197,71,0.2)',
   },
   {
     label: 'Market',
@@ -65,6 +65,21 @@ const QUICK_ACTIONS = [
     icon: (
       <svg width="22" height="22" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <polyline points="1 11 5 6 9 8 15 3"/><polyline points="11 3 15 3 15 7"/>
+      </svg>
+    ),
+    color: 'var(--blue)',
+    bg: 'rgba(74,158,255,0.1)',
+    border: 'rgba(74,158,255,0.2)',
+  },
+  {
+    label: 'Portfolio',
+    desc: 'Track P&L, cost basis and market performance',
+    href: '/portfolio',
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="1" y="10" width="3" height="5" rx="0.5"/>
+        <rect x="6" y="6"  width="3" height="9" rx="0.5"/>
+        <rect x="11" y="2" width="3" height="13" rx="0.5"/>
       </svg>
     ),
     color: 'var(--green)',
@@ -203,7 +218,7 @@ export default function Dashboard() {
           </div>
 
           {/* ── Quick Actions ── */}
-          <div className="dash-quick-actions" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 32 }}>
+          <div className="dash-quick-actions" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 32 }}>
             {QUICK_ACTIONS.map(action => (
               <Link key={action.href} href={action.href} style={{ textDecoration: 'none', borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', padding: '20px', display: 'flex', flexDirection: 'column', gap: 12, transition: 'border-color 0.15s, transform 0.15s' }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = action.border; e.currentTarget.style.transform = 'translateY(-1px)' }}
@@ -351,7 +366,7 @@ export default function Dashboard() {
         @keyframes ptr-spin { to { transform: rotate(360deg); } }
         @media (max-width: 640px) {
           .dash-two-col { grid-template-columns: 1fr !important; }
-          .dash-quick-actions { grid-template-columns: repeat(2, 1fr) !important; }
+          .dash-quick-actions { grid-template-columns: repeat(2, 1fr) !important; grid-template-rows: auto auto auto !important; }
         }
       `}</style>
     </>

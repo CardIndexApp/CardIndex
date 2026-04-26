@@ -281,12 +281,14 @@ export default function Dashboard() {
                 {/* Total Value */}
                 <div style={{ padding: '14px 20px', borderRight: '1px solid var(--border)' }}>
                   <div style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', marginBottom: 5, fontWeight: 600 }}>TOTAL VALUE</div>
-                  <div className="font-num" style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)' }}>
-                    {hasPrices ? fmtCurrency(valueLocal) : fmtCurrency(costLocal)}
-                  </div>
+                  {hasPrices ? (
+                    <div className="font-num" style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)' }}>{fmtCurrency(valueLocal)}</div>
+                  ) : (
+                    <div className="font-num" style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink3)' }}>—</div>
+                  )}
                   <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 3 }}>
                     {portfolioStats.posCount} position{portfolioStats.posCount !== 1 ? 's' : ''}
-                    {!hasPrices ? ' · cost basis' : portfolioStats.cachedCount < portfolioStats.posCount ? ` · ${portfolioStats.cachedCount}/${portfolioStats.posCount} priced` : ''}
+                    {!hasPrices ? ' · visit portfolio to load' : portfolioStats.cachedCount < portfolioStats.posCount ? ` · ${portfolioStats.cachedCount}/${portfolioStats.posCount} priced` : ''}
                   </div>
                 </div>
                 {/* Total P&L */}

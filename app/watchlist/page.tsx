@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { User } from '@supabase/supabase-js'
 import { useCurrency } from '@/lib/currency'
 import { usePullToRefresh } from '@/lib/usePullToRefresh'
+import { cacheGet, cacheSet } from '@/lib/searchCache'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -178,10 +179,22 @@ export default function Watchlist() {
 
   // ── Per-card price fetch with auto-retry ─────────────────────────────────
   async function fetchPriceForItem(item: EnrichedItem, bustCache = false, attempt = 0) {
+    const localKey = `${item.card_id}:${item.grade}`
+
+    // ── Client-side cache hit (instant, no network) ──────────────────────
+    if (attempt === 0 && !bustCache) {
+      const hit = cacheGet<PriceData>(localKey)
+      if (hit) {
+        setItems(prev => prev.map(p => p.id === item.id
+          ? { ...p, priceData: hit, priceLoading: false, priceError: null } : p))
+        return
+      }
+    }
+
     const params = new URLSearchParams({ grade: item.grade, name: item.card_name })
     if (item.set_name)               params.set('set', item.set_name)
     if (item.card_number)            params.set('number', item.card_number)
-    if (bustCache || attempt > 0)    params.set('bust_cache', '1')  // always bust on retry
+    if (bustCache || attempt > 0)    params.set('bust_cache', '1')
 
     if (attempt === 0) {
       setItems(prev => prev.map(p => p.id === item.id ? { ...p, priceLoading: true, priceError: null } : p))
@@ -213,6 +226,7 @@ export default function Watchlist() {
         return
       }
 
+      cacheSet(localKey, json.data)
       setItems(prev => prev.map(p =>
         p.id === item.id ? { ...p, priceData: json.data, priceLoading: false, priceError: null } : p
       ))
@@ -238,15 +252,17 @@ export default function Watchlist() {
     try {
       const r = await fetch('/api/watchlist')
       const { items: raw }: { items: WatchlistItem[] } = await r.json()
-      const enriched: EnrichedItem[] = (raw ?? []).map(item => ({
-        ...item,
-        priceData: null,
-        priceLoading: true,
-        priceError: null,
-      }))
+
+      // Hydrate from localStorage first — cached items render instantly
+      const enriched: EnrichedItem[] = (raw ?? []).map(item => {
+        const hit = cacheGet<PriceData>(`${item.card_id}:${item.grade}`)
+        return { ...item, priceData: hit ?? null, priceLoading: !hit, priceError: null }
+      })
       setItems(enriched)
-      // Kick off per-card price fetches — staggered to avoid hitting Poketrace rate limit
-      enriched.forEach((item, i) => {
+
+      // Only fetch items that weren't in the local cache
+      const uncached = enriched.filter(item => !item.priceData)
+      uncached.forEach((item, i) => {
         setTimeout(() => fetchPriceForItem(item), i * 600)
       })
     } finally {

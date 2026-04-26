@@ -5,6 +5,7 @@ import Navbar from '@/components/Navbar'
 import { createClient } from '@/lib/supabase/client'
 import { useCurrency, CURRENCIES, type CurrencyCode } from '@/lib/currency'
 import { tcgImg } from '@/lib/img'
+import { cacheGet, cacheSet } from '@/lib/searchCache'
 import type { User } from '@supabase/supabase-js'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -385,11 +386,23 @@ export default function PortfolioPage() {
   }, [])
 
   // ── Price fetch with auto-retry ───────────────────────────────────────────
-  async function fetchPrice(pos: Position, attempt = 0) {
+  async function fetchPrice(pos: Position, bustCache = false, attempt = 0) {
+    const localKey = `${pos.card_id}:${pos.grade}`
+
+    // ── Client-side cache hit (instant) ──────────────────────────────────
+    if (attempt === 0 && !bustCache) {
+      const hit = cacheGet<PriceData>(localKey)
+      if (hit) {
+        setPositions(prev => prev.map(p => p.id === pos.id
+          ? { ...p, priceData: hit, priceLoading: false, priceError: null } : p))
+        return
+      }
+    }
+
     const params = new URLSearchParams({ grade: pos.grade, name: pos.card_name })
-    if (pos.set_name)    params.set('set', pos.set_name)
-    if (pos.card_number) params.set('number', pos.card_number)
-    if (attempt > 0)     params.set('bust_cache', '1')
+    if (pos.set_name)              params.set('set', pos.set_name)
+    if (pos.card_number)           params.set('number', pos.card_number)
+    if (bustCache || attempt > 0)  params.set('bust_cache', '1')
 
     try {
       const r = await fetch(`/api/card/${pos.card_id}?${params}`)
@@ -397,18 +410,19 @@ export default function PortfolioPage() {
       if (!r.ok || !json?.data) {
         if (r.status !== 404 && attempt < 2) {
           await new Promise(res => setTimeout(res, (attempt + 1) * 1500))
-          return fetchPrice(pos, attempt + 1)
+          return fetchPrice(pos, bustCache, attempt + 1)
         }
         setPositions(prev => prev.map(p => p.id === pos.id
           ? { ...p, priceLoading: false, priceError: json?.error ?? `HTTP ${r.status}` } : p))
         return
       }
+      cacheSet(localKey, json.data)
       setPositions(prev => prev.map(p => p.id === pos.id
         ? { ...p, priceData: json.data, priceLoading: false, priceError: null } : p))
     } catch {
       if (attempt < 2) {
         await new Promise(res => setTimeout(res, (attempt + 1) * 1500))
-        return fetchPrice(pos, attempt + 1)
+        return fetchPrice(pos, bustCache, attempt + 1)
       }
       setPositions(prev => prev.map(p => p.id === pos.id
         ? { ...p, priceLoading: false, priceError: 'Network error' } : p))
@@ -422,11 +436,13 @@ export default function PortfolioPage() {
     try {
       const r = await fetch('/api/portfolio')
       const json = await r.json()
-      const enriched: Position[] = (json.positions ?? []).map((p: DbPosition) => ({
-        ...p, priceData: null, priceLoading: true, priceError: null,
-      }))
+      const enriched: Position[] = (json.positions ?? []).map((p: DbPosition) => {
+        const hit = cacheGet<PriceData>(`${p.card_id}:${p.grade}`)
+        return { ...p, priceData: hit ?? null, priceLoading: !hit, priceError: null }
+      })
       setPositions(enriched)
-      enriched.forEach((pos, i) => setTimeout(() => fetchPrice(pos), i * 600))
+      const uncached = enriched.filter(p => !p.priceData)
+      uncached.forEach((pos, i) => setTimeout(() => fetchPrice(pos), i * 600))
     } finally {
       setListLoading(false)
     }
@@ -443,9 +459,10 @@ export default function PortfolioPage() {
     })
     const json = await r.json()
     if (!r.ok) throw new Error(json.error ?? 'Failed to add position')
-    const newPos: Position = { ...json.position, priceData: null, priceLoading: true, priceError: null }
+    const hit = cacheGet<PriceData>(`${json.position.card_id}:${json.position.grade}`)
+    const newPos: Position = { ...json.position, priceData: hit ?? null, priceLoading: !hit, priceError: null }
     setPositions(prev => [newPos, ...prev])
-    setTimeout(() => fetchPrice(newPos), 100)
+    if (!hit) setTimeout(() => fetchPrice(newPos), 100)
     flash('ok', 'Position added.')
   }
 
@@ -762,7 +779,7 @@ export default function PortfolioPage() {
                       </>
                     ) : pos.priceError ? (
                       <button
-                        onClick={() => fetchPrice(pos)}
+                        onClick={() => fetchPrice(pos, true)}
                         style={{ fontSize: 9, color: 'var(--ink3)', background: 'var(--surface2)', border: '1px solid var(--border2)', borderRadius: 4, padding: '2px 6px', cursor: 'pointer' }}
                       >↺</button>
                     ) : <span style={{ fontSize: 12, color: 'var(--ink3)' }}>—</span>}

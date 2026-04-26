@@ -224,7 +224,7 @@ export default function Dashboard() {
             </div>
           </div>
         )}
-        <div style={{ maxWidth: 960, margin: '0 auto', padding: '0 16px' }}>
+        <div className="dash-content" style={{ maxWidth: 960, margin: '0 auto', padding: '0 16px', display: 'flex', flexDirection: 'column' }}>
 
           {/* ── Welcome ── */}
           <div style={{ marginTop: 32, marginBottom: 36 }}>
@@ -274,7 +274,7 @@ export default function Dashboard() {
             const pnlPct     = pnlLocal != null && costLocal > 0 ? (pnlLocal / costLocal) * 100 : null
             const pnlPos     = pnlLocal == null ? null : pnlLocal >= 0
             return (
-              <Link href="/portfolio" style={{ textDecoration: 'none', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0, marginBottom: 16, borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden', transition: 'border-color 0.15s' }}
+              <Link href="/portfolio" className="dash-pf-snap" style={{ textDecoration: 'none', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0, marginBottom: 16, borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden', transition: 'border-color 0.15s' }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(61,232,138,0.3)' }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border2)' }}
               >
@@ -445,8 +445,9 @@ export default function Dashboard() {
         @keyframes ptr-spin { to { transform: rotate(360deg); } }
         @media (max-width: 640px) {
           .dash-two-col { grid-template-columns: 1fr !important; }
-          .dash-quick-actions { grid-template-columns: repeat(2, 1fr) !important; }
+          .dash-quick-actions { grid-template-columns: repeat(2, 1fr) !important; order: 3; }
           .dash-qa-account { grid-column: span 2 !important; }
+          .dash-pf-snap { order: 2; }
         }
       `}</style>
     </>

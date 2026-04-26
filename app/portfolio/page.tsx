@@ -93,12 +93,12 @@ function SkeletonRow({ last }: { last: boolean }) {
           <div style={{ width: 75, height: 10, borderRadius: 4, background: 'var(--surface2)' }} className="sk-pulse" />
         </div>
       </div>
-      {[72, 72, 32, 64, 44, 44, 44, 48].map((w, i) => (
-        <div key={i} className="pf-hide-mobile" style={{ display: 'flex', justifyContent: 'flex-end' }}>
+      {/* 8 placeholder cells for cols 2–9 */}
+      {[70, 70, 32, 68, 44, 44, 44, 48].map((w, i) => (
+        <div key={i} style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <div style={{ width: w, height: 12, borderRadius: 4, background: 'var(--surface2)' }} className="sk-pulse" />
         </div>
       ))}
-      <div className="pf-hide-mobile" />
     </div>
   )
 }
@@ -599,7 +599,7 @@ export default function PortfolioPage() {
         .sk-pulse { animation: sk-pulse 1.6s ease-in-out infinite; }
         .pf-row, .pf-header {
           display: grid;
-          grid-template-columns: minmax(180px,2fr) 110px 110px 50px 100px 70px 70px 70px 80px;
+          grid-template-columns: minmax(180px,1fr) 110px 110px 50px 110px 72px 72px 72px 80px;
           align-items: center;
           padding: 0 20px;
           gap: 8px;
@@ -607,6 +607,7 @@ export default function PortfolioPage() {
         .pf-header { padding: 10px 20px; }
         .pf-row    { padding: 13px 20px; min-height: 64px; }
         .pf-hide-mobile { display: flex; }
+        .pf-show-mobile { display: none; }
         .pf-act-btn {
           height: 28px; padding: 0 10px; border-radius: 7px;
           border: 1px solid var(--border); background: transparent;
@@ -621,6 +622,7 @@ export default function PortfolioPage() {
             gap: 4px;
           }
           .pf-hide-mobile { display: none !important; }
+          .pf-show-mobile { display: block !important; }
           .pf-row { padding: 12px 14px; min-height: 56px; }
           .pf-header { padding: 8px 14px; }
           .pf-stats-bar { grid-template-columns: repeat(2, 1fr) !important; }

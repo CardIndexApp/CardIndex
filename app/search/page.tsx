@@ -2,8 +2,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Navbar from '@/components/Navbar'
+import BetaModal from '@/components/BetaModal'
 import { ptImg } from '@/lib/img'
 import { cacheGet, cacheSet, cacheKey } from '@/lib/searchCache'
+import { isCardResult } from '@/lib/cardFilter'
+import { anonLimitReached, incrementAnonSearchCount, anonWindowRemainingMs } from '@/lib/anonSearchLimit'
+import { createClient } from '@/lib/supabase/client'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -85,14 +89,24 @@ export default function SearchPage() {
   const [selectedGrade, setSelectedGrade]   = useState<string | null>(null)
   const [isMobile, setIsMobile]             = useState(false)
 
+  // Auth + anon rate-limit
+  // null = still resolving auth; true/false = known
+  const [isLoggedIn, setIsLoggedIn]       = useState<boolean | null>(null)
+  const [blocked, setBlocked]             = useState(false)   // anon limit reached
+  const [showSignup, setShowSignup]       = useState(false)   // auth modal open
+  const [cooldownMins, setCooldownMins]   = useState(0)
+
   const debounceRef  = useRef<ReturnType<typeof setTimeout> | null>(null)
   const abortRef     = useRef<AbortController | null>(null)
   const inputRef     = useRef<HTMLInputElement>(null)
   const selectedRef  = useRef<HTMLDivElement>(null)
 
-  // Detect mobile to skip autoFocus (keyboard-on-mount is jarring in PWA)
+  // Detect mobile + resolve auth on mount
   useEffect(() => {
     setIsMobile(window.matchMedia('(max-width: 700px)').matches)
+    createClient().auth.getUser().then(({ data }) => {
+      setIsLoggedIn(!!data.user)
+    })
   }, [])
 
   // ── Search ────────────────────────────────────────────────────────────────
@@ -116,33 +130,50 @@ export default function SearchPage() {
     const params = new URLSearchParams({ search: name })
     if (number) params.set('card_number', number)
 
-    // Check 24-hour client-side cache first
-    const key = cacheKey(params)
+    // ── Cache check first (never counts toward the rate limit) ───────────────
+    const key    = cacheKey(params)
     const cached = cacheGet<PtCard[]>(key)
     if (cached) {
       if (controller.signal.aborted) return
-      setResults(cached)
+      setBlocked(false)
+      setResults(cached.filter(isCardResult))  // re-filter in case cache pre-dates this fix
       setCommittedQuery(raw.trim())
+      setLoading(false)
+      return
+    }
+
+    // ── Anon rate-limit gate (only applies to live API calls) ────────────────
+    // Wait until auth is resolved before gating so logged-in users are never blocked.
+    // isLoggedIn === null means we're still resolving — let the request through
+    // to avoid blocking on first load.
+    if (isLoggedIn === false && anonLimitReached()) {
+      setCooldownMins(Math.ceil(anonWindowRemainingMs() / 60_000))
+      setBlocked(true)
       setLoading(false)
       return
     }
 
     try {
       const res  = await fetch(`/api/pt/cards?${params}`, { signal: controller.signal })
-      if (controller.signal.aborted) return   // newer search already running — discard
+      if (controller.signal.aborted) return
       const json = await res.json()
       const data: PtCard[] = json.data ?? []
+      setBlocked(false)
       setResults(data)
       setCommittedQuery(raw.trim())
-      if (data.length > 0) cacheSet(key, data)
+      if (data.length > 0) {
+        cacheSet(key, data)
+        // Only count fresh, successful API calls toward the anon limit
+        if (isLoggedIn === false) incrementAnonSearchCount()
+      }
     } catch (err) {
-      if (err instanceof Error && err.name === 'AbortError') return  // intentionally cancelled
+      if (err instanceof Error && err.name === 'AbortError') return
       setResults([])
       setCommittedQuery(raw.trim())
     } finally {
       if (!controller.signal.aborted) setLoading(false)
     }
-  }, [])
+  }, [isLoggedIn])
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -196,6 +227,7 @@ export default function SearchPage() {
   return (
     <>
       <Navbar />
+      {showSignup && <BetaModal onClose={() => setShowSignup(false)} />}
       <main style={{ maxWidth: 680, margin: '0 auto', padding: '72px 16px 100px' }}>
 
         {/* Header */}
@@ -289,9 +321,33 @@ export default function SearchPage() {
           </div>
         )}
 
+        {/* Anon rate-limit wall */}
+        {blocked && !loading && (
+          <div style={{ textAlign: 'center', marginTop: 40, padding: '32px 24px', borderRadius: 16, background: 'var(--surface)', border: '1px solid var(--border2)' }}>
+            <div style={{ fontSize: 32, marginBottom: 12 }}>🔒</div>
+            <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>
+              Free search limit reached
+            </p>
+            <p style={{ fontSize: 13, color: 'var(--ink3)', lineHeight: 1.65, marginBottom: 24 }}>
+              You&apos;ve used your 1 free search.{' '}
+              {cooldownMins > 1
+                ? <>Try again in <strong style={{ color: 'var(--ink2)' }}>{cooldownMins} minutes</strong>, or</>
+                : 'Sign up for free to'}
+              {' '}unlock unlimited searches.
+            </p>
+            <button
+              onClick={() => setShowSignup(true)}
+              style={{ display: 'block', width: '100%', maxWidth: 280, margin: '0 auto', padding: '13px 0', borderRadius: 12, background: 'var(--gold)', color: '#080810', fontSize: 14, fontWeight: 700, border: 'none', cursor: 'pointer' }}
+            >
+              Sign up free — unlimited searches
+            </button>
+            <p style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 12 }}>No credit card required</p>
+          </div>
+        )}
+
         {/* No results — only shown when the committed (fetched) query matches
             what the user currently has typed, preventing false empties mid-word */}
-        {committedQuery && committedQuery === query.trim() && !loading && results.length === 0 && (
+        {!blocked && committedQuery && committedQuery === query.trim() && !loading && results.length === 0 && (
           <div style={{ textAlign: 'center', padding: '48px 0' }}>
             <div style={{ fontSize: 28, marginBottom: 12 }}>¯\_(ツ)_/¯</div>
             <p style={{ fontSize: 14, color: 'var(--ink2)', fontWeight: 600, marginBottom: 6 }}>
@@ -304,7 +360,7 @@ export default function SearchPage() {
         )}
 
         {/* Results list */}
-        {results.length > 0 && (
+        {!blocked && results.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: showHint ? 0 : 16 }}>
             <p style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 4, paddingLeft: 2 }}>
               {results.length} result{results.length !== 1 ? 's' : ''}

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import { ptImg } from '@/lib/img'
 import { cacheGet, cacheSet, cacheKey } from '@/lib/searchCache'
+import { isCardResult } from '@/lib/cardFilter'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -277,13 +278,13 @@ export default function BrowseSetsPage() {
       let nextCursor: string
 
       if (cached) {
-        pageCards  = cached.cards
+        pageCards  = cached.cards.filter(isCardResult)  // re-filter stale cache
         hasMore    = cached.hasMore
         nextCursor = cached.nextCursor
       } else {
         const res  = await fetch(`/api/pt/cards?${params}`)
         const json = await res.json()
-        pageCards  = json.data ?? []
+        pageCards  = (json.data ?? []).filter(isCardResult)
         hasMore    = json.pagination?.hasMore ?? false
         nextCursor = json.pagination?.nextCursor ?? ''
         if (pageCards.length > 0) cacheSet<PageData>(key, { cards: pageCards, hasMore, nextCursor })

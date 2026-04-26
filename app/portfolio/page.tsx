@@ -93,7 +93,7 @@ function SkeletonRow({ last }: { last: boolean }) {
           <div style={{ width: 75, height: 10, borderRadius: 4, background: 'var(--surface2)' }} className="sk-pulse" />
         </div>
       </div>
-      {[38, 68, 68, 44, 44, 44, 80].map((w, i) => (
+      {[72, 72, 32, 64, 44, 44, 44, 48].map((w, i) => (
         <div key={i} className="pf-hide-mobile" style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <div style={{ width: w, height: 12, borderRadius: 4, background: 'var(--surface2)' }} className="sk-pulse" />
         </div>
@@ -504,9 +504,12 @@ export default function PortfolioPage() {
   const withData = positions.filter(p => p.priceData)
 
   const totalCostUSD     = positions.reduce((s, p) => s + p.purchase_price * p.quantity, 0)
-  const totalValueUSD    = positions.reduce((s, p) => s + (p.priceData?.price ?? p.purchase_price) * p.quantity, 0)
-  const totalPLUSD       = totalValueUSD - totalCostUSD
-  const totalPLPct       = totalCostUSD > 0 ? (totalPLUSD / totalCostUSD) * 100 : 0
+  // Only include positions that have loaded market prices — no fallback to purchase price
+  const pricedCostUSD    = withData.reduce((s, p) => s + p.purchase_price * p.quantity, 0)
+  const totalValueUSD    = withData.reduce((s, p) => s + p.priceData!.price * p.quantity, 0)
+  const allPriced        = withData.length === positions.length && positions.length > 0
+  const totalPLUSD       = totalValueUSD - pricedCostUSD
+  const totalPLPct       = pricedCostUSD > 0 ? (totalPLUSD / pricedCostUSD) * 100 : 0
   const dayGainUSD       = withData.reduce((s, p) => {
     const pd = p.priceData!
     const prev = pd.price / (1 + pd.price_change_pct / 100)
@@ -596,13 +599,13 @@ export default function PortfolioPage() {
         .sk-pulse { animation: sk-pulse 1.6s ease-in-out infinite; }
         .pf-row, .pf-header {
           display: grid;
-          grid-template-columns: minmax(160px,2fr) 48px 96px 96px 60px 60px 60px 110px 64px;
+          grid-template-columns: minmax(180px,2fr) 110px 110px 50px 100px 70px 70px 70px 80px;
           align-items: center;
           padding: 0 20px;
-          gap: 6px;
+          gap: 8px;
         }
         .pf-header { padding: 10px 20px; }
-        .pf-row    { padding: 11px 20px; min-height: 62px; }
+        .pf-row    { padding: 13px 20px; min-height: 64px; }
         .pf-hide-mobile { display: flex; }
         .pf-act-btn {
           height: 28px; padding: 0 10px; border-radius: 7px;
@@ -652,10 +655,12 @@ export default function PortfolioPage() {
           <div className="pf-stats-bar" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 24 }}>
             {[
               {
-                label: 'Portfolio Value',
-                value: fmtCurrency(totalValueUSD),
-                sub: `${positions.length} position${positions.length !== 1 ? 's' : ''}`,
-                color: 'var(--ink)',
+                label: 'Market Value',
+                value: withData.length > 0 ? fmtCurrency(totalValueUSD) : '—',
+                sub: withData.length > 0
+                  ? `${positions.length} position${positions.length !== 1 ? 's' : ''}${!allPriced ? ` · ${withData.length}/${positions.length} priced` : ''}`
+                  : 'loading prices…',
+                color: withData.length > 0 ? 'var(--ink)' : 'var(--ink3)',
               },
               {
                 label: 'Cost Basis',
@@ -665,15 +670,17 @@ export default function PortfolioPage() {
               },
               {
                 label: 'Total P&L',
-                value: fmtSigned(fmtCurrency, totalPLUSD),
-                sub: `${pctSign(totalPLPct)}${totalPLPct.toFixed(1)}% overall`,
-                color: totalPLUSD >= 0 ? 'var(--green)' : 'var(--red)',
+                value: withData.length > 0 ? fmtSigned(fmtCurrency, totalPLUSD) : '—',
+                sub: withData.length > 0
+                  ? `${pctSign(totalPLPct)}${totalPLPct.toFixed(1)}%${allPriced ? ' overall' : ` on ${withData.length}/${positions.length}`}`
+                  : 'loading prices…',
+                color: withData.length > 0 ? (totalPLUSD >= 0 ? 'var(--green)' : 'var(--red)') : 'var(--ink3)',
               },
               {
                 label: "Today's Gain",
-                value: fmtSigned(fmtCurrency, dayGainUSD),
+                value: withData.length > 0 ? fmtSigned(fmtCurrency, dayGainUSD) : '—',
                 sub: '24h change',
-                color: dayGainUSD >= 0 ? 'var(--green)' : 'var(--red)',
+                color: withData.length > 0 ? (dayGainUSD >= 0 ? 'var(--green)' : 'var(--red)') : 'var(--ink3)',
               },
             ].map((s, i) => (
               <div key={i} style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
@@ -706,7 +713,7 @@ export default function PortfolioPage() {
               <button onClick={() => handleSort('name')} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', fontSize: 10, letterSpacing: 1, color: sort === 'name' ? 'var(--gold)' : 'var(--ink3)', fontWeight: sort === 'name' ? 700 : 500, display: 'flex', gap: 4, alignItems: 'center' }}>
                 CARD {sort === 'name' && <span style={{ fontSize: 9 }}>{sortDir === 'desc' ? '▼' : '▲'}</span>}
               </button>
-              <SortTh label="CURRENT" k="current" />
+              <SortTh label="MKT VALUE" k="current" />
               <SortTh label="P&amp;L" k="plpct" />
               <div className="pf-hide-mobile" style={{ textAlign: 'right', fontSize: 10, letterSpacing: 1, color: 'var(--ink3)' }}>QTY</div>
               <SortTh label="COST/EA" k="cost" />

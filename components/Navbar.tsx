@@ -17,13 +17,13 @@ const NAV_LINKS_GUEST = [
   { label: 'Pricing', href: '/pricing' },
 ]
 
-async function fetchUsername(userId: string): Promise<string | null> {
+async function fetchProfile(userId: string): Promise<{ username: string | null; is_admin: boolean }> {
   const { data } = await createClient()
     .from('profiles')
-    .select('username')
+    .select('username, is_admin')
     .eq('id', userId)
     .single()
-  return data?.username ?? null
+  return { username: data?.username ?? null, is_admin: data?.is_admin ?? false }
 }
 
 export default function Navbar() {
@@ -32,6 +32,7 @@ export default function Navbar() {
   const [user, setUser] = useState<User | null>(null)
   const [username, setUsername] = useState<string | null>(null)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
@@ -40,7 +41,7 @@ export default function Navbar() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       const u = session?.user ?? null
       setUser(u)
-      if (u) fetchUsername(u.id).then(setUsername)
+      if (u) fetchProfile(u.id).then(p => { setUsername(p.username); setIsAdmin(p.is_admin) })
     })
 
     // Keep in sync when auth state changes (sign in / sign out in another tab, etc.)
@@ -49,8 +50,9 @@ export default function Navbar() {
       setUser(u)
       if (!u) {
         setUsername(null)
+        setIsAdmin(false)
       } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        fetchUsername(u.id).then(setUsername)
+        fetchProfile(u.id).then(p => { setUsername(p.username); setIsAdmin(p.is_admin) })
       }
     })
 
@@ -145,6 +147,9 @@ export default function Navbar() {
                   <Link href="/watchlist" onClick={() => setUserMenuOpen(false)} style={{ display: 'block', padding: '10px 16px', fontSize: 13, color: 'var(--ink2)', textDecoration: 'none' }}>My Watchlist</Link>
                   <Link href="/account" onClick={() => setUserMenuOpen(false)} style={{ display: 'block', padding: '10px 16px', fontSize: 13, color: 'var(--ink2)', textDecoration: 'none' }}>Account settings</Link>
                   <Link href="/pricing" onClick={() => setUserMenuOpen(false)} style={{ display: 'block', padding: '10px 16px', fontSize: 13, color: 'var(--ink2)', textDecoration: 'none' }}>Upgrade plan</Link>
+                  {isAdmin && (
+                    <Link href="/admin" onClick={() => setUserMenuOpen(false)} style={{ display: 'block', padding: '10px 16px', fontSize: 13, color: 'var(--red)', textDecoration: 'none', borderTop: '1px solid var(--border)', fontWeight: 600 }}>⚙ Admin</Link>
+                  )}
                   <button onClick={signOut} style={{ width: '100%', padding: '10px 16px', textAlign: 'left', fontSize: 13, color: 'var(--red)', background: 'none', border: 'none', cursor: 'pointer', borderTop: '1px solid var(--border)' }}>Sign out</button>
                 </div>
               )}
@@ -196,6 +201,9 @@ export default function Navbar() {
               <div style={{ fontSize: 14, color: 'var(--ink)', fontWeight: 700, marginBottom: 2 }}>{displayName}</div>
               <div style={{ fontSize: 12, color: 'var(--ink3)' }}>{user.email}</div>
             </div>
+            {isAdmin && (
+              <Link href="/admin" onClick={() => setOpen(false)} style={{ width: '100%', padding: 14, borderRadius: 12, background: 'rgba(232,82,74,0.08)', border: '1px solid rgba(232,82,74,0.25)', color: 'var(--red)', fontSize: 14, fontWeight: 700, cursor: 'pointer', textDecoration: 'none', textAlign: 'center', display: 'block' }}>⚙ Admin Dashboard</Link>
+            )}
             <button onClick={signOut} style={{ width: '100%', padding: 14, borderRadius: 12, background: 'rgba(232,82,74,0.1)', border: '1px solid rgba(232,82,74,0.3)', color: 'var(--red)', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Sign out</button>
           </div>
         ) : (

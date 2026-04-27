@@ -1,6 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { usePathname } from 'next/navigation'
 import AuthModal from './AuthModal'
 import { createClient } from '@/lib/supabase/client'
 import type { User } from '@supabase/supabase-js'
@@ -27,6 +28,7 @@ async function fetchProfile(userId: string): Promise<{ username: string | null; 
 }
 
 export default function Navbar() {
+  const pathname = usePathname()
   const [authModal, setAuthModal] = useState<'signin' | 'signup' | null>(null)
   const [open, setOpen] = useState(false)
   const [user, setUser] = useState<User | null>(null)
@@ -218,11 +220,76 @@ export default function Navbar() {
         @media (max-width: 640px) {
           .nav-desktop { display: none !important; }
           .nav-hamburger { display: flex !important; }
+          /* push page content above the bottom nav */
+          main { padding-bottom: calc(64px + env(safe-area-inset-bottom)) !important; }
         }
         @media (min-width: 641px) {
           .nav-drawer { display: none !important; }
+          .bottom-nav { display: none !important; }
         }
       `}</style>
+
+      {/* ── Bottom tab bar (mobile only, authed) ── */}
+      {user && (
+        <nav className="bottom-nav" style={{
+          position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100,
+          background: 'rgba(8,8,16,0.97)',
+          backdropFilter: 'blur(16px)',
+          borderTop: '1px solid var(--border)',
+          display: 'flex', alignItems: 'stretch',
+          paddingBottom: 'env(safe-area-inset-bottom)',
+          height: 'calc(60px + env(safe-area-inset-bottom))',
+        }}>
+          {/* Dashboard */}
+          <Link href="/dashboard" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, textDecoration: 'none', color: pathname === '/dashboard' ? 'var(--gold)' : 'var(--ink3)', paddingTop: 8 }}>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="2" width="7" height="7" rx="1.5"/>
+              <rect x="11" y="2" width="7" height="7" rx="1.5"/>
+              <rect x="2" y="11" width="7" height="7" rx="1.5"/>
+              <rect x="11" y="11" width="7" height="7" rx="1.5"/>
+            </svg>
+            <span style={{ fontSize: 10, fontWeight: pathname === '/dashboard' ? 700 : 500, letterSpacing: 0.2 }}>Dashboard</span>
+          </Link>
+
+          {/* Portfolio */}
+          <Link href="/portfolio" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, textDecoration: 'none', color: pathname === '/portfolio' ? 'var(--gold)' : 'var(--ink3)', paddingTop: 8 }}>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="13" width="4" height="6" rx="0.5"/>
+              <rect x="8" y="8"  width="4" height="11" rx="0.5"/>
+              <rect x="14" y="3" width="4" height="16" rx="0.5"/>
+            </svg>
+            <span style={{ fontSize: 10, fontWeight: pathname === '/portfolio' ? 700 : 500, letterSpacing: 0.2 }}>Portfolio</span>
+          </Link>
+
+          {/* Search — raised centre button */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', paddingTop: 4 }}>
+            <Link href="/search" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 48, height: 48, borderRadius: '50%', background: pathname === '/search' ? 'var(--gold)' : 'var(--gold2)', border: `1.5px solid ${pathname === '/search' ? 'var(--gold)' : 'rgba(232,197,71,0.35)'}`, color: pathname === '/search' ? '#080810' : 'var(--gold)', boxShadow: '0 4px 16px rgba(232,197,71,0.25)', marginBottom: 2, textDecoration: 'none', transition: 'background 0.15s' }}>
+              <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="6.5" cy="6.5" r="4.5"/><path d="M14 14l-3-3"/>
+              </svg>
+            </Link>
+            <span style={{ fontSize: 10, color: pathname === '/search' ? 'var(--gold)' : 'var(--ink3)', fontWeight: pathname === '/search' ? 700 : 500 }}>Search</span>
+          </div>
+
+          {/* Market */}
+          <Link href="/market" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, textDecoration: 'none', color: pathname === '/market' ? 'var(--gold)' : 'var(--ink3)', paddingTop: 8 }}>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="2 14 7 8 11 11 18 4"/>
+              <polyline points="14 4 18 4 18 8"/>
+            </svg>
+            <span style={{ fontSize: 10, fontWeight: pathname === '/market' ? 700 : 500, letterSpacing: 0.2 }}>Market</span>
+          </Link>
+
+          {/* Account */}
+          <Link href="/account" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, textDecoration: 'none', color: pathname === '/account' ? 'var(--gold)' : 'var(--ink3)', paddingTop: 8 }}>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="10" cy="6" r="3.5"/>
+              <path d="M3 18c0-3.9 3.1-7 7-7s7 3.1 7 7"/>
+            </svg>
+            <span style={{ fontSize: 10, fontWeight: pathname === '/account' ? 700 : 500, letterSpacing: 0.2 }}>Account</span>
+          </Link>
+        </nav>
+      )}
 
       {authModal && <AuthModal defaultTab={authModal} onClose={() => setAuthModal(null)} />}
     </>

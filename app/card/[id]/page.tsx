@@ -1466,10 +1466,10 @@ export default function CardPage() {
                       {(() => {
                         const sb = liveData.score_breakdown
                         const radarData = sb ? [
-                          { axis: 'Trend',       value: Math.round(sb.trend       ?? 0) },
-                          { axis: 'Liquidity',   value: Math.round(sb.liquidity   ?? 0) },
-                          { axis: 'Consistency', value: Math.round(sb.consistency ?? 0) },
-                          { axis: 'Value',       value: Math.round(sb.value       ?? 0) },
+                          { axis: 'Trend',       value: Math.round((sb.trend       ?? 0) / 30 * 100) },
+                          { axis: 'Liquidity',   value: Math.round((sb.liquidity   ?? 0) / 25 * 100) },
+                          { axis: 'Consistency', value: Math.round((sb.consistency ?? 0) / 25 * 100) },
+                          { axis: 'Value',       value: Math.round((sb.value       ?? 0) / 20 * 100) },
                         ] : null
                         if (!radarData) return null
                         return (
@@ -2461,10 +2461,10 @@ export default function CardPage() {
               {(() => {
                 const sb = liveData?.score_breakdown
                 const radarData = sb ? [
-                  { axis: 'Trend',       value: Math.round(sb.trend       ?? 0) },
-                  { axis: 'Liquidity',   value: Math.round(sb.liquidity   ?? 0) },
-                  { axis: 'Consistency', value: Math.round(sb.consistency ?? 0) },
-                  { axis: 'Value',       value: Math.round(sb.value       ?? 0) },
+                  { axis: 'Trend',       value: Math.round((sb.trend       ?? 0) / 30 * 100) },
+                  { axis: 'Liquidity',   value: Math.round((sb.liquidity   ?? 0) / 25 * 100) },
+                  { axis: 'Consistency', value: Math.round((sb.consistency ?? 0) / 25 * 100) },
+                  { axis: 'Value',       value: Math.round((sb.value       ?? 0) / 20 * 100) },
                 ] : [
                   { axis: 'Growth',    value: card.breakdown.growth    ?? 50 },
                   { axis: 'Liquidity', value: card.breakdown.liquidity ?? 50 },

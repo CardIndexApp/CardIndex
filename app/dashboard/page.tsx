@@ -166,7 +166,7 @@ export default function Dashboard() {
     try {
       const rvKey = `ci_rv_${user.id}`
       const stored: RecentlyViewedItem[] = JSON.parse(localStorage.getItem(rvKey) ?? '[]')
-      setRecentlyViewed(stored.slice(0, 10))
+      setRecentlyViewed(stored.slice(0, 5))
     } catch {
       setRecentlyViewed([])
     }
@@ -318,7 +318,7 @@ export default function Dashboard() {
           <div className="dash-two-col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
 
             {/* Watchlist preview */}
-            <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden' }}>
+            <div className="dash-watchlist" style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden' }}>
               <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>My Watchlist</span>
                 <Link href="/watchlist" style={{ fontSize: 11, color: 'var(--gold)', textDecoration: 'none' }}>View all →</Link>
@@ -360,7 +360,7 @@ export default function Dashboard() {
             </div>
 
             {/* Market movers */}
-            <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden' }}>
+            <div className="dash-top-rising" style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden' }}>
               <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Top Rising Today</span>
                 <Link href="/market" style={{ fontSize: 11, color: 'var(--gold)', textDecoration: 'none' }}>Full market →</Link>
@@ -388,7 +388,7 @@ export default function Dashboard() {
           </div>
 
           {/* ── Recently Viewed ── */}
-          <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden', marginBottom: 12 }}>
+          <div className="dash-recently-searched" style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden', marginBottom: 12 }}>
             <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Recently Searched</span>
               <Link href="/search" style={{ fontSize: 11, color: 'var(--gold)', textDecoration: 'none' }}>Search cards →</Link>
@@ -443,11 +443,80 @@ export default function Dashboard() {
 
       <style>{`
         @keyframes ptr-spin { to { transform: rotate(360deg); } }
+
         @media (max-width: 640px) {
-          .dash-two-col { grid-template-columns: 1fr !important; }
-          .dash-quick-actions { grid-template-columns: repeat(2, 1fr) !important; order: 3; }
-          .dash-qa-account { grid-column: span 2 !important; }
-          .dash-pf-snap { order: 2; }
+          /* Make the outer column a flex container so order works on all children */
+          .dash-content { display: flex !important; flex-direction: column; }
+
+          /* Dissolve the two-col wrapper so watchlist & top-rising become direct flex children */
+          .dash-two-col { display: contents !important; }
+
+          /* ── Order ── */
+          .dash-pf-snap          { order: 1; }
+          .dash-quick-actions    { order: 2; }
+          .dash-watchlist        { order: 3; }
+          .dash-recently-searched{ order: 4; }
+          .dash-top-rising       { order: 5; }
+
+          /* Space between cards */
+          .dash-watchlist,
+          .dash-top-rising,
+          .dash-recently-searched { margin-bottom: 12px; }
+
+          /* ── Portfolio snapshot: stack cells vertically → taller card ── */
+          .dash-pf-snap {
+            grid-template-columns: 1fr !important;
+            margin-bottom: 12px;
+          }
+          .dash-pf-snap > div:first-child {
+            border-right: none !important;
+            border-bottom: 1px solid var(--border);
+            padding: 20px 20px 16px !important;
+          }
+          .dash-pf-snap > div:last-child {
+            padding: 16px 20px 20px !important;
+          }
+
+          /* ── Quick actions: horizontal scroll pill row ── */
+          .dash-quick-actions {
+            display: flex !important;
+            flex-direction: row !important;
+            overflow-x: auto;
+            flex-wrap: nowrap;
+            gap: 8px !important;
+            padding-bottom: 2px;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            margin-bottom: 12px;
+          }
+          .dash-quick-actions::-webkit-scrollbar { display: none; }
+
+          /* Each pill item */
+          .dash-quick-actions > a {
+            flex-direction: row !important;
+            align-items: center !important;
+            padding: 10px 16px !important;
+            gap: 8px !important;
+            border-radius: 99px !important;
+            flex-shrink: 0;
+            width: auto !important;
+          }
+          /* Hide the large icon box, show a tiny inline icon */
+          .dash-quick-actions > a > div:first-child {
+            width: 28px !important;
+            height: 28px !important;
+            border-radius: 50% !important;
+            flex-shrink: 0;
+          }
+          /* Label row: hide description */
+          .dash-quick-actions > a > div:last-child > div:last-child {
+            display: none !important;
+          }
+          .dash-quick-actions > a > div:last-child > div:first-child {
+            font-size: 13px !important;
+            margin-bottom: 0 !important;
+          }
+          .dash-qa-account { grid-column: unset !important; }
         }
       `}</style>
     </>

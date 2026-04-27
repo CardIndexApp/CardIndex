@@ -150,9 +150,20 @@ export async function GET(
     if (age < CACHE_TTL_MS) {
       await supabase.from('search_log').insert({ card_id: id, card_name: cardName, grade })
       // Recompute warning from stored fields if not already present (pre-migration rows)
-      const cachedWithWarning = cached.data_warning !== undefined ? cached : {
+      const recomputed = cached.data_warning !== undefined ? cached : {
         ...cached,
         ...recomputeWarning(cached.ebay_sale_count ?? cached.sales_count_30d, cached.ebay_avg_usd ?? cached.price, cached.data_source ?? 'ebay'),
+      }
+      // Derive confidence if missing
+      const cachedWithWarning = recomputed.confidence ? recomputed : {
+        ...recomputed,
+        confidence: (
+          recomputed.data_warning === null             ? 'high'   :
+          recomputed.data_warning === 'limited_sales'  ? 'medium' :
+          recomputed.data_warning === 'rare_asset'     ? 'medium' :
+          recomputed.data_warning === 'high_value_limited' ? 'medium' :
+          'low'
+        ),
       }
       return NextResponse.json({ source: 'cache', data: cachedWithWarning })
     }
@@ -426,7 +437,13 @@ export async function GET(
     avg7d:               tierPrice.avg7d  ?? null,
     avg30d:              tierPrice.avg30d ?? null,
     trend:               tierPrice.trend  ?? null,
-    confidence:          tierPrice.confidence ?? null,
+    confidence:          tierPrice.confidence ?? (
+      dataWarning === null             ? 'high'   :
+      dataWarning === 'limited_sales'  ? 'medium' :
+      dataWarning === 'rare_asset'     ? 'medium' :
+      dataWarning === 'high_value_limited' ? 'medium' :
+      'low'
+    ),
     all_tier_prices:     allTierPrices,
     total_sale_count:    fullCard.totalSaleCount ?? null,
     last_updated_pt:     fullCard.lastUpdated ?? null,

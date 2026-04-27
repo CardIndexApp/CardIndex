@@ -3,7 +3,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { ComposedChart, LineChart, Line, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from 'recharts'
+import { ComposedChart, LineChart, Line, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ReferenceArea } from 'recharts'
 import Navbar from '@/components/Navbar'
 import { getCard, fmt, scoreColor } from '@/lib/data'
 import { tcgImg } from '@/lib/img'
@@ -1673,6 +1673,274 @@ export default function CardPage() {
                           </div>
                         </div>
                       )}
+                      {/* 8 — Price Velocity */}
+                      {liveData.avg7d != null && liveData.avg30d != null && liveData.avg30d > 0 && (() => {
+                        const weeklyDelta = liveData.avg7d - liveData.avg30d
+                        const weeklyPct   = (weeklyDelta / liveData.avg30d) * 100
+                        const proj30d     = liveData.price + weeklyDelta * 4
+                        const velLabel    = Math.abs(weeklyPct) < 1 ? 'STABLE' : weeklyPct > 0 ? 'ACCELERATING ▲' : 'DECELERATING ▼'
+                        const velColor    = weeklyPct > 1 ? 'var(--green)' : weeklyPct < -1 ? '#ff6b6b' : 'var(--gold)'
+                        const velBg       = weeklyPct > 1 ? 'rgba(61,232,138,0.08)' : weeklyPct < -1 ? 'rgba(255,107,107,0.08)' : 'rgba(232,197,71,0.08)'
+                        const velBorder   = weeklyPct > 1 ? 'rgba(61,232,138,0.2)' : weeklyPct < -1 ? 'rgba(255,107,107,0.2)' : 'rgba(232,197,71,0.2)'
+                        return (
+                          <div style={{ ...aC }} className="ci-card-surface">
+                            <div style={{ ...aP }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                                <span style={{ ...aL, marginBottom: 0 }}>PRICE VELOCITY</span>
+                                <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 99, background: velBg, border: `1px solid ${velBorder}`, color: velColor }}>{velLabel}</span>
+                              </div>
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                                {[
+                                  { label: 'CURRENT',      value: fmtCurrency(liveData.price), highlight: true },
+                                  { label: 'PROJ. 30D',    value: fmtCurrency(proj30d),        color: proj30d > liveData.price ? 'var(--green)' : '#ff6b6b' },
+                                  { label: 'WEEKLY DELTA', value: `${weeklyPct >= 0 ? '+' : ''}${weeklyPct.toFixed(1)}%`, color: velColor },
+                                ].map((m, i) => (
+                                  <div key={i} style={{ borderRadius: 10, padding: '12px 14px', background: m.highlight ? 'rgba(232,197,71,0.06)' : 'var(--bg)', border: `1px solid ${m.highlight ? 'rgba(232,197,71,0.2)' : 'var(--border)'}` }}>
+                                    <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6 }}>{m.label}</div>
+                                    <div className="font-num" style={{ fontSize: 14, fontWeight: 700, color: m.color ?? 'var(--gold)' }}>{m.value}</div>
+                                  </div>
+                                ))}
+                              </div>
+                              <p style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 12, lineHeight: 1.6 }}>
+                                {weeklyPct > 1
+                                  ? `7-day avg is ${weeklyPct.toFixed(1)}% above the 30-day baseline — price is accelerating. Projected to reach ${fmtCurrency(proj30d)} in 30 days if momentum holds.`
+                                  : weeklyPct < -1
+                                  ? `7-day avg is ${Math.abs(weeklyPct).toFixed(1)}% below the 30-day baseline — price is decelerating. Projected to reach ${fmtCurrency(proj30d)} in 30 days if trend continues.`
+                                  : `7-day and 30-day averages are closely aligned — price momentum is stable.`}
+                              </p>
+                            </div>
+                          </div>
+                        )
+                      })()}
+
+                      {/* 9 — Buy/Sell Timing */}
+                      {liveData.ebay_listings && liveData.ebay_listings.length >= 5 && (() => {
+                        const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+                        const counts = [0, 0, 0, 0, 0, 0, 0]
+                        liveData.ebay_listings.forEach((l: { date?: string }) => {
+                          if (l.date) counts[new Date(l.date).getDay()]++
+                        })
+                        const maxCount  = Math.max(...counts)
+                        const bestDay   = counts.indexOf(maxCount)
+                        const dayData   = DAYS.map((d, i) => ({ day: d, count: counts[i], best: i === bestDay }))
+                        const totalSales = counts.reduce((a, b) => a + b, 0)
+                        if (maxCount === 0) return null
+                        return (
+                          <div style={{ ...aC }} className="ci-card-surface">
+                            <div style={{ ...aP }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                                <span style={{ ...aL, marginBottom: 0 }}>BUY / SELL TIMING</span>
+                                <span style={{ fontSize: 10, color: 'var(--ink3)' }}>Best day to list: <span style={{ color: 'var(--gold)', fontWeight: 700 }}>{DAYS[bestDay]}</span></span>
+                              </div>
+                              <p style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 12, lineHeight: 1.5 }}>Sales activity by day of week — based on {totalSales} recent eBay sold listings.</p>
+                              <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end', height: 80 }}>
+                                {dayData.map((d, i) => {
+                                  const pct = maxCount > 0 ? (d.count / maxCount) * 100 : 0
+                                  return (
+                                    <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                                      <div style={{ width: '100%', position: 'relative', height: 60, display: 'flex', alignItems: 'flex-end' }}>
+                                        <div style={{ width: '100%', height: `${Math.max(pct, 4)}%`, borderRadius: '3px 3px 0 0', background: d.best ? 'var(--gold)' : 'rgba(255,255,255,0.12)', transition: 'height 0.3s', boxShadow: d.best ? '0 0 8px rgba(232,197,71,0.3)' : 'none' }} />
+                                      </div>
+                                      <span style={{ fontSize: 9, color: d.best ? 'var(--gold)' : 'var(--ink3)', fontWeight: d.best ? 700 : 400 }}>{d.day}</span>
+                                      <span style={{ fontSize: 9, color: 'var(--ink3)' }}>{d.count}</span>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })()}
+
+                      {/* 10 — Outlier Detection */}
+                      {liveData.ebay_listings && liveData.ebay_listings.length >= 5 && (() => {
+                        const prices  = liveData.ebay_listings.map((l: { price: number }) => l.price)
+                        const mean    = prices.reduce((a: number, b: number) => a + b, 0) / prices.length
+                        const stdDev  = Math.sqrt(prices.reduce((a: number, b: number) => a + Math.pow(b - mean, 2), 0) / prices.length)
+                        const tagged  = liveData.ebay_listings.map((l: { title: string; price: number; date?: string; url?: string }) => ({
+                          ...l,
+                          z: stdDev > 0 ? Math.abs(l.price - mean) / stdDev : 0,
+                          outlier: stdDev > 0 && Math.abs(l.price - mean) > 2 * stdDev,
+                        }))
+                        const outlierCount = tagged.filter((l: { outlier: boolean }) => l.outlier).length
+                        if (outlierCount === 0) return null
+                        return (
+                          <div style={{ ...aC }} className="ci-card-surface">
+                            <div style={{ ...aP }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                                <span style={{ ...aL, marginBottom: 0 }}>OUTLIER DETECTION</span>
+                                <span style={{ fontSize: 10, padding: '2px 10px', borderRadius: 99, background: 'rgba(232,82,74,0.08)', border: '1px solid rgba(232,82,74,0.2)', color: '#ff6b6b' }}>{outlierCount} outlier{outlierCount > 1 ? 's' : ''} detected</span>
+                              </div>
+                              <p style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 12, lineHeight: 1.5 }}>
+                                Mean: {fmtCurrency(mean)} · ±2σ range: {fmtCurrency(Math.max(0, mean - 2 * stdDev))} – {fmtCurrency(mean + 2 * stdDev)}
+                              </p>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                                {tagged.sort((a: { price: number }, b: { price: number }) => b.price - a.price).map((l: { title: string; price: number; date?: string; url?: string; outlier: boolean; z: number }, i: number) => (
+                                  <a key={i} href={l.url} target="_blank" rel="noopener noreferrer"
+                                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0', borderBottom: i < tagged.length - 1 ? '1px solid var(--border)' : 'none', textDecoration: 'none' }}>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                      <div style={{ fontSize: 12, color: l.outlier ? 'var(--ink)' : 'var(--ink2)', fontWeight: l.outlier ? 600 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.title}</div>
+                                    </div>
+                                    {l.outlier && (
+                                      <span style={{ fontSize: 9, letterSpacing: 1, padding: '2px 7px', borderRadius: 4, background: l.price > mean ? 'rgba(232,82,74,0.1)' : 'rgba(74,158,255,0.1)', color: l.price > mean ? '#ff6b6b' : '#4a9eff', border: `1px solid ${l.price > mean ? 'rgba(232,82,74,0.25)' : 'rgba(74,158,255,0.25)'}`, flexShrink: 0 }}>
+                                        {l.price > mean ? '▲ HIGH' : '▼ LOW'}
+                                      </span>
+                                    )}
+                                    <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: l.outlier ? (l.price > mean ? '#ff6b6b' : '#4a9eff') : 'var(--ink)', flexShrink: 0 }}>{fmtCurrency(l.price)}</div>
+                                  </a>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })()}
+
+                      {/* 11 — Grade Relative Value */}
+                      {liveData.all_tier_prices && liveData.resolved_tier && (() => {
+                        const tiers = liveData.all_tier_prices as Record<string, { avg: number; source: string; saleCount?: number }>
+                        const fmtTL  = (k: string) => k.includes('_') ? k.split('_').map((w: string) => w.charAt(0) + w.slice(1).toLowerCase()).join(' ') : k
+                        const validEntries = Object.entries(tiers).filter(([k, v]) => k !== 'AGGREGATED' && v.avg > 0).sort(([, a], [, b]) => b.avg - a.avg)
+                        if (validEntries.length < 2) return null
+                        const topAvg     = validEntries[0][1].avg
+                        const topLabel   = fmtTL(validEntries[0][0])
+                        const currentAvg = liveData.price
+                        const relPct     = topAvg > 0 ? (currentAvg / topAvg) * 100 : 100
+                        const discountPct = 100 - relPct
+                        // Typical discount ranges by tier
+                        const typical: Record<string, [number, number]> = {
+                          NEAR_MINT: [0, 5], LIGHTLY_PLAYED: [10, 25], MODERATELY_PLAYED: [25, 40],
+                          HEAVILY_PLAYED: [35, 55], DAMAGED: [45, 65],
+                        }
+                        const range     = typical[liveData.resolved_tier]
+                        const isUnder   = range && discountPct > range[1]
+                        const isOver    = range && discountPct < range[0]
+                        const valueLabel = !range ? 'Unknown' : isUnder ? 'UNDERVALUED' : isOver ? 'PREMIUM' : 'FAIR VALUE'
+                        const valueColor = !range ? 'var(--ink3)' : isUnder ? 'var(--green)' : isOver ? '#ff6b6b' : 'var(--gold)'
+                        return (
+                          <div style={{ ...aC }} className="ci-card-surface">
+                            <div style={{ ...aP }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                                <span style={{ ...aL, marginBottom: 0 }}>GRADE RELATIVE VALUE</span>
+                                <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 99, background: isUnder ? 'rgba(61,232,138,0.08)' : isOver ? 'rgba(255,107,107,0.08)' : 'rgba(232,197,71,0.08)', border: `1px solid ${isUnder ? 'rgba(61,232,138,0.2)' : isOver ? 'rgba(255,107,107,0.2)' : 'rgba(232,197,71,0.2)'}`, color: valueColor }}>{valueLabel}</span>
+                              </div>
+                              <div style={{ marginBottom: 14 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: 'var(--ink3)', marginBottom: 6 }}>
+                                  <span>vs {topLabel} ({fmtCurrency(topAvg)})</span>
+                                  <span className="font-num" style={{ color: 'var(--ink)', fontWeight: 700 }}>{relPct.toFixed(1)}% of top grade</span>
+                                </div>
+                                <div style={{ position: 'relative', height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.06)' }}>
+                                  {range && (
+                                    <div style={{ position: 'absolute', left: `${100 - range[1]}%`, right: `${range[0]}%`, top: 0, bottom: 0, background: 'rgba(232,197,71,0.15)', borderRadius: 3 }} />
+                                  )}
+                                  <div style={{ position: 'absolute', left: `${Math.max(0, Math.min(relPct, 100) - 1)}%`, top: '50%', transform: 'translateY(-50%)', width: 13, height: 13, borderRadius: '50%', background: 'var(--surface)', border: `2px solid ${valueColor}`, boxShadow: `0 0 6px ${valueColor}80` }} />
+                                </div>
+                                {range && (
+                                  <div style={{ fontSize: 9, color: 'var(--ink3)', marginTop: 6 }}>
+                                    Typical {fmtTL(liveData.resolved_tier)} discount: {range[0]}–{range[1]}% below {topLabel} · Current discount: {discountPct.toFixed(1)}%
+                                  </div>
+                                )}
+                              </div>
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                                <div style={{ borderRadius: 8, padding: '10px 12px', background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                                  <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 4 }}>THIS GRADE</div>
+                                  <div className="font-num" style={{ fontSize: 14, fontWeight: 700, color: 'var(--gold)' }}>{fmtCurrency(currentAvg)}</div>
+                                </div>
+                                <div style={{ borderRadius: 8, padding: '10px 12px', background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                                  <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 4 }}>TOP GRADE ({topLabel.toUpperCase()})</div>
+                                  <div className="font-num" style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{fmtCurrency(topAvg)}</div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })()}
+
+                      {/* 12 — Price Momentum Phases */}
+                      {liveData.price_history && liveData.price_history.length >= 6 && (() => {
+                        type HistPoint = { month: string; price: number; volume?: number }
+                        const hist = liveData.price_history as HistPoint[]
+                        // 3-point moving average
+                        const ma3 = hist.map((_: HistPoint, i: number) =>
+                          i < 2 ? null : (hist[i-2].price + hist[i-1].price + hist[i].price) / 3
+                        )
+                        // Tag each point with momentum phase
+                        const phased = hist.map((h: HistPoint, i: number) => {
+                          const prev = i >= 3 ? ma3[i-1] : null
+                          const curr = ma3[i]
+                          let phase: 'up' | 'down' | 'neutral' = 'neutral'
+                          if (prev != null && curr != null) {
+                            if (curr > prev * 1.01) phase = 'up'
+                            else if (curr < prev * 0.99) phase = 'down'
+                          }
+                          return { ...h, ma3: curr, phase }
+                        })
+                        // Build reference areas for consecutive same-phase spans
+                        const areas: { x1: string; x2: string; phase: 'up' | 'down' | 'neutral' }[] = []
+                        let spanStart = 0
+                        for (let i = 1; i <= phased.length; i++) {
+                          if (i === phased.length || phased[i].phase !== phased[spanStart].phase) {
+                            if (phased[spanStart].phase !== 'neutral') {
+                              areas.push({ x1: phased[spanStart].month, x2: phased[Math.min(i, phased.length - 1)].month, phase: phased[spanStart].phase })
+                            }
+                            spanStart = i
+                          }
+                        }
+                        const upPhases   = phased.filter((p: { phase: string }) => p.phase === 'up').length
+                        const downPhases = phased.filter((p: { phase: string }) => p.phase === 'down').length
+                        const dominantPhase = upPhases > downPhases ? 'BULLISH' : upPhases < downPhases ? 'BEARISH' : 'MIXED'
+                        const domColor  = dominantPhase === 'BULLISH' ? 'var(--green)' : dominantPhase === 'BEARISH' ? '#ff6b6b' : 'var(--gold)'
+                        const domBg     = dominantPhase === 'BULLISH' ? 'rgba(61,232,138,0.08)' : dominantPhase === 'BEARISH' ? 'rgba(255,107,107,0.08)' : 'rgba(232,197,71,0.08)'
+                        const domBorder = dominantPhase === 'BULLISH' ? 'rgba(61,232,138,0.2)' : dominantPhase === 'BEARISH' ? 'rgba(255,107,107,0.2)' : 'rgba(232,197,71,0.2)'
+                        return (
+                          <div style={{ ...aC }} className="ci-card-surface">
+                            <div style={{ ...aP }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                                <span style={{ ...aL, marginBottom: 0 }}>MOMENTUM PHASES</span>
+                                <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 99, background: domBg, border: `1px solid ${domBorder}`, color: domColor }}>{dominantPhase}</span>
+                              </div>
+                              <p style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 8, lineHeight: 1.5 }}>
+                                Green zones = accelerating price · Red zones = decelerating · Based on 3-point moving average.
+                              </p>
+                              <ResponsiveContainer width="100%" height={130}>
+                                <ComposedChart data={phased} margin={{ top: 8, right: 4, left: 4, bottom: 0 }}>
+                                  {areas.map((a, i) => (
+                                    <ReferenceArea key={i} x1={a.x1} x2={a.x2}
+                                      fill={a.phase === 'up' ? 'rgba(61,232,138,0.08)' : 'rgba(255,107,107,0.08)'}
+                                      stroke="none" />
+                                  ))}
+                                  <XAxis dataKey="month" tick={{ fill: '#55556a', fontSize: 9, fontFamily: 'Helvetica' }} axisLine={false} tickLine={false} />
+                                  <YAxis hide />
+                                  <Tooltip content={({ active, payload }) => {
+                                    if (active && payload?.length) return (
+                                      <div style={{ background: '#181828', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '6px 10px' }}>
+                                        <div style={{ fontSize: 10, color: 'var(--ink3)' }}>{payload[0]?.payload?.month}</div>
+                                        <div className="font-num" style={{ fontSize: 12, color: 'var(--ink)' }}>{fmtCurrency(payload[0]?.value as number)}</div>
+                                      </div>
+                                    )
+                                    return null
+                                  }} />
+                                  <Line type="monotone" dataKey="price" stroke="rgba(255,255,255,0.5)" strokeWidth={1.5} dot={false} />
+                                  <Line type="monotone" dataKey="ma3" stroke="var(--gold)" strokeWidth={2} dot={false} strokeDasharray="none" connectNulls />
+                                </ComposedChart>
+                              </ResponsiveContainer>
+                              <div style={{ display: 'flex', gap: 16, marginTop: 8 }}>
+                                {[
+                                  { label: 'BULLISH PHASES', value: upPhases, color: 'var(--green)' },
+                                  { label: 'BEARISH PHASES', value: downPhases, color: '#ff6b6b' },
+                                  { label: 'NEUTRAL', value: phased.length - upPhases - downPhases, color: 'var(--ink3)' },
+                                ].map((m, i) => (
+                                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                    <span style={{ width: 8, height: 8, borderRadius: 2, background: m.color, flexShrink: 0 }} />
+                                    <span style={{ fontSize: 9, color: 'var(--ink3)' }}>{m.label}</span>
+                                    <span className="font-num" style={{ fontSize: 10, fontWeight: 700, color: m.color }}>{m.value}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })()}
+
                     </>
                   )
                 })()}
@@ -2653,6 +2921,216 @@ export default function CardPage() {
                             {liveData.last_updated_pt ? new Date(liveData.last_updated_pt).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' }) : 'Today'}
                           </div>
                         </div>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* 8 — Price Velocity */}
+              {liveData?.avg7d != null && liveData?.avg30d != null && liveData.avg30d > 0 && (() => {
+                const weeklyDelta = liveData.avg7d - liveData.avg30d
+                const weeklyPct   = (weeklyDelta / liveData.avg30d) * 100
+                const proj30d     = liveData.price + weeklyDelta * 4
+                const velLabel    = Math.abs(weeklyPct) < 1 ? 'STABLE' : weeklyPct > 0 ? 'ACCELERATING ▲' : 'DECELERATING ▼'
+                const velColor    = weeklyPct > 1 ? 'var(--green)' : weeklyPct < -1 ? '#ff6b6b' : 'var(--gold)'
+                const velBg       = weeklyPct > 1 ? 'rgba(61,232,138,0.08)' : weeklyPct < -1 ? 'rgba(255,107,107,0.08)' : 'rgba(232,197,71,0.08)'
+                const velBorder   = weeklyPct > 1 ? 'rgba(61,232,138,0.2)' : weeklyPct < -1 ? 'rgba(255,107,107,0.2)' : 'rgba(232,197,71,0.2)'
+                return (
+                  <div style={{ ...C }} className="ci-card-surface">
+                    <div style={{ ...P }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                        <span style={{ ...L, marginBottom: 0 }}>PRICE VELOCITY</span>
+                        <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 99, background: velBg, border: `1px solid ${velBorder}`, color: velColor }}>{velLabel}</span>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                        {[
+                          { label: 'CURRENT',      value: fmtCurrency(liveData.price), highlight: true },
+                          { label: 'PROJ. 30D',    value: fmtCurrency(proj30d),        color: proj30d > liveData.price ? 'var(--green)' : '#ff6b6b' },
+                          { label: 'WEEKLY DELTA', value: `${weeklyPct >= 0 ? '+' : ''}${weeklyPct.toFixed(1)}%`, color: velColor },
+                        ].map((m, i) => (
+                          <div key={i} style={{ borderRadius: 10, padding: '12px 14px', background: m.highlight ? 'rgba(232,197,71,0.06)' : 'var(--bg)', border: `1px solid ${m.highlight ? 'rgba(232,197,71,0.2)' : 'var(--border)'}` }}>
+                            <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6 }}>{m.label}</div>
+                            <div className="font-num" style={{ fontSize: 14, fontWeight: 700, color: m.color ?? 'var(--gold)' }}>{m.value}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <p style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 12, lineHeight: 1.6 }}>
+                        {weeklyPct > 1 ? `7-day avg is ${weeklyPct.toFixed(1)}% above the 30-day baseline — price is accelerating. Projected to reach ${fmtCurrency(proj30d)} in 30 days if momentum holds.` : weeklyPct < -1 ? `7-day avg is ${Math.abs(weeklyPct).toFixed(1)}% below the 30-day baseline — price is decelerating. Projected to reach ${fmtCurrency(proj30d)} in 30 days if trend continues.` : `7-day and 30-day averages are closely aligned — price momentum is stable.`}
+                      </p>
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* 9 — Buy/Sell Timing */}
+              {liveData?.ebay_listings && liveData.ebay_listings.length >= 5 && (() => {
+                const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+                const counts = [0, 0, 0, 0, 0, 0, 0]
+                liveData.ebay_listings.forEach((l: { date?: string }) => { if (l.date) counts[new Date(l.date).getDay()]++ })
+                const maxCount = Math.max(...counts); const bestDay = counts.indexOf(maxCount)
+                const dayData  = DAYS.map((d, i) => ({ day: d, count: counts[i], best: i === bestDay }))
+                const totalSales = counts.reduce((a, b) => a + b, 0)
+                if (maxCount === 0) return null
+                return (
+                  <div style={{ ...C }} className="ci-card-surface">
+                    <div style={{ ...P }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <span style={{ ...L, marginBottom: 0 }}>BUY / SELL TIMING</span>
+                        <span style={{ fontSize: 10, color: 'var(--ink3)' }}>Best day to list: <span style={{ color: 'var(--gold)', fontWeight: 700 }}>{DAYS[bestDay]}</span></span>
+                      </div>
+                      <p style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 12, lineHeight: 1.5 }}>Sales activity by day of week — based on {totalSales} recent eBay sold listings.</p>
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end', height: 80 }}>
+                        {dayData.map((d, i) => {
+                          const pct = maxCount > 0 ? (d.count / maxCount) * 100 : 0
+                          return (
+                            <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                              <div style={{ width: '100%', position: 'relative', height: 60, display: 'flex', alignItems: 'flex-end' }}>
+                                <div style={{ width: '100%', height: `${Math.max(pct, 4)}%`, borderRadius: '3px 3px 0 0', background: d.best ? 'var(--gold)' : 'rgba(255,255,255,0.12)', boxShadow: d.best ? '0 0 8px rgba(232,197,71,0.3)' : 'none' }} />
+                              </div>
+                              <span style={{ fontSize: 9, color: d.best ? 'var(--gold)' : 'var(--ink3)', fontWeight: d.best ? 700 : 400 }}>{d.day}</span>
+                              <span style={{ fontSize: 9, color: 'var(--ink3)' }}>{d.count}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* 10 — Outlier Detection */}
+              {liveData?.ebay_listings && liveData.ebay_listings.length >= 5 && (() => {
+                const prices  = liveData.ebay_listings.map((l: { price: number }) => l.price)
+                const mean    = prices.reduce((a: number, b: number) => a + b, 0) / prices.length
+                const stdDev  = Math.sqrt(prices.reduce((a: number, b: number) => a + Math.pow(b - mean, 2), 0) / prices.length)
+                const tagged  = liveData.ebay_listings.map((l: { title: string; price: number; date?: string; url?: string }) => ({ ...l, z: stdDev > 0 ? Math.abs(l.price - mean) / stdDev : 0, outlier: stdDev > 0 && Math.abs(l.price - mean) > 2 * stdDev }))
+                const outlierCount = tagged.filter((l: { outlier: boolean }) => l.outlier).length
+                if (outlierCount === 0) return null
+                return (
+                  <div style={{ ...C }} className="ci-card-surface">
+                    <div style={{ ...P }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <span style={{ ...L, marginBottom: 0 }}>OUTLIER DETECTION</span>
+                        <span style={{ fontSize: 10, padding: '2px 10px', borderRadius: 99, background: 'rgba(232,82,74,0.08)', border: '1px solid rgba(232,82,74,0.2)', color: '#ff6b6b' }}>{outlierCount} outlier{outlierCount > 1 ? 's' : ''} detected</span>
+                      </div>
+                      <p style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 12, lineHeight: 1.5 }}>Mean: {fmtCurrency(mean)} · ±2σ range: {fmtCurrency(Math.max(0, mean - 2 * stdDev))} – {fmtCurrency(mean + 2 * stdDev)}</p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                        {tagged.sort((a: { price: number }, b: { price: number }) => b.price - a.price).map((l: { title: string; price: number; date?: string; url?: string; outlier: boolean }, i: number) => (
+                          <a key={i} href={l.url} target="_blank" rel="noopener noreferrer"
+                            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0', borderBottom: i < tagged.length - 1 ? '1px solid var(--border)' : 'none', textDecoration: 'none' }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 12, color: l.outlier ? 'var(--ink)' : 'var(--ink2)', fontWeight: l.outlier ? 600 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.title}</div>
+                            </div>
+                            {l.outlier && (
+                              <span style={{ fontSize: 9, letterSpacing: 1, padding: '2px 7px', borderRadius: 4, background: l.price > mean ? 'rgba(232,82,74,0.1)' : 'rgba(74,158,255,0.1)', color: l.price > mean ? '#ff6b6b' : '#4a9eff', border: `1px solid ${l.price > mean ? 'rgba(232,82,74,0.25)' : 'rgba(74,158,255,0.25)'}`, flexShrink: 0 }}>
+                                {l.price > mean ? '▲ HIGH' : '▼ LOW'}
+                              </span>
+                            )}
+                            <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: l.outlier ? (l.price > mean ? '#ff6b6b' : '#4a9eff') : 'var(--ink)', flexShrink: 0 }}>{fmtCurrency(l.price)}</div>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* 11 — Grade Relative Value */}
+              {liveData?.all_tier_prices && liveData?.resolved_tier && (() => {
+                const tiers = liveData.all_tier_prices as Record<string, { avg: number; source: string; saleCount?: number }>
+                const fmtTL  = (k: string) => k.includes('_') ? k.split('_').map((w: string) => w.charAt(0) + w.slice(1).toLowerCase()).join(' ') : k
+                const validEntries = Object.entries(tiers).filter(([k, v]) => k !== 'AGGREGATED' && v.avg > 0).sort(([, a], [, b]) => b.avg - a.avg)
+                if (validEntries.length < 2) return null
+                const topAvg  = validEntries[0][1].avg; const topLabel = fmtTL(validEntries[0][0])
+                const currentAvg = liveData.price; const relPct = topAvg > 0 ? (currentAvg / topAvg) * 100 : 100
+                const discountPct = 100 - relPct
+                const typical: Record<string, [number, number]> = { NEAR_MINT: [0, 5], LIGHTLY_PLAYED: [10, 25], MODERATELY_PLAYED: [25, 40], HEAVILY_PLAYED: [35, 55], DAMAGED: [45, 65] }
+                const range  = typical[liveData.resolved_tier]; const isUnder = range && discountPct > range[1]; const isOver = range && discountPct < range[0]
+                const valueLabel = !range ? 'Unknown' : isUnder ? 'UNDERVALUED' : isOver ? 'PREMIUM' : 'FAIR VALUE'
+                const valueColor = !range ? 'var(--ink3)' : isUnder ? 'var(--green)' : isOver ? '#ff6b6b' : 'var(--gold)'
+                return (
+                  <div style={{ ...C }} className="ci-card-surface">
+                    <div style={{ ...P }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                        <span style={{ ...L, marginBottom: 0 }}>GRADE RELATIVE VALUE</span>
+                        <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 99, background: isUnder ? 'rgba(61,232,138,0.08)' : isOver ? 'rgba(255,107,107,0.08)' : 'rgba(232,197,71,0.08)', border: `1px solid ${isUnder ? 'rgba(61,232,138,0.2)' : isOver ? 'rgba(255,107,107,0.2)' : 'rgba(232,197,71,0.2)'}`, color: valueColor }}>{valueLabel}</span>
+                      </div>
+                      <div style={{ marginBottom: 14 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: 'var(--ink3)', marginBottom: 6 }}>
+                          <span>vs {topLabel} ({fmtCurrency(topAvg)})</span>
+                          <span className="font-num" style={{ color: 'var(--ink)', fontWeight: 700 }}>{relPct.toFixed(1)}% of top grade</span>
+                        </div>
+                        <div style={{ position: 'relative', height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.06)' }}>
+                          {range && <div style={{ position: 'absolute', left: `${100 - range[1]}%`, right: `${range[0]}%`, top: 0, bottom: 0, background: 'rgba(232,197,71,0.15)', borderRadius: 3 }} />}
+                          <div style={{ position: 'absolute', left: `${Math.max(0, Math.min(relPct, 100) - 1)}%`, top: '50%', transform: 'translateY(-50%)', width: 13, height: 13, borderRadius: '50%', background: 'var(--surface)', border: `2px solid ${valueColor}`, boxShadow: `0 0 6px ${valueColor}80` }} />
+                        </div>
+                        {range && <div style={{ fontSize: 9, color: 'var(--ink3)', marginTop: 6 }}>Typical {fmtTL(liveData.resolved_tier)} discount: {range[0]}–{range[1]}% below {topLabel} · Current discount: {discountPct.toFixed(1)}%</div>}
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                        {[{ label: 'THIS GRADE', value: fmtCurrency(currentAvg), color: 'var(--gold)' }, { label: `TOP GRADE (${topLabel.toUpperCase()})`, value: fmtCurrency(topAvg), color: 'var(--ink)' }].map((m, i) => (
+                          <div key={i} style={{ borderRadius: 8, padding: '10px 12px', background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                            <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 4 }}>{m.label}</div>
+                            <div className="font-num" style={{ fontSize: 14, fontWeight: 700, color: m.color }}>{m.value}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* 12 — Momentum Phases */}
+              {liveData?.price_history && liveData.price_history.length >= 6 && (() => {
+                type HistPoint = { month: string; price: number; volume?: number }
+                const hist = liveData.price_history as HistPoint[]
+                const ma3  = hist.map((_: HistPoint, i: number) => i < 2 ? null : (hist[i-2].price + hist[i-1].price + hist[i].price) / 3)
+                const phased = hist.map((h: HistPoint, i: number) => {
+                  const prev = i >= 3 ? ma3[i-1] : null; const curr = ma3[i]
+                  let phase: 'up' | 'down' | 'neutral' = 'neutral'
+                  if (prev != null && curr != null) { if (curr > prev * 1.01) phase = 'up'; else if (curr < prev * 0.99) phase = 'down' }
+                  return { ...h, ma3: curr, phase }
+                })
+                const areas: { x1: string; x2: string; phase: 'up' | 'down' | 'neutral' }[] = []
+                let spanStart = 0
+                for (let i = 1; i <= phased.length; i++) {
+                  if (i === phased.length || phased[i].phase !== phased[spanStart].phase) {
+                    if (phased[spanStart].phase !== 'neutral') areas.push({ x1: phased[spanStart].month, x2: phased[Math.min(i, phased.length - 1)].month, phase: phased[spanStart].phase })
+                    spanStart = i
+                  }
+                }
+                const upP = phased.filter((p: { phase: string }) => p.phase === 'up').length
+                const dnP = phased.filter((p: { phase: string }) => p.phase === 'down').length
+                const dom = upP > dnP ? 'BULLISH' : upP < dnP ? 'BEARISH' : 'MIXED'
+                const domColor = dom === 'BULLISH' ? 'var(--green)' : dom === 'BEARISH' ? '#ff6b6b' : 'var(--gold)'
+                return (
+                  <div style={{ ...C }} className="ci-card-surface">
+                    <div style={{ ...P }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <span style={{ ...L, marginBottom: 0 }}>MOMENTUM PHASES</span>
+                        <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 99, background: dom === 'BULLISH' ? 'rgba(61,232,138,0.08)' : dom === 'BEARISH' ? 'rgba(255,107,107,0.08)' : 'rgba(232,197,71,0.08)', border: `1px solid ${dom === 'BULLISH' ? 'rgba(61,232,138,0.2)' : dom === 'BEARISH' ? 'rgba(255,107,107,0.2)' : 'rgba(232,197,71,0.2)'}`, color: domColor }}>{dom}</span>
+                      </div>
+                      <p style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 8, lineHeight: 1.5 }}>Green zones = accelerating · Red zones = decelerating · Gold line = 3-point moving average.</p>
+                      <ResponsiveContainer width="100%" height={130}>
+                        <ComposedChart data={phased} margin={{ top: 8, right: 4, left: 4, bottom: 0 }}>
+                          {areas.map((a, i) => (
+                            <ReferenceArea key={i} x1={a.x1} x2={a.x2} fill={a.phase === 'up' ? 'rgba(61,232,138,0.08)' : 'rgba(255,107,107,0.08)'} stroke="none" />
+                          ))}
+                          <XAxis dataKey="month" tick={{ fill: '#55556a', fontSize: 9, fontFamily: 'Helvetica' }} axisLine={false} tickLine={false} />
+                          <YAxis hide />
+                          <Tooltip content={({ active, payload }) => active && payload?.length ? <div style={{ background: '#181828', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '6px 10px' }}><div style={{ fontSize: 10, color: 'var(--ink3)' }}>{payload[0]?.payload?.month}</div><div className="font-num" style={{ fontSize: 12, color: 'var(--ink)' }}>{fmtCurrency(payload[0]?.value as number)}</div></div> : null} />
+                          <Line type="monotone" dataKey="price" stroke="rgba(255,255,255,0.5)" strokeWidth={1.5} dot={false} />
+                          <Line type="monotone" dataKey="ma3" stroke="var(--gold)" strokeWidth={2} dot={false} connectNulls />
+                        </ComposedChart>
+                      </ResponsiveContainer>
+                      <div style={{ display: 'flex', gap: 16, marginTop: 8 }}>
+                        {[{ label: 'BULLISH PHASES', value: upP, color: 'var(--green)' }, { label: 'BEARISH PHASES', value: dnP, color: '#ff6b6b' }, { label: 'NEUTRAL', value: phased.length - upP - dnP, color: 'var(--ink3)' }].map((m, i) => (
+                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                            <span style={{ width: 8, height: 8, borderRadius: 2, background: m.color, flexShrink: 0 }} />
+                            <span style={{ fontSize: 9, color: 'var(--ink3)' }}>{m.label}</span>
+                            <span className="font-num" style={{ fontSize: 10, fontWeight: 700, color: m.color }}>{m.value}</span>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>

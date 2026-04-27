@@ -2,6 +2,7 @@
  * GET /api/card/[id]?grade=PSA+10&name=Charizard&set=Base+Set&number=4
  *
  * Returns card price data + CardIndex score via Poketrace API.
+ * Primary data source: eBay sold listings. TCGPlayer used as fallback only.
  * Checks search_cache first (24h TTL), falls back to live fetch.
  *
  * Matching strategy (in order):
@@ -27,6 +28,22 @@ import {
   type PokétraceCard,
 } from '@/lib/poketrace'
 import { computeScore } from '@/lib/score'
+
+/**
+ * Recompute data_warning + data_source from stored eBay sale count + eBay avg price.
+ * Used to backfill warnings on pre-migration cache rows that don't have these columns yet.
+ */
+function recomputeWarning(ebaySaleCount: number, ebayAvgUSD: number, currentSource: string) {
+  if (currentSource === 'tcgplayer') {
+    // Already fell back to TCGPlayer — determine why
+    return { data_warning: 'low_volume_tcg_fallback', data_source: 'tcgplayer' }
+  }
+  if (ebaySaleCount >= 10) return { data_warning: null, data_source: 'ebay' }
+  if (ebaySaleCount >= 5)  return { data_warning: 'limited_sales', data_source: 'ebay' }
+  if (ebayAvgUSD > 5000)   return { data_warning: 'rare_asset', data_source: 'ebay' }
+  if (ebayAvgUSD >= 1000)  return { data_warning: 'high_value_limited', data_source: 'ebay' }
+  return { data_warning: 'low_volume_no_fallback', data_source: 'ebay' }
+}
 
 /** Map a Poketrace HTTP error status to a user-readable message */
 function poketraceApiMessage(status: number): string {
@@ -132,7 +149,12 @@ export async function GET(
     const age = Date.now() - new Date(cached.last_fetched).getTime()
     if (age < CACHE_TTL_MS) {
       await supabase.from('search_log').insert({ card_id: id, card_name: cardName, grade })
-      return NextResponse.json({ source: 'cache', data: cached })
+      // Recompute warning from stored fields if not already present (pre-migration rows)
+      const cachedWithWarning = cached.data_warning !== undefined ? cached : {
+        ...cached,
+        ...recomputeWarning(cached.ebay_sale_count ?? cached.sales_count_30d, cached.ebay_avg_usd ?? cached.price, cached.data_source ?? 'ebay'),
+      }
+      return NextResponse.json({ source: 'cache', data: cachedWithWarning })
     }
   }
 
@@ -288,7 +310,51 @@ export async function GET(
     }, { status: 404 })
   }
 
-  const { tierPrice, resolvedTier } = result
+  const { tierPrice: rawTierPrice, resolvedTier } = result
+
+  // ── 3b. Data quality gate: eBay sale count → warning + optional TCGPlayer fallback ──
+  //
+  //  saleCount >= 10  → normal, no warning
+  //  saleCount 5–9    → 'limited_sales'  (soft warning, keep eBay)
+  //  saleCount < 5:
+  //    avg > $5 000   → 'rare_asset'          (keep eBay, no TCGPlayer fallback)
+  //    avg $1k–$5k    → 'high_value_limited'  (keep eBay, soft confidence)
+  //    avg < $1 000   → 'low_volume_tcg_fallback' or 'low_volume_no_fallback'
+
+  const ebayTierData   = fullCard.prices.ebay?.[resolvedTier]
+  const ebaySaleCount  = ebayTierData?.saleCount ?? rawTierPrice.saleCount ?? 0
+  const ebayAvgUSD     = ebayTierData?.avg ?? rawTierPrice.avg
+
+  let tierPrice   = rawTierPrice
+  let dataSource  = ebayTierData ? 'ebay' : 'tcgplayer'
+  let dataWarning: string | null = null
+
+  if (ebayTierData) {
+    if (ebaySaleCount >= 10) {
+      // Normal confidence — no warning
+    } else if (ebaySaleCount >= 5) {
+      dataWarning = 'limited_sales'
+    } else {
+      // < 5 eBay sales — branch on price
+      if (ebayAvgUSD > 5000) {
+        dataWarning = 'rare_asset'
+        // Keep eBay data — rare cards should not fall back to TCGPlayer
+      } else if (ebayAvgUSD >= 1000) {
+        dataWarning = 'high_value_limited'
+        // Keep eBay data — indicative only
+      } else {
+        // Low-value + low-volume → prefer TCGPlayer if available
+        const tcgFallback = fullCard.prices.tcgplayer?.[resolvedTier]
+        if (tcgFallback && tcgFallback.avg > 0) {
+          tierPrice  = tcgFallback
+          dataSource = 'tcgplayer'
+          dataWarning = 'low_volume_tcg_fallback'
+        } else {
+          dataWarning = 'low_volume_no_fallback'
+        }
+      }
+    }
+  }
 
   // ── 4. Fetch price history ────────────────────────────────────────────────
   const history = await getPriceHistory(matchedCard.id, resolvedTier, '90d')
@@ -314,14 +380,14 @@ export async function GET(
   }))
 
   // ── 8. Build all-tier price ladder ────────────────────────────────────────
-  const RAW_TIERS = ['NEAR_MINT', 'MINT', 'LIGHTLY_PLAYED', 'MODERATELY_PLAYED', 'HEAVILY_PLAYED', 'DAMAGED']
+  // eBay is always primary. TCGPlayer only fills in tiers eBay doesn't have.
   const allTierPrices: Record<string, { avg: number; source: string; saleCount?: number }> = {}
 
   for (const [t, tp] of Object.entries(fullCard.prices.ebay ?? {})) {
     allTierPrices[t] = { avg: tp.avg, source: 'eBay', saleCount: tp.saleCount }
   }
   for (const [t, tp] of Object.entries(fullCard.prices.tcgplayer ?? {})) {
-    if (RAW_TIERS.includes(t) || !allTierPrices[t]) {
+    if (!allTierPrices[t]) {
       allTierPrices[t] = { avg: tp.avg, source: 'TCGPlayer', saleCount: tp.saleCount }
     }
   }
@@ -364,6 +430,10 @@ export async function GET(
     all_tier_prices:     allTierPrices,
     total_sale_count:    fullCard.totalSaleCount ?? null,
     last_updated_pt:     fullCard.lastUpdated ?? null,
+    data_warning:        dataWarning,
+    data_source:         dataSource,
+    ebay_sale_count:     ebaySaleCount,    // original eBay count, even when fallen back to TCGPlayer
+    ebay_avg_usd:        ebayAvgUSD,       // original eBay avg, even when fallen back
   }
 
   await Promise.all([

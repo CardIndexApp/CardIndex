@@ -264,6 +264,11 @@ interface LiveData {
   all_tier_prices?: Record<string, { avg: number; source: string; saleCount?: number }> | null
   total_sale_count?: number | null
   last_updated_pt?: string | null
+  // Data quality fields
+  data_warning?: string | null   // null | 'limited_sales' | 'rare_asset' | 'high_value_limited' | 'low_volume_tcg_fallback' | 'low_volume_no_fallback'
+  data_source?: string | null    // 'ebay' | 'tcgplayer' | 'cardmarket'
+  ebay_sale_count?: number | null
+  ebay_avg_usd?: number | null
 }
 
 const TIER_LABELS: Record<string, string> = {
@@ -1837,6 +1842,34 @@ export default function CardPage() {
               </div>
             </div>
           </div>
+
+          {/* ── Data Quality Warning Banner ── */}
+          {liveData?.data_warning && (() => {
+            const w = liveData.data_warning;
+            const configs: Record<string, { bg: string; border: string; icon: string; text: string; sub: string }> = {
+              limited_sales:          { bg: 'rgba(232,197,71,0.06)',  border: 'rgba(232,197,71,0.25)',  icon: '⚠️', text: 'Limited sales data',          sub: `Based on ${liveData.ebay_sale_count ?? 'fewer than 10'} recent eBay sales — treat as indicative.` },
+              rare_asset:             { bg: 'rgba(99,179,237,0.06)',  border: 'rgba(99,179,237,0.25)',  icon: '💎', text: 'Rare asset',                   sub: 'Very limited market activity. Showing last known eBay sale price.' },
+              high_value_limited:     { bg: 'rgba(232,197,71,0.06)',  border: 'rgba(232,197,71,0.25)',  icon: '⚠️', text: 'High-value card — limited data', sub: 'Fewer than 5 recent eBay sales. Price shown is indicative only.' },
+              low_volume_tcg_fallback:{ bg: 'rgba(237,137,54,0.08)',  border: 'rgba(237,137,54,0.30)',  icon: '🔄', text: 'Low eBay volume — TCGPlayer price used', sub: 'Fewer than 5 recent eBay sales. Price sourced from TCGPlayer as estimate.' },
+              low_volume_no_fallback: { bg: 'rgba(232,90,74,0.08)',   border: 'rgba(232,90,74,0.30)',   icon: '⚠️', text: 'Very limited sales data',        sub: 'Fewer than 5 recent eBay sales and no TCGPlayer data. Use with caution.' },
+            };
+            const cfg = configs[w];
+            if (!cfg) return null;
+            return (
+              <div style={{ borderRadius: 12, background: cfg.bg, border: `1px solid ${cfg.border}`, padding: '12px 16px', marginBottom: 10, display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                <span style={{ fontSize: 16, lineHeight: 1, flexShrink: 0, marginTop: 1 }}>{cfg.icon}</span>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)', marginBottom: 2 }}>{cfg.text}</div>
+                  <div style={{ fontSize: 11, color: 'var(--ink3)', lineHeight: 1.5 }}>{cfg.sub}</div>
+                </div>
+                {liveData.data_source && (
+                  <div style={{ marginLeft: 'auto', flexShrink: 0, fontSize: 9, letterSpacing: 1, color: 'var(--ink3)', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border)', borderRadius: 99, padding: '3px 8px', alignSelf: 'center' }}>
+                    SOURCE: {liveData.data_source.toUpperCase()}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* ── Show Full Analysis toggle ── */}
           <div className="ci-no-print" style={{ marginBottom: 10 }}>

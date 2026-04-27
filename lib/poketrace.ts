@@ -134,14 +134,14 @@ export function getTierPrice(
   }
 
   if (isRaw) {
-    // Try exact tier first across both sources
-    const exact = card.prices.tcgplayer?.[tier] ?? card.prices.ebay?.[tier]
+    // eBay is primary source; TCGPlayer is fallback if eBay has no data
+    const exact = card.prices.ebay?.[tier] ?? card.prices.tcgplayer?.[tier]
     if (exact) return { tierPrice: exact, resolvedTier: tier }
 
-    // Fall back through other raw conditions
+    // Fall back through other raw conditions — eBay first, TCGPlayer second
     for (const fallback of RAW_TIERS) {
       if (fallback === tier) continue
-      const fb = card.prices.tcgplayer?.[fallback] ?? card.prices.ebay?.[fallback]
+      const fb = card.prices.ebay?.[fallback] ?? card.prices.tcgplayer?.[fallback]
       if (fb) return { tierPrice: fb, resolvedTier: fallback }
     }
 
@@ -152,7 +152,7 @@ export function getTierPrice(
     return null
   }
 
-  // Graded — use eBay
+  // Graded — eBay only
   const exact = card.prices.ebay?.[tier]
   if (exact) return { tierPrice: exact, resolvedTier: tier }
 
@@ -160,9 +160,9 @@ export function getTierPrice(
   const gradedTier = getBestGradedTier(card)
   if (gradedTier) return gradedTier
 
-  // Last resort — any raw tier
+  // Last resort — any raw tier (eBay first, TCGPlayer second)
   for (const raw of RAW_TIERS) {
-    const rb = card.prices.tcgplayer?.[raw] ?? card.prices.ebay?.[raw]
+    const rb = card.prices.ebay?.[raw] ?? card.prices.tcgplayer?.[raw]
     if (rb) return { tierPrice: rb, resolvedTier: raw }
   }
 

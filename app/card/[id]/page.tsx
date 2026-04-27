@@ -1531,9 +1531,10 @@ export default function CardPage() {
                       {/* 5 — Grade Premium Comparison */}
                       {liveData.all_tier_prices && Object.keys(liveData.all_tier_prices).length > 1 && (() => {
                         const tiers = liveData.all_tier_prices as Record<string, { avg: number; source: string; saleCount?: number }>
-                        const currentKey = selectedGrade === 'RAW' ? 'Raw' : `PSA ${selectedGrade}`
+                        const fmtTierLabel = (k: string) => k.includes('_') ? k.split('_').map((w: string) => w.charAt(0) + w.slice(1).toLowerCase()).join(' ') : k
+                        const currentKey = liveData.resolved_tier ?? (selectedGrade === 'RAW' ? 'Raw' : `PSA ${selectedGrade}`)
                         const currentAvg = tiers[currentKey]?.avg ?? liveData.price
-                        const entries = Object.entries(tiers).filter(([, v]) => v.avg > 0).sort(([, a], [, b]) => b.avg - a.avg)
+                        const entries = Object.entries(tiers).filter(([k, v]) => k !== 'AGGREGATED' && v.avg > 0).sort(([, a], [, b]) => b.avg - a.avg)
                         if (!entries.length) return null
                         return (
                           <div style={{ ...aC }} className="ci-card-surface">
@@ -1545,9 +1546,9 @@ export default function CardPage() {
                                 const topAvg = entries[0][1].avg
                                 return (
                                   <div key={grade} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: i < entries.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, width: 90, flexShrink: 0 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, width: 110, flexShrink: 0 }}>
                                       <span style={{ width: 6, height: 6, borderRadius: '50%', background: isCurrent ? 'var(--gold)' : 'var(--border2)', flexShrink: 0 }} />
-                                      <span style={{ fontSize: 12, fontWeight: isCurrent ? 700 : 400, color: isCurrent ? 'var(--gold)' : 'var(--ink2)' }}>{grade}</span>
+                                      <span style={{ fontSize: 12, fontWeight: isCurrent ? 700 : 400, color: isCurrent ? 'var(--gold)' : 'var(--ink2)' }}>{fmtTierLabel(grade)}</span>
                                     </div>
                                     <div style={{ flex: 1 }}>
                                       <div style={{ height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.05)', overflow: 'hidden' }}>
@@ -2540,10 +2541,11 @@ export default function CardPage() {
               {/* 5 — Grade Premium Table */}
               {liveData?.all_tier_prices && Object.keys(liveData.all_tier_prices).length > 1 && (() => {
                 const tiers = liveData.all_tier_prices as Record<string, { avg: number; source: string; saleCount?: number }>
-                const currentKey = selectedGrade === 'RAW' ? 'Raw' : `PSA ${selectedGrade}`
-                const currentAvg = tiers[currentKey]?.avg ?? liveData.price
+                const fmtTierLabel = (k: string) => k.includes('_') ? k.split('_').map((w: string) => w.charAt(0) + w.slice(1).toLowerCase()).join(' ') : k
+                const currentKey = liveData?.resolved_tier ?? (selectedGrade === 'RAW' ? 'Raw' : `PSA ${selectedGrade}`)
+                const currentAvg = tiers[currentKey]?.avg ?? liveData?.price
                 const entries = Object.entries(tiers)
-                  .filter(([, v]) => v.avg > 0)
+                  .filter(([k, v]) => k !== 'AGGREGATED' && v.avg > 0)
                   .sort(([, a], [, b]) => b.avg - a.avg)
                 if (!entries.length) return null
                 return (
@@ -2557,9 +2559,9 @@ export default function CardPage() {
                           const topAvg = entries[0][1].avg
                           return (
                             <div key={grade} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: i < entries.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 7, width: 90, flexShrink: 0 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 7, width: 110, flexShrink: 0 }}>
                                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: isCurrent ? 'var(--gold)' : 'var(--border2)', flexShrink: 0 }} />
-                                <span style={{ fontSize: 12, fontWeight: isCurrent ? 700 : 400, color: isCurrent ? 'var(--gold)' : 'var(--ink2)' }}>{grade}</span>
+                                <span style={{ fontSize: 12, fontWeight: isCurrent ? 700 : 400, color: isCurrent ? 'var(--gold)' : 'var(--ink2)' }}>{fmtTierLabel(grade)}</span>
                               </div>
                               <div style={{ flex: 1 }}>
                                 <div style={{ height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.05)', overflow: 'hidden' }}>

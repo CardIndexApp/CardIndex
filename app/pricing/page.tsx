@@ -79,8 +79,8 @@ const faqs = [
     a: 'Standard gives you the tools to track and act on the market — watchlists, price charts, trend indicators, and email alerts. Pro adds real-time alerts, advanced analytics, and full portfolio and profit & loss tracking for serious investors.',
   },
   {
-    q: 'Is there a free trial for paid plans?',
-    a: 'Yes. Pro and Collector both come with a 14-day free trial, no credit card required.',
+    q: 'Can I cancel my subscription?',
+    a: 'Yes — you can cancel at any time from your account settings. Your plan stays active until the end of the current billing period, then reverts to Free.',
   },
   {
     q: 'What payment methods do you accept?',
@@ -309,7 +309,7 @@ export default function Pricing() {
           <div style={{ textAlign: 'center', marginBottom: 80 }}>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, borderRadius: 99, padding: '8px 20px', background: 'var(--surface)', border: '1px solid var(--border)' }}>
               <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)', display: 'inline-block' }} />
-              <span style={{ fontSize: 12, color: 'var(--ink2)' }}>All paid plans include a <strong style={{ color: 'var(--ink)' }}>14-day free trial</strong> — no credit card required</span>
+              <span style={{ fontSize: 12, color: 'var(--ink2)' }}>Cancel anytime — no lock-in contracts</span>
             </div>
           </div>
 

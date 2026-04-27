@@ -3,7 +3,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { ComposedChart, LineChart, Line, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
+import { ComposedChart, LineChart, Line, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from 'recharts'
 import Navbar from '@/components/Navbar'
 import { getCard, fmt, scoreColor } from '@/lib/data'
 import { tcgImg } from '@/lib/img'
@@ -1714,56 +1714,25 @@ export default function CardPage() {
                   {liveLoading && (
                     <div style={{ fontSize: 9, color: 'var(--ink3)', letterSpacing: 1 }}>Fetching prices…</div>
                   )}
-                  {/* Export PDF button */}
-                  <button
-                    className="ci-no-print"
-                    onClick={exportPDF}
-                  style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface2)', border: '1.5px solid var(--border2)', borderRadius: 10, padding: '9px 14px', fontSize: 11, fontWeight: 500, color: 'var(--ink3)', cursor: 'pointer', transition: 'all 0.2s', flexShrink: 0, alignSelf: 'flex-start' }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.color = 'var(--gold)' }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border2)'; e.currentTarget.style.color = 'var(--ink3)' }}
-                >
-                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M4 12H3a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-1" />
-                    <rect x="4" y="9" width="8" height="6" rx="1" />
-                    <path d="M8 1v8M5 6l3 3 3-3" />
-                  </svg>
-                  Export PDF
-                </button>
-                  {/* Export CSV button — Pro only */}
-                  {userTier === 'pro' ? (
+                  {/* Export PDF — Standard+ */}
+                  {(userTier === 'standard' || userTier === 'pro') ? (
                     <button
                       className="ci-no-print"
-                      onClick={() => {
-                        if (!liveData?.price_history?.length) return
-                        const cardName = card?.name ?? urlName ?? 'card'
-                        const grade = urlGrade ?? (card ? card.grade : 'PSA 10')
-                        const rows = [
-                          ['Month', 'Price (USD)', 'Volume'],
-                          ...liveData.price_history.map(h => [h.month, h.price.toFixed(2), String(h.volume ?? '')])
-                        ]
-                        const csv = rows.map(r => r.join(',')).join('\n')
-                        const blob = new Blob([csv], { type: 'text/csv' })
-                        const url = URL.createObjectURL(blob)
-                        const a = document.createElement('a')
-                        a.href = url
-                        a.download = `${cardName} - ${grade}.csv`.replace(/[/\\?%*:|"<>]/g, '-')
-                        a.click()
-                        URL.revokeObjectURL(url)
-                      }}
+                      onClick={exportPDF}
                       style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface2)', border: '1.5px solid var(--border2)', borderRadius: 10, padding: '9px 14px', fontSize: 11, fontWeight: 500, color: 'var(--ink3)', cursor: 'pointer', transition: 'all 0.2s', flexShrink: 0, alignSelf: 'flex-start' }}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--green)'; e.currentTarget.style.color = 'var(--green)' }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.color = 'var(--gold)' }}
                       onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border2)'; e.currentTarget.style.color = 'var(--ink3)' }}
                     >
                       <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M14 10v3a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-3"/>
-                        <polyline points="4 6 8 10 12 6"/>
-                        <line x1="8" y1="1" x2="8" y2="10"/>
+                        <path d="M4 12H3a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-1" />
+                        <rect x="4" y="9" width="8" height="6" rx="1" />
+                        <path d="M8 1v8M5 6l3 3 3-3" />
                       </svg>
-                      Export CSV
+                      Export PDF
                     </button>
                   ) : isLoggedIn ? (
                     <Link href="/pricing" className="ci-no-print" style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface2)', border: '1.5px solid var(--border2)', borderRadius: 10, padding: '9px 14px', fontSize: 11, fontWeight: 500, color: 'var(--ink3)', textDecoration: 'none', flexShrink: 0, alignSelf: 'flex-start' }}>
-                      🔒 CSV — Pro
+                      🔒 PDF — Standard+
                     </Link>
                   ) : null}
                 </div>
@@ -2023,6 +1992,307 @@ export default function CardPage() {
                   </div>
                 </div>
               </div>
+
+              {/* ─── ADVANCED ANALYTICS SECTION ─── */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '14px 0 10px', padding: '0 2px' }}>
+                <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', whiteSpace: 'nowrap' }}>ADVANCED ANALYTICS</span>
+                <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+              </div>
+
+              {/* 1 — Moving Average Signal */}
+              {(liveData?.avg7d || liveData?.avg30d) && (() => {
+                const a1 = liveData.avg1d
+                const a7 = liveData.avg7d
+                const a30 = liveData.avg30d
+                const cur = liveData.price
+                const signal = a7 && a30 ? (a7 > a30 * 1.02 ? 'BULLISH' : a7 < a30 * 0.98 ? 'BEARISH' : 'NEUTRAL') : 'NEUTRAL'
+                const sigColor = signal === 'BULLISH' ? 'var(--green)' : signal === 'BEARISH' ? '#ff6b6b' : 'var(--gold)'
+                const sigBg = signal === 'BULLISH' ? 'rgba(61,232,138,0.08)' : signal === 'BEARISH' ? 'rgba(255,107,107,0.08)' : 'rgba(232,197,71,0.08)'
+                const sigBorder = signal === 'BULLISH' ? 'rgba(61,232,138,0.2)' : signal === 'BEARISH' ? 'rgba(255,107,107,0.2)' : 'rgba(232,197,71,0.2)'
+                return (
+                  <div style={{ ...C }} className="ci-card-surface">
+                    <div style={{ ...P }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                        <span style={{ ...L, marginBottom: 0 }}>MOVING AVERAGE SIGNAL</span>
+                        <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 99, background: sigBg, border: `1px solid ${sigBorder}`, color: sigColor, letterSpacing: 0.5 }}>
+                          {signal === 'BULLISH' ? '▲' : signal === 'BEARISH' ? '▼' : '●'} {signal}
+                        </span>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                        {([
+                          { label: 'CURRENT', value: cur, highlight: true },
+                          { label: '1D AVG',  value: a1 },
+                          { label: '7D AVG',  value: a7 },
+                          { label: '30D AVG', value: a30 },
+                        ] as { label: string; value: number | null | undefined; highlight?: boolean }[]).map((m, i) => (
+                          <div key={i} style={{ borderRadius: 10, padding: '12px 14px', background: m.highlight ? 'rgba(232,197,71,0.06)' : 'var(--bg)', border: `1px solid ${m.highlight ? 'rgba(232,197,71,0.2)' : 'var(--border)'}` }}>
+                            <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6 }}>{m.label}</div>
+                            <div className="font-num" style={{ fontSize: 14, fontWeight: 700, color: m.highlight ? 'var(--gold)' : 'var(--ink)' }}>
+                              {m.value != null ? fmtCurrency(m.value) : '—'}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      {a7 && a30 && (
+                        <p style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 12, lineHeight: 1.6 }}>
+                          {signal === 'BULLISH'
+                            ? `7-day avg (${fmtCurrency(a7)}) is tracking above the 30-day avg (${fmtCurrency(a30)}) — short-term upward momentum.`
+                            : signal === 'BEARISH'
+                            ? `7-day avg (${fmtCurrency(a7)}) is tracking below the 30-day avg (${fmtCurrency(a30)}) — short-term downward pressure.`
+                            : `7-day and 30-day averages are closely aligned — no clear directional signal.`}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* 2 — Volatility Analysis */}
+              {liveData?.price_history && liveData.price_history.length >= 3 && (() => {
+                const prices = liveData.price_history.map((h: { price: number }) => h.price)
+                const mean = prices.reduce((a: number, b: number) => a + b, 0) / prices.length
+                const variance = prices.reduce((a: number, b: number) => a + Math.pow(b - mean, 2), 0) / prices.length
+                const stdDev = Math.sqrt(variance)
+                const volPct = mean > 0 ? (stdDev / mean) * 100 : 0
+                const volLabel = volPct < 10 ? 'Low' : volPct < 25 ? 'Moderate' : volPct < 50 ? 'High' : 'Extreme'
+                const volColor = volPct < 10 ? 'var(--green)' : volPct < 25 ? 'var(--gold)' : '#ff6b6b'
+                const minP = Math.min(...prices)
+                const maxP = Math.max(...prices)
+                return (
+                  <div style={{ ...C }} className="ci-card-surface">
+                    <div style={{ ...P }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                        <span style={{ ...L, marginBottom: 0 }}>VOLATILITY ANALYSIS</span>
+                        <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 99, background: volPct < 10 ? 'rgba(61,232,138,0.08)' : volPct < 25 ? 'rgba(232,197,71,0.08)' : 'rgba(255,107,107,0.08)', border: `1px solid ${volPct < 10 ? 'rgba(61,232,138,0.2)' : volPct < 25 ? 'rgba(232,197,71,0.2)' : 'rgba(255,107,107,0.2)'}`, color: volColor }}>
+                          {volLabel} Volatility
+                        </span>
+                      </div>
+                      <div style={{ marginBottom: 14 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: 'var(--ink3)', marginBottom: 5 }}>
+                          <span>LOW</span><span>MODERATE</span><span>HIGH</span><span>EXTREME</span>
+                        </div>
+                        <div style={{ position: 'relative', height: 6, borderRadius: 3, background: 'linear-gradient(to right, #3de88a, #e8c547, #ff6b6b)' }}>
+                          <div style={{ position: 'absolute', left: `${Math.min(volPct / 60 * 100, 96)}%`, top: '50%', transform: 'translate(-50%, -50%)', width: 13, height: 13, borderRadius: '50%', background: 'var(--surface)', border: `2px solid ${volColor}`, boxShadow: `0 0 6px ${volColor}80` }} />
+                        </div>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                        {[
+                          { label: 'STD DEV',    value: fmtCurrency(stdDev) },
+                          { label: 'VOLATILITY', value: `${volPct.toFixed(1)}%` },
+                          { label: 'RANGE',      value: fmtCurrency(maxP - minP) },
+                          { label: 'MEAN PRICE', value: fmtCurrency(mean) },
+                        ].map((m, i) => (
+                          <div key={i} style={{ borderRadius: 8, padding: '10px 12px', background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                            <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 4 }}>{m.label}</div>
+                            <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{m.value}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* 3 — Score Radar */}
+              {(() => {
+                const sb = liveData?.score_breakdown
+                const radarData = sb ? [
+                  { axis: 'Trend',       value: Math.round(sb.trend       ?? 0) },
+                  { axis: 'Liquidity',   value: Math.round(sb.liquidity   ?? 0) },
+                  { axis: 'Consistency', value: Math.round(sb.consistency ?? 0) },
+                  { axis: 'Value',       value: Math.round(sb.value       ?? 0) },
+                ] : [
+                  { axis: 'Growth',    value: card.breakdown.growth    ?? 50 },
+                  { axis: 'Liquidity', value: card.breakdown.liquidity ?? 50 },
+                  { axis: 'Demand',    value: card.breakdown.demand    ?? 50 },
+                  { axis: 'Stability', value: 100 - (card.breakdown.volatility ?? 50) },
+                ]
+                return (
+                  <div style={{ ...C }} className="ci-card-surface">
+                    <div style={{ ...P }}>
+                      <span style={{ ...L }}>SCORE BREAKDOWN — RADAR</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
+                        <div style={{ width: 200, height: 180, flexShrink: 0 }}>
+                          <ResponsiveContainer width="100%" height="100%">
+                            <RadarChart cx="50%" cy="50%" outerRadius="68%" data={radarData}>
+                              <PolarGrid stroke="rgba(255,255,255,0.07)" />
+                              <PolarAngleAxis dataKey="axis" tick={{ fill: '#55556a', fontSize: 10, fontFamily: 'Helvetica' }} />
+                              <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
+                              <Radar dataKey="value" stroke="var(--gold)" fill="var(--gold)" fillOpacity={0.12} dot={{ fill: 'var(--gold)', r: 3 }} />
+                            </RadarChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <div style={{ flex: 1, minWidth: 140, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                          {radarData.map((d, i) => (
+                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <span style={{ fontSize: 9, letterSpacing: 1, color: 'var(--ink3)', width: 76, flexShrink: 0 }}>{d.axis.toUpperCase()}</span>
+                              <div style={{ flex: 1, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                                <div style={{ height: '100%', width: `${d.value}%`, background: scoreColor(d.value), borderRadius: 2 }} />
+                              </div>
+                              <span className="font-num" style={{ fontSize: 11, fontWeight: 700, color: scoreColor(d.value), width: 26, textAlign: 'right' }}>{d.value}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* 4 — Volume Trend */}
+              {liveData?.price_history && liveData.price_history.some((h: { volume?: number }) => (h.volume ?? 0) > 0) && (() => {
+                const volData = liveData.price_history
+                  .filter((h: { volume?: number }) => h.volume != null)
+                  .map((h: { month: string; price: number; volume?: number }) => ({ month: h.month, volume: h.volume ?? 0 }))
+                const maxVol = Math.max(...volData.map((d: { volume: number }) => d.volume), 1)
+                return (
+                  <div style={{ ...C }} className="ci-card-surface">
+                    <div style={{ ...P }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <span style={{ ...L, marginBottom: 0 }}>SALES VOLUME TREND</span>
+                        <span style={{ fontSize: 10, color: 'var(--ink3)' }}>peak {maxVol} sales/mo</span>
+                      </div>
+                      <ResponsiveContainer width="100%" height={120}>
+                        <ComposedChart data={volData} margin={{ top: 8, right: 4, left: 4, bottom: 0 }}>
+                          <XAxis dataKey="month" tick={{ fill: '#55556a', fontSize: 9, fontFamily: 'Helvetica' }} axisLine={false} tickLine={false} />
+                          <YAxis hide domain={[0, maxVol * 1.2]} />
+                          <Tooltip content={({ active, payload }) => {
+                            if (active && payload?.length) return (
+                              <div style={{ background: '#181828', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '6px 10px' }}>
+                                <div style={{ fontSize: 10, color: 'var(--ink3)' }}>{payload[0]?.payload?.month}</div>
+                                <div className="font-num" style={{ fontSize: 12, color: 'rgba(74,158,255,0.9)' }}>{payload[0]?.value} sales</div>
+                              </div>
+                            )
+                            return null
+                          }} />
+                          <Bar dataKey="volume" fill="rgba(74,158,255,0.55)" radius={[3, 3, 0, 0]} />
+                        </ComposedChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* 5 — Grade Premium Table */}
+              {liveData?.all_tier_prices && Object.keys(liveData.all_tier_prices).length > 1 && (() => {
+                const tiers = liveData.all_tier_prices as Record<string, { avg: number; source: string; saleCount?: number }>
+                const currentKey = selectedGrade === 'RAW' ? 'Raw' : `PSA ${selectedGrade}`
+                const currentAvg = tiers[currentKey]?.avg ?? liveData.price
+                const entries = Object.entries(tiers)
+                  .filter(([, v]) => v.avg > 0)
+                  .sort(([, a], [, b]) => b.avg - a.avg)
+                if (!entries.length) return null
+                return (
+                  <div style={{ ...C }} className="ci-card-surface">
+                    <div style={{ ...P }}>
+                      <span style={{ ...L }}>GRADE PREMIUM COMPARISON</span>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        {entries.map(([grade, data], i) => {
+                          const isCurrent = grade === currentKey
+                          const premiumPct = currentAvg > 0 ? ((data.avg - currentAvg) / currentAvg) * 100 : 0
+                          const topAvg = entries[0][1].avg
+                          return (
+                            <div key={grade} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: i < entries.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 7, width: 90, flexShrink: 0 }}>
+                                <span style={{ width: 6, height: 6, borderRadius: '50%', background: isCurrent ? 'var(--gold)' : 'var(--border2)', flexShrink: 0 }} />
+                                <span style={{ fontSize: 12, fontWeight: isCurrent ? 700 : 400, color: isCurrent ? 'var(--gold)' : 'var(--ink2)' }}>{grade}</span>
+                              </div>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.05)', overflow: 'hidden' }}>
+                                  <div style={{ height: '100%', width: `${topAvg > 0 ? (data.avg / topAvg) * 100 : 0}%`, background: isCurrent ? 'var(--gold)' : 'rgba(255,255,255,0.2)', borderRadius: 2 }} />
+                                </div>
+                              </div>
+                              <div style={{ textAlign: 'right', minWidth: 80, flexShrink: 0 }}>
+                                <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: isCurrent ? 'var(--gold)' : 'var(--ink)' }}>{fmtCurrency(data.avg)}</div>
+                                <div style={{ fontSize: 9, color: isCurrent ? 'var(--ink3)' : premiumPct > 0 ? 'var(--green)' : '#ff6b6b' }}>
+                                  {isCurrent ? 'your grade' : `${premiumPct > 0 ? '+' : ''}${premiumPct.toFixed(0)}% vs yours`}
+                                </div>
+                              </div>
+                              {data.saleCount != null && (
+                                <div style={{ fontSize: 9, color: 'var(--ink3)', width: 40, textAlign: 'right', flexShrink: 0 }}>{data.saleCount} sales</div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* 6 — Sales Price Distribution */}
+              {liveData?.ebay_listings && liveData.ebay_listings.length >= 3 && (() => {
+                const prices: number[] = liveData.ebay_listings.map((l: { price: number }) => l.price)
+                const minP = Math.min(...prices)
+                const maxP = Math.max(...prices)
+                const range = maxP - minP
+                const bucketSize = range > 0 ? range / 6 : 1
+                const buckets = Array.from({ length: 6 }, (_, i) => {
+                  const lo = minP + i * bucketSize
+                  const hi = lo + bucketSize
+                  const count = prices.filter((p: number) => i === 5 ? p >= lo && p <= hi : p >= lo && p < hi).length
+                  return { label: `$${lo.toFixed(0)}`, count }
+                }).filter(b => b.count > 0)
+                const sorted = [...prices].sort((a: number, b: number) => a - b)
+                const median = sorted[Math.floor(sorted.length / 2)]
+                return (
+                  <div style={{ ...C }} className="ci-card-surface">
+                    <div style={{ ...P }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <span style={{ ...L, marginBottom: 0 }}>SALES PRICE DISTRIBUTION</span>
+                        <span style={{ fontSize: 10, color: 'var(--ink3)' }}>median {fmtCurrency(median)} · {prices.length} sales</span>
+                      </div>
+                      <ResponsiveContainer width="100%" height={110}>
+                        <ComposedChart data={buckets} margin={{ top: 8, right: 4, left: 4, bottom: 0 }}>
+                          <XAxis dataKey="label" tick={{ fill: '#55556a', fontSize: 9, fontFamily: 'Helvetica' }} axisLine={false} tickLine={false} />
+                          <YAxis hide />
+                          <Tooltip content={({ active, payload }) => {
+                            if (active && payload?.length) return (
+                              <div style={{ background: '#181828', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '6px 10px' }}>
+                                <div className="font-num" style={{ fontSize: 12, color: '#f0f0f8' }}>{payload[0]?.value} sales</div>
+                              </div>
+                            )
+                            return null
+                          }} />
+                          <Bar dataKey="count" fill="rgba(232,197,71,0.5)" radius={[3, 3, 0, 0]} />
+                        </ComposedChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* 7 — Data Confidence & Quality */}
+              {liveData && (() => {
+                const conf = liveData.confidence
+                const confColor = conf === 'high' ? 'var(--green)' : conf === 'medium' ? 'var(--gold)' : conf === 'low' ? '#ff6b6b' : 'var(--ink3)'
+                const confBg = conf === 'high' ? 'rgba(61,232,138,0.08)' : conf === 'medium' ? 'rgba(232,197,71,0.08)' : 'rgba(255,107,107,0.08)'
+                const confBorder = conf === 'high' ? 'rgba(61,232,138,0.2)' : conf === 'medium' ? 'rgba(232,197,71,0.2)' : 'rgba(255,107,107,0.2)'
+                return (
+                  <div style={{ ...C }} className="ci-card-surface">
+                    <div style={{ ...P }}>
+                      <span style={{ ...L }}>DATA CONFIDENCE & QUALITY</span>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                        <div style={{ borderRadius: 10, padding: '12px 14px', background: conf ? confBg : 'var(--bg)', border: `1px solid ${conf ? confBorder : 'var(--border)'}` }}>
+                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6 }}>CONFIDENCE</div>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: confColor, textTransform: 'capitalize' }}>{conf ?? 'Unknown'}</div>
+                        </div>
+                        <div style={{ borderRadius: 10, padding: '12px 14px', background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6 }}>ALL-GRADE SALES</div>
+                          <div className="font-num" style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{liveData.total_sale_count ?? liveData.sales_count_30d ?? '—'}</div>
+                        </div>
+                        <div style={{ borderRadius: 10, padding: '12px 14px', background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6 }}>LAST UPDATED</div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink2)' }}>
+                            {liveData.last_updated_pt ? new Date(liveData.last_updated_pt).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' }) : 'Today'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
 
               {/* AI Insights */}
               <div style={{ ...C }} className="ci-card-surface">

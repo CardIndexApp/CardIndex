@@ -159,6 +159,7 @@ export default function Watchlist() {
   const [user, setUser] = useState<User | null>(null)
   const [authChecked, setAuthChecked] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
+  const [userTier, setUserTier] = useState<string>('free')
 
   const [items, setItems] = useState<EnrichedItem[]>([])
   const [listLoading, setListLoading] = useState(false)
@@ -171,9 +172,13 @@ export default function Watchlist() {
   // ── Auth check ────────────────────────────────────────────────────────────
   useEffect(() => {
     const supabase = createClient()
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getUser().then(async ({ data }) => {
       setUser(data.user)
       setAuthChecked(true)
+      if (data.user) {
+        const { data: prof } = await supabase.from('profiles').select('tier').eq('id', data.user.id).single()
+        setUserTier(prof?.tier ?? 'free')
+      }
     })
   }, [])
 
@@ -352,14 +357,60 @@ export default function Watchlist() {
         <div style={{ maxWidth: 1100, margin: '0 auto', padding: '48px 24px 0' }}>
 
           {/* Header */}
-          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 32 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 32, flexWrap: 'wrap', gap: 12 }}>
             <div>
               <p style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' }}>Watchlist</p>
               <h1 style={{ fontSize: 32, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-1px' }}>My Cards</h1>
             </div>
-            <Link href="/search" style={{ padding: '9px 20px', borderRadius: 10, background: 'var(--gold)', color: '#080810', fontSize: 13, fontWeight: 600, textDecoration: 'none' }}>
-              + Add card
-            </Link>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              {userTier === 'pro' ? (
+                <button
+                  onClick={() => {
+                    const visible = items.filter(item => {
+                      const pd = item.priceData
+                      const change = pd ? pd.price_change_pct : null
+                      if (filter === 'up' && (change == null || change < 0)) return false
+                      if (filter === 'down' && (change == null || change >= 0)) return false
+                      return true
+                    })
+                    const rows = [
+                      ['Card Name', 'Grade', 'Set', 'Current Price (USD)', '24h Change %', 'Score'],
+                      ...visible.map(item => [
+                        `"${item.card_name}"`,
+                        item.grade,
+                        `"${item.set_name ?? ''}"`,
+                        item.priceData ? item.priceData.price.toFixed(2) : '',
+                        item.priceData ? item.priceData.price_change_pct.toFixed(2) : '',
+                        item.priceData ? String(item.priceData.score) : '',
+                      ])
+                    ]
+                    const csv = rows.map(r => r.join(',')).join('\n')
+                    const blob = new Blob([csv], { type: 'text/csv' })
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = url
+                    a.download = `Watchlist-${new Date().toISOString().slice(0, 10)}.csv`
+                    a.click()
+                    URL.revokeObjectURL(url)
+                  }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--border2)', color: 'var(--ink3)', fontSize: 12, fontWeight: 500, cursor: 'pointer', transition: 'all 0.15s' }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--green)'; e.currentTarget.style.color = 'var(--green)' }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border2)'; e.currentTarget.style.color = 'var(--ink3)' }}
+                >
+                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 10v3a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-3"/><polyline points="4 6 8 10 12 6"/><line x1="8" y1="1" x2="8" y2="10"/>
+                  </svg>
+                  Export CSV
+                </button>
+              ) : user ? (
+                <Link href="/pricing" style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--border2)', color: 'var(--ink3)', fontSize: 12, fontWeight: 500, textDecoration: 'none' }}>
+                  🔒 CSV — Pro
+                </Link>
+              ) : null}
+              <Link href="/search" style={{ padding: '9px 20px', borderRadius: 10, background: 'var(--gold)', color: '#080810', fontSize: 13, fontWeight: 600, textDecoration: 'none' }}>
+                + Add card
+              </Link>
+            </div>
           </div>
 
           {/* ── Not logged in ── */}

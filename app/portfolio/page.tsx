@@ -668,12 +668,53 @@ export default function PortfolioPage() {
               <p style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' }}>Portfolio</p>
               <h1 style={{ fontSize: 32, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-1px' }}>My Collection</h1>
             </div>
-            <button
-              onClick={() => setShowAdd(true)}
-              style={{ padding: '9px 20px', borderRadius: 10, background: 'var(--gold)', color: '#080810', border: 'none', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
-            >
-              + Add Position
-            </button>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <button
+                onClick={() => {
+                  const rows = [
+                    ['Card Name', 'Grade', 'Set', 'Qty', 'Cost/ea (USD)', 'Market Price (USD)', 'P&L (USD)', 'P&L %', 'Added'],
+                    ...positions.map(p => {
+                      const mkt = p.priceData?.price ?? null
+                      const pl = mkt != null ? (mkt - p.purchase_price) * p.quantity : ''
+                      const plPct = mkt != null && p.purchase_price > 0 ? ((mkt - p.purchase_price) / p.purchase_price * 100).toFixed(2) : ''
+                      return [
+                        `"${p.card_name}"`,
+                        p.grade,
+                        `"${p.set_name ?? ''}"`,
+                        String(p.quantity),
+                        p.purchase_price.toFixed(2),
+                        mkt != null ? mkt.toFixed(2) : '',
+                        pl !== '' ? (pl as number).toFixed(2) : '',
+                        plPct,
+                        p.purchased_at ? p.purchased_at.slice(0, 10) : '',
+                      ]
+                    })
+                  ]
+                  const csv = rows.map(r => r.join(',')).join('\n')
+                  const blob = new Blob([csv], { type: 'text/csv' })
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = `Portfolio-${new Date().toISOString().slice(0, 10)}.csv`
+                  a.click()
+                  URL.revokeObjectURL(url)
+                }}
+                style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--border2)', color: 'var(--ink3)', fontSize: 12, fontWeight: 500, cursor: 'pointer', transition: 'all 0.15s' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--green)'; e.currentTarget.style.color = 'var(--green)' }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border2)'; e.currentTarget.style.color = 'var(--ink3)' }}
+              >
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 10v3a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-3"/><polyline points="4 6 8 10 12 6"/><line x1="8" y1="1" x2="8" y2="10"/>
+                </svg>
+                Export CSV
+              </button>
+              <button
+                onClick={() => setShowAdd(true)}
+                style={{ padding: '9px 20px', borderRadius: 10, background: 'var(--gold)', color: '#080810', border: 'none', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+              >
+                + Add Position
+              </button>
+            </div>
           </div>
 
           {/* ── Flash message ── */}

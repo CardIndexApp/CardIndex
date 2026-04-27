@@ -712,7 +712,7 @@ export default function CardPage() {
   const [userPrice, setUserPrice] = useState(card ? card.price : 0)
   const [analysisWindow, setAnalysisWindow] = useState<'1M' | '3M' | '6M'>('3M')
   const [chartWindow, setChartWindow] = useState<'7d' | '30d' | '90d'>('30d')
-  const [showAnalysis, setShowAnalysis] = useState(false)
+  const [showAnalysis, setShowAnalysis] = useState(true)
   const [activeTip, setActiveTip]             = useState<string | null>(null)
   const [priceCheckOpen, setPriceCheckOpen]   = useState(false)
   const [priceCheckInput, setPriceCheckInput] = useState('')
@@ -1353,26 +1353,28 @@ export default function CardPage() {
                   )
                 })()}
 
-                {/* ── Show Full Analysis toggle (Pro) ── */}
-                <div className="ci-no-print" style={{ marginBottom: 10 }}>
-                  {userTier === 'pro' ? (
+                {/* ── Show Full Analysis toggle (Standard+) ── */}
+                {['standard', 'pro'].includes(userTier) ? (
+                  <div style={{ marginBottom: 10 }}>
                     <button
                       onClick={() => setShowAnalysis(!showAnalysis)}
                       style={{ width: '100%', padding: '14px 20px', borderRadius: 14, background: 'var(--surface)', border: '1px solid rgba(232,197,71,0.25)', color: 'var(--gold)', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'border-color 0.2s' }}
                       onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--gold)')}
                       onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(232,197,71,0.25)')}
                     >
-                      {showAnalysis ? '↑ Hide Analysis' : '↓ Show Full Analysis'}
+                      {showAnalysis ? '↑ Hide Advanced Analytics' : '↓ Show Advanced Analytics'}
                     </button>
-                  ) : isLoggedIn ? (
+                  </div>
+                ) : isLoggedIn ? (
+                  <div style={{ marginBottom: 10 }}>
                     <Link href="/pricing" style={{ textDecoration: 'none', width: '100%', padding: '14px 20px', borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', color: 'var(--ink3)', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                      🔒 Advanced Analytics — Pro feature · Upgrade to unlock
+                      🔒 Advanced Analytics — Standard+ feature · Upgrade to unlock
                     </Link>
-                  ) : null}
-                </div>
+                  </div>
+                ) : null}
 
-                {/* ── Advanced Analytics (Pro only) ── */}
-                {showAnalysis && userTier === 'pro' && (() => {
+                {/* ── Advanced Analytics (Standard+) ── */}
+                {showAnalysis && ['standard', 'pro'].includes(userTier) && (() => {
                   const { C: aC, P: aP, L: aL } = CPL
                   const liveRangeLowAdv  = liveData.price_range_low  ?? liveData.price
                   const liveRangeHighAdv = liveData.price_range_high ?? liveData.price

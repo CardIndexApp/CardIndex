@@ -368,6 +368,7 @@ export default function PortfolioPage() {
 
   const [user, setUser] = useState<User | null>(null)
   const [authChecked, setAuthChecked] = useState(false)
+  const [userTier, setUserTier] = useState<string>('free')
   const [positions, setPositions] = useState<Position[]>([])
   const [listLoading, setListLoading] = useState(false)
   const [showAdd, setShowAdd] = useState(false)
@@ -384,8 +385,12 @@ export default function PortfolioPage() {
 
   // ── Auth ──────────────────────────────────────────────────────────────────
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getUser().then(async ({ data }) => {
       setUser(data.user)
+      if (data.user) {
+        const { data: prof } = await supabase.from('profiles').select('tier').eq('id', data.user.id).single()
+        setUserTier(prof?.tier ?? 'free')
+      }
       setAuthChecked(true)
     })
   }, [])
@@ -583,6 +588,31 @@ export default function PortfolioPage() {
             <Link href="/" style={{ display: 'inline-block', padding: '13px 28px', borderRadius: 12, background: 'var(--gold)', color: '#080810', textDecoration: 'none', fontSize: 14, fontWeight: 700 }}>
               Sign in
             </Link>
+          </div>
+        </main>
+      </>
+    )
+  }
+
+  // ── Pro gate ──────────────────────────────────────────────────────────────
+  if (authChecked && user && userTier !== 'pro') {
+    return (
+      <>
+        <Navbar />
+        <main style={{ paddingTop: 88, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ maxWidth: 440, textAlign: 'center', padding: 32 }}>
+            <div style={{ fontSize: 40, marginBottom: 16 }}>📊</div>
+            <div style={{ display: 'inline-block', padding: '4px 14px', borderRadius: 99, background: 'var(--gold2)', border: '1px solid rgba(232,197,71,0.3)', fontSize: 11, fontWeight: 700, color: 'var(--gold)', letterSpacing: 1, marginBottom: 16 }}>PRO FEATURE</div>
+            <h2 style={{ fontSize: 24, fontWeight: 800, color: 'var(--ink)', marginBottom: 12, letterSpacing: '-0.5px' }}>Portfolio tracking is a Pro feature</h2>
+            <p style={{ fontSize: 13, color: 'var(--ink3)', lineHeight: 1.7, marginBottom: 28 }}>
+              Track every purchase, monitor P&L in real time, and see full market performance across your collection. Upgrade to Pro to unlock portfolio tracking.
+            </p>
+            <Link href="/pricing" style={{ display: 'inline-block', padding: '13px 28px', borderRadius: 12, background: 'var(--gold)', color: '#080810', textDecoration: 'none', fontSize: 14, fontWeight: 700 }}>
+              Upgrade to Pro →
+            </Link>
+            <div style={{ marginTop: 16 }}>
+              <Link href="/dashboard" style={{ fontSize: 12, color: 'var(--ink3)', textDecoration: 'none' }}>← Back to dashboard</Link>
+            </div>
           </div>
         </main>
       </>

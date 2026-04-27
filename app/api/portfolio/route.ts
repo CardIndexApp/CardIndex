@@ -11,6 +11,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getTierLimits } from '@/lib/tier'
 
 export async function GET() {
   const supabase = await createClient()
@@ -31,6 +32,12 @@ export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // Portfolio tracking is a Pro feature
+  const { data: profile } = await supabase.from('profiles').select('tier').eq('id', user.id).single()
+  if (!getTierLimits(profile?.tier).portfolioTracking) {
+    return NextResponse.json({ error: 'Portfolio tracking requires a Pro plan.' }, { status: 403 })
+  }
 
   const body = await req.json()
   const { card_id, card_name, set_name, grade, card_number, image_url, purchase_price, quantity, purchased_at, notes } = body

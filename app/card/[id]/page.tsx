@@ -506,10 +506,16 @@ export default function CardPage() {
 
   // Check auth
   const [userId, setUserId] = useState<string | null>(null)
+  const [userTier, setUserTier] = useState<string>('free')
   useEffect(() => {
-    createClient().auth.getUser().then(({ data }) => {
+    const client = createClient()
+    client.auth.getUser().then(async ({ data }) => {
       setIsLoggedIn(!!data.user)
       setUserId(data.user?.id ?? null)
+      if (data.user) {
+        const { data: prof } = await client.from('profiles').select('tier').eq('id', data.user.id).single()
+        setUserTier(prof?.tier ?? 'free')
+      }
     })
   }, [])
 
@@ -916,13 +922,21 @@ export default function CardPage() {
                             {liveData.sales_count_30d.toLocaleString()} sales (30d)
                           </span>
                         )}
-                        {/* Both: % change */}
-                        <span className="font-num" style={{ fontSize: 13, color: liveData.price_change_pct >= 0 ? 'var(--green)' : 'var(--red)', whiteSpace: 'nowrap' }}>
-                          {liveData.price_change_pct >= 0 ? '+' : ''}{liveData.price_change_pct.toFixed(1)}% (30d)
-                        </span>
+                        {/* Both: % change — Standard+ only */}
+                        {['standard','pro'].includes(userTier) ? (
+                          <span className="font-num" style={{ fontSize: 13, color: liveData.price_change_pct >= 0 ? 'var(--green)' : 'var(--red)', whiteSpace: 'nowrap' }}>
+                            {liveData.price_change_pct >= 0 ? '+' : ''}{liveData.price_change_pct.toFixed(1)}% (30d)
+                          </span>
+                        ) : (
+                          <Link href="/pricing" style={{ fontSize: 11, color: 'var(--gold)', textDecoration: 'none', padding: '2px 8px', borderRadius: 6, background: 'var(--gold2)', border: '1px solid rgba(232,197,71,0.25)' }}>🔒 Standard</Link>
+                        )}
                       </div>
                       <div style={{ marginTop: 10 }}>
-                        <TrendBadge trend={liveData.trend} confidence={liveData.confidence} />
+                        {['standard','pro'].includes(userTier) ? (
+                          <TrendBadge trend={liveData.trend} confidence={liveData.confidence} />
+                        ) : (
+                          <Link href="/pricing" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--ink3)', textDecoration: 'none', padding: '3px 10px', borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border2)' }}>🔒 Trend — Standard+</Link>
+                        )}
                       </div>
                     </div>
                     {(() => {
@@ -1190,11 +1204,19 @@ export default function CardPage() {
                                   </div>
                                 )}
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                  <TrendBadge trend={dir} confidence={null} />
+                                  {['standard','pro'].includes(userTier) ? (
+                                    <TrendBadge trend={dir} confidence={null} />
+                                  ) : (
+                                    <Link href="/pricing" style={{ fontSize: 10, color: 'var(--ink3)', textDecoration: 'none' }}>🔒 Standard+</Link>
+                                  )}
                                   {pct != null && (
-                                    <span className="font-num" style={{ fontSize: 12, fontWeight: 700, color: pctColor }}>
-                                      {pct >= 0 ? '+' : ''}{pct.toFixed(1)}%
-                                    </span>
+                                    ['standard','pro'].includes(userTier) ? (
+                                      <span className="font-num" style={{ fontSize: 12, fontWeight: 700, color: pctColor }}>
+                                        {pct >= 0 ? '+' : ''}{pct.toFixed(1)}%
+                                      </span>
+                                    ) : (
+                                      <span style={{ fontSize: 11, color: 'var(--ink3)', filter: 'blur(4px)', userSelect: 'none' }}>+00.0%</span>
+                                    )
                                   )}
                                 </div>
                               </>
@@ -1319,8 +1341,17 @@ export default function CardPage() {
                   )
                 })()}
 
-                {/* Price & Volume Chart */}
-                {liveData.price_history && liveData.price_history.length >= 2 && (() => {
+                {/* Price & Volume Chart — Standard+ only */}
+                {liveData.price_history && liveData.price_history.length >= 2 && !['standard','pro'].includes(userTier) && (
+                  <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', padding: '32px 24px', textAlign: 'center', marginBottom: 10 }}>
+                    <div style={{ fontSize: 24, marginBottom: 12 }}>📈</div>
+                    <div style={{ display: 'inline-block', padding: '3px 12px', borderRadius: 99, background: 'var(--gold2)', border: '1px solid rgba(232,197,71,0.3)', fontSize: 10, fontWeight: 700, color: 'var(--gold)', letterSpacing: 1, marginBottom: 12 }}>STANDARD FEATURE</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>Price history chart</div>
+                    <p style={{ fontSize: 12, color: 'var(--ink3)', marginBottom: 20, lineHeight: 1.6 }}>Upgrade to Standard or Pro to view full price history charts and trend data.</p>
+                    <Link href="/pricing" style={{ display: 'inline-block', padding: '9px 22px', borderRadius: 10, background: 'var(--gold)', color: '#080810', textDecoration: 'none', fontSize: 13, fontWeight: 700 }}>Upgrade to Standard →</Link>
+                  </div>
+                )}
+                {liveData.price_history && liveData.price_history.length >= 2 && ['standard','pro'].includes(userTier) && (() => {
                   const pts = chartWindow === '7d' ? 7 : chartWindow === '30d' ? 30 : 90
                   const sliced = liveData.price_history.slice(-pts)
                   const hasVolume = sliced.some(p => (p.volume ?? 0) > 0)
@@ -1698,6 +1729,43 @@ export default function CardPage() {
                   </svg>
                   Export PDF
                 </button>
+                  {/* Export CSV button — Pro only */}
+                  {userTier === 'pro' ? (
+                    <button
+                      className="ci-no-print"
+                      onClick={() => {
+                        if (!liveData?.price_history?.length) return
+                        const cardName = card?.name ?? urlName ?? 'card'
+                        const grade = urlGrade ?? (card ? card.grade : 'PSA 10')
+                        const rows = [
+                          ['Month', 'Price (USD)', 'Volume'],
+                          ...liveData.price_history.map(h => [h.month, h.price.toFixed(2), String(h.volume ?? '')])
+                        ]
+                        const csv = rows.map(r => r.join(',')).join('\n')
+                        const blob = new Blob([csv], { type: 'text/csv' })
+                        const url = URL.createObjectURL(blob)
+                        const a = document.createElement('a')
+                        a.href = url
+                        a.download = `${cardName} - ${grade}.csv`.replace(/[/\\?%*:|"<>]/g, '-')
+                        a.click()
+                        URL.revokeObjectURL(url)
+                      }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface2)', border: '1.5px solid var(--border2)', borderRadius: 10, padding: '9px 14px', fontSize: 11, fontWeight: 500, color: 'var(--ink3)', cursor: 'pointer', transition: 'all 0.2s', flexShrink: 0, alignSelf: 'flex-start' }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--green)'; e.currentTarget.style.color = 'var(--green)' }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border2)'; e.currentTarget.style.color = 'var(--ink3)' }}
+                    >
+                      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M14 10v3a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-3"/>
+                        <polyline points="4 6 8 10 12 6"/>
+                        <line x1="8" y1="1" x2="8" y2="10"/>
+                      </svg>
+                      Export CSV
+                    </button>
+                  ) : isLoggedIn ? (
+                    <Link href="/pricing" className="ci-no-print" style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface2)', border: '1.5px solid var(--border2)', borderRadius: 10, padding: '9px 14px', fontSize: 11, fontWeight: 500, color: 'var(--ink3)', textDecoration: 'none', flexShrink: 0, alignSelf: 'flex-start' }}>
+                      🔒 CSV — Pro
+                    </Link>
+                  ) : null}
                 </div>
               </div>
 
@@ -1803,18 +1871,24 @@ export default function CardPage() {
 
           {/* ── Show Full Analysis toggle ── */}
           <div className="ci-no-print" style={{ marginBottom: 10 }}>
-            <button
-              onClick={() => setShowAnalysis(!showAnalysis)}
-              style={{ width: '100%', padding: '14px 20px', borderRadius: 14, background: 'var(--surface)', border: '1px solid rgba(232,197,71,0.25)', color: 'var(--gold)', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'border-color 0.2s' }}
-              onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--gold)')}
-              onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(232,197,71,0.25)')}
-            >
-              {showAnalysis ? '↑ Hide Analysis' : '↓ Show Full Analysis'}
-            </button>
+            {userTier === 'pro' ? (
+              <button
+                onClick={() => setShowAnalysis(!showAnalysis)}
+                style={{ width: '100%', padding: '14px 20px', borderRadius: 14, background: 'var(--surface)', border: '1px solid rgba(232,197,71,0.25)', color: 'var(--gold)', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'border-color 0.2s' }}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--gold)')}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(232,197,71,0.25)')}
+              >
+                {showAnalysis ? '↑ Hide Analysis' : '↓ Show Full Analysis'}
+              </button>
+            ) : (
+              <Link href="/pricing" style={{ textDecoration: 'none', width: '100%', padding: '14px 20px', borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', color: 'var(--ink3)', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                🔒 Advanced Analytics — Pro feature · Upgrade to unlock
+              </Link>
+            )}
           </div>
 
-          {/* ── Full Analysis (hidden by default) ── */}
-          {showAnalysis && (
+          {/* ── Full Analysis (hidden by default, Pro only) ── */}
+          {showAnalysis && userTier === 'pro' && (
             <>
               {/* 8-cell Summary Grid */}
               <div style={{ ...C }} className="ci-card-surface">

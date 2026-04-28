@@ -289,7 +289,7 @@ function SearchResultsInner() {
   return (
     <>
       <Navbar />
-      <main style={{ maxWidth: 1100, margin: '0 auto', padding: '72px 20px 120px' }}>
+      <main style={{ maxWidth: 1200, margin: '0 auto', padding: '72px 20px 120px' }}>
 
         {/* Back link */}
         <a
@@ -375,31 +375,6 @@ function SearchResultsInner() {
                       </div>
                     </button>
 
-                    {/* Mobile: inline grade picker (only on mobile, hidden on desktop via CSS) */}
-                    {isSelected && (
-                      <div className="res-inline-picker">
-                        <p style={{ fontSize: 10, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 10 }}>SELECT GRADE</p>
-                        <div className="srch-grade-grid">
-                          {GRADES.map(g => (
-                            <button
-                              key={g.label}
-                              disabled={g.graded}
-                              onClick={() => !g.graded && handleGrade(g.label, card)}
-                              style={{
-                                padding: '10px 4px', borderRadius: 8,
-                                cursor: g.graded ? 'default' : 'pointer', textAlign: 'center',
-                                background: g.graded ? 'rgba(255,255,255,0.02)' : 'var(--surface2)',
-                                border: `1.5px solid ${g.graded ? 'rgba(255,255,255,0.06)' : 'var(--border2)'}`,
-                                transition: 'all 0.15s', minHeight: 52, opacity: g.graded ? 0.45 : 1,
-                              }}
-                            >
-                              <span style={{ display: 'block', fontSize: g.label === 'Raw' ? 13 : 11, fontWeight: 700, color: g.graded ? 'var(--ink3)' : 'var(--ink)', lineHeight: 1.2 }}>{g.label}</span>
-                              <span style={{ display: 'block', fontSize: 8, color: 'var(--ink3)', marginTop: 2 }}>{g.graded ? 'coming soon' : g.sub}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </div>
                 )
               })}
@@ -432,16 +407,14 @@ function SearchResultsInner() {
         )}
       </main>
 
-      {/* Grade picker modal — desktop (hidden on mobile, uses inline picker instead) */}
+      {/* Grade picker modal */}
       {selectedCard && (
-        <div className="res-modal-wrap">
-          <GradePicker
-            card={selectedCard}
-            selectedGrade={selectedGrade}
-            onGrade={handleGrade}
-            onClose={handleClose}
-          />
-        </div>
+        <GradePicker
+          card={selectedCard}
+          selectedGrade={selectedGrade}
+          onGrade={handleGrade}
+          onClose={handleClose}
+        />
       )}
 
       <style>{`
@@ -450,7 +423,7 @@ function SearchResultsInner() {
         /* ── Grid layout ─────────────────────────────────── */
         .res-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+          grid-template-columns: repeat(5, 1fr);
           gap: 16px;
         }
 
@@ -459,17 +432,18 @@ function SearchResultsInner() {
           flex-direction: column;
         }
 
+        /* Card button — vertical card layout on all breakpoints */
         .res-card-btn {
           width: 100%;
           background: var(--surface);
           border-radius: 12px;
-          padding: 12px;
+          padding: 10px;
           cursor: pointer;
           text-align: left;
           transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
           display: flex;
           flex-direction: column;
-          gap: 10px;
+          gap: 8px;
         }
         .res-card-btn:hover {
           border-color: rgba(232,197,71,0.5) !important;
@@ -490,32 +464,32 @@ function SearchResultsInner() {
           gap: 2px;
         }
         .res-card-name {
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 700;
           color: var(--ink);
           line-height: 1.3;
         }
         .res-card-set {
-          font-size: 10px;
+          font-size: 9px;
           color: var(--ink3);
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
         }
         .res-card-num {
-          font-size: 10px;
+          font-size: 9px;
           color: var(--ink3);
         }
         .res-card-rarity {
-          font-size: 10px;
+          font-size: 9px;
           font-weight: 600;
           color: var(--gold);
           margin-top: 2px;
         }
 
-        /* Modal wrap: shown on desktop, hidden on mobile */
+        /* Modal shown on all breakpoints — no inline picker */
         .res-modal-wrap { display: block; }
-        .res-inline-picker { display: none; }
+        .res-inline-picker { display: none !important; }
 
         /* Grade grid */
         .srch-grade-grid {
@@ -524,52 +498,22 @@ function SearchResultsInner() {
           gap: 6px;
         }
 
-        /* ── Mobile: list layout ──────────────────────────── */
+        /* ── Mobile: 2-column card grid ───────────────────── */
         @media (max-width: 640px) {
           .res-grid {
-            grid-template-columns: 1fr;
-            gap: 6px;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
           }
 
-          /* On mobile, card button becomes a horizontal list row */
           .res-card-btn {
-            flex-direction: row;
-            align-items: center;
-            gap: 14px;
-            padding: 12px 14px;
-            border-radius: 12px;
-            min-height: 72px;
+            padding: 8px;
+            gap: 6px;
+            border-radius: 10px;
           }
           .res-card-btn:hover { transform: none; }
 
-          .res-card-img-wrap {
-            width: 48px;
-            height: 67px;
-            flex-shrink: 0;
-            border-radius: 6px;
-          }
-          .res-card-img-wrap img { height: 100%; object-fit: contain; }
-
-          .res-card-meta { flex: 1; min-width: 0; }
-          .res-card-name { font-size: 15px; }
-          .res-card-set  { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-          /* Modal hidden on mobile — use inline picker instead */
-          .res-modal-wrap { display: none !important; }
-          .res-inline-picker {
-            display: block;
-            border: 1.5px solid var(--gold);
-            border-top: none;
-            border-radius: 0 0 12px 12px;
-            background: var(--surface);
-            padding: 14px;
-          }
-
-          /* On mobile, round only bottom corners of selected card button */
-          .res-card-btn[style*="var(--gold)"] {
-            border-radius: 12px 12px 0 0;
-            border-bottom-color: transparent !important;
-          }
+          .res-card-name { font-size: 11px; }
+          .res-card-set  { font-size: 9px; }
 
           .srch-grade-grid { grid-template-columns: repeat(3, 1fr) !important; gap: 8px !important; }
         }

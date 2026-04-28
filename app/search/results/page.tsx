@@ -1,12 +1,11 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Suspense } from 'react'
 import Navbar from '@/components/Navbar'
 import { ptImg } from '@/lib/img'
-import { createClient } from '@/lib/supabase/client'
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// ── Types ──────────────────────────────────────────────────────────────────────
 
 interface PtCard {
   id: string
@@ -18,7 +17,7 @@ interface PtCard {
   image: string
 }
 
-// ── Constants ─────────────────────────────────────────────────────────────────
+// ── Constants ──────────────────────────────────────────────────────────────────
 
 const GRADES = [
   { label: 'Raw',     sub: 'Ungraded',  graded: false },
@@ -42,50 +41,186 @@ const VARIANT_LABELS: Record<string, string> = {
   Unlimited:              'Unlimited',
 }
 
-// ── Query parser ──────────────────────────────────────────────────────────────
+// ── Helpers ────────────────────────────────────────────────────────────────────
 
 function parseQuery(q: string): { name: string; number: string | null } {
   const t = q.trim()
-  const hashMatch = t.match(/^(.*?)\s*#(\d+)(?:\/\d+)?\s*$/)
+  const hashMatch  = t.match(/^(.*?)\s*#(\d+)(?:\/\d+)?\s*$/)
   if (hashMatch && hashMatch[1].trim()) return { name: hashMatch[1].trim(), number: hashMatch[2] }
   const trailMatch = t.match(/^(.*?)\s+(\d+(?:\/\d+)?)$/)
   if (trailMatch && trailMatch[1].trim()) return { name: trailMatch[1].trim(), number: trailMatch[2].split('/')[0] }
   return { name: t, number: null }
 }
 
-// ── Relevance sort ─────────────────────────────────────────────────────────────
-
-function sortByRelevance(cards: PtCard[], queryName: string): PtCard[] {
-  const lower = queryName.toLowerCase()
+function sortByRelevance(cards: PtCard[], q: string): PtCard[] {
+  const lq = q.toLowerCase()
   return [...cards].sort((a, b) => {
-    const aName = a.name.toLowerCase()
-    const bName = b.name.toLowerCase()
-    const rankA = aName === lower ? 0 : aName.startsWith(lower) ? 1 : 2
-    const rankB = bName === lower ? 0 : bName.startsWith(lower) ? 1 : 2
-    return rankA - rankB
+    const an = a.name.toLowerCase(), bn = b.name.toLowerCase()
+    const ra = an === lq ? 0 : an.startsWith(lq) ? 1 : 2
+    const rb = bn === lq ? 0 : bn.startsWith(lq) ? 1 : 2
+    return ra - rb
   })
 }
 
-// ── Card thumbnail ─────────────────────────────────────────────────────────────
+// ── Card image with fallback ───────────────────────────────────────────────────
 
-function CardThumb({ src, alt }: { src: string; alt: string }) {
+function CardImage({ src, alt }: { src: string; alt: string }) {
   const [failed, setFailed] = useState(false)
-  if (failed || !src) return <div className="search-thumb" style={{ background: 'var(--surface2)', borderRadius: 6, flexShrink: 0 }} />
+  if (failed || !src) {
+    return (
+      <div style={{
+        width: '100%', paddingBottom: '140%', borderRadius: 8,
+        background: 'var(--surface2)', display: 'flex', alignItems: 'center',
+        justifyContent: 'center', fontSize: 28, position: 'relative',
+      }}>
+        <span style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)' }}>🃏</span>
+      </div>
+    )
+  }
   return (
     <img
-      src={src} alt={alt} onError={() => setFailed(true)}
-      className="search-thumb"
-      style={{ objectFit: 'contain', borderRadius: 6, flexShrink: 0, background: 'var(--surface2)' }}
+      src={src} alt={alt}
+      onError={() => setFailed(true)}
+      style={{ width: '100%', borderRadius: 8, display: 'block', background: 'var(--surface2)' }}
     />
   )
 }
 
-// ── Inner page (uses useSearchParams) ─────────────────────────────────────────
+// ── Grade picker modal ─────────────────────────────────────────────────────────
+
+function GradePicker({
+  card,
+  selectedGrade,
+  onGrade,
+  onClose,
+}: {
+  card: PtCard
+  selectedGrade: string | null
+  onGrade: (grade: string, card: PtCard) => void
+  onClose: () => void
+}) {
+  const variant = card.variant && card.variant !== 'Normal'
+    ? VARIANT_LABELS[card.variant] ?? card.variant
+    : null
+
+  // Close on backdrop click
+  function handleBackdrop(e: React.MouseEvent<HTMLDivElement>) {
+    if (e.target === e.currentTarget) onClose()
+  }
+
+  // Close on Escape
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', h)
+    return () => document.removeEventListener('keydown', h)
+  }, [onClose])
+
+  return (
+    <div
+      onClick={handleBackdrop}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 2000,
+        background: 'rgba(0,0,0,0.75)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '16px',
+      }}
+    >
+      <div style={{
+        background: 'var(--surface)', border: '1px solid var(--border2)',
+        borderRadius: 16, padding: '20px',
+        width: '100%', maxWidth: 420,
+        boxShadow: '0 24px 80px rgba(0,0,0,0.8)',
+      }}>
+        {/* Modal header */}
+        <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', marginBottom: 18 }}>
+          <img
+            src={ptImg(card.image)} alt={card.name}
+            style={{ width: 52, borderRadius: 6, flexShrink: 0 }}
+          />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.2, marginBottom: 3 }}>
+              {card.name}
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--ink3)' }}>
+              {card.set.name}{variant ? ` · ${variant}` : ''} · #{card.cardNumber}
+            </div>
+            {card.rarity && (
+              <div style={{ fontSize: 10, color: 'var(--gold)', fontWeight: 600, marginTop: 3 }}>{card.rarity}</div>
+            )}
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              width: 28, height: 28, borderRadius: '50%', background: 'var(--surface2)',
+              border: '1px solid var(--border2)', color: 'var(--ink3)',
+              fontSize: 16, cursor: 'pointer', display: 'flex',
+              alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              lineHeight: 1, padding: 0,
+            }}
+            aria-label="Close"
+          >×</button>
+        </div>
+
+        {/* Grade label */}
+        <p style={{ fontSize: 10, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 12 }}>SELECT GRADE</p>
+
+        {/* Grade grid */}
+        <div className="srch-grade-grid">
+          {GRADES.map(g => (
+            <button
+              key={g.label}
+              disabled={g.graded}
+              onClick={() => !g.graded && onGrade(g.label, card)}
+              style={{
+                padding: '10px 4px', borderRadius: 8,
+                cursor: g.graded ? 'default' : 'pointer', textAlign: 'center',
+                background: g.graded
+                  ? 'rgba(255,255,255,0.02)'
+                  : selectedGrade === g.label
+                    ? 'rgba(232,197,71,0.1)' : 'var(--surface2)',
+                border: `1.5px solid ${g.graded
+                  ? 'rgba(255,255,255,0.06)'
+                  : selectedGrade === g.label ? 'var(--gold)' : 'var(--border2)'}`,
+                transition: 'all 0.15s', minHeight: 52,
+                opacity: g.graded ? 0.45 : 1,
+              }}
+              onMouseEnter={e => {
+                if (!g.graded && selectedGrade !== g.label) {
+                  e.currentTarget.style.borderColor = 'var(--gold)'
+                  e.currentTarget.style.background = 'rgba(232,197,71,0.05)'
+                }
+              }}
+              onMouseLeave={e => {
+                if (!g.graded && selectedGrade !== g.label) {
+                  e.currentTarget.style.borderColor = 'var(--border2)'
+                  e.currentTarget.style.background = 'var(--surface2)'
+                }
+              }}
+            >
+              <span style={{
+                display: 'block',
+                fontSize: g.label === 'Raw' ? 13 : 11,
+                fontWeight: 700,
+                color: g.graded ? 'var(--ink3)' : selectedGrade === g.label ? 'var(--gold)' : 'var(--ink)',
+                lineHeight: 1.2,
+              }}>{g.label}</span>
+              <span style={{ display: 'block', fontSize: 8, color: 'var(--ink3)', marginTop: 2 }}>
+                {g.graded ? 'coming soon' : g.sub}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Inner page ─────────────────────────────────────────────────────────────────
 
 function SearchResultsInner() {
-  const router = useRouter()
+  const router       = useRouter()
   const searchParams = useSearchParams()
-  const rawQuery = searchParams.get('q') ?? ''
+  const rawQuery     = searchParams.get('q') ?? ''
 
   const { name, number } = parseQuery(rawQuery)
 
@@ -93,110 +228,96 @@ function SearchResultsInner() {
   const [loading, setLoading]           = useState(true)
   const [selectedCard, setSelectedCard] = useState<PtCard | null>(null)
   const [selectedGrade, setSelectedGrade] = useState<string | null>(null)
-  const [cursor, setCursor]             = useState<string | null>(null)
+  const [nextCursor, setNextCursor]     = useState<string | null>(null)
   const [hasMore, setHasMore]           = useState(false)
   const [loadingMore, setLoadingMore]   = useState(false)
-  const [isLoggedIn, setIsLoggedIn]     = useState<boolean | null>(null)
 
-  const selectedRef = useRef<HTMLDivElement>(null)
-
-  // Resolve auth on mount
-  useEffect(() => {
-    createClient().auth.getUser().then(({ data }) => {
-      setIsLoggedIn(!!data.user)
-    })
-  }, [])
-
-  // Fetch function
-  async function fetchPage(searchCursor?: string) {
+  // ── Fetch page ───────────────────────────────────────────────────────────────
+  const fetchPage = useCallback(async (searchCursor?: string) => {
     const params = new URLSearchParams({ search: name, limit: '50' })
     if (number) params.set('card_number', number)
     if (searchCursor) params.set('cursor', searchCursor)
-    const res = await fetch(`/api/pt/cards?${params}`)
+
+    const res  = await fetch(`/api/pt/cards?${params}`)
     const json = await res.json()
     const newCards = (json.data ?? []) as PtCard[]
+
     setResults(prev => {
       const combined = searchCursor ? [...prev, ...newCards] : newCards
       return sortByRelevance(combined, name)
     })
-    setCursor(json.pagination?.cursor ?? null)
+    // Poketrace paginates via `nextCursor`
+    setNextCursor(json.pagination?.nextCursor ?? null)
     setHasMore(json.pagination?.hasMore ?? false)
-  }
+  }, [name, number])
 
-  // Initial fetch on mount
+  // Initial fetch
   useEffect(() => {
-    if (!name) {
-      setLoading(false)
-      return
-    }
+    if (!name) { setLoading(false); return }
     setLoading(true)
     fetchPage().finally(() => setLoading(false))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rawQuery])
+  }, [rawQuery, fetchPage])
 
-  // Scroll selected card into view on mobile
-  useEffect(() => {
-    if (selectedCard && selectedRef.current) {
-      setTimeout(() => {
-        selectedRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-      }, 80)
-    }
-  }, [selectedCard])
-
-  // ── Handlers ──────────────────────────────────────────────────────────────
-  function handleGrade(grade: string, card: PtCard) {
+  // ── Handlers ─────────────────────────────────────────────────────────────────
+  const handleGrade = useCallback((grade: string, card: PtCard) => {
     setSelectedGrade(grade)
     const params = new URLSearchParams({
       grade, name: card.name, set: card.set.name,
       number: card.cardNumber, set_slug: card.set.slug,
     })
     router.push(`/card/${card.id}?${params}`)
-  }
+  }, [router])
 
-  function handleCardClick(card: PtCard) {
-    setSelectedCard(prev => prev?.id === card.id ? null : card)
+  const handleCardClick = useCallback((card: PtCard) => {
+    setSelectedCard(card)
     setSelectedGrade(null)
-  }
+  }, [])
+
+  const handleClose = useCallback(() => {
+    setSelectedCard(null)
+    setSelectedGrade(null)
+  }, [])
+
+  const handleLoadMore = useCallback(() => {
+    if (!nextCursor) return
+    setLoadingMore(true)
+    fetchPage(nextCursor).finally(() => setLoadingMore(false))
+  }, [nextCursor, fetchPage])
 
   const showNumberHint = number !== null && rawQuery.trim().length > 0
-
-  // Suppress unused warning — isLoggedIn is resolved for future use / consistency with search/page
-  void isLoggedIn
 
   return (
     <>
       <Navbar />
-      <main style={{ maxWidth: 680, margin: '0 auto', padding: '72px 16px 100px' }}>
+      <main style={{ maxWidth: 1100, margin: '0 auto', padding: '72px 20px 120px' }}>
 
         {/* Back link */}
-        <div style={{ marginBottom: 20 }}>
-          <a
-            href={`/search?q=${encodeURIComponent(rawQuery)}`}
-            style={{ fontSize: 13, color: 'var(--ink3)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-            onMouseEnter={e => (e.currentTarget.style.color = 'var(--ink2)')}
-            onMouseLeave={e => (e.currentTarget.style.color = 'var(--ink3)')}
-          >
-            ← Back to search
-          </a>
-        </div>
+        <a
+          href={`/search?q=${encodeURIComponent(rawQuery)}`}
+          style={{ fontSize: 13, color: 'var(--ink3)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, marginBottom: 20 }}
+          onMouseEnter={e => (e.currentTarget.style.color = 'var(--ink2)')}
+          onMouseLeave={e => (e.currentTarget.style.color = 'var(--ink3)')}
+        >
+          ← Back to search
+        </a>
 
-        {/* Header */}
-        <div style={{ marginBottom: 24 }}>
+        {/* Page header */}
+        <div style={{ marginBottom: 28 }}>
           <p style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 2, marginBottom: 6 }}>SEARCH RESULTS</p>
-          <h1 style={{ fontSize: 26, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px', marginBottom: 6, lineHeight: 1.1 }}>
+          <h1 style={{ fontSize: 26, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px', lineHeight: 1.1, marginBottom: 6 }}>
             Results for &ldquo;{rawQuery}&rdquo;
           </h1>
           {showNumberHint && (
-            <p style={{ fontSize: 11, color: 'var(--ink3)', paddingLeft: 2 }}>
+            <p style={{ fontSize: 11, color: 'var(--ink3)' }}>
               Searching <span style={{ color: 'var(--ink2)' }}>&ldquo;{name}&rdquo;</span> · card #{number}
             </p>
           )}
         </div>
 
-        {/* Loading spinner */}
+        {/* Loading */}
         {loading && (
-          <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 48 }}>
-            <svg width="24" height="24" viewBox="0 0 16 16" fill="none" stroke="var(--ink3)" strokeWidth="2" strokeLinecap="round" style={{ animation: 'srch-spin 0.7s linear infinite' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 64 }}>
+            <svg width="24" height="24" viewBox="0 0 16 16" fill="none" stroke="var(--ink3)" strokeWidth="2" strokeLinecap="round" style={{ animation: 'res-spin 0.7s linear infinite' }}>
               <path d="M8 1a7 7 0 1 0 7 7"/>
             </svg>
           </div>
@@ -204,186 +325,269 @@ function SearchResultsInner() {
 
         {/* No results */}
         {!loading && results.length === 0 && rawQuery.trim() && (
-          <div style={{ textAlign: 'center', padding: '48px 0' }}>
-            <div style={{ fontSize: 28, marginBottom: 12 }}>¯\_(ツ)_/¯</div>
+          <div style={{ textAlign: 'center', padding: '64px 0' }}>
+            <div style={{ fontSize: 32, marginBottom: 12 }}>¯\_(ツ)_/¯</div>
             <p style={{ fontSize: 14, color: 'var(--ink2)', fontWeight: 600, marginBottom: 6 }}>
               No cards found for &ldquo;{rawQuery}&rdquo;
             </p>
-            <p style={{ fontSize: 13, color: 'var(--ink3)' }}>
-              Try a different name, or remove the number
-            </p>
+            <p style={{ fontSize: 13, color: 'var(--ink3)' }}>Try a different name, or remove the number</p>
           </div>
         )}
 
-        {/* Results list */}
+        {/* Results */}
         {!loading && results.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: showNumberHint ? 8 : 0 }}>
-            <p style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 4, paddingLeft: 2 }}>
-              {results.length} result{results.length !== 1 ? 's' : ''}
+          <>
+            <p style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 16 }}>
+              {results.length}{hasMore ? '+' : ''} result{results.length !== 1 ? 's' : ''}
             </p>
 
-            {results.map(card => {
-              const isSelected = selectedCard?.id === card.id
-              const variant = card.variant && card.variant !== 'Normal'
-                ? VARIANT_LABELS[card.variant] ?? card.variant
-                : null
+            {/* ── Card grid (desktop) / list (mobile) ── */}
+            <div className="res-grid">
+              {results.map(card => {
+                const variant = card.variant && card.variant !== 'Normal'
+                  ? VARIANT_LABELS[card.variant] ?? card.variant
+                  : null
+                const isSelected = selectedCard?.id === card.id
 
-              return (
-                <div key={card.id} ref={isSelected ? selectedRef : undefined}>
+                return (
+                  <div key={card.id} className="res-grid-item">
+                    {/* Desktop grid card */}
+                    <button
+                      className="res-card-btn"
+                      onClick={() => handleCardClick(card)}
+                      style={{
+                        border: `1.5px solid ${isSelected ? 'var(--gold)' : 'var(--border)'}`,
+                        boxShadow: isSelected ? '0 0 0 1px rgba(232,197,71,0.2), 0 8px 24px rgba(0,0,0,0.4)' : 'none',
+                      }}
+                    >
+                      <div className="res-card-img-wrap">
+                        <CardImage src={ptImg(card.image)} alt={card.name} />
+                      </div>
+                      <div className="res-card-meta">
+                        <div className="res-card-name">{card.name}</div>
+                        <div className="res-card-set">
+                          {card.set.name}{variant ? ` · ${variant}` : ''}
+                        </div>
+                        <div className="res-card-num">#{card.cardNumber}</div>
+                        {card.rarity && (
+                          <div className="res-card-rarity">{card.rarity}</div>
+                        )}
+                      </div>
+                    </button>
 
-                  {/* Result row */}
-                  <button
-                    onClick={() => handleCardClick(card)}
-                    style={{
-                      width: '100%', display: 'flex', alignItems: 'center', gap: 14,
-                      padding: '12px 14px',
-                      borderRadius: isSelected ? '12px 12px 0 0' : 12,
-                      background: 'var(--surface)',
-                      border: `1.5px solid ${isSelected ? 'var(--gold)' : 'var(--border)'}`,
-                      borderBottom: isSelected ? '1.5px solid transparent' : `1.5px solid ${isSelected ? 'var(--gold)' : 'var(--border)'}`,
-                      cursor: 'pointer', textAlign: 'left',
-                      transition: 'border-color 0.15s',
-                      minHeight: 72,
-                    }}
-                    onMouseEnter={e => { if (!isSelected) e.currentTarget.style.borderColor = 'rgba(232,197,71,0.4)' }}
-                    onMouseLeave={e => { if (!isSelected) e.currentTarget.style.borderColor = 'var(--border)' }}
-                  >
-                    <CardThumb src={ptImg(card.image)} alt={card.name} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.3 }}>{card.name}</span>
-                        <span style={{ fontSize: 11, color: 'var(--ink3)', flexShrink: 0 }}>#{card.cardNumber}</span>
+                    {/* Mobile: inline grade picker (only on mobile, hidden on desktop via CSS) */}
+                    {isSelected && (
+                      <div className="res-inline-picker">
+                        <p style={{ fontSize: 10, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 10 }}>SELECT GRADE</p>
+                        <div className="srch-grade-grid">
+                          {GRADES.map(g => (
+                            <button
+                              key={g.label}
+                              disabled={g.graded}
+                              onClick={() => !g.graded && handleGrade(g.label, card)}
+                              style={{
+                                padding: '10px 4px', borderRadius: 8,
+                                cursor: g.graded ? 'default' : 'pointer', textAlign: 'center',
+                                background: g.graded ? 'rgba(255,255,255,0.02)' : 'var(--surface2)',
+                                border: `1.5px solid ${g.graded ? 'rgba(255,255,255,0.06)' : 'var(--border2)'}`,
+                                transition: 'all 0.15s', minHeight: 52, opacity: g.graded ? 0.45 : 1,
+                              }}
+                            >
+                              <span style={{ display: 'block', fontSize: g.label === 'Raw' ? 13 : 11, fontWeight: 700, color: g.graded ? 'var(--ink3)' : 'var(--ink)', lineHeight: 1.2 }}>{g.label}</span>
+                              <span style={{ display: 'block', fontSize: 8, color: 'var(--ink3)', marginTop: 2 }}>{g.graded ? 'coming soon' : g.sub}</span>
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                      <div style={{ fontSize: 12, color: 'var(--ink3)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {card.set.name}{variant ? ` · ${variant}` : ''}
-                      </div>
-                      {card.rarity && (
-                        <div style={{ fontSize: 10, color: 'var(--gold)', marginTop: 3, fontWeight: 600 }}>{card.rarity}</div>
-                      )}
-                    </div>
-                    <span style={{
-                      fontSize: 20, color: isSelected ? 'var(--gold)' : 'var(--ink3)',
-                      flexShrink: 0, lineHeight: 1,
-                      transition: 'transform 0.2s, color 0.15s',
-                      transform: isSelected ? 'rotate(90deg)' : 'none',
-                    }}>›</span>
-                  </button>
-
-                  {/* Inline grade picker */}
-                  {isSelected && (
-                    <div style={{
-                      border: '1.5px solid var(--gold)', borderTop: 'none',
-                      borderRadius: '0 0 12px 12px',
-                      background: 'var(--surface)',
-                      padding: '14px 14px 16px',
-                    }}>
-                      <p style={{ fontSize: 10, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 12 }}>
-                        SELECT GRADE
-                      </p>
-                      <div className="srch-grade-grid">
-                        {GRADES.map(g => (
-                          <button
-                            key={g.label}
-                            disabled={g.graded}
-                            onClick={() => !g.graded && handleGrade(g.label, card)}
-                            style={{
-                              padding: '10px 4px', borderRadius: 8,
-                              cursor: g.graded ? 'default' : 'pointer', textAlign: 'center',
-                              background: g.graded
-                                ? 'rgba(255,255,255,0.02)'
-                                : selectedGrade === g.label
-                                  ? 'rgba(232,197,71,0.1)' : 'var(--surface2)',
-                              border: `1.5px solid ${g.graded ? 'rgba(255,255,255,0.06)' : selectedGrade === g.label ? 'var(--gold)' : 'var(--border2)'}`,
-                              transition: 'all 0.15s',
-                              minHeight: 52,
-                              opacity: g.graded ? 0.45 : 1,
-                            }}
-                            onMouseEnter={e => {
-                              if (!g.graded && selectedGrade !== g.label) {
-                                e.currentTarget.style.borderColor = 'var(--gold)'
-                                e.currentTarget.style.background = 'rgba(232,197,71,0.05)'
-                              }
-                            }}
-                            onMouseLeave={e => {
-                              if (!g.graded && selectedGrade !== g.label) {
-                                e.currentTarget.style.borderColor = 'var(--border2)'
-                                e.currentTarget.style.background = 'var(--surface2)'
-                              }
-                            }}
-                          >
-                            <span style={{
-                              display: 'block',
-                              fontSize: g.label === 'Raw' ? 13 : 11,
-                              fontWeight: 700,
-                              color: g.graded ? 'var(--ink3)' : selectedGrade === g.label ? 'var(--gold)' : 'var(--ink)',
-                              lineHeight: 1.2,
-                            }}>{g.label}</span>
-                            <span style={{ display: 'block', fontSize: 8, color: 'var(--ink3)', marginTop: 2 }}>
-                              {g.graded ? 'coming soon' : g.sub}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+                    )}
+                  </div>
+                )
+              })}
+            </div>
 
             {/* Load more */}
             {hasMore && (
-              <button
-                onClick={() => {
-                  setLoadingMore(true)
-                  fetchPage(cursor ?? undefined).finally(() => setLoadingMore(false))
-                }}
-                style={{
-                  width: '100%', padding: '14px 0', borderRadius: 12,
-                  background: 'var(--surface)', border: '1px solid var(--border2)',
-                  color: 'var(--ink2)', fontSize: 14, fontWeight: 600,
-                  cursor: 'pointer', marginTop: 8,
-                }}
-              >
-                {loadingMore ? 'Loading…' : 'Load more results'}
-              </button>
+              <div style={{ display: 'flex', justifyContent: 'center', marginTop: 32 }}>
+                <button
+                  onClick={handleLoadMore}
+                  disabled={loadingMore}
+                  style={{
+                    padding: '13px 36px', borderRadius: 12,
+                    background: 'var(--surface)', border: '1.5px solid var(--border2)',
+                    color: 'var(--ink2)', fontSize: 14, fontWeight: 600,
+                    cursor: loadingMore ? 'default' : 'pointer',
+                    transition: 'border-color 0.15s',
+                    display: 'flex', alignItems: 'center', gap: 8,
+                  }}
+                  onMouseEnter={e => { if (!loadingMore) e.currentTarget.style.borderColor = 'var(--gold)' }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border2)' }}
+                >
+                  {loadingMore
+                    ? <><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ animation: 'res-spin 0.7s linear infinite' }}><path d="M8 1a7 7 0 1 0 7 7"/></svg> Loading…</>
+                    : 'Load more results'}
+                </button>
+              </div>
             )}
-          </div>
+          </>
         )}
-
       </main>
 
+      {/* Grade picker modal — desktop (hidden on mobile, uses inline picker instead) */}
+      {selectedCard && (
+        <div className="res-modal-wrap">
+          <GradePicker
+            card={selectedCard}
+            selectedGrade={selectedGrade}
+            onGrade={handleGrade}
+            onClose={handleClose}
+          />
+        </div>
+      )}
+
       <style>{`
-        @keyframes srch-spin { to { transform: rotate(360deg); } }
+        @keyframes res-spin { to { transform: rotate(360deg); } }
 
-        /* Thumbnail size */
-        .search-thumb { width: 48px; height: 67px; }
+        /* ── Grid layout ─────────────────────────────────── */
+        .res-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+          gap: 16px;
+        }
 
-        /* Grade grid: 5-col desktop → 3-col mobile */
+        .res-grid-item {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .res-card-btn {
+          width: 100%;
+          background: var(--surface);
+          border-radius: 12px;
+          padding: 12px;
+          cursor: pointer;
+          text-align: left;
+          transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+        .res-card-btn:hover {
+          border-color: rgba(232,197,71,0.5) !important;
+          transform: translateY(-2px);
+          box-shadow: 0 8px 28px rgba(0,0,0,0.45) !important;
+        }
+
+        .res-card-img-wrap {
+          width: 100%;
+          border-radius: 8px;
+          overflow: hidden;
+          background: var(--surface2);
+        }
+
+        .res-card-meta {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+        .res-card-name {
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--ink);
+          line-height: 1.3;
+        }
+        .res-card-set {
+          font-size: 10px;
+          color: var(--ink3);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .res-card-num {
+          font-size: 10px;
+          color: var(--ink3);
+        }
+        .res-card-rarity {
+          font-size: 10px;
+          font-weight: 600;
+          color: var(--gold);
+          margin-top: 2px;
+        }
+
+        /* Modal wrap: shown on desktop, hidden on mobile */
+        .res-modal-wrap { display: block; }
+        .res-inline-picker { display: none; }
+
+        /* Grade grid */
         .srch-grade-grid {
           display: grid;
           grid-template-columns: repeat(5, 1fr);
           gap: 6px;
         }
 
-        @media (max-width: 480px) {
+        /* ── Mobile: list layout ──────────────────────────── */
+        @media (max-width: 640px) {
+          .res-grid {
+            grid-template-columns: 1fr;
+            gap: 6px;
+          }
+
+          /* On mobile, card button becomes a horizontal list row */
+          .res-card-btn {
+            flex-direction: row;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 14px;
+            border-radius: 12px;
+            min-height: 72px;
+          }
+          .res-card-btn:hover { transform: none; }
+
+          .res-card-img-wrap {
+            width: 48px;
+            height: 67px;
+            flex-shrink: 0;
+            border-radius: 6px;
+          }
+          .res-card-img-wrap img { height: 100%; object-fit: contain; }
+
+          .res-card-meta { flex: 1; min-width: 0; }
+          .res-card-name { font-size: 15px; }
+          .res-card-set  { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+          /* Modal hidden on mobile — use inline picker instead */
+          .res-modal-wrap { display: none !important; }
+          .res-inline-picker {
+            display: block;
+            border: 1.5px solid var(--gold);
+            border-top: none;
+            border-radius: 0 0 12px 12px;
+            background: var(--surface);
+            padding: 14px;
+          }
+
+          /* On mobile, round only bottom corners of selected card button */
+          .res-card-btn[style*="var(--gold)"] {
+            border-radius: 12px 12px 0 0;
+            border-bottom-color: transparent !important;
+          }
+
           .srch-grade-grid { grid-template-columns: repeat(3, 1fr) !important; gap: 8px !important; }
-          .search-thumb { width: 42px; height: 59px; }
         }
       `}</style>
     </>
   )
 }
 
-// ── Main export — wraps inner component in Suspense for useSearchParams ────────
+// ── Default export — wrapped in Suspense for useSearchParams ──────────────────
 
 export default function SearchResultsPage() {
   return (
     <Suspense fallback={
       <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 120 }}>
-        <svg width="24" height="24" viewBox="0 0 16 16" fill="none" stroke="var(--ink3)" strokeWidth="2" strokeLinecap="round" style={{ animation: 'srch-spin 0.7s linear infinite' }}>
+        <svg width="24" height="24" viewBox="0 0 16 16" fill="none" stroke="var(--ink3)" strokeWidth="2" strokeLinecap="round" style={{ animation: 'res-spin 0.7s linear infinite' }}>
           <path d="M8 1a7 7 0 1 0 7 7"/>
         </svg>
-        <style>{`@keyframes srch-spin { to { transform: rotate(360deg); } }`}</style>
+        <style>{`@keyframes res-spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     }>
       <SearchResultsInner />

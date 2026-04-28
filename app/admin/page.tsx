@@ -269,19 +269,39 @@ export default function AdminPage() {
     if (stale.length === 0) { flash('ok', 'All prices are fresh (< 6h old)'); return }
     setRefreshing(true)
     setRefreshProgress({ done: 0, total: stale.length })
-    let done = 0
+    let ok = 0, failed = 0
+    const firstError: { card: string; status: number; msg: string } | null = null
     for (const c of stale) {
       try {
         const params = new URLSearchParams({ grade: c.grade, name: c.card_name })
         if (c.set_name) params.set('set', c.set_name)
-        await fetch(`/api/card/${c.card_id}?${params.toString()}`)
-      } catch { /* ignore individual failures */ }
-      done++
-      setRefreshProgress({ done, total: stale.length })
+        const r = await fetch(`/api/card/${c.card_id}?${params.toString()}`)
+        if (r.ok) {
+          ok++
+        } else {
+          failed++
+          if (!firstError) {
+            const body = await r.json().catch(() => ({}))
+            console.error(`[refresh] ${c.card_name} → ${r.status}`, body)
+            // Store first error for flash message
+            Object.assign(firstError ?? {}, { card: c.card_name, status: r.status, msg: body?.error ?? '' })
+          }
+        }
+      } catch (e) {
+        failed++
+        console.error(`[refresh] ${c.card_name} network error`, e)
+      }
+      setRefreshProgress({ done: ok + failed, total: stale.length })
     }
     setRefreshing(false)
     setRefreshProgress(null)
-    flash('ok', `Refreshed ${done} card prices`)
+    if (failed === 0) {
+      flash('ok', `Refreshed ${ok} card prices`)
+    } else if (ok === 0) {
+      flash('error', `All ${failed} price fetches failed — check Vercel logs for details`)
+    } else {
+      flash('ok', `Refreshed ${ok} prices, ${failed} failed — check browser console for details`)
+    }
     loadConstituents()
   }
 

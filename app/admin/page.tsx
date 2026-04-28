@@ -260,6 +260,24 @@ export default function AdminPage() {
     }
   }
 
+  async function runMigration() {
+    if (!confirm('This will add any missing columns to the search_cache table. Safe to re-run. Continue?')) return
+    try {
+      const r = await fetch('/api/admin/market/migrate-cache', { method: 'POST' })
+      const json = await r.json()
+      if (json.sql) {
+        // exec_sql not available — show the SQL to run manually
+        flash('err', 'Run SQL manually (copied to console)')
+        console.log('=== Run this SQL in your Supabase SQL editor ===\n', json.sql)
+        return
+      }
+      if (!r.ok) { flash('err', json.error ?? 'Migration failed'); return }
+      flash('ok', `Migration complete — ${json.ok} columns added/verified`)
+    } catch {
+      flash('err', 'Migration request failed')
+    }
+  }
+
   async function refreshAllPrices() {
     const stale = constituents.filter(c => {
       if (!c.last_fetched) return true
@@ -269,14 +287,19 @@ export default function AdminPage() {
     if (stale.length === 0) { flash('ok', 'All prices are fresh (< 6h old)'); return }
     setRefreshing(true)
     setRefreshProgress({ done: 0, total: stale.length })
-    let ok = 0, failed = 0
+    let ok = 0, failed = 0, cacheWarnings = 0
     let firstErrMsg = ''
     for (const c of stale) {
       try {
-        const params = new URLSearchParams({ grade: c.grade, name: c.card_name })
+        const params = new URLSearchParams({ grade: c.grade, name: c.card_name, bust_cache: '1' })
         if (c.set_name) params.set('set', c.set_name)
         const r = await fetch(`/api/card/${c.card_id}?${params.toString()}`)
         if (r.ok) {
+          const body = await r.json().catch(() => ({}))
+          if (body?.warning) {
+            cacheWarnings++
+            console.warn('[refresh] cache write warning:', c.card_name, body.warning)
+          }
           ok++
         } else {
           failed++
@@ -292,13 +315,15 @@ export default function AdminPage() {
         console.error(`[refresh] ${c.card_name} network error`, e)
       }
       setRefreshProgress({ done: ok + failed, total: stale.length })
-      // Respect Poketrace rate limit — 500ms between requests
-      await new Promise(r => setTimeout(r, 500))
+      // Pro tier rate limit: 200ms between requests
+      await new Promise(r => setTimeout(r, 200))
     }
     setRefreshing(false)
     setRefreshProgress(null)
-    if (failed === 0) {
+    if (failed === 0 && cacheWarnings === 0) {
       flash('ok', `Refreshed ${ok} card prices`)
+    } else if (failed === 0 && cacheWarnings > 0) {
+      flash('err', `${ok} fetched but ${cacheWarnings} cache writes failed — run DB Migration to fix`)
     } else if (ok === 0) {
       flash('err', `All ${failed} failed. First: ${firstErrMsg}`)
     } else {
@@ -600,6 +625,13 @@ export default function AdminPage() {
                         style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid rgba(232,197,71,0.3)', background: 'rgba(232,197,71,0.07)', color: 'var(--gold)', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: seeding ? 0.5 : 1 }}
                       >
                         {seeding ? 'Seeding…' : '⬇ Seed CI-100'}
+                      </button>
+                      <button
+                        onClick={runMigration}
+                        style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid rgba(74,158,255,0.3)', background: 'rgba(74,158,255,0.07)', color: '#4a9eff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                        title="Add any missing columns to search_cache table"
+                      >
+                        🔧 DB Migration
                       </button>
                       {refreshProgress ? (
                         <span style={{ fontSize: 12, color: 'var(--ink3)', padding: '7px 0' }}>

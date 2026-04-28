@@ -469,10 +469,21 @@ export async function GET(
     ebay_avg_usd:        ebayAvgUSD,       // original eBay avg, even when fallen back
   }
 
-  await Promise.all([
+  const [{ error: upsertErr }] = await Promise.all([
     supabase.from('search_cache').upsert(record),
     supabase.from('search_log').insert({ card_id: id, card_name: cardName, grade }),
   ])
+
+  if (upsertErr) {
+    // Surface cache write failures — most common cause is a missing column in search_cache.
+    // Run the migration at /api/admin/market/migrate-cache to fix this.
+    console.error('[card] search_cache upsert failed:', upsertErr.message, '— card:', cardName, id)
+    return NextResponse.json({
+      source: 'live',
+      data: record,
+      warning: `Cache write failed: ${upsertErr.message}`,
+    })
+  }
 
   return NextResponse.json({ source: 'live', data: record })
 }

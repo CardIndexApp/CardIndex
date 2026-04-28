@@ -8,7 +8,7 @@ import { useCurrency } from '@/lib/currency'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
-import type { MarketResponse, IndexStats, MoverCard } from '@/app/api/market/route'
+import type { MarketResponse, IndexStats, MoverCard, IndexMetrics } from '@/app/api/market/route'
 
 // ── Mini chart tooltip ─────────────────────────────────────────────────────────
 function IndexTooltip({ active, payload, label }: { active?: boolean; payload?: { value: number }[]; label?: string }) {
@@ -47,6 +47,46 @@ function SignalBadge({ signal }: { signal: keyof typeof SIGNAL_LABELS }) {
     <span style={{ display: 'inline-block', padding: '3px 12px', borderRadius: 99, fontSize: 11, fontWeight: 700, letterSpacing: 0.5, background: s.bg, border: `1px solid ${s.border}`, color: s.color }}>
       {s.label}
     </span>
+  )
+}
+
+// ── Index Metrics panel ───────────────────────────────────────────────────────
+function IndexMetricsPanel({ metrics, loading }: { metrics: IndexMetrics | null | undefined; loading: boolean }) {
+  const items: { label: string; value: number | null; isChange?: boolean; highlight?: boolean }[] = metrics ? [
+    { label: 'Index Level',       value: metrics.level,          highlight: true },
+    { label: '7d Change',         value: metrics.change7d,       isChange: true },
+    { label: '30d Change',        value: metrics.change30d,      isChange: true },
+    { label: '90d Change',        value: metrics.change90d,      isChange: true },
+    { label: 'Trend (30d proj.)', value: metrics.trendExtension, isChange: true },
+    { label: '52w High',          value: metrics.week52High },
+    { label: '52w Low',           value: metrics.week52Low },
+  ] : Array(7).fill({ label: '—', value: null })
+
+  return (
+    <div style={{ borderRadius: 16, background: 'var(--surface)', border: '1px solid var(--border2)', padding: '18px 24px', marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)' }}>CI Index Metrics</div>
+        <div style={{ fontSize: 10, color: 'var(--ink3)' }}>Normalized equal-weighted index (base = 100 at first tracked price)</div>
+      </div>
+      <div className="mkt-metrics-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '12px 8px' }}>
+        {items.map(({ label, value, isChange, highlight }, i) => (
+          <div key={i} style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 9, color: 'var(--ink3)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {label}
+            </div>
+            {loading || value == null ? (
+              <div style={{ height: 22, borderRadius: 4, background: 'var(--surface2)', animation: 'sk-pulse 1.6s ease-in-out infinite' }} />
+            ) : isChange ? (
+              <Chg v={value} size={14} />
+            ) : (
+              <span className="font-num" style={{ fontSize: 14, fontWeight: 700, color: highlight ? 'var(--gold)' : 'var(--ink)' }}>
+                {value.toFixed(2)}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
 
@@ -192,7 +232,8 @@ export default function Market() {
         .mkt-indices { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
         .mkt-movers  { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
         @media (max-width: 900px) { .mkt-indices { grid-template-columns: repeat(2,1fr); } }
-        @media (max-width: 640px) { .mkt-indices { grid-template-columns: 1fr 1fr; } .mkt-movers { grid-template-columns: 1fr; } .mkt-hero { flex-direction: column !important; } }
+        @media (max-width: 900px) { .mkt-metrics-grid { grid-template-columns: repeat(4,1fr) !important; } }
+        @media (max-width: 640px) { .mkt-indices { grid-template-columns: 1fr 1fr; } .mkt-movers { grid-template-columns: 1fr; } .mkt-hero { flex-direction: column !important; } .mkt-metrics-grid { grid-template-columns: repeat(2,1fr) !important; } }
       `}</style>
 
       <main style={{ paddingTop: 72, paddingBottom: 96, minHeight: '100vh' }}>
@@ -309,6 +350,9 @@ export default function Market() {
               )}
             </div>
           </div>
+
+          {/* ── CI Index Metrics ── */}
+          <IndexMetricsPanel metrics={data?.indexMetrics} loading={loading} />
 
           {/* ── 4 Index cards ── */}
           <div className="mkt-indices" style={{ marginBottom: 16 }}>

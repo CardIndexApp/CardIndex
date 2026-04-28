@@ -50,6 +50,7 @@ export interface MarketResponse {
   raw: IndexStats | null
   graded: IndexStats | null
   psa10: IndexStats | null
+  indexMetrics: IndexMetrics | null
   indexHistory: { month: string; value: number }[]
   topRising: MoverCard[]
   topFalling: MoverCard[]
@@ -149,6 +150,55 @@ function computeIndexHistory(rows: CacheRow[]): { month: string; value: number }
   }))
 }
 
+export interface IndexMetrics {
+  level:           number   // current normalized index value (base 100)
+  change7d:        number   // % change over last 7 days
+  change30d:       number   // % change over last 30 days
+  change90d:       number   // % change over last 90 days
+  trendExtension:  number   // 7d momentum projected forward 30 days
+  week52High:      number   // highest index value in last 52 weeks
+  week52Low:       number   // lowest index value in last 52 weeks
+}
+
+/**
+ * Derive index-level metrics from the normalized index history + per-card avgs.
+ * - Period changes from history: compare latest value to N months back.
+ * - 52w high/low: max/min over last 12 history points.
+ * - Trend extension: 7d momentum × (30/7) — annualizes weekly momentum to 30d.
+ */
+function computeIndexMetrics(
+  history: { month: string; value: number }[],
+  change7d: number,
+  change30d: number,
+): IndexMetrics | null {
+  if (history.length === 0) return null
+
+  const current = history[history.length - 1].value
+
+  // 90d change — compare to entry ~3 months back
+  const idx90 = Math.max(0, history.length - 4)
+  const val90 = history[idx90].value
+  const change90d = round2(((current - val90) / val90) * 100)
+
+  // 52-week window — last 12 monthly entries
+  const window52 = history.slice(-12).map(h => h.value)
+  const week52High = round2(Math.max(...window52))
+  const week52Low  = round2(Math.min(...window52))
+
+  // Trend extension: if this week's momentum continues for a month
+  const trendExtension = round2(change7d * (30 / 7))
+
+  return {
+    level: round2(current),
+    change7d,
+    change30d,
+    change90d,
+    trendExtension,
+    week52High,
+    week52Low,
+  }
+}
+
 function toMover(r: CacheRow, sales = false): MoverCard {
   return {
     card_id: r.card_id,
@@ -217,6 +267,9 @@ export async function GET() {
     const psa10   = computeIndexStats(psa10Rows)
 
     const indexHistory = computeIndexHistory(allPriced)
+    const indexMetrics = overall
+      ? computeIndexMetrics(indexHistory, overall.change7d, overall.change30d)
+      : null
 
     // Top movers — deduplicate by card_id so same card doesn't appear twice with different grades
     const byChange = [...allPriced]
@@ -254,6 +307,7 @@ export async function GET() {
       raw,
       graded,
       psa10,
+      indexMetrics,
       indexHistory,
       topRising,
       topFalling,

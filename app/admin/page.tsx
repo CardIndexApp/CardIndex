@@ -298,7 +298,7 @@ export default function AdminPage() {
     if (failed === 0) {
       flash('ok', `Refreshed ${ok} card prices`)
     } else if (ok === 0) {
-      flash('error', `All ${failed} price fetches failed — check Vercel logs for details`)
+      flash('err', `All ${failed} price fetches failed — check Vercel logs for details`)
     } else {
       flash('ok', `Refreshed ${ok} prices, ${failed} failed — check browser console for details`)
     }

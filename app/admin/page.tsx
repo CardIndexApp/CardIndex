@@ -292,6 +292,8 @@ export default function AdminPage() {
         console.error(`[refresh] ${c.card_name} network error`, e)
       }
       setRefreshProgress({ done: ok + failed, total: stale.length })
+      // Respect Poketrace rate limit — 500ms between requests
+      await new Promise(r => setTimeout(r, 500))
     }
     setRefreshing(false)
     setRefreshProgress(null)

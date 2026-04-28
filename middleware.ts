@@ -9,9 +9,15 @@ const PROTECTED_PATHS = ['/dashboard', '/watchlist', '/account', '/admin', '/por
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
+  // If Supabase env vars are not configured (e.g. local dev without .env.local),
+  // skip auth entirely so pages can still render.
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return supabaseResponse
+  }
+
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
       cookies: {
         getAll() { return request.cookies.getAll() },

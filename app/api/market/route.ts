@@ -176,32 +176,43 @@ export interface IndexMetrics {
 }
 
 /**
- * Derive index-level metrics from the normalized index history + per-card avgs.
- * - Period changes from history: compare latest value to N months back.
- * - 52w high/low: max/min over last 12 history points.
- * - Trend extension: 7d momentum × (30/7) — annualizes weekly momentum to 30d.
+ * Derive index-level metrics purely from the normalized index history.
+ * All period changes (7d, 30d, 90d) are computed by comparing the current
+ * index level to the appropriate point in history — not from per-card averages,
+ * which are often missing or zero for raw cards.
+ *
+ * Monthly history points mean:
+ *   7d  ≈ current vs 0–1 month ago, scaled by 7/30
+ *   30d ≈ current vs 1 month ago  (history[-2])
+ *   90d ≈ current vs 3 months ago (history[-4])
  */
 function computeIndexMetrics(
   history: { month: string; value: number }[],
-  change7d: number,
-  change30d: number,
 ): IndexMetrics | null {
   if (history.length === 0) return null
 
-  const current = history[history.length - 1].value
+  const len = history.length
+  const current = history[len - 1].value
 
-  // 90d change — compare to entry ~3 months back
-  const idx90 = Math.max(0, history.length - 4)
-  const val90 = history[idx90].value
-  const change90d = round2(((current - val90) / val90) * 100)
+  // 30d — one monthly step back
+  const val30 = history[Math.max(0, len - 2)].value
+  const change30d = round2(len >= 2 ? ((current - val30) / val30) * 100 : 0)
+
+  // 7d — scale the most-recent monthly change by 7/30
+  const val7base = history[Math.max(0, len - 2)].value
+  const change7d  = round2(len >= 2 ? ((current - val7base) / val7base) * 100 * (7 / 30) : 0)
+
+  // 90d — three monthly steps back
+  const val90 = history[Math.max(0, len - 4)].value
+  const change90d = round2(len >= 2 ? ((current - val90) / val90) * 100 : 0)
 
   // 52-week window — last 12 monthly entries
   const window52 = history.slice(-12).map(h => h.value)
   const week52High = round2(Math.max(...window52))
   const week52Low  = round2(Math.min(...window52))
 
-  // Trend extension: if this week's momentum continues for a month
-  const trendExtension = round2(change7d * (30 / 7))
+  // Trend extension: if this month's momentum continues for a month
+  const trendExtension = round2(change30d)
 
   return {
     level: round2(current),
@@ -282,8 +293,8 @@ export async function GET() {
     const psa10   = computeIndexStats(psa10Rows)
 
     const indexHistory = computeIndexHistory(allPriced)
-    const indexMetrics = overall
-      ? computeIndexMetrics(indexHistory, overall.change7d, overall.change30d)
+    const indexMetrics = indexHistory.length > 0
+      ? computeIndexMetrics(indexHistory)
       : null
 
     // Top movers — deduplicate by card_id so same card doesn't appear twice with different grades

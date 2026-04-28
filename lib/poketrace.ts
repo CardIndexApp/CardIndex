@@ -454,15 +454,17 @@ export async function getPokétraceCard(id: string): Promise<PokétraceCard | nu
 /**
  * Get price history for a card + tier.
  * period: "7d" | "30d" | "90d" | "1y"
+ * limit defaults to 366 for 1y (daily data) and 90 for shorter periods.
  */
 export async function getPriceHistory(
   cardId: string,
   tier: string,
   period: '7d' | '30d' | '90d' | '1y' = '30d'
 ): Promise<PriceHistoryPoint[]> {
+  const limit = period === '1y' ? 366 : 90
   try {
     const res = await fetch(
-      `${BASE}/cards/${encodeURIComponent(cardId)}/prices/${encodeURIComponent(tier)}/history?period=${period}&limit=90`,
+      `${BASE}/cards/${encodeURIComponent(cardId)}/prices/${encodeURIComponent(tier)}/history?period=${period}&limit=${limit}`,
       { headers: apiHeaders() }
     )
     if (!res.ok) return []

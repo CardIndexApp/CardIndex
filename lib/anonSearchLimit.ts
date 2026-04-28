@@ -58,3 +58,14 @@ export function anonWindowRemainingMs(): number {
   const usage = read()
   return Math.max(0, WINDOW_MS - (Date.now() - usage.windowStart))
 }
+
+/**
+ * Clear the anon search counter entirely.
+ * Call this when a user logs in so that any previous anon usage on this
+ * device is not inherited by the logged-in session (or a later anon session
+ * that shares the same IP / device).
+ */
+export function clearAnonSearchCount(): void {
+  if (typeof window === 'undefined') return
+  try { localStorage.removeItem(KEY) } catch {}
+}

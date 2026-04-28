@@ -6,7 +6,7 @@ import BetaModal from '@/components/BetaModal'
 import { ptImg } from '@/lib/img'
 import { cacheGet, cacheSet, cacheKey } from '@/lib/searchCache'
 import { isCardResult } from '@/lib/cardFilter'
-import { anonLimitReached, incrementAnonSearchCount, anonWindowRemainingMs } from '@/lib/anonSearchLimit'
+import { anonLimitReached, incrementAnonSearchCount, anonWindowRemainingMs, clearAnonSearchCount } from '@/lib/anonSearchLimit'
 import { createClient } from '@/lib/supabase/client'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -126,6 +126,10 @@ export default function SearchPage() {
       const loggedIn = !!data.user
       setIsLoggedIn(loggedIn)
       isLoggedInRef.current = loggedIn
+      // Clear any accumulated anon search counter when a logged-in user is
+      // detected — their searches must never consume or be blocked by the
+      // anonymous quota, regardless of IP or shared device.
+      if (loggedIn) clearAnonSearchCount()
     })
   }, [])
 

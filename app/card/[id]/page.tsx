@@ -617,6 +617,34 @@ export default function CardPage() {
     fetchLiveData()
   }, [fetchLiveData])
 
+  // CI Index comparison data (non-blocking)
+  const [marketSnap, setMarketSnap] = useState<{
+    change7d: number | null
+    change30d: number | null
+    change90d: number | null
+    risingCount: number
+    fallingCount: number
+    totalCards: number
+  } | null>(null)
+
+  useEffect(() => {
+    if (!liveData) return
+    fetch('/api/market')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!d || d.empty || !d.indexMetrics) return
+        setMarketSnap({
+          change7d:     d.indexMetrics.change7d  ?? null,
+          change30d:    d.indexMetrics.change30d ?? null,
+          change90d:    d.indexMetrics.change90d ?? null,
+          risingCount:  d.stats?.risingCount  ?? 0,
+          fallingCount: d.stats?.fallingCount ?? 0,
+          totalCards:   d.stats?.totalCards   ?? 0,
+        })
+      })
+      .catch(() => {})
+  }, [liveData])
+
   // Pre-fill portfolio price from live data
   useEffect(() => {
     if (liveData?.price && !pfPrice) {
@@ -2393,9 +2421,10 @@ export default function CardPage() {
                 {liveData.all_tier_prices && Object.keys(liveData.all_tier_prices).length > 0 && (() => {
                   const tiers = liveData.all_tier_prices!
                   const resolvedTier = liveData.resolved_tier ?? ''
-                  // Only show PSA graded entries
+                  // Only show PSA whole-number grades (PSA_1 – PSA_10), no half-grades
+                  const PSA_WHOLE = new Set(['PSA_10','PSA_9','PSA_8','PSA_7','PSA_6','PSA_5','PSA_4','PSA_3','PSA_2','PSA_1'])
                   const gradedEntries = Object.entries(tiers)
-                    .filter(([k]) => k.startsWith('PSA_'))
+                    .filter(([k]) => PSA_WHOLE.has(k))
                     .sort(([, a], [, b]) => b.avg - a.avg)
                   // Only show Near Mint for raw
                   const rawEntries = Object.entries(tiers)
@@ -3754,6 +3783,128 @@ export default function CardPage() {
                         <div style={{ marginTop: 14, padding: '10px 12px', borderRadius: 8, background: 'rgba(232,197,71,0.06)', border: '1px solid rgba(232,197,71,0.18)' }}>
                           <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--gold)', marginBottom: 3 }}>DATA NOTE</div>
                           <div style={{ fontSize: 11, color: 'var(--ink3)', lineHeight: 1.5 }}>{warningMessages[warning]}</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* 18 — CI Index Comparison */}
+              {liveData && marketSnap && (() => {
+                const card30d = liveData.price_change_pct ?? null
+                const card7d  = (liveData.avg7d && liveData.avg7d > 0 && liveData.price)
+                  ? ((liveData.price - liveData.avg7d) / liveData.avg7d) * 100
+                  : null
+
+                const idx30d = marketSnap.change30d
+                const idx7d  = marketSnap.change7d
+
+                const diff30d = (card30d != null && idx30d != null) ? card30d - idx30d : null
+                const diff7d  = (card7d  != null && idx7d  != null) ? card7d  - idx7d  : null
+
+                // Overall signal — use 30d if available, else 7d
+                const primaryDiff = diff30d ?? diff7d
+                const signal = primaryDiff == null ? 'unknown'
+                  : primaryDiff >= 5  ? 'outperforming'
+                  : primaryDiff <= -5 ? 'underperforming'
+                  : 'tracking'
+
+                const signalColor  = signal === 'outperforming' ? 'var(--green)' : signal === 'underperforming' ? '#ff6b6b' : 'var(--gold)'
+                const signalBg     = signal === 'outperforming' ? 'rgba(61,232,138,0.08)' : signal === 'underperforming' ? 'rgba(255,107,107,0.08)' : 'rgba(232,197,71,0.08)'
+                const signalBorder = signal === 'outperforming' ? 'rgba(61,232,138,0.2)'  : signal === 'underperforming' ? 'rgba(255,107,107,0.2)'  : 'rgba(232,197,71,0.2)'
+                const signalLabel  = signal === 'outperforming' ? 'OUTPERFORMING INDEX' : signal === 'underperforming' ? 'UNDERPERFORMING INDEX' : signal === 'tracking' ? 'TRACKING INDEX' : '—'
+
+                // Percentile: where does card30d rank vs the rising/falling split
+                const { risingCount, fallingCount, totalCards } = marketSnap
+                const risingPct  = totalCards > 0 ? Math.round((risingCount  / totalCards) * 100) : null
+                const fallingPct = totalCards > 0 ? Math.round((fallingCount / totalCards) * 100) : null
+
+                const fmtChg = (v: number | null, fallback = 'n/a') =>
+                  v == null ? fallback : `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`
+
+                // Bar chart rows
+                const BarRow = ({ label, cardVal, idxVal }: { label: string; cardVal: number | null; idxVal: number | null }) => {
+                  if (cardVal == null && idxVal == null) return null
+                  const maxAbs = Math.max(Math.abs(cardVal ?? 0), Math.abs(idxVal ?? 0), 1)
+                  const Bar = ({ val, color, bg }: { val: number | null; color: string; bg: string }) => {
+                    if (val == null) return <div style={{ flex: 1 }}><div style={{ fontSize: 10, color: 'var(--ink3)' }}>n/a</div></div>
+                    const pct = Math.abs(val) / maxAbs * 100
+                    return (
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <div style={{ flex: 1, height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.05)', overflow: 'hidden' }}>
+                            <div style={{ height: '100%', width: `${pct}%`, background: bg, borderRadius: 3 }} />
+                          </div>
+                          <span className="font-num" style={{ fontSize: 11, fontWeight: 700, color, minWidth: 44, textAlign: 'right' }}>{fmtChg(val)}</span>
+                        </div>
+                      </div>
+                    )
+                  }
+                  return (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+                      <div style={{ width: 36, fontSize: 9, letterSpacing: 1, color: 'var(--ink3)', flexShrink: 0 }}>{label}</div>
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontSize: 9, color: 'var(--ink3)', width: 28, flexShrink: 0 }}>CARD</span>
+                          <Bar val={cardVal} color={cardVal != null && cardVal >= 0 ? 'var(--green)' : '#ff6b6b'} bg={cardVal != null && cardVal >= 0 ? 'rgba(61,232,138,0.6)' : 'rgba(255,107,107,0.6)'} />
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontSize: 9, color: 'var(--ink3)', width: 28, flexShrink: 0 }}>CI-100</span>
+                          <Bar val={idxVal} color="rgba(255,255,255,0.5)" bg="rgba(255,255,255,0.25)" />
+                        </div>
+                      </div>
+                    </div>
+                  )
+                }
+
+                return (
+                  <div style={{ ...C }} className="ci-card-surface">
+                    <div style={{ ...P }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ ...L, marginBottom: 0 }}>CI INDEX COMPARISON</span>
+                          <TileInfo id="adv-18" text="Compares this card's price performance to the CI-100 market index. Outperforming means the card has appreciated more than the index average; underperforming means it has lagged behind." activeTip={activeTip} setActiveTip={setActiveTip} inline />
+                        </div>
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 99, background: signalBg, border: `1px solid ${signalBorder}`, color: signalColor }}>
+                          {signalLabel}
+                        </span>
+                      </div>
+
+                      {/* Bar comparison rows */}
+                      <div style={{ marginBottom: 14 }}>
+                        <BarRow label="7D" cardVal={card7d}  idxVal={idx7d}  />
+                        <BarRow label="30D" cardVal={card30d} idxVal={idx30d} />
+                        <BarRow label="90D" cardVal={null}    idxVal={marketSnap.change90d} />
+                      </div>
+
+                      {/* vs-index delta tiles */}
+                      <div className="ci-adv-3col" style={{ gap: 10, marginBottom: risingPct != null ? 14 : 0 }}>
+                        {[
+                          { label: '7D VS INDEX',  value: fmtChg(diff7d),  color: diff7d  == null ? 'var(--ink3)' : diff7d  >= 0 ? 'var(--green)' : '#ff6b6b' },
+                          { label: '30D VS INDEX', value: fmtChg(diff30d), color: diff30d == null ? 'var(--ink3)' : diff30d >= 0 ? 'var(--green)' : '#ff6b6b' },
+                          { label: 'SIGNAL',       value: signal === 'unknown' ? '—' : signal.charAt(0).toUpperCase() + signal.slice(1), color: signalColor },
+                        ].map(m => (
+                          <div key={m.label} style={{ borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--border)', padding: '12px 14px' }}>
+                            <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6 }}>{m.label}</div>
+                            <div className="font-num" style={{ fontSize: 14, fontWeight: 700, color: m.color }}>{m.value}</div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Index breadth */}
+                      {risingPct != null && (
+                        <div style={{ padding: '10px 12px', borderRadius: 8, background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)' }}>
+                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>CI-100 BREADTH ({totalCards} cards)</div>
+                          <div style={{ display: 'flex', height: 6, borderRadius: 3, overflow: 'hidden', gap: 1 }}>
+                            <div style={{ flex: risingPct, background: 'rgba(61,232,138,0.6)', borderRadius: '3px 0 0 3px' }} />
+                            <div style={{ flex: 100 - risingPct - (fallingPct ?? 0), background: 'rgba(255,255,255,0.12)' }} />
+                            <div style={{ flex: fallingPct ?? 0, background: 'rgba(255,107,107,0.6)', borderRadius: '0 3px 3px 0' }} />
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
+                            <span style={{ fontSize: 10, color: 'var(--green)' }}>↑ {risingPct}% rising</span>
+                            <span style={{ fontSize: 10, color: '#ff6b6b' }}>↓ {fallingPct}% falling</span>
+                          </div>
                         </div>
                       )}
                     </div>

@@ -10,6 +10,7 @@ import type { User } from '@supabase/supabase-js'
 import { useCurrency } from '@/lib/currency'
 import { usePullToRefresh } from '@/lib/usePullToRefresh'
 import { cacheGet, cacheSet } from '@/lib/searchCache'
+import { getTierLimits } from '@/lib/tier'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -167,6 +168,11 @@ export default function Watchlist() {
   const [sort, setSort] = useState<SortKey>('score')
   const [filter, setFilter] = useState<Filter>('all')
 
+  // ── Alert price editing ───────────────────────────────────────────────────
+  const [editingAlertId, setEditingAlertId] = useState<string | null>(null)
+  const [alertDraft, setAlertDraft] = useState('')
+  const [alertSaving, setAlertSaving] = useState(false)
+
   const { fmtCurrency } = useCurrency()
 
   // ── Auth check ────────────────────────────────────────────────────────────
@@ -286,6 +292,27 @@ export default function Watchlist() {
     // Optimistic removal
     setItems(prev => prev.filter(p => p.id !== id))
     await fetch(`/api/watchlist?id=${id}`, { method: 'DELETE' })
+  }
+
+  // ── Alert price save handler ──────────────────────────────────────────────
+  async function handleSaveAlert(id: string) {
+    const val = alertDraft.trim()
+    const parsed = val === '' ? null : parseFloat(val)
+    if (val !== '' && (isNaN(parsed!) || parsed! <= 0)) return
+    setAlertSaving(true)
+    try {
+      const r = await fetch(`/api/watchlist?id=${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ alert_price: parsed }),
+      })
+      if (r.ok) {
+        setItems(prev => prev.map(p => p.id === id ? { ...p, alert_price: parsed } : p))
+        setEditingAlertId(null)
+      }
+    } finally {
+      setAlertSaving(false)
+    }
   }
 
   // ── Derived lists ─────────────────────────────────────────────────────────
@@ -419,19 +446,46 @@ export default function Watchlist() {
           ) : (
             <>
               {/* Summary strip */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 28 }}>
-                {[
-                  { label: 'Cards watched', value: String(items.length), sub: 'on your list' },
-                  { label: 'Rising today', value: String(rising), sub: 'cards up', color: 'var(--green)' },
-                  { label: 'Falling today', value: String(falling), sub: 'cards down', color: 'var(--red)' },
-                ].map((s, i) => (
-                  <div key={i} style={{ borderRadius: 12, padding: '16px 18px', background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                    <div style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 6 }}>{s.label}</div>
-                    <div className="font-num" style={{ fontSize: 22, fontWeight: 700, color: s.color ?? 'var(--ink)', letterSpacing: '-0.5px' }}>{s.value}</div>
-                    <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 3 }}>{s.sub}</div>
+              {(() => {
+                const limit = getTierLimits(userTier).watchlist
+                const used = items.length
+                const pct = Math.min(used / limit, 1)
+                const nearLimit = pct >= 0.8
+                const atLimit = used >= limit
+                return (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 28 }}>
+                    {/* Capacity tile */}
+                    <div style={{ borderRadius: 12, padding: '16px 18px', background: 'var(--surface)', border: `1px solid ${atLimit ? 'rgba(232,82,74,0.3)' : nearLimit ? 'rgba(232,197,71,0.25)' : 'var(--border)'}` }}>
+                      <div style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 6 }}>Cards watched</div>
+                      <div className="font-num" style={{ fontSize: 22, fontWeight: 700, color: atLimit ? 'var(--red)' : nearLimit ? 'var(--gold)' : 'var(--ink)', letterSpacing: '-0.5px' }}>
+                        {used}<span style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink3)' }}> / {limit}</span>
+                      </div>
+                      <div style={{ marginTop: 6, height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${pct * 100}%`, borderRadius: 2, background: atLimit ? 'var(--red)' : nearLimit ? 'var(--gold)' : 'var(--green)', transition: 'width 0.4s ease' }} />
+                      </div>
+                      {atLimit ? (
+                        <Link href="/pricing" style={{ fontSize: 9, color: 'var(--red)', textDecoration: 'none', letterSpacing: 0.5, marginTop: 4, display: 'block' }}>LIMIT REACHED — UPGRADE</Link>
+                      ) : nearLimit ? (
+                        <Link href="/pricing" style={{ fontSize: 9, color: 'var(--gold)', textDecoration: 'none', letterSpacing: 0.5, marginTop: 4, display: 'block' }}>{limit - used} SLOT{limit - used !== 1 ? 'S' : ''} REMAINING</Link>
+                      ) : (
+                        <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 3 }}>{limit - used} slots remaining</div>
+                      )}
+                    </div>
+                    {/* Rising */}
+                    <div style={{ borderRadius: 12, padding: '16px 18px', background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 6 }}>Rising today</div>
+                      <div className="font-num" style={{ fontSize: 22, fontWeight: 700, color: 'var(--green)', letterSpacing: '-0.5px' }}>{rising}</div>
+                      <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 3 }}>cards up</div>
+                    </div>
+                    {/* Falling */}
+                    <div style={{ borderRadius: 12, padding: '16px 18px', background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 6 }}>Falling today</div>
+                      <div className="font-num" style={{ fontSize: 22, fontWeight: 700, color: 'var(--red)', letterSpacing: '-0.5px' }}>{falling}</div>
+                      <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 3 }}>cards down</div>
+                    </div>
                   </div>
-                ))}
-              </div>
+                )
+              })()}
 
               {/* Controls */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
@@ -530,10 +584,50 @@ export default function Watchlist() {
                             {item.set_name && <span style={{ fontSize: 10, color: 'var(--border2)' }}>·</span>}
                             <span style={{ fontSize: 10, color: 'var(--ink3)' }}>{item.grade}</span>
                           </div>
-                          {item.alert_price != null && (
-                            <span style={{ display: 'inline-block', marginTop: 4, fontSize: 9, color: 'var(--gold)', background: 'var(--gold2)', border: '1px solid rgba(232,197,71,0.2)', borderRadius: 4, padding: '2px 6px', letterSpacing: 0.5 }}>
-                              ⚡ ALERT {fmtCurrency(item.alert_price)}
-                            </span>
+                          {/* Alert price display / inline edit */}
+                          {editingAlertId === item.id ? (
+                            <div
+                              onClick={e => { e.preventDefault(); e.stopPropagation() }}
+                              style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}
+                            >
+                              <span style={{ fontSize: 9, color: 'var(--ink3)' }}>$</span>
+                              <input
+                                autoFocus
+                                type="number"
+                                min="0.01"
+                                step="0.01"
+                                value={alertDraft}
+                                onChange={e => setAlertDraft(e.target.value)}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter') handleSaveAlert(item.id)
+                                  if (e.key === 'Escape') setEditingAlertId(null)
+                                }}
+                                placeholder="e.g. 150"
+                                style={{ width: 72, fontSize: 11, padding: '2px 6px', borderRadius: 4, background: 'var(--surface2)', border: '1px solid var(--border2)', color: 'var(--ink)', outline: 'none' }}
+                              />
+                              <button
+                                onClick={e => { e.preventDefault(); e.stopPropagation(); handleSaveAlert(item.id) }}
+                                disabled={alertSaving}
+                                style={{ fontSize: 10, padding: '2px 7px', borderRadius: 4, background: 'var(--gold)', color: '#080810', border: 'none', cursor: 'pointer', fontWeight: 700 }}
+                              >{alertSaving ? '…' : '✓'}</button>
+                              <button
+                                onClick={e => { e.preventDefault(); e.stopPropagation(); setEditingAlertId(null) }}
+                                style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: 'var(--surface2)', color: 'var(--ink3)', border: '1px solid var(--border2)', cursor: 'pointer' }}
+                              >✕</button>
+                            </div>
+                          ) : getTierLimits(userTier).emailAlerts ? (
+                            <button
+                              onClick={e => { e.preventDefault(); e.stopPropagation(); setEditingAlertId(item.id); setAlertDraft(item.alert_price != null ? String(item.alert_price) : '') }}
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: 3, marginTop: 4, fontSize: 9, color: item.alert_price != null ? 'var(--gold)' : 'var(--ink3)', background: item.alert_price != null ? 'var(--gold2)' : 'transparent', border: `1px solid ${item.alert_price != null ? 'rgba(232,197,71,0.2)' : 'var(--border2)'}`, borderRadius: 4, padding: '2px 6px', letterSpacing: 0.5, cursor: 'pointer', transition: 'all 0.15s' }}
+                            >
+                              ⚡ {item.alert_price != null ? fmtCurrency(item.alert_price) : 'Set alert'}
+                            </button>
+                          ) : (
+                            <Link
+                              href="/pricing"
+                              onClick={e => e.stopPropagation()}
+                              style={{ display: 'inline-block', marginTop: 4, fontSize: 9, color: 'var(--ink3)', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 4, padding: '2px 6px', letterSpacing: 0.5, textDecoration: 'none' }}
+                            >🔒 Alerts — Standard+</Link>
                           )}
                         </div>
                       </div>
@@ -579,9 +673,11 @@ export default function Watchlist() {
                         )}
                       </div>
 
-                      {/* Sparkline */}
+                      {/* Sparkline — Standard+ */}
                       <div className="wl-hide-mobile" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                        {item.priceLoading ? (
+                        {!getTierLimits(userTier).trendIndicators ? (
+                          <Link href="/pricing" onClick={e => e.stopPropagation()} style={{ fontSize: 9, color: 'var(--ink3)', textDecoration: 'none', opacity: 0.6 }}>🔒</Link>
+                        ) : item.priceLoading ? (
                           <div style={{ width: 80, height: 32, borderRadius: 4, background: 'var(--surface2)' }} className="sk-pulse" />
                         ) : history.length >= 2 ? (
                           <Sparkline data={history} up={up} />
@@ -590,9 +686,11 @@ export default function Watchlist() {
                         )}
                       </div>
 
-                      {/* Score */}
+                      {/* Score — Standard+ */}
                       <div className="wl-hide-mobile" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                        {item.priceLoading ? (
+                        {!getTierLimits(userTier).trendIndicators ? (
+                          <Link href="/pricing" onClick={e => e.stopPropagation()} style={{ fontSize: 9, color: 'var(--ink3)', textDecoration: 'none', opacity: 0.6 }}>🔒</Link>
+                        ) : item.priceLoading ? (
                           <>
                             <div style={{ width: 30, height: 15, borderRadius: 4, background: 'var(--surface2)' }} className="sk-pulse" />
                             <div style={{ width: 40, height: 3, borderRadius: 2, background: 'var(--surface2)' }} className="sk-pulse" />

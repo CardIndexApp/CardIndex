@@ -1,9 +1,10 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Navbar from '@/components/Navbar'
 import { createClient } from '@/lib/supabase/client'
+import { tcgImg } from '@/lib/img'
 
 type Tier = 'free' | 'standard' | 'pro'
 
@@ -35,6 +36,30 @@ interface PortfolioStats {
   pricedPositions: number
   usersWithPortfolio: number
 }
+
+interface Constituent {
+  id: string
+  card_id: string
+  grade: string
+  card_name: string
+  set_name: string | null
+  image_url: string | null
+  added_at: string
+  price: number | null
+  price_change_pct: number | null
+  last_fetched: string | null
+}
+
+interface TcgCard {
+  id: string
+  name: string
+  set: { name: string; id: string }
+  number: string
+  images: { small: string; large: string }
+  rarity?: string
+}
+
+type AdminTab = 'users' | 'market'
 
 const TIER_COLORS: Record<Tier, string> = {
   free: 'var(--ink3)',
@@ -71,6 +96,21 @@ export default function AdminPage() {
   const [savingId, setSavingId] = useState<string | null>(null)
   const [actingId, setActingId] = useState<string | null>(null)
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+
+  // ── Market Index tab ──────────────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState<AdminTab>('users')
+  const [constituents, setConstituents] = useState<Constituent[]>([])
+  const [constitLoading, setConstitLoading] = useState(false)
+  const [cardSearch, setCardSearch] = useState('')
+  const [cardResults, setCardResults] = useState<TcgCard[]>([])
+  const [cardSearching, setCardSearching] = useState(false)
+  const [addingGrade, setAddingGrade] = useState<Record<string, string>>({})
+  const [addingId, setAddingId] = useState<string | null>(null)
+  const [removingId, setRemovingId] = useState<string | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
+  const [refreshProgress, setRefreshProgress] = useState<{ done: number; total: number } | null>(null)
+  const [seeding, setSeeding] = useState(false)
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const flash = (type: 'ok' | 'err', text: string) => {
     setMsg({ type, text })
@@ -131,6 +171,120 @@ export default function AdminPage() {
     }
   }
 
+  // ── Market index helpers ──────────────────────────────────────────────────
+  const loadConstituents = useCallback(async () => {
+    setConstitLoading(true)
+    try {
+      const r = await fetch('/api/admin/market/constituents')
+      if (r.ok) {
+        const json = await r.json()
+        setConstituents(json.constituents ?? [])
+      }
+    } finally {
+      setConstitLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (activeTab === 'market' && constituents.length === 0 && !constitLoading) {
+      loadConstituents()
+    }
+  }, [activeTab]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function handleCardSearchInput(val: string) {
+    setCardSearch(val)
+    if (searchTimer.current) clearTimeout(searchTimer.current)
+    if (!val.trim()) { setCardResults([]); return }
+    searchTimer.current = setTimeout(async () => {
+      setCardSearching(true)
+      try {
+        const r = await fetch(
+          `https://api.pokemontcg.io/v2/cards?q=name:${encodeURIComponent(val.trim() + '*')}&pageSize=20&orderBy=-set.releaseDate`
+        )
+        const json = await r.json()
+        setCardResults(json.data ?? [])
+      } finally {
+        setCardSearching(false)
+      }
+    }, 400)
+  }
+
+  async function addConstituent(card: TcgCard) {
+    const grade = addingGrade[card.id] || 'PSA 10'
+    setAddingId(card.id)
+    try {
+      const r = await fetch('/api/admin/market/constituents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          card_id: card.id,
+          grade,
+          card_name: card.name,
+          set_name: card.set.name,
+          image_url: card.images.small,
+        }),
+      })
+      const json = await r.json()
+      if (!r.ok) { flash('err', json.error ?? 'Error adding card'); return }
+      flash('ok', `${card.name} (${grade}) added to index`)
+      setCardResults([])
+      setCardSearch('')
+      loadConstituents()
+    } finally {
+      setAddingId(null)
+    }
+  }
+
+  async function removeConstituent(id: string) {
+    setRemovingId(id)
+    try {
+      const r = await fetch(`/api/admin/market/constituents?id=${id}`, { method: 'DELETE' })
+      if (!r.ok) { flash('err', 'Failed to remove'); return }
+      setConstituents(prev => prev.filter(c => c.id !== id))
+    } finally {
+      setRemovingId(null)
+    }
+  }
+
+  async function seedIndex() {
+    if (!confirm('This will upsert the CI-100 default card list into the database. Continue?')) return
+    setSeeding(true)
+    try {
+      const r = await fetch('/api/admin/market/seed', { method: 'POST' })
+      const json = await r.json()
+      if (!r.ok) { flash('err', json.error ?? 'Seed failed'); return }
+      flash('ok', `Seed complete — ${json.inserted} inserted, ${json.failed} failed${json.errors?.length ? ` (${json.errors[0]})` : ''}`)
+      loadConstituents()
+    } finally {
+      setSeeding(false)
+    }
+  }
+
+  async function refreshAllPrices() {
+    const stale = constituents.filter(c => {
+      if (!c.last_fetched) return true
+      const age = Date.now() - new Date(c.last_fetched).getTime()
+      return age > 6 * 60 * 60 * 1000 // older than 6h
+    })
+    if (stale.length === 0) { flash('ok', 'All prices are fresh (< 6h old)'); return }
+    setRefreshing(true)
+    setRefreshProgress({ done: 0, total: stale.length })
+    let done = 0
+    for (const c of stale) {
+      try {
+        const params = new URLSearchParams({ grade: c.grade, name: c.card_name })
+        if (c.set_name) params.set('set', c.set_name)
+        await fetch(`/api/card/${c.card_id}?${params.toString()}`)
+      } catch { /* ignore individual failures */ }
+      done++
+      setRefreshProgress({ done, total: stale.length })
+    }
+    setRefreshing(false)
+    setRefreshProgress(null)
+    flash('ok', `Refreshed ${done} card prices`)
+    loadConstituents()
+  }
+
   const filteredUsers = users.filter(u =>
     !search || u.email.toLowerCase().includes(search.toLowerCase()) ||
     (u.username ?? '').toLowerCase().includes(search.toLowerCase())
@@ -166,12 +320,26 @@ export default function AdminPage() {
             </div>
           </div>
 
+          {/* Tab switcher */}
+          <div style={{ display: 'flex', gap: 4, marginBottom: 24, borderRadius: 10, padding: 4, background: 'var(--surface)', border: '1px solid var(--border2)', width: 'fit-content' }}>
+            {([['users', 'Users'], ['market', 'Market Index']] as [AdminTab, string][]).map(([tab, label]) => (
+              <button key={tab} onClick={() => setActiveTab(tab)} style={{
+                padding: '7px 20px', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                background: activeTab === tab ? 'var(--surface2)' : 'transparent',
+                color: activeTab === tab ? 'var(--ink)' : 'var(--ink3)',
+                transition: 'all 0.15s',
+              }}>{label}</button>
+            ))}
+          </div>
+
           {/* Flash message */}
           {msg && (
             <div style={{ marginBottom: 16, borderRadius: 10, padding: '12px 16px', background: msg.type === 'ok' ? 'rgba(61,232,138,0.08)' : 'rgba(232,82,74,0.08)', border: `1px solid ${msg.type === 'ok' ? 'rgba(61,232,138,0.2)' : 'rgba(232,82,74,0.25)'}`, fontSize: 13, color: msg.type === 'ok' ? 'var(--green)' : 'var(--red)' }}>
               {msg.text}
             </div>
           )}
+
+          {activeTab === 'users' && <>
 
           {/* Stats row — users by tier */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 12 }}>
@@ -297,7 +465,7 @@ export default function AdminPage() {
           )}
 
           {/* User table */}
-          <div style={S.card}>
+          <div style={S.card} id="users-table">
             <div style={S.head}>
               <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Users ({filteredUsers.length})</span>
               <input
@@ -366,6 +534,222 @@ export default function AdminPage() {
               </table>
             </div>
           </div>
+
+          </> /* end activeTab === 'users' */}
+
+          {/* ── Market Index tab ───────────────────────────────────────────── */}
+          {activeTab === 'market' && (() => {
+            const priced = constituents.filter(c => c.price != null)
+            const stale  = constituents.filter(c => !c.last_fetched || Date.now() - new Date(c.last_fetched).getTime() > 6 * 3600 * 1000)
+
+            return (
+              <>
+                {/* Stats */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 16 }}>
+                  {[
+                    { label: 'Index cards',   value: constituents.length, sub: 'of 100 target', color: 'var(--ink)' },
+                    { label: 'Priced',        value: priced.length, sub: 'with live price', color: 'var(--green)' },
+                    { label: 'Stale / missing', value: stale.length, sub: '> 6h old or unpriced', color: stale.length > 0 ? 'var(--gold)' : 'var(--ink3)' },
+                  ].map((s, i) => (
+                    <div key={i} style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
+                      <div style={{ fontSize: 10, letterSpacing: 1.5, color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 6 }}>{s.label}</div>
+                      <div className="font-num" style={{ fontSize: 28, fontWeight: 800, color: s.color }}>{s.value}</div>
+                      <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 4 }}>{s.sub}</div>
+                    </div>
+                  ))}
+                  {/* Progress bar tile */}
+                  <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
+                    <div style={{ fontSize: 10, letterSpacing: 1.5, color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 10 }}>Coverage</div>
+                    <div style={{ height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.06)', overflow: 'hidden', marginBottom: 8 }}>
+                      <div style={{ height: '100%', width: `${(priced.length / Math.max(constituents.length, 1)) * 100}%`, background: 'var(--green)', borderRadius: 3, transition: 'width 0.4s' }} />
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--ink2)', fontWeight: 600 }}>{priced.length}/{constituents.length} priced</div>
+                  </div>
+                </div>
+
+                {/* Add cards panel */}
+                <div style={{ ...S.card, marginBottom: 16 }}>
+                  <div style={S.head}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Add cards to index</span>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <button
+                        onClick={seedIndex}
+                        disabled={seeding}
+                        style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid rgba(232,197,71,0.3)', background: 'rgba(232,197,71,0.07)', color: 'var(--gold)', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: seeding ? 0.5 : 1 }}
+                      >
+                        {seeding ? 'Seeding…' : '⬇ Seed CI-100'}
+                      </button>
+                      {refreshProgress ? (
+                        <span style={{ fontSize: 12, color: 'var(--ink3)', padding: '7px 0' }}>
+                          Refreshing {refreshProgress.done}/{refreshProgress.total}…
+                        </span>
+                      ) : (
+                        <button
+                          onClick={refreshAllPrices}
+                          disabled={refreshing || constituents.length === 0}
+                          style={{ padding: '7px 16px', borderRadius: 8, border: '1px solid var(--border2)', background: 'transparent', color: 'var(--ink2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: refreshing ? 0.5 : 1 }}
+                        >
+                          {refreshing ? 'Refreshing…' : `↺ Refresh stale (${stale.length})`}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div style={S.body}>
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                      <input
+                        value={cardSearch}
+                        onChange={e => handleCardSearchInput(e.target.value)}
+                        placeholder="Search card name e.g. Charizard…"
+                        style={{ flex: 1, padding: '9px 14px', borderRadius: 9, background: 'var(--bg)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 13, outline: 'none' }}
+                        onFocus={e => (e.currentTarget.style.borderColor = 'var(--gold)')}
+                        onBlur={e => (e.currentTarget.style.borderColor = 'var(--border2)')}
+                      />
+                      {cardSearch && (
+                        <button onClick={() => { setCardSearch(''); setCardResults([]) }}
+                          style={{ padding: '9px 14px', borderRadius: 9, border: '1px solid var(--border2)', background: 'transparent', color: 'var(--ink3)', fontSize: 13, cursor: 'pointer' }}>
+                          ✕
+                        </button>
+                      )}
+                    </div>
+
+                    {cardSearching && (
+                      <div style={{ fontSize: 12, color: 'var(--ink3)', padding: '8px 0' }}>Searching pokemontcg.io…</div>
+                    )}
+
+                    {cardResults.length > 0 && (
+                      <div style={{ borderRadius: 10, border: '1px solid var(--border)', overflow: 'hidden' }}>
+                        {cardResults.map((card, i) => {
+                          const alreadyAdded = constituents.some(c => c.card_id === card.id && c.grade === (addingGrade[card.id] || 'PSA 10'))
+                          return (
+                            <div key={card.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: i < cardResults.length - 1 ? '1px solid var(--border)' : 'none', background: alreadyAdded ? 'rgba(61,232,138,0.03)' : 'transparent' }}>
+                              <div style={{ width: 32, height: 32, borderRadius: 6, overflow: 'hidden', flexShrink: 0, background: 'var(--surface2)' }}>
+                                <img src={tcgImg(card.images.small)} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                              </div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{card.name}</div>
+                                <div style={{ fontSize: 11, color: 'var(--ink3)' }}>{card.set.name} · #{card.number}{card.rarity ? ` · ${card.rarity}` : ''}</div>
+                              </div>
+                              <select
+                                value={addingGrade[card.id] || 'PSA 10'}
+                                onChange={e => setAddingGrade(prev => ({ ...prev, [card.id]: e.target.value }))}
+                                style={{ padding: '5px 8px', borderRadius: 7, border: '1px solid var(--border2)', background: 'var(--bg)', color: 'var(--ink)', fontSize: 12, cursor: 'pointer' }}
+                              >
+                                {['PSA 10', 'PSA 9', 'PSA 8', 'BGS 9.5', 'BGS 9', 'CGC 10', 'Raw'].map(g => (
+                                  <option key={g} value={g}>{g}</option>
+                                ))}
+                              </select>
+                              <button
+                                onClick={() => addConstituent(card)}
+                                disabled={!!addingId || alreadyAdded}
+                                style={{
+                                  padding: '6px 14px', borderRadius: 8, border: 'none', fontSize: 12, fontWeight: 700, cursor: alreadyAdded ? 'default' : 'pointer',
+                                  background: alreadyAdded ? 'rgba(61,232,138,0.1)' : 'var(--gold)',
+                                  color: alreadyAdded ? 'var(--green)' : '#080810',
+                                  opacity: addingId && addingId !== card.id ? 0.5 : 1,
+                                  flexShrink: 0,
+                                }}
+                              >
+                                {alreadyAdded ? '✓ Added' : addingId === card.id ? '…' : '+ Add'}
+                              </button>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Constituent list */}
+                <div style={S.card}>
+                  <div style={S.head}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
+                      Index constituents ({constituents.length})
+                    </span>
+                    <button onClick={loadConstituents} disabled={constitLoading}
+                      style={{ padding: '6px 12px', borderRadius: 7, border: '1px solid var(--border2)', background: 'transparent', color: 'var(--ink3)', fontSize: 11, cursor: 'pointer', opacity: constitLoading ? 0.5 : 1 }}>
+                      {constitLoading ? 'Loading…' : '↺ Reload'}
+                    </button>
+                  </div>
+                  {constitLoading ? (
+                    <div style={{ padding: 22, fontSize: 12, color: 'var(--ink3)' }}>Loading…</div>
+                  ) : constituents.length === 0 ? (
+                    <div style={{ padding: 40, textAlign: 'center' }}>
+                      <div style={{ fontSize: 32, opacity: 0.3, marginBottom: 12 }}>📈</div>
+                      <div style={{ fontSize: 13, color: 'var(--ink3)', marginBottom: 6 }}>No cards in the index yet</div>
+                      <div style={{ fontSize: 11, color: 'var(--ink3)', opacity: 0.7 }}>Search for cards above and add them to build your CI-100 index</div>
+                    </div>
+                  ) : (
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                        <thead>
+                          <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                            {['Card', 'Grade', 'Price', '30d Chg', 'Last updated', ''].map(h => (
+                              <th key={h} style={{ padding: '8px 14px', textAlign: 'left', fontSize: 9, letterSpacing: 1, color: 'var(--ink3)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h.toUpperCase()}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {constituents.map((c, i) => {
+                            const isStale = !c.last_fetched || Date.now() - new Date(c.last_fetched).getTime() > 6 * 3600 * 1000
+                            return (
+                              <tr key={c.id} style={{ borderBottom: i < constituents.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                                <td style={{ padding: '10px 14px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    {c.image_url && (
+                                      <div style={{ width: 28, height: 28, borderRadius: 5, overflow: 'hidden', flexShrink: 0 }}>
+                                        <img src={tcgImg(c.image_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                      </div>
+                                    )}
+                                    <div>
+                                      <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 12 }}>{c.card_name}</div>
+                                      {c.set_name && <div style={{ fontSize: 10, color: 'var(--ink3)' }}>{c.set_name}</div>}
+                                    </div>
+                                  </div>
+                                </td>
+                                <td style={{ padding: '10px 14px', color: 'var(--ink2)', whiteSpace: 'nowrap' }}>{c.grade}</td>
+                                <td style={{ padding: '10px 14px' }}>
+                                  <span className="font-num" style={{ fontWeight: 700, color: c.price != null ? 'var(--ink)' : 'var(--ink3)' }}>
+                                    {c.price != null ? `$${c.price.toFixed(2)}` : '—'}
+                                  </span>
+                                </td>
+                                <td style={{ padding: '10px 14px' }}>
+                                  {c.price_change_pct != null ? (
+                                    <span className="font-num" style={{ color: c.price_change_pct >= 0 ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>
+                                      {c.price_change_pct >= 0 ? '+' : ''}{c.price_change_pct.toFixed(1)}%
+                                    </span>
+                                  ) : <span style={{ color: 'var(--ink3)' }}>—</span>}
+                                </td>
+                                <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
+                                  {c.last_fetched ? (
+                                    <span style={{ fontSize: 11, color: isStale ? 'var(--gold)' : 'var(--ink3)' }}>
+                                      {isStale ? '⚠ ' : ''}{new Date(c.last_fetched).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                  ) : (
+                                    <span style={{ fontSize: 11, color: 'var(--red)' }}>⚠ Not priced</span>
+                                  )}
+                                </td>
+                                <td style={{ padding: '10px 14px', textAlign: 'right' }}>
+                                  <button
+                                    onClick={() => removeConstituent(c.id)}
+                                    disabled={removingId === c.id}
+                                    style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--ink3)', fontSize: 11, cursor: 'pointer', transition: 'all 0.15s' }}
+                                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--red)'; e.currentTarget.style.color = 'var(--red)' }}
+                                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--ink3)' }}
+                                  >
+                                    {removingId === c.id ? '…' : 'Remove'}
+                                  </button>
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </>
+            )
+          })()}
 
         </div>
       </main>

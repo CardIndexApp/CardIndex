@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getTierLimits } from '@/lib/tier'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export async function GET() {
   const supabase = await createClient()
@@ -120,6 +121,15 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'alert_price must be a positive number ≤10,000,000' }, { status: 400 })
   if (notes != null && (typeof notes !== 'string' || notes.length > 2000))
     return NextResponse.json({ error: 'notes must be ≤2000 characters' }, { status: 400 })
+
+  // alert_price requires Standard+ (emailAlerts)
+  if (alert_price != null) {
+    const admin = createAdminClient()
+    const { data: profile } = await admin.from('profiles').select('tier').eq('id', user.id).single()
+    if (!getTierLimits(profile?.tier).emailAlerts) {
+      return NextResponse.json({ error: 'Price alerts require a Standard or Pro plan.', tier: profile?.tier }, { status: 403 })
+    }
+  }
 
   const { data, error } = await supabase
     .from('watchlists')

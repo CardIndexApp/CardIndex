@@ -116,6 +116,19 @@ create table if not exists public.upgrade_requests (
 );
 
 
+-- CI-100 market index constituents (admin-managed curated card list)
+create table if not exists public.market_constituents (
+  id          uuid default gen_random_uuid() primary key,
+  card_id     text not null,           -- pokemontcg.io card ID e.g. "base1-4"
+  grade       text not null,           -- 'PSA 10', 'Raw', etc.
+  card_name   text not null,
+  set_name    text,
+  image_url   text,
+  added_at    timestamptz default now(),
+  unique (card_id, grade)
+);
+-- No RLS — access only via service-role key in admin API routes.
+
 -- ── Row Level Security ──────────────────────────────
 
 alter table public.profiles        enable row level security;

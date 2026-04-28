@@ -270,7 +270,7 @@ export default function AdminPage() {
     setRefreshing(true)
     setRefreshProgress({ done: 0, total: stale.length })
     let ok = 0, failed = 0
-    const firstError: { card: string; status: number; msg: string } | null = null
+    let firstErrMsg = ''
     for (const c of stale) {
       try {
         const params = new URLSearchParams({ grade: c.grade, name: c.card_name })
@@ -280,15 +280,15 @@ export default function AdminPage() {
           ok++
         } else {
           failed++
-          if (!firstError) {
+          if (!firstErrMsg) {
             const body = await r.json().catch(() => ({}))
-            console.error(`[refresh] ${c.card_name} → ${r.status}`, body)
-            // Store first error for flash message
-            Object.assign(firstError ?? {}, { card: c.card_name, status: r.status, msg: body?.error ?? '' })
+            firstErrMsg = `${c.card_name} (${c.card_id}) → ${r.status}: ${body?.error ?? 'unknown'}`
+            console.error('[refresh] first failure:', firstErrMsg, body)
           }
         }
       } catch (e) {
         failed++
+        if (!firstErrMsg) firstErrMsg = `${c.card_name}: network error`
         console.error(`[refresh] ${c.card_name} network error`, e)
       }
       setRefreshProgress({ done: ok + failed, total: stale.length })
@@ -298,9 +298,9 @@ export default function AdminPage() {
     if (failed === 0) {
       flash('ok', `Refreshed ${ok} card prices`)
     } else if (ok === 0) {
-      flash('err', `All ${failed} price fetches failed — check Vercel logs for details`)
+      flash('err', `All ${failed} failed. First: ${firstErrMsg}`)
     } else {
-      flash('ok', `Refreshed ${ok} prices, ${failed} failed — check browser console for details`)
+      flash('ok', `${ok} refreshed, ${failed} failed. First failure: ${firstErrMsg}`)
     }
     loadConstituents()
   }

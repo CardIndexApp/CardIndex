@@ -137,7 +137,7 @@ export default function Dashboard() {
     level: number | null
     change7d: number | null
     change30d: number | null
-    topRising: { card_id: string; card_name: string; grade: string; change: number | null; price: number | null; image_url: string | null }[]
+    topRising: { card_id: string; card_name: string; grade: string; change: number | null; price: number | null }[]
   } | null>(null)
 
   const load = useCallback(async () => {
@@ -437,11 +437,6 @@ export default function Dashboard() {
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                             <span className="font-num" style={{ fontSize: 10, color: 'var(--ink3)', width: 14, flexShrink: 0 }}>{i + 1}</span>
-                            {item.image_url && (
-                              <div style={{ width: 28, height: 28, borderRadius: 4, overflow: 'hidden', flexShrink: 0, background: 'var(--surface2)' }}>
-                                <img src={item.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                              </div>
-                            )}
                             <div style={{ minWidth: 0 }}>
                               <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.card_name}</div>
                               <div style={{ fontSize: 10, color: 'var(--ink3)' }}>{item.grade}</div>

@@ -24,16 +24,16 @@ interface PtCard {
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const GRADES = [
-  { label: 'Raw',     sub: 'Ungraded',  graded: false },
-  { label: 'PSA 10',  sub: 'Gem Mint',  graded: true  },
-  { label: 'PSA 9',   sub: 'Mint',      graded: true  },
-  { label: 'PSA 8',   sub: 'NM-Mint',   graded: true  },
-  { label: 'PSA 7',   sub: 'Near Mint', graded: true  },
-  { label: 'BGS 10',  sub: 'Pristine',  graded: true  },
-  { label: 'BGS 9.5', sub: 'Gem Mint',  graded: true  },
-  { label: 'CGC 10',  sub: 'Pristine',  graded: true  },
-  { label: 'CGC 9',   sub: 'Mint',      graded: true  },
-  { label: 'CGC 9.5', sub: 'Gem Mint',  graded: true  },
+  { label: 'Raw',     sub: 'Ungraded'  },
+  { label: 'PSA 10',  sub: 'Gem Mint'  },
+  { label: 'PSA 9',   sub: 'Mint'      },
+  { label: 'PSA 8',   sub: 'NM-Mint'   },
+  { label: 'PSA 7',   sub: 'Near Mint' },
+  { label: 'BGS 10',  sub: 'Pristine'  },
+  { label: 'BGS 9.5', sub: 'Gem Mint'  },
+  { label: 'CGC 10',  sub: 'Pristine'  },
+  { label: 'CGC 9',   sub: 'Mint'      },
+  { label: 'CGC 9.5', sub: 'Gem Mint'  },
 ]
 
 const VARIANT_LABELS: Record<string, string> = {
@@ -468,48 +468,44 @@ export default function SearchPage() {
                         SELECT GRADE
                       </p>
                       <div className="srch-grade-grid">
-                        {GRADES.map(g => (
-                          <button
-                            key={g.label}
-                            disabled={g.graded}
-                            onClick={() => !g.graded && handleGrade(g.label, card)}
-                            style={{
-                              padding: '10px 4px', borderRadius: 8,
-                              cursor: g.graded ? 'default' : 'pointer', textAlign: 'center',
-                              background: g.graded
-                                ? 'rgba(255,255,255,0.02)'
-                                : selectedGrade === g.label
-                                  ? 'rgba(232,197,71,0.1)' : 'var(--surface2)',
-                              border: `1.5px solid ${g.graded ? 'rgba(255,255,255,0.06)' : selectedGrade === g.label ? 'var(--gold)' : 'var(--border2)'}`,
-                              transition: 'all 0.15s',
-                              minHeight: 52,
-                              opacity: g.graded ? 0.45 : 1,
-                            }}
-                            onMouseEnter={e => {
-                              if (!g.graded && selectedGrade !== g.label) {
-                                e.currentTarget.style.borderColor = 'var(--gold)'
-                                e.currentTarget.style.background = 'rgba(232,197,71,0.05)'
-                              }
-                            }}
-                            onMouseLeave={e => {
-                              if (!g.graded && selectedGrade !== g.label) {
-                                e.currentTarget.style.borderColor = 'var(--border2)'
-                                e.currentTarget.style.background = 'var(--surface2)'
-                              }
-                            }}
-                          >
-                            <span style={{
-                              display: 'block',
-                              fontSize: g.label === 'Raw' ? 13 : 11,
-                              fontWeight: 700,
-                              color: g.graded ? 'var(--ink3)' : selectedGrade === g.label ? 'var(--gold)' : 'var(--ink)',
-                              lineHeight: 1.2,
-                            }}>{g.label}</span>
-                            <span style={{ display: 'block', fontSize: 8, color: 'var(--ink3)', marginTop: 2 }}>
-                              {g.graded ? 'coming soon' : g.sub}
-                            </span>
-                          </button>
-                        ))}
+                        {GRADES.map(g => {
+                          const active = selectedGrade === g.label
+                          return (
+                            <button
+                              key={g.label}
+                              onClick={() => handleGrade(g.label, card)}
+                              style={{
+                                padding: '10px 4px', borderRadius: 8,
+                                cursor: 'pointer', textAlign: 'center',
+                                background: active ? 'rgba(232,197,71,0.1)' : 'var(--surface2)',
+                                border: `1.5px solid ${active ? 'var(--gold)' : 'var(--border2)'}`,
+                                transition: 'all 0.15s',
+                                minHeight: 52,
+                              }}
+                              onMouseEnter={e => {
+                                if (!active) {
+                                  e.currentTarget.style.borderColor = 'var(--gold)'
+                                  e.currentTarget.style.background = 'rgba(232,197,71,0.05)'
+                                }
+                              }}
+                              onMouseLeave={e => {
+                                if (!active) {
+                                  e.currentTarget.style.borderColor = 'var(--border2)'
+                                  e.currentTarget.style.background = 'var(--surface2)'
+                                }
+                              }}
+                            >
+                              <span style={{
+                                display: 'block',
+                                fontSize: g.label === 'Raw' ? 13 : 11,
+                                fontWeight: 700,
+                                color: active ? 'var(--gold)' : 'var(--ink)',
+                                lineHeight: 1.2,
+                              }}>{g.label}</span>
+                              <span style={{ display: 'block', fontSize: 8, color: 'var(--ink3)', marginTop: 2 }}>{g.sub}</span>
+                            </button>
+                          )
+                        })}
                       </div>
                     </div>
                   )}

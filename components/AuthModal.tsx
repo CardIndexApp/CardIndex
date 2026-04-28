@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
-type Tab = 'signin' | 'signup'
+type Tab = 'signin' | 'signup' | 'forgot'
 interface Props { onClose: () => void; defaultTab?: Tab }
 
 export default function AuthModal({ onClose, defaultTab = 'signup' }: Props) {
@@ -21,6 +21,16 @@ export default function AuthModal({ onClose, defaultTab = 'signup' }: Props) {
     setLoading(true)
     setError('')
     setSuccess('')
+
+    if (tab === 'forgot') {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/callback?next=/account`,
+      })
+      if (error) setError(error.message)
+      else setSuccess('Check your email for a password reset link.')
+      setLoading(false)
+      return
+    }
 
     if (tab === 'signup') {
       if (!username.trim()) { setError('Please choose a username.'); setLoading(false); return }
@@ -58,19 +68,21 @@ export default function AuthModal({ onClose, defaultTab = 'signup' }: Props) {
             Card<span style={{ color: 'var(--gold)' }}>Index</span>
           </div>
           <p style={{ fontSize: 13, color: 'var(--ink3)' }}>
-            {tab === 'signup' ? 'Create your free account' : 'Welcome back'}
+            {tab === 'signup' ? 'Create your free account' : tab === 'forgot' ? 'Reset your password' : 'Welcome back'}
           </p>
         </div>
 
-        {/* Tabs */}
-        <div style={{ display: 'flex', borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border2)', marginBottom: 24 }}>
-          {(['signin', 'signup'] as Tab[]).map(t => (
-            <button key={t} onClick={() => { setTab(t); setError(''); setSuccess('') }}
-              style={{ flex: 1, padding: '9px 0', fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer', background: tab === t ? 'var(--surface2)' : 'transparent', color: tab === t ? 'var(--ink)' : 'var(--ink3)', transition: 'all 0.15s' }}>
-              {t === 'signin' ? 'Sign in' : 'Sign up'}
-            </button>
-          ))}
-        </div>
+        {/* Tabs — hidden on forgot screen */}
+        {tab !== 'forgot' && (
+          <div style={{ display: 'flex', borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border2)', marginBottom: 24 }}>
+            {(['signin', 'signup'] as Tab[]).map(t => (
+              <button key={t} onClick={() => { setTab(t as Tab); setError(''); setSuccess('') }}
+                style={{ flex: 1, padding: '9px 0', fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer', background: tab === t ? 'var(--surface2)' : 'transparent', color: tab === t ? 'var(--ink)' : 'var(--ink3)', transition: 'all 0.15s' }}>
+                {t === 'signin' ? 'Sign in' : 'Sign up'}
+              </button>
+            ))}
+          </div>
+        )}
 
         {success ? (
           <div style={{ borderRadius: 12, padding: '20px', background: 'rgba(61,232,138,0.06)', border: '1px solid rgba(61,232,138,0.2)', textAlign: 'center' }}>
@@ -91,20 +103,37 @@ export default function AuthModal({ onClose, defaultTab = 'signup' }: Props) {
                   onBlur={e => (e.currentTarget.style.borderColor = 'var(--border2)')} />
               </div>
             )}
-            {[
-              { label: 'EMAIL', type: 'email', value: email, onChange: setEmail, placeholder: 'you@example.com' },
-              { label: 'PASSWORD', type: 'password', value: password, onChange: setPassword, placeholder: tab === 'signup' ? 'Min. 8 characters' : '••••••••' },
-            ].map(f => (
-              <div key={f.label}>
-                <label style={{ display: 'block', fontSize: 10, color: 'var(--ink3)', letterSpacing: 1.5, marginBottom: 7 }}>{f.label}</label>
-                <input type={f.type} required value={f.value} placeholder={f.placeholder}
-                  minLength={f.type === 'password' && tab === 'signup' ? 8 : undefined}
-                  onChange={e => f.onChange(e.target.value)}
+
+            {/* Email always shown */}
+            <div>
+              <label style={{ display: 'block', fontSize: 10, color: 'var(--ink3)', letterSpacing: 1.5, marginBottom: 7 }}>EMAIL</label>
+              <input type="email" required value={email} placeholder="you@example.com"
+                onChange={e => setEmail(e.target.value)}
+                style={{ width: '100%', padding: '11px 14px', borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 14, outline: 'none' }}
+                onFocus={e => (e.currentTarget.style.borderColor = 'var(--gold)')}
+                onBlur={e => (e.currentTarget.style.borderColor = 'var(--border2)')} />
+            </div>
+
+            {/* Password only for signin / signup */}
+            {tab !== 'forgot' && (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 7 }}>
+                  <label style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1.5 }}>PASSWORD</label>
+                  {tab === 'signin' && (
+                    <button type="button" onClick={() => { setTab('forgot'); setError(''); setSuccess('') }}
+                      style={{ fontSize: 11, color: 'var(--ink3)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline', textUnderlineOffset: 2 }}>
+                      Forgot password?
+                    </button>
+                  )}
+                </div>
+                <input type="password" required value={password} placeholder={tab === 'signup' ? 'Min. 8 characters' : '••••••••'}
+                  minLength={tab === 'signup' ? 8 : undefined}
+                  onChange={e => setPassword(e.target.value)}
                   style={{ width: '100%', padding: '11px 14px', borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 14, outline: 'none' }}
                   onFocus={e => (e.currentTarget.style.borderColor = 'var(--gold)')}
                   onBlur={e => (e.currentTarget.style.borderColor = 'var(--border2)')} />
               </div>
-            ))}
+            )}
 
             {error && (
               <div style={{ borderRadius: 8, padding: '10px 14px', background: 'rgba(232,82,74,0.08)', border: '1px solid rgba(232,82,74,0.25)', fontSize: 12, color: 'var(--red)' }}>
@@ -114,16 +143,26 @@ export default function AuthModal({ onClose, defaultTab = 'signup' }: Props) {
 
             <button type="submit" disabled={loading}
               style={{ padding: 13, borderRadius: 12, background: loading ? 'rgba(232,197,71,0.5)' : 'var(--gold)', color: '#080810', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 700, marginTop: 4 }}>
-              {loading ? '…' : tab === 'signup' ? 'Create account' : 'Sign in'}
+              {loading ? '…' : tab === 'signup' ? 'Create account' : tab === 'forgot' ? 'Send reset link' : 'Sign in'}
             </button>
 
-            <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--ink3)' }}>
-              {tab === 'signup' ? 'Already have an account? ' : "Don't have an account? "}
-              <button type="button" onClick={() => { setTab(tab === 'signup' ? 'signin' : 'signup'); setError('') }}
-                style={{ color: 'var(--gold)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}>
-                {tab === 'signup' ? 'Sign in' : 'Sign up free'}
-              </button>
-            </p>
+            {tab === 'forgot' ? (
+              <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--ink3)' }}>
+                Remember your password?{' '}
+                <button type="button" onClick={() => { setTab('signin'); setError('') }}
+                  style={{ color: 'var(--gold)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}>
+                  Sign in
+                </button>
+              </p>
+            ) : (
+              <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--ink3)' }}>
+                {tab === 'signup' ? 'Already have an account? ' : "Don't have an account? "}
+                <button type="button" onClick={() => { setTab(tab === 'signup' ? 'signin' : 'signup'); setError('') }}
+                  style={{ color: 'var(--gold)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}>
+                  {tab === 'signup' ? 'Sign in' : 'Sign up free'}
+                </button>
+              </p>
+            )}
           </form>
         )}
       </div>

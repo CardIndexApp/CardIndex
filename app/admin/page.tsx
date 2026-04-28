@@ -28,6 +28,14 @@ interface UpgradeRequest {
   user_email?: string
 }
 
+interface PortfolioStats {
+  totalCostBasis: number
+  totalMarketValue: number
+  totalPositions: number
+  pricedPositions: number
+  usersWithPortfolio: number
+}
+
 const TIER_COLORS: Record<Tier, string> = {
   free: 'var(--ink3)',
   standard: 'var(--blue, #4a9eff)',
@@ -58,6 +66,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true)
   const [users, setUsers] = useState<UserRow[]>([])
   const [requests, setRequests] = useState<UpgradeRequest[]>([])
+  const [portfolioStats, setPortfolioStats] = useState<PortfolioStats | null>(null)
   const [search, setSearch] = useState('')
   const [savingId, setSavingId] = useState<string | null>(null)
   const [actingId, setActingId] = useState<string | null>(null)
@@ -78,6 +87,7 @@ export default function AdminPage() {
     const json = await res.json()
     setUsers(json.users ?? [])
     setRequests(json.requests ?? [])
+    if (json.portfolioStats) setPortfolioStats(json.portfolioStats)
     setLoading(false)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -163,8 +173,8 @@ export default function AdminPage() {
             </div>
           )}
 
-          {/* Stats row */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 24 }}>
+          {/* Stats row — users by tier */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 12 }}>
             {(['free', 'standard', 'pro'] as Tier[]).map(t => (
               <div key={t} style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
                 <div style={{ fontSize: 10, letterSpacing: 1.5, color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 6 }}>{t}</div>
@@ -174,8 +184,71 @@ export default function AdminPage() {
               </div>
             ))}
             <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
-              <div style={{ fontSize: 10, letterSpacing: 1.5, color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 6 }}>Total</div>
+              <div style={{ fontSize: 10, letterSpacing: 1.5, color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 6 }}>Total Users</div>
               <div className="font-num" style={{ fontSize: 28, fontWeight: 800, color: 'var(--ink)' }}>{users.length}</div>
+            </div>
+          </div>
+
+          {/* Portfolio stats row */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 24 }}>
+            {/* Market value — primary stat */}
+            <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid rgba(232,197,71,0.25)' }}>
+              <div style={{ fontSize: 10, letterSpacing: 1.5, color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 6 }}>
+                Total Market Value
+              </div>
+              <div className="font-num" style={{ fontSize: 28, fontWeight: 800, color: 'var(--gold)' }}>
+                {portfolioStats
+                  ? `$${portfolioStats.totalMarketValue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+                  : '—'}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 4 }}>
+                {portfolioStats
+                  ? `From search_cache · ${portfolioStats.pricedPositions}/${portfolioStats.totalPositions} cards priced`
+                  : 'Live prices from search_cache'}
+              </div>
+            </div>
+
+            {/* Cost basis */}
+            <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
+              <div style={{ fontSize: 10, letterSpacing: 1.5, color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 6 }}>
+                Total Cost Basis
+              </div>
+              <div className="font-num" style={{ fontSize: 28, fontWeight: 800, color: 'var(--ink)' }}>
+                {portfolioStats
+                  ? `$${portfolioStats.totalCostBasis.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+                  : '—'}
+              </div>
+              {portfolioStats && portfolioStats.totalCostBasis > 0 && (
+                <div style={{
+                  fontSize: 11, marginTop: 4,
+                  color: portfolioStats.totalMarketValue >= portfolioStats.totalCostBasis ? 'var(--green)' : 'var(--red)',
+                }}>
+                  {portfolioStats.totalMarketValue >= portfolioStats.totalCostBasis ? '+' : ''}
+                  {(((portfolioStats.totalMarketValue - portfolioStats.totalCostBasis) / portfolioStats.totalCostBasis) * 100).toFixed(1)}% unrealised
+                </div>
+              )}
+            </div>
+
+            {/* Cards tracked */}
+            <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
+              <div style={{ fontSize: 10, letterSpacing: 1.5, color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 6 }}>
+                Total Cards Tracked
+              </div>
+              <div className="font-num" style={{ fontSize: 28, fontWeight: 800, color: 'var(--ink)' }}>
+                {portfolioStats ? portfolioStats.totalPositions.toLocaleString() : '—'}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 4 }}>Across all portfolios</div>
+            </div>
+
+            {/* Active users */}
+            <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
+              <div style={{ fontSize: 10, letterSpacing: 1.5, color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 6 }}>
+                Active Portfolio Users
+              </div>
+              <div className="font-num" style={{ fontSize: 28, fontWeight: 800, color: 'var(--ink)' }}>
+                {portfolioStats ? portfolioStats.usersWithPortfolio : '—'}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 4 }}>Users with ≥1 position</div>
             </div>
           </div>
 

@@ -181,7 +181,7 @@ export default function Navbar() {
       </nav>
 
       {/* Mobile drawer */}
-      <div className="nav-drawer" style={{ position: 'fixed', top: 56, left: 0, right: 0, bottom: 0, zIndex: 49, background: 'rgba(8,8,16,0.97)', backdropFilter: 'blur(16px)', display: 'flex', flexDirection: 'column', padding: '32px 24px 40px', transform: open ? 'translateY(0)' : 'translateY(-12px)', opacity: open ? 1 : 0, pointerEvents: open ? 'auto' : 'none', transition: 'opacity 0.25s, transform 0.25s' }}>
+      <div className="nav-drawer" style={{ position: 'fixed', top: 56, left: 0, right: 0, bottom: 'calc(84px + env(safe-area-inset-bottom))', zIndex: 49, background: 'rgba(8,8,16,0.97)', backdropFilter: 'blur(16px)', display: 'flex', flexDirection: 'column', padding: '32px 24px 24px', overflowY: 'auto', transform: open ? 'translateY(0)' : 'translateY(-12px)', opacity: open ? 1 : 0, pointerEvents: open ? 'auto' : 'none', transition: 'opacity 0.25s, transform 0.25s' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 32 }}>
           {user ? (
             <>

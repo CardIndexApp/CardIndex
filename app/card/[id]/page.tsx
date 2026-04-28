@@ -64,6 +64,16 @@ function TileInfo({ id, text, activeTip, setActiveTip }: {
     top: number; left: number; alignRight: boolean; above: boolean
   } | null>(null)
 
+  useEffect(() => {
+    if (!open) return
+    const close = (e: MouseEvent | TouchEvent) => {
+      if (btnRef.current && !btnRef.current.contains(e.target as Node)) setActiveTip(null)
+    }
+    document.addEventListener('mousedown', close)
+    document.addEventListener('touchstart', close)
+    return () => { document.removeEventListener('mousedown', close); document.removeEventListener('touchstart', close) }
+  }, [open, setActiveTip])
+
   function openTip() {
     if (!btnRef.current) { setActiveTip(id); return }
     const r     = btnRef.current.getBoundingClientRect()
@@ -91,7 +101,7 @@ function TileInfo({ id, text, activeTip, setActiveTip }: {
         // Tap / click toggle
         onClick={e => { e.stopPropagation(); open ? setActiveTip(null) : openTip() }}
         style={{
-          width: 18, height: 18, borderRadius: '50%',
+          width: 18, height: 18, minHeight: 18, borderRadius: '50%',
           background: open ? 'rgba(232,197,71,0.18)' : 'rgba(255,255,255,0.07)',
           border: `1px solid ${open ? 'rgba(232,197,71,0.4)' : 'rgba(255,255,255,0.13)'}`,
           color: open ? 'var(--gold)' : 'rgba(255,255,255,0.4)',
@@ -754,9 +764,28 @@ export default function CardPage() {
   }, [priceInput])
 
   const exportPDF = useCallback(() => {
-    if (!card) return
+    if (!card && !liveData) return
     const dateStr = new Date().toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })
-    const gradeLabel = selectedGrade === 'RAW' ? 'Raw / Ungraded' : `PSA ${selectedGrade}`
+
+    // Derive display fields from whichever data path is active
+    let pdfName: string, pdfSet: string, pdfGrade: string, pdfTags: string[], pdfImage: string
+    if (card) {
+      pdfName  = card.name
+      pdfSet   = `${card.set} · #${card.cardNumber}`
+      pdfGrade = selectedGrade === 'RAW' ? 'Raw / Ungraded' : `PSA ${selectedGrade}`
+      pdfTags  = card.tags
+      pdfImage = card.imageUrl
+    } else {
+      // Live-data path — format the resolved tier properly
+      const rt = liveData!.resolved_tier ?? urlGrade ?? 'Raw'
+      pdfGrade = rt.includes('_')
+        ? rt.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
+        : rt
+      pdfName  = liveData!.card_name ?? urlName ?? 'Unknown'
+      pdfSet   = [liveData!.set_name ?? urlSet, urlNumber ? `#${urlNumber}` : null].filter(Boolean).join(' · ')
+      pdfTags  = []
+      pdfImage = liveData!.image_url ?? ''
+    }
 
     const existing = document.getElementById('ci-print-header')
     if (existing) existing.remove()
@@ -767,15 +796,15 @@ export default function CardPage() {
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;">
         <div>
           <div style="font-size:10px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#8888a0;margin-bottom:6px;">CardIndex — Card Market Intelligence</div>
-          <div style="font-size:28px;font-weight:800;color:#eaeaf2;letter-spacing:-.5px;line-height:1;margin-bottom:6px;">${card.name}</div>
-          <div style="font-size:12px;color:#8888a0;margin-bottom:10px;">${card.set} · #${card.cardNumber}</div>
+          <div style="font-size:28px;font-weight:800;color:#eaeaf2;letter-spacing:-.5px;line-height:1;margin-bottom:6px;">${pdfName}</div>
+          <div style="font-size:12px;color:#8888a0;margin-bottom:10px;">${pdfSet}</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            ${card.tags.map(t => `<span style="background:rgba(232,197,71,.1);border:1px solid rgba(232,197,71,.25);border-radius:5px;padding:3px 10px;font-size:11px;font-weight:600;color:#e8c547;">${t}</span>`).join('')}
-            <span style="background:#0f0f1c;border:1px solid #242438;border-radius:5px;padding:3px 10px;font-size:11px;color:#8888a0;">${gradeLabel}</span>
+            ${pdfTags.map(t => `<span style="background:rgba(232,197,71,.1);border:1px solid rgba(232,197,71,.25);border-radius:5px;padding:3px 10px;font-size:11px;font-weight:600;color:#e8c547;">${t}</span>`).join('')}
+            <span style="background:#0f0f1c;border:1px solid #242438;border-radius:5px;padding:3px 10px;font-size:11px;color:#8888a0;">${pdfGrade}</span>
           </div>
         </div>
         <div style="text-align:right;flex-shrink:0;">
-          ${card.imageUrl ? `<img src="${card.imageUrl}" style="width:72px;border-radius:6px;margin-bottom:8px;display:block;margin-left:auto;" />` : ''}
+          ${pdfImage ? `<img src="${pdfImage}" style="width:72px;border-radius:6px;margin-bottom:8px;display:block;margin-left:auto;" />` : ''}
           <div style="font-size:10px;color:#8888a0;">${dateStr}</div>
           <div style="font-size:10px;color:#5e5e76;margin-top:2px;">card-index.app</div>
         </div>
@@ -786,11 +815,9 @@ export default function CardPage() {
 
     setTimeout(() => {
       window.print()
-      setTimeout(() => {
-        document.getElementById('ci-print-header')?.remove()
-      }, 500)
+      setTimeout(() => { document.getElementById('ci-print-header')?.remove() }, 500)
     }, 150)
-  }, [card, selectedGrade])
+  }, [card, liveData, selectedGrade, urlGrade, urlName, urlSet, urlNumber])
 
   // Shared panel style constants (used in both card and !card render paths)
   const CPL = {
@@ -883,7 +910,29 @@ export default function CardPage() {
                     </div>
                   )}
                 </div>
-                <Link href={urlSetSlug ? `/search?return_to_set=${encodeURIComponent(urlSetSlug)}` : '/search'} style={{ fontSize: 12, color: 'var(--ink3)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 14 }}>← Change card</Link>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
+                  <Link href={urlSetSlug ? `/search?return_to_set=${encodeURIComponent(urlSetSlug)}` : '/search'} style={{ fontSize: 12, color: 'var(--ink3)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>← Change card</Link>
+                  {liveData && (userTier === 'standard' || userTier === 'pro') ? (
+                    <button
+                      className="ci-no-print"
+                      onClick={exportPDF}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface2)', border: '1.5px solid var(--border2)', borderRadius: 8, padding: '6px 12px', fontSize: 11, fontWeight: 500, color: 'var(--ink3)', cursor: 'pointer', transition: 'all 0.15s' }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.color = 'var(--gold)' }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border2)'; e.currentTarget.style.color = 'var(--ink3)' }}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M4 12H3a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-1" />
+                        <rect x="4" y="9" width="8" height="6" rx="1" />
+                        <path d="M8 1v8M5 6l3 3 3-3" />
+                      </svg>
+                      Export PDF
+                    </button>
+                  ) : isLoggedIn && liveData ? (
+                    <Link href="/pricing" className="ci-no-print" style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface2)', border: '1.5px solid var(--border2)', borderRadius: 8, padding: '6px 12px', fontSize: 11, fontWeight: 500, color: 'var(--ink3)', textDecoration: 'none' }}>
+                      🔒 PDF
+                    </Link>
+                  ) : null}
+                </div>
               </div>
             </div>
 
@@ -1420,7 +1469,8 @@ export default function CardPage() {
                         const sigBorder = signal === 'BULLISH' ? 'rgba(61,232,138,0.2)' : signal === 'BEARISH' ? 'rgba(255,107,107,0.2)' : 'rgba(232,197,71,0.2)'
                         return (
                           <div style={{ ...aC }} className="ci-card-surface">
-                            <div style={{ ...aP }}>
+                            <div style={{ ...aP, position: 'relative' }}>
+                              <TileInfo id="adv-1" text="Compares the 7-day and 30-day price averages. When the 7D avg rises above the 30D avg the short-term trend is bullish; when it falls below, bearish. A strong signal when both averages are diverging." activeTip={activeTip} setActiveTip={setActiveTip} />
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                                 <span style={{ ...aL, marginBottom: 0 }}>MOVING AVERAGE SIGNAL</span>
                                 <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 99, background: sigBg, border: `1px solid ${sigBorder}`, color: sigColor, letterSpacing: 0.5 }}>
@@ -1456,7 +1506,8 @@ export default function CardPage() {
                         const minP = Math.min(...prices); const maxP = Math.max(...prices)
                         return (
                           <div style={{ ...aC }} className="ci-card-surface">
-                            <div style={{ ...aP }}>
+                            <div style={{ ...aP, position: 'relative' }}>
+                              <TileInfo id="adv-2" text="Measures how much the price fluctuates using standard deviation. Low volatility means stable, predictable pricing — easier to buy/sell at a fair price. High volatility means bigger risk and potential reward." activeTip={activeTip} setActiveTip={setActiveTip} />
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
                                 <span style={{ ...aL, marginBottom: 0 }}>VOLATILITY ANALYSIS</span>
                                 <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 99, background: volPct < 10 ? 'rgba(61,232,138,0.08)' : volPct < 25 ? 'rgba(232,197,71,0.08)' : 'rgba(255,107,107,0.08)', border: `1px solid ${volPct < 10 ? 'rgba(61,232,138,0.2)' : volPct < 25 ? 'rgba(232,197,71,0.2)' : 'rgba(255,107,107,0.2)'}`, color: volColor }}>{volLabel} Volatility</span>
@@ -1492,7 +1543,8 @@ export default function CardPage() {
                         if (!radarData) return null
                         return (
                           <div style={{ ...aC }} className="ci-card-surface">
-                            <div style={{ ...aP }}>
+                            <div style={{ ...aP, position: 'relative' }}>
+                              <TileInfo id="adv-3" text="Visual breakdown of all four CardIndex score components — Trend, Liquidity, Consistency, and Value — each normalized to 100. The larger the radar shape, the stronger the overall investment profile." activeTip={activeTip} setActiveTip={setActiveTip} />
                               <span style={{ ...aL }}>SCORE BREAKDOWN — RADAR</span>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
                                 <div style={{ width: 200, height: 180, flexShrink: 0 }}>
@@ -1528,7 +1580,8 @@ export default function CardPage() {
                         const maxVol = Math.max(...volData.map((d: { volume: number }) => d.volume), 1)
                         return (
                           <div style={{ ...aC }} className="ci-card-surface">
-                            <div style={{ ...aP }}>
+                            <div style={{ ...aP, position: 'relative' }}>
+                              <TileInfo id="adv-4" text="Number of completed eBay sales per period. Rising volume alongside rising price confirms genuine demand. Falling volume on a rising price can signal a weak, unsustained move." activeTip={activeTip} setActiveTip={setActiveTip} />
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                                 <span style={{ ...aL, marginBottom: 0 }}>SALES VOLUME TREND</span>
                                 <span style={{ fontSize: 10, color: 'var(--ink3)' }}>peak {maxVol} sales/mo</span>
@@ -1556,7 +1609,8 @@ export default function CardPage() {
                         if (!entries.length) return null
                         return (
                           <div style={{ ...aC }} className="ci-card-surface">
-                            <div style={{ ...aP }}>
+                            <div style={{ ...aP, position: 'relative' }}>
+                              <TileInfo id="adv-5" text="Market prices across all available condition grades. The bar width shows each grade's price relative to the top grade, helping you evaluate whether upgrading your grade is worth the premium." activeTip={activeTip} setActiveTip={setActiveTip} />
                               <span style={{ ...aL }}>GRADE PREMIUM COMPARISON</span>
                               {entries.map(([grade, data], i) => {
                                 const isCurrent = grade === currentKey
@@ -1599,7 +1653,8 @@ export default function CardPage() {
                         const median = sorted[Math.floor(sorted.length / 2)]
                         return (
                           <div style={{ ...aC }} className="ci-card-surface">
-                            <div style={{ ...aP }}>
+                            <div style={{ ...aP, position: 'relative' }}>
+                              <TileInfo id="adv-6" text="Distribution of the individual eBay sale prices used to calculate this card's average. A tight cluster means consistent pricing; a wide spread means high variance and harder-to-predict resale value." activeTip={activeTip} setActiveTip={setActiveTip} />
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                                 <span style={{ ...aL, marginBottom: 0 }}>SALES PRICE DISTRIBUTION</span>
                                 <span style={{ fontSize: 10, color: 'var(--ink3)' }}>median {fmtCurrency(median)} · {prices.length} sales</span>
@@ -1625,7 +1680,8 @@ export default function CardPage() {
                         const confBorder = conf === 'high' ? 'rgba(61,232,138,0.2)' : conf === 'medium' ? 'rgba(232,197,71,0.2)' : 'rgba(255,107,107,0.2)'
                         return (
                           <div style={{ ...aC }} className="ci-card-surface">
-                            <div style={{ ...aP }}>
+                            <div style={{ ...aP, position: 'relative' }}>
+                              <TileInfo id="adv-7" text="How reliable the underlying price data is. Confidence is derived from the number of recent eBay sales — high means 10+ sales, medium means 5–9, low means fewer than 5 or a TCGPlayer fallback was used." activeTip={activeTip} setActiveTip={setActiveTip} />
                               <span style={{ ...aL }}>DATA CONFIDENCE & QUALITY</span>
                               <div className="ci-adv-3col" style={{ gap: 10 }}>
                                 <div style={{ borderRadius: 10, padding: '12px 14px', background: conf ? confBg : 'var(--bg)', border: `1px solid ${conf ? confBorder : 'var(--border)'}` }}>
@@ -1702,7 +1758,8 @@ export default function CardPage() {
                         const velBorder   = weeklyPct > 1 ? 'rgba(61,232,138,0.2)' : weeklyPct < -1 ? 'rgba(255,107,107,0.2)' : 'rgba(232,197,71,0.2)'
                         return (
                           <div style={{ ...aC }} className="ci-card-surface">
-                            <div style={{ ...aP }}>
+                            <div style={{ ...aP, position: 'relative' }}>
+                              <TileInfo id="adv-8" text="Compares the 7-day average to the 30-day baseline to detect whether price momentum is accelerating or decelerating. The 30-day projection extrapolates the current weekly drift forward." activeTip={activeTip} setActiveTip={setActiveTip} />
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                                 <span style={{ ...aL, marginBottom: 0 }}>PRICE VELOCITY</span>
                                 <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 99, background: velBg, border: `1px solid ${velBorder}`, color: velColor }}>{velLabel}</span>
@@ -1745,7 +1802,8 @@ export default function CardPage() {
                         if (maxCount === 0) return null
                         return (
                           <div style={{ ...aC }} className="ci-card-surface">
-                            <div style={{ ...aP }}>
+                            <div style={{ ...aP, position: 'relative' }}>
+                              <TileInfo id="adv-9" text="Breakdown of eBay sales by day of week, based on recent sold listings. The best day to list is when buyers are most active — timing your listing can improve final sale price." activeTip={activeTip} setActiveTip={setActiveTip} />
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                                 <span style={{ ...aL, marginBottom: 0 }}>BUY / SELL TIMING</span>
                                 <span style={{ fontSize: 10, color: 'var(--ink3)' }}>Best day to list: <span style={{ color: 'var(--gold)', fontWeight: 700 }}>{DAYS[bestDay]}</span></span>
@@ -1784,7 +1842,8 @@ export default function CardPage() {
                         if (outlierCount === 0) return null
                         return (
                           <div style={{ ...aC }} className="ci-card-surface">
-                            <div style={{ ...aP }}>
+                            <div style={{ ...aP, position: 'relative' }}>
+                              <TileInfo id="adv-10" text="Identifies sales that deviate more than 2 standard deviations from the average. HIGH outliers may reflect exceptional condition or error; LOW outliers may indicate damage or a motivated seller." activeTip={activeTip} setActiveTip={setActiveTip} />
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                                 <span style={{ ...aL, marginBottom: 0 }}>OUTLIER DETECTION</span>
                                 <span style={{ fontSize: 10, padding: '2px 10px', borderRadius: 99, background: 'rgba(232,82,74,0.08)', border: '1px solid rgba(232,82,74,0.2)', color: '#ff6b6b' }}>{outlierCount} outlier{outlierCount > 1 ? 's' : ''} detected</span>
@@ -1836,7 +1895,8 @@ export default function CardPage() {
                         const valueColor = !range ? 'var(--ink3)' : isUnder ? 'var(--green)' : isOver ? '#ff6b6b' : 'var(--gold)'
                         return (
                           <div style={{ ...aC }} className="ci-card-surface">
-                            <div style={{ ...aP }}>
+                            <div style={{ ...aP, position: 'relative' }}>
+                              <TileInfo id="adv-11" text="Compares this grade's price to the best available grade to determine if it's trading at a typical, premium, or discounted level. UNDERVALUED means this grade is cheaper than expected relative to mint condition." activeTip={activeTip} setActiveTip={setActiveTip} />
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                                 <span style={{ ...aL, marginBottom: 0 }}>GRADE RELATIVE VALUE</span>
                                 <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 99, background: isUnder ? 'rgba(61,232,138,0.08)' : isOver ? 'rgba(255,107,107,0.08)' : 'rgba(232,197,71,0.08)', border: `1px solid ${isUnder ? 'rgba(61,232,138,0.2)' : isOver ? 'rgba(255,107,107,0.2)' : 'rgba(232,197,71,0.2)'}`, color: valueColor }}>{valueLabel}</span>
@@ -1911,7 +1971,8 @@ export default function CardPage() {
                         const domBorder = dominantPhase === 'BULLISH' ? 'rgba(61,232,138,0.2)' : dominantPhase === 'BEARISH' ? 'rgba(255,107,107,0.2)' : 'rgba(232,197,71,0.2)'
                         return (
                           <div style={{ ...aC }} className="ci-card-surface">
-                            <div style={{ ...aP }}>
+                            <div style={{ ...aP, position: 'relative' }}>
+                              <TileInfo id="adv-12" text="The gold line is a 3-point moving average smoothed over price history. Green shaded zones show periods of accelerating price; red zones show deceleration. Dominant phase determines the BULLISH/BEARISH/MIXED badge." activeTip={activeTip} setActiveTip={setActiveTip} />
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                                 <span style={{ ...aL, marginBottom: 0 }}>MOMENTUM PHASES</span>
                                 <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 99, background: domBg, border: `1px solid ${domBorder}`, color: domColor }}>{dominantPhase}</span>
@@ -1954,6 +2015,247 @@ export default function CardPage() {
                                   </div>
                                 ))}
                               </div>
+                            </div>
+                          </div>
+                        )
+                      })()}
+
+                      {/* 13 — Price Position Gauge */}
+                      {liveData.price_range_low != null && liveData.price_range_high != null && liveData.price_range_high > liveData.price_range_low && (() => {
+                        const lo = liveData.price_range_low
+                        const hi = liveData.price_range_high
+                        const cur = liveData.price
+                        const pct = Math.max(0, Math.min(((cur - lo) / (hi - lo)) * 100, 100))
+                        const zone = pct <= 33 ? 'BOTTOM THIRD' : pct <= 66 ? 'MID RANGE' : 'TOP THIRD'
+                        const zColor = pct <= 33 ? 'var(--green)' : pct <= 66 ? 'var(--gold)' : '#ff6b6b'
+                        const zBg = pct <= 33 ? 'rgba(61,232,138,0.08)' : pct <= 66 ? 'rgba(232,197,71,0.08)' : 'rgba(255,107,107,0.08)'
+                        const zBorder = pct <= 33 ? 'rgba(61,232,138,0.2)' : pct <= 66 ? 'rgba(232,197,71,0.2)' : 'rgba(255,107,107,0.2)'
+                        const insight = pct <= 33
+                          ? `Price is near the bottom of its recent range — potentially a good entry point.`
+                          : pct <= 66
+                          ? `Price is in the middle of its recent range — neither a clear bargain nor overpriced.`
+                          : `Price is near the top of its recent range — consider waiting for a pullback before buying.`
+                        return (
+                          <div style={{ ...aC }} className="ci-card-surface">
+                            <div style={{ ...aP, position: 'relative' }}>
+                              <TileInfo id="adv-13" text="Shows where the current price sits within its recent trading range. Bottom third suggests a potential buying opportunity; top third suggests caution. Based on the high and low prices from the current data window." activeTip={activeTip} setActiveTip={setActiveTip} />
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                                <span style={{ ...aL, marginBottom: 0 }}>PRICE POSITION GAUGE</span>
+                                <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 99, background: zBg, border: `1px solid ${zBorder}`, color: zColor }}>{zone}</span>
+                              </div>
+                              <div style={{ marginBottom: 14 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: 'var(--ink3)', marginBottom: 6 }}>
+                                  <span>LOW {fmtCurrency(lo)}</span>
+                                  <span className="font-num" style={{ color: 'var(--gold)', fontWeight: 700 }}>{fmtCurrency(cur)}</span>
+                                  <span>HIGH {fmtCurrency(hi)}</span>
+                                </div>
+                                <div style={{ position: 'relative', height: 8, borderRadius: 4, background: 'linear-gradient(to right, rgba(61,232,138,0.3), rgba(232,197,71,0.3), rgba(255,107,107,0.3))' }}>
+                                  <div style={{ position: 'absolute', left: `${Math.max(1, Math.min(pct, 97))}%`, top: '50%', transform: 'translate(-50%, -50%)', width: 14, height: 14, borderRadius: '50%', background: 'var(--surface)', border: `2.5px solid ${zColor}`, boxShadow: `0 0 8px ${zColor}80` }} />
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 8, color: 'var(--ink3)', marginTop: 4 }}>
+                                  <span>BUY ZONE</span><span>NEUTRAL</span><span>CAUTION</span>
+                                </div>
+                              </div>
+                              <p style={{ fontSize: 11, color: 'var(--ink3)', lineHeight: 1.6 }}>{insight}</p>
+                            </div>
+                          </div>
+                        )
+                      })()}
+
+                      {/* 14 — VWAP Analysis */}
+                      {liveData.price_history && liveData.price_history.some((h: { volume?: number }) => (h.volume ?? 0) > 0) && (() => {
+                        type HP = { price: number; volume?: number }
+                        const pts = (liveData.price_history as HP[]).filter(h => (h.volume ?? 0) > 0)
+                        const totalVol = pts.reduce((a, h) => a + (h.volume ?? 0), 0)
+                        if (totalVol === 0) return null
+                        const vwap = pts.reduce((a, h) => a + h.price * (h.volume ?? 0), 0) / totalVol
+                        const cur = liveData.price
+                        const diffPct = vwap > 0 ? ((cur - vwap) / vwap) * 100 : 0
+                        const above = diffPct > 0
+                        const label = Math.abs(diffPct) < 2 ? 'AT VWAP' : above ? 'ABOVE VWAP' : 'BELOW VWAP'
+                        const lColor = Math.abs(diffPct) < 2 ? 'var(--gold)' : above ? '#ff6b6b' : 'var(--green)'
+                        const lBg = Math.abs(diffPct) < 2 ? 'rgba(232,197,71,0.08)' : above ? 'rgba(255,107,107,0.08)' : 'rgba(61,232,138,0.08)'
+                        const lBorder = Math.abs(diffPct) < 2 ? 'rgba(232,197,71,0.2)' : above ? 'rgba(255,107,107,0.2)' : 'rgba(61,232,138,0.2)'
+                        const insight = Math.abs(diffPct) < 2
+                          ? `Price is near VWAP — trading at fair value relative to where most volume has occurred.`
+                          : above
+                          ? `Price is ${diffPct.toFixed(1)}% above VWAP — trading at a premium to where most volume occurred. Potential mean-reversion risk.`
+                          : `Price is ${Math.abs(diffPct).toFixed(1)}% below VWAP — trading at a discount to where most volume occurred. Potential value opportunity.`
+                        return (
+                          <div style={{ ...aC }} className="ci-card-surface">
+                            <div style={{ ...aP, position: 'relative' }}>
+                              <TileInfo id="adv-14" text="Volume Weighted Average Price (VWAP) weights each price point by its sales volume, giving a more accurate picture of where most trades actually occurred. Trading below VWAP = discount; above = premium." activeTip={activeTip} setActiveTip={setActiveTip} />
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                                <span style={{ ...aL, marginBottom: 0 }}>VWAP ANALYSIS</span>
+                                <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 99, background: lBg, border: `1px solid ${lBorder}`, color: lColor }}>{label}</span>
+                              </div>
+                              <div className="ci-adv-3col" style={{ marginBottom: 14 }}>
+                                {[
+                                  { label: 'CURRENT PRICE', value: fmtCurrency(cur), highlight: true },
+                                  { label: 'VWAP', value: fmtCurrency(vwap), color: 'var(--ink)' },
+                                  { label: 'DEVIATION', value: `${diffPct >= 0 ? '+' : ''}${diffPct.toFixed(1)}%`, color: lColor },
+                                ].map((m, i) => (
+                                  <div key={i} style={{ borderRadius: 10, padding: '12px 14px', background: m.highlight ? 'rgba(232,197,71,0.06)' : 'var(--bg)', border: `1px solid ${m.highlight ? 'rgba(232,197,71,0.2)' : 'var(--border)'}` }}>
+                                    <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6 }}>{m.label}</div>
+                                    <div className="font-num" style={{ fontSize: 14, fontWeight: 700, color: m.highlight ? 'var(--gold)' : (m.color ?? 'var(--ink)') }}>{m.value}</div>
+                                  </div>
+                                ))}
+                              </div>
+                              <p style={{ fontSize: 11, color: 'var(--ink3)', lineHeight: 1.6 }}>{insight}</p>
+                            </div>
+                          </div>
+                        )
+                      })()}
+
+                      {/* 15 — Sale Velocity */}
+                      {(liveData.sales_count_30d ?? 0) > 0 && (() => {
+                        const count30 = liveData.sales_count_30d ?? 0
+                        const dailyRate = count30 / 30
+                        const weeklyRate = dailyRate * 7
+                        const label = dailyRate >= 1 ? 'ACTIVE' : dailyRate >= 0.5 ? 'STEADY' : dailyRate >= 0.2 ? 'SLOW' : 'ILLIQUID'
+                        const lColor = dailyRate >= 1 ? 'var(--green)' : dailyRate >= 0.5 ? 'var(--green)' : dailyRate >= 0.2 ? 'var(--gold)' : '#ff6b6b'
+                        const lBg = dailyRate >= 0.5 ? 'rgba(61,232,138,0.08)' : dailyRate >= 0.2 ? 'rgba(232,197,71,0.08)' : 'rgba(255,107,107,0.08)'
+                        const lBorder = dailyRate >= 0.5 ? 'rgba(61,232,138,0.2)' : dailyRate >= 0.2 ? 'rgba(232,197,71,0.2)' : 'rgba(255,107,107,0.2)'
+                        const totalSales = liveData.total_sale_count
+                        const daysSinceUpdate = liveData.last_updated_pt ? Math.round((Date.now() - new Date(liveData.last_updated_pt).getTime()) / (1000 * 60 * 60 * 24)) : null
+                        const insight = dailyRate >= 1
+                          ? `This card sells approximately ${weeklyRate.toFixed(1)} times per week — highly liquid. Easy to buy or sell quickly.`
+                          : dailyRate >= 0.5
+                          ? `This card sells approximately ${weeklyRate.toFixed(1)} times per week — healthy trading activity.`
+                          : dailyRate >= 0.2
+                          ? `This card averages about ${weeklyRate.toFixed(1)} sales per week — moderate liquidity. May take time to sell at asking price.`
+                          : `This card sells less than once per week on average — illiquid. Expect longer time-to-sell and wider bid/ask spreads.`
+                        return (
+                          <div style={{ ...aC }} className="ci-card-surface">
+                            <div style={{ ...aP, position: 'relative' }}>
+                              <TileInfo id="adv-15" text="Sale velocity measures how frequently this card sells based on recent eBay data. Higher velocity means more liquid — easier to buy and sell at fair market price. Low velocity means it may sit unsold for weeks." activeTip={activeTip} setActiveTip={setActiveTip} />
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                                <span style={{ ...aL, marginBottom: 0 }}>SALE VELOCITY</span>
+                                <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 99, background: lBg, border: `1px solid ${lBorder}`, color: lColor }}>{label}</span>
+                              </div>
+                              <div className="ci-adv-3col" style={{ marginBottom: 14 }}>
+                                {[
+                                  { label: 'SALES / 30D', value: count30.toLocaleString() },
+                                  { label: 'EST. / WEEK', value: `~${weeklyRate.toFixed(1)}` },
+                                  { label: 'EST. / DAY', value: dailyRate >= 0.1 ? `~${dailyRate.toFixed(2)}` : '<0.1' },
+                                ].map((m, i) => (
+                                  <div key={i} style={{ borderRadius: 10, padding: '12px 14px', background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                                    <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6 }}>{m.label}</div>
+                                    <div className="font-num" style={{ fontSize: 14, fontWeight: 700, color: i === 0 ? lColor : 'var(--ink)' }}>{m.value}</div>
+                                  </div>
+                                ))}
+                              </div>
+                              <div style={{ display: 'flex', gap: 16, fontSize: 11, color: 'var(--ink3)' }}>
+                                {totalSales != null && <span>All-time sales: <span className="font-num" style={{ color: 'var(--ink)', fontWeight: 700 }}>{totalSales.toLocaleString()}</span></span>}
+                                {daysSinceUpdate != null && daysSinceUpdate >= 0 && <span>Data age: <span style={{ color: daysSinceUpdate <= 1 ? 'var(--green)' : daysSinceUpdate <= 3 ? 'var(--gold)' : '#ff6b6b' }}>{daysSinceUpdate === 0 ? 'Today' : `${daysSinceUpdate}d ago`}</span></span>}
+                              </div>
+                              <p style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 10, lineHeight: 1.6 }}>{insight}</p>
+                            </div>
+                          </div>
+                        )
+                      })()}
+
+                      {/* 16 — Score Opportunity Analysis */}
+                      {liveData.score_breakdown && (() => {
+                        const sb = liveData.score_breakdown
+                        const factors = [
+                          { key: 'trend',       raw: sb.trend,       max: 30, label: 'Trend' },
+                          { key: 'liquidity',   raw: sb.liquidity,   max: 25, label: 'Liquidity' },
+                          { key: 'consistency', raw: sb.consistency, max: 25, label: 'Consistency' },
+                          { key: 'value',       raw: sb.value,       max: 20, label: 'Value' },
+                        ].map(f => ({ ...f, pct: Math.round((f.raw ?? 0) / f.max * 100) }))
+                          .sort((a, b) => a.pct - b.pct)
+                        const insights: Record<string, { weak: string; improve: string }> = {
+                          trend:       { weak: 'Price momentum is weak or declining.',          improve: 'Watch for a trend reversal or price stabilisation before buying.' },
+                          liquidity:   { weak: 'Low trading volume limits price discovery.',     improve: 'Consider patience — fewer buyers means wider spreads and longer time-to-sell.' },
+                          consistency: { weak: 'High price volatility makes valuation difficult.', improve: 'Wait for price to stabilise over 2–4 weeks before acting.' },
+                          value:       { weak: 'Current price is near or above market average.',  improve: 'Look for a dip below the 30-day average for a better entry.' },
+                        }
+                        const bottom2 = factors.slice(0, 2)
+                        const top = factors[factors.length - 1]
+                        const scoreColor2 = (p: number) => p >= 70 ? 'var(--green)' : p >= 40 ? 'var(--gold)' : '#ff6b6b'
+                        return (
+                          <div style={{ ...aC }} className="ci-card-surface">
+                            <div style={{ ...aP, position: 'relative' }}>
+                              <TileInfo id="adv-16" text="Identifies which score components are limiting your CardIndex score and explains what each weakness means for your investment decision. The top-rated factor shows where this card's strength lies." activeTip={activeTip} setActiveTip={setActiveTip} />
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                                <span style={{ ...aL, marginBottom: 0 }}>SCORE OPPORTUNITY</span>
+                                <span className="font-num" style={{ fontSize: 22, fontWeight: 800, color: scoreColor2(factors.reduce((a,f)=>a+f.pct,0)/4) }}>{sb.total ?? liveData.score}<span style={{ fontSize: 12, color: 'var(--ink3)', fontWeight: 400 }}>/100</span></span>
+                              </div>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+                                {factors.map((f, i) => (
+                                  <div key={f.key} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                    <div style={{ fontSize: 9, letterSpacing: 1, color: 'var(--ink3)', width: 74, flexShrink: 0, textTransform: 'uppercase' }}>{f.label}</div>
+                                    <div style={{ flex: 1, height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                                      <div style={{ height: '100%', width: `${f.pct}%`, background: scoreColor2(f.pct), borderRadius: 3, transition: 'width 0.6s' }} />
+                                    </div>
+                                    <div className="font-num" style={{ fontSize: 11, fontWeight: 700, color: scoreColor2(f.pct), width: 28, textAlign: 'right', flexShrink: 0 }}>{f.pct}</div>
+                                  </div>
+                                ))}
+                              </div>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                {bottom2.filter(f => f.pct < 70).map(f => (
+                                  <div key={f.key} style={{ padding: '10px 12px', borderRadius: 8, background: 'rgba(255,107,107,0.05)', border: '1px solid rgba(255,107,107,0.12)' }}>
+                                    <div style={{ fontSize: 10, fontWeight: 700, color: '#ff6b6b', marginBottom: 3 }}>⚠ {f.label} ({f.pct}/100)</div>
+                                    <div style={{ fontSize: 11, color: 'var(--ink3)', lineHeight: 1.5 }}>{insights[f.key].weak} {insights[f.key].improve}</div>
+                                  </div>
+                                ))}
+                                {top.pct >= 70 && (
+                                  <div style={{ padding: '10px 12px', borderRadius: 8, background: 'rgba(61,232,138,0.05)', border: '1px solid rgba(61,232,138,0.12)' }}>
+                                    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--green)', marginBottom: 3 }}>✓ Strength: {top.label} ({top.pct}/100)</div>
+                                    <div style={{ fontSize: 11, color: 'var(--ink3)', lineHeight: 1.5 }}>
+                                      {top.key === 'trend' ? 'Strong price momentum — card is appreciating.' : top.key === 'liquidity' ? 'Active trading market — easy to buy or sell.' : top.key === 'consistency' ? 'Stable pricing — low risk of sudden value loss.' : 'Trading at a discount to market average — good value.'}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })()}
+
+                      {/* 17 — Data Source Breakdown */}
+                      {(() => {
+                        const src = liveData.data_source ?? 'ebay'
+                        const warning = liveData.data_warning
+                        const ebayCount = liveData.ebay_sale_count ?? liveData.sales_count_30d ?? 0
+                        const daysSince = liveData.last_updated_pt ? Math.round((Date.now() - new Date(liveData.last_updated_pt).getTime()) / (1000 * 60 * 60 * 24)) : null
+                        const warningMessages: Record<string, string> = {
+                          limited_sales: 'Fewer than 10 recent eBay sales — price average may be less stable.',
+                          rare_asset: 'High-value card with very few sales — treat price as indicative only.',
+                          high_value_limited: 'High-value card with limited sales data — use additional sources to verify.',
+                          low_volume_tcg_fallback: 'Insufficient eBay data — price sourced from TCGPlayer instead.',
+                          low_volume_no_fallback: 'Very few sales and no TCGPlayer fallback — price has low confidence.',
+                        }
+                        const srcColor = src === 'ebay' ? '#3de88a' : 'var(--gold)'
+                        const srcBg = src === 'ebay' ? 'rgba(61,232,138,0.08)' : 'rgba(232,197,71,0.08)'
+                        const srcBorder = src === 'ebay' ? 'rgba(61,232,138,0.2)' : 'rgba(232,197,71,0.2)'
+                        return (
+                          <div style={{ ...aC }} className="ci-card-surface">
+                            <div style={{ ...aP, position: 'relative' }}>
+                              <TileInfo id="adv-17" text="Explains where the price data comes from and how trustworthy it is. eBay sold listings are the primary source. TCGPlayer is used as a fallback when eBay data is too sparse. Always check the data age before making a decision." activeTip={activeTip} setActiveTip={setActiveTip} />
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                                <span style={{ ...aL, marginBottom: 0 }}>DATA SOURCE BREAKDOWN</span>
+                                <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 99, background: srcBg, border: `1px solid ${srcBorder}`, color: srcColor, textTransform: 'uppercase' }}>{src === 'ebay' ? 'eBay' : 'TCGPlayer'}</span>
+                              </div>
+                              <div className="ci-adv-3col" style={{ marginBottom: warning ? 14 : 0 }}>
+                                {[
+                                  { label: 'PRIMARY SOURCE', value: src === 'ebay' ? 'eBay Sales' : 'TCGPlayer', color: srcColor },
+                                  { label: 'EBAY SALES (30D)', value: ebayCount > 0 ? ebayCount.toLocaleString() : 'N/A', color: ebayCount >= 10 ? 'var(--green)' : ebayCount >= 5 ? 'var(--gold)' : '#ff6b6b' },
+                                  { label: 'DATA AGE', value: daysSince === null ? 'Unknown' : daysSince === 0 ? 'Today' : `${daysSince}d ago`, color: daysSince === null ? 'var(--ink3)' : daysSince <= 1 ? 'var(--green)' : daysSince <= 3 ? 'var(--gold)' : '#ff6b6b' },
+                                ].map((m, i) => (
+                                  <div key={i} style={{ borderRadius: 10, padding: '12px 14px', background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                                    <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6 }}>{m.label}</div>
+                                    <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: m.color }}>{m.value}</div>
+                                  </div>
+                                ))}
+                              </div>
+                              {warning && warningMessages[warning] && (
+                                <div style={{ marginTop: 14, padding: '10px 12px', borderRadius: 8, background: 'rgba(232,197,71,0.06)', border: '1px solid rgba(232,197,71,0.18)' }}>
+                                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--gold)', marginBottom: 3 }}>DATA NOTE</div>
+                                  <div style={{ fontSize: 11, color: 'var(--ink3)', lineHeight: 1.5 }}>{warningMessages[warning]}</div>
+                                </div>
+                              )}
                             </div>
                           </div>
                         )
@@ -2662,7 +2964,8 @@ export default function CardPage() {
                 const sigBorder = signal === 'BULLISH' ? 'rgba(61,232,138,0.2)' : signal === 'BEARISH' ? 'rgba(255,107,107,0.2)' : 'rgba(232,197,71,0.2)'
                 return (
                   <div style={{ ...C }} className="ci-card-surface">
-                    <div style={{ ...P }}>
+                    <div style={{ ...P, position: 'relative' }}>
+                      <TileInfo id="adv-1" text="Compares the 7-day and 30-day price averages. When the 7D avg rises above the 30D avg the short-term trend is bullish; when it falls below, bearish. A strong signal when both averages are diverging." activeTip={activeTip} setActiveTip={setActiveTip} />
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                         <span style={{ ...L, marginBottom: 0 }}>MOVING AVERAGE SIGNAL</span>
                         <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 99, background: sigBg, border: `1px solid ${sigBorder}`, color: sigColor, letterSpacing: 0.5 }}>
@@ -2711,7 +3014,8 @@ export default function CardPage() {
                 const maxP = Math.max(...prices)
                 return (
                   <div style={{ ...C }} className="ci-card-surface">
-                    <div style={{ ...P }}>
+                    <div style={{ ...P, position: 'relative' }}>
+                      <TileInfo id="adv-2" text="Measures how much the price fluctuates using standard deviation. Low volatility means stable, predictable pricing — easier to buy/sell at a fair price. High volatility means bigger risk and potential reward." activeTip={activeTip} setActiveTip={setActiveTip} />
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
                         <span style={{ ...L, marginBottom: 0 }}>VOLATILITY ANALYSIS</span>
                         <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 99, background: volPct < 10 ? 'rgba(61,232,138,0.08)' : volPct < 25 ? 'rgba(232,197,71,0.08)' : 'rgba(255,107,107,0.08)', border: `1px solid ${volPct < 10 ? 'rgba(61,232,138,0.2)' : volPct < 25 ? 'rgba(232,197,71,0.2)' : 'rgba(255,107,107,0.2)'}`, color: volColor }}>
@@ -2760,7 +3064,8 @@ export default function CardPage() {
                 ]
                 return (
                   <div style={{ ...C }} className="ci-card-surface">
-                    <div style={{ ...P }}>
+                    <div style={{ ...P, position: 'relative' }}>
+                      <TileInfo id="adv-3" text="Visual breakdown of all four CardIndex score components — Trend, Liquidity, Consistency, and Value — each normalized to 100. The larger the radar shape, the stronger the overall investment profile." activeTip={activeTip} setActiveTip={setActiveTip} />
                       <span style={{ ...L }}>SCORE BREAKDOWN — RADAR</span>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
                         <div style={{ width: 200, height: 180, flexShrink: 0 }}>
@@ -2798,7 +3103,8 @@ export default function CardPage() {
                 const maxVol = Math.max(...volData.map((d: { volume: number }) => d.volume), 1)
                 return (
                   <div style={{ ...C }} className="ci-card-surface">
-                    <div style={{ ...P }}>
+                    <div style={{ ...P, position: 'relative' }}>
+                      <TileInfo id="adv-4" text="Number of completed eBay sales per period. Rising volume alongside rising price confirms genuine demand. Falling volume on a rising price can signal a weak, unsustained move." activeTip={activeTip} setActiveTip={setActiveTip} />
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                         <span style={{ ...L, marginBottom: 0 }}>SALES VOLUME TREND</span>
                         <span style={{ fontSize: 10, color: 'var(--ink3)' }}>peak {maxVol} sales/mo</span>
@@ -2836,7 +3142,8 @@ export default function CardPage() {
                 if (!entries.length) return null
                 return (
                   <div style={{ ...C }} className="ci-card-surface">
-                    <div style={{ ...P }}>
+                    <div style={{ ...P, position: 'relative' }}>
+                      <TileInfo id="adv-5" text="Market prices across all available condition grades. The bar width shows each grade's price relative to the top grade, helping you evaluate whether upgrading your grade is worth the premium." activeTip={activeTip} setActiveTip={setActiveTip} />
                       <span style={{ ...L }}>GRADE PREMIUM COMPARISON</span>
                       <div style={{ display: 'flex', flexDirection: 'column' }}>
                         {entries.map(([grade, data], i) => {
@@ -2889,7 +3196,8 @@ export default function CardPage() {
                 const median = sorted[Math.floor(sorted.length / 2)]
                 return (
                   <div style={{ ...C }} className="ci-card-surface">
-                    <div style={{ ...P }}>
+                    <div style={{ ...P, position: 'relative' }}>
+                      <TileInfo id="adv-6" text="Distribution of the individual eBay sale prices used to calculate this card's average. A tight cluster means consistent pricing; a wide spread means high variance and harder-to-predict resale value." activeTip={activeTip} setActiveTip={setActiveTip} />
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                         <span style={{ ...L, marginBottom: 0 }}>SALES PRICE DISTRIBUTION</span>
                         <span style={{ fontSize: 10, color: 'var(--ink3)' }}>median {fmtCurrency(median)} · {prices.length} sales</span>
@@ -2922,7 +3230,8 @@ export default function CardPage() {
                 const confBorder = conf === 'high' ? 'rgba(61,232,138,0.2)' : conf === 'medium' ? 'rgba(232,197,71,0.2)' : 'rgba(255,107,107,0.2)'
                 return (
                   <div style={{ ...C }} className="ci-card-surface">
-                    <div style={{ ...P }}>
+                    <div style={{ ...P, position: 'relative' }}>
+                      <TileInfo id="adv-7" text="How reliable the underlying price data is. Confidence is derived from the number of recent eBay sales — high means 10+ sales, medium means 5–9, low means fewer than 5 or a TCGPlayer fallback was used." activeTip={activeTip} setActiveTip={setActiveTip} />
                       <span style={{ ...L }}>DATA CONFIDENCE & QUALITY</span>
                       <div className="ci-adv-3col" style={{ gap: 10 }}>
                         <div style={{ borderRadius: 10, padding: '12px 14px', background: conf ? confBg : 'var(--bg)', border: `1px solid ${conf ? confBorder : 'var(--border)'}` }}>
@@ -2956,7 +3265,8 @@ export default function CardPage() {
                 const velBorder   = weeklyPct > 1 ? 'rgba(61,232,138,0.2)' : weeklyPct < -1 ? 'rgba(255,107,107,0.2)' : 'rgba(232,197,71,0.2)'
                 return (
                   <div style={{ ...C }} className="ci-card-surface">
-                    <div style={{ ...P }}>
+                    <div style={{ ...P, position: 'relative' }}>
+                      <TileInfo id="adv-8" text="Compares the 7-day average to the 30-day baseline to detect whether price momentum is accelerating or decelerating. The 30-day projection extrapolates the current weekly drift forward." activeTip={activeTip} setActiveTip={setActiveTip} />
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                         <span style={{ ...L, marginBottom: 0 }}>PRICE VELOCITY</span>
                         <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 99, background: velBg, border: `1px solid ${velBorder}`, color: velColor }}>{velLabel}</span>
@@ -2992,7 +3302,8 @@ export default function CardPage() {
                 if (maxCount === 0) return null
                 return (
                   <div style={{ ...C }} className="ci-card-surface">
-                    <div style={{ ...P }}>
+                    <div style={{ ...P, position: 'relative' }}>
+                      <TileInfo id="adv-9" text="Breakdown of eBay sales by day of week, based on recent sold listings. The best day to list is when buyers are most active — timing your listing can improve final sale price." activeTip={activeTip} setActiveTip={setActiveTip} />
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                         <span style={{ ...L, marginBottom: 0 }}>BUY / SELL TIMING</span>
                         <span style={{ fontSize: 10, color: 'var(--ink3)' }}>Best day to list: <span style={{ color: 'var(--gold)', fontWeight: 700 }}>{DAYS[bestDay]}</span></span>
@@ -3027,7 +3338,8 @@ export default function CardPage() {
                 if (outlierCount === 0) return null
                 return (
                   <div style={{ ...C }} className="ci-card-surface">
-                    <div style={{ ...P }}>
+                    <div style={{ ...P, position: 'relative' }}>
+                      <TileInfo id="adv-10" text="Identifies sales that deviate more than 2 standard deviations from the average. HIGH outliers may reflect exceptional condition or error; LOW outliers may indicate damage or a motivated seller." activeTip={activeTip} setActiveTip={setActiveTip} />
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                         <span style={{ ...L, marginBottom: 0 }}>OUTLIER DETECTION</span>
                         <span style={{ fontSize: 10, padding: '2px 10px', borderRadius: 99, background: 'rgba(232,82,74,0.08)', border: '1px solid rgba(232,82,74,0.2)', color: '#ff6b6b' }}>{outlierCount} outlier{outlierCount > 1 ? 's' : ''} detected</span>
@@ -3069,7 +3381,8 @@ export default function CardPage() {
                 const valueColor = !range ? 'var(--ink3)' : isUnder ? 'var(--green)' : isOver ? '#ff6b6b' : 'var(--gold)'
                 return (
                   <div style={{ ...C }} className="ci-card-surface">
-                    <div style={{ ...P }}>
+                    <div style={{ ...P, position: 'relative' }}>
+                      <TileInfo id="adv-11" text="Compares this grade's price to the best available grade to determine if it's trading at a typical, premium, or discounted level. UNDERVALUED means this grade is cheaper than expected relative to mint condition." activeTip={activeTip} setActiveTip={setActiveTip} />
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                         <span style={{ ...L, marginBottom: 0 }}>GRADE RELATIVE VALUE</span>
                         <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 99, background: isUnder ? 'rgba(61,232,138,0.08)' : isOver ? 'rgba(255,107,107,0.08)' : 'rgba(232,197,71,0.08)', border: `1px solid ${isUnder ? 'rgba(61,232,138,0.2)' : isOver ? 'rgba(255,107,107,0.2)' : 'rgba(232,197,71,0.2)'}`, color: valueColor }}>{valueLabel}</span>
@@ -3123,7 +3436,8 @@ export default function CardPage() {
                 const domColor = dom === 'BULLISH' ? 'var(--green)' : dom === 'BEARISH' ? '#ff6b6b' : 'var(--gold)'
                 return (
                   <div style={{ ...C }} className="ci-card-surface">
-                    <div style={{ ...P }}>
+                    <div style={{ ...P, position: 'relative' }}>
+                      <TileInfo id="adv-12" text="The gold line is a 3-point moving average smoothed over price history. Green shaded zones show periods of accelerating price; red zones show deceleration. Dominant phase determines the BULLISH/BEARISH/MIXED badge." activeTip={activeTip} setActiveTip={setActiveTip} />
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                         <span style={{ ...L, marginBottom: 0 }}>MOMENTUM PHASES</span>
                         <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 99, background: dom === 'BULLISH' ? 'rgba(61,232,138,0.08)' : dom === 'BEARISH' ? 'rgba(255,107,107,0.08)' : 'rgba(232,197,71,0.08)', border: `1px solid ${dom === 'BULLISH' ? 'rgba(61,232,138,0.2)' : dom === 'BEARISH' ? 'rgba(255,107,107,0.2)' : 'rgba(232,197,71,0.2)'}`, color: domColor }}>{dom}</span>
@@ -3150,6 +3464,247 @@ export default function CardPage() {
                           </div>
                         ))}
                       </div>
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* 13 — Price Position Gauge */}
+              {liveData != null && liveData.price_range_low != null && liveData.price_range_high != null && liveData.price_range_high > liveData.price_range_low && (() => {
+                const lo = liveData.price_range_low
+                const hi = liveData.price_range_high
+                const cur = liveData.price
+                const pct = Math.max(0, Math.min(((cur - lo) / (hi - lo)) * 100, 100))
+                const zone = pct <= 33 ? 'BOTTOM THIRD' : pct <= 66 ? 'MID RANGE' : 'TOP THIRD'
+                const zColor = pct <= 33 ? 'var(--green)' : pct <= 66 ? 'var(--gold)' : '#ff6b6b'
+                const zBg = pct <= 33 ? 'rgba(61,232,138,0.08)' : pct <= 66 ? 'rgba(232,197,71,0.08)' : 'rgba(255,107,107,0.08)'
+                const zBorder = pct <= 33 ? 'rgba(61,232,138,0.2)' : pct <= 66 ? 'rgba(232,197,71,0.2)' : 'rgba(255,107,107,0.2)'
+                const insight = pct <= 33
+                  ? `Price is near the bottom of its recent range — potentially a good entry point.`
+                  : pct <= 66
+                  ? `Price is in the middle of its recent range — neither a clear bargain nor overpriced.`
+                  : `Price is near the top of its recent range — consider waiting for a pullback before buying.`
+                return (
+                  <div style={{ ...C }} className="ci-card-surface">
+                    <div style={{ ...P, position: 'relative' }}>
+                      <TileInfo id="adv-13" text="Shows where the current price sits within its recent trading range. Bottom third suggests a potential buying opportunity; top third suggests caution. Based on the high and low prices from the current data window." activeTip={activeTip} setActiveTip={setActiveTip} />
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                        <span style={{ ...L, marginBottom: 0 }}>PRICE POSITION GAUGE</span>
+                        <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 99, background: zBg, border: `1px solid ${zBorder}`, color: zColor }}>{zone}</span>
+                      </div>
+                      <div style={{ marginBottom: 14 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: 'var(--ink3)', marginBottom: 6 }}>
+                          <span>LOW {fmtCurrency(lo)}</span>
+                          <span className="font-num" style={{ color: 'var(--gold)', fontWeight: 700 }}>{fmtCurrency(cur)}</span>
+                          <span>HIGH {fmtCurrency(hi)}</span>
+                        </div>
+                        <div style={{ position: 'relative', height: 8, borderRadius: 4, background: 'linear-gradient(to right, rgba(61,232,138,0.3), rgba(232,197,71,0.3), rgba(255,107,107,0.3))' }}>
+                          <div style={{ position: 'absolute', left: `${Math.max(1, Math.min(pct, 97))}%`, top: '50%', transform: 'translate(-50%, -50%)', width: 14, height: 14, borderRadius: '50%', background: 'var(--surface)', border: `2.5px solid ${zColor}`, boxShadow: `0 0 8px ${zColor}80` }} />
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 8, color: 'var(--ink3)', marginTop: 4 }}>
+                          <span>BUY ZONE</span><span>NEUTRAL</span><span>CAUTION</span>
+                        </div>
+                      </div>
+                      <p style={{ fontSize: 11, color: 'var(--ink3)', lineHeight: 1.6 }}>{insight}</p>
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* 14 — VWAP Analysis */}
+              {liveData?.price_history && liveData.price_history.some((h: { volume?: number }) => (h.volume ?? 0) > 0) && (() => {
+                type HP = { price: number; volume?: number }
+                const pts = (liveData.price_history as HP[]).filter(h => (h.volume ?? 0) > 0)
+                const totalVol = pts.reduce((a, h) => a + (h.volume ?? 0), 0)
+                if (totalVol === 0) return null
+                const vwap = pts.reduce((a, h) => a + h.price * (h.volume ?? 0), 0) / totalVol
+                const cur = liveData.price
+                const diffPct = vwap > 0 ? ((cur - vwap) / vwap) * 100 : 0
+                const above = diffPct > 0
+                const label = Math.abs(diffPct) < 2 ? 'AT VWAP' : above ? 'ABOVE VWAP' : 'BELOW VWAP'
+                const lColor = Math.abs(diffPct) < 2 ? 'var(--gold)' : above ? '#ff6b6b' : 'var(--green)'
+                const lBg = Math.abs(diffPct) < 2 ? 'rgba(232,197,71,0.08)' : above ? 'rgba(255,107,107,0.08)' : 'rgba(61,232,138,0.08)'
+                const lBorder = Math.abs(diffPct) < 2 ? 'rgba(232,197,71,0.2)' : above ? 'rgba(255,107,107,0.2)' : 'rgba(61,232,138,0.2)'
+                const insight = Math.abs(diffPct) < 2
+                  ? `Price is near VWAP — trading at fair value relative to where most volume has occurred.`
+                  : above
+                  ? `Price is ${diffPct.toFixed(1)}% above VWAP — trading at a premium to where most volume occurred. Potential mean-reversion risk.`
+                  : `Price is ${Math.abs(diffPct).toFixed(1)}% below VWAP — trading at a discount to where most volume occurred. Potential value opportunity.`
+                return (
+                  <div style={{ ...C }} className="ci-card-surface">
+                    <div style={{ ...P, position: 'relative' }}>
+                      <TileInfo id="adv-14" text="Volume Weighted Average Price (VWAP) weights each price point by its sales volume, giving a more accurate picture of where most trades actually occurred. Trading below VWAP = discount; above = premium." activeTip={activeTip} setActiveTip={setActiveTip} />
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                        <span style={{ ...L, marginBottom: 0 }}>VWAP ANALYSIS</span>
+                        <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 99, background: lBg, border: `1px solid ${lBorder}`, color: lColor }}>{label}</span>
+                      </div>
+                      <div className="ci-adv-3col" style={{ marginBottom: 14 }}>
+                        {[
+                          { label: 'CURRENT PRICE', value: fmtCurrency(cur), highlight: true },
+                          { label: 'VWAP', value: fmtCurrency(vwap), color: 'var(--ink)' },
+                          { label: 'DEVIATION', value: `${diffPct >= 0 ? '+' : ''}${diffPct.toFixed(1)}%`, color: lColor },
+                        ].map((m, i) => (
+                          <div key={i} style={{ borderRadius: 10, padding: '12px 14px', background: m.highlight ? 'rgba(232,197,71,0.06)' : 'var(--bg)', border: `1px solid ${m.highlight ? 'rgba(232,197,71,0.2)' : 'var(--border)'}` }}>
+                            <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6 }}>{m.label}</div>
+                            <div className="font-num" style={{ fontSize: 14, fontWeight: 700, color: m.highlight ? 'var(--gold)' : (m.color ?? 'var(--ink)') }}>{m.value}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <p style={{ fontSize: 11, color: 'var(--ink3)', lineHeight: 1.6 }}>{insight}</p>
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* 15 — Sale Velocity */}
+              {(liveData?.sales_count_30d ?? 0) > 0 && (() => {
+                const count30 = liveData!.sales_count_30d ?? 0
+                const dailyRate = count30 / 30
+                const weeklyRate = dailyRate * 7
+                const label = dailyRate >= 1 ? 'ACTIVE' : dailyRate >= 0.5 ? 'STEADY' : dailyRate >= 0.2 ? 'SLOW' : 'ILLIQUID'
+                const lColor = dailyRate >= 1 ? 'var(--green)' : dailyRate >= 0.5 ? 'var(--green)' : dailyRate >= 0.2 ? 'var(--gold)' : '#ff6b6b'
+                const lBg = dailyRate >= 0.5 ? 'rgba(61,232,138,0.08)' : dailyRate >= 0.2 ? 'rgba(232,197,71,0.08)' : 'rgba(255,107,107,0.08)'
+                const lBorder = dailyRate >= 0.5 ? 'rgba(61,232,138,0.2)' : dailyRate >= 0.2 ? 'rgba(232,197,71,0.2)' : 'rgba(255,107,107,0.2)'
+                const totalSales = liveData?.total_sale_count
+                const daysSinceUpdate = liveData?.last_updated_pt ? Math.round((Date.now() - new Date(liveData.last_updated_pt).getTime()) / (1000 * 60 * 60 * 24)) : null
+                const insight = dailyRate >= 1
+                  ? `This card sells approximately ${weeklyRate.toFixed(1)} times per week — highly liquid. Easy to buy or sell quickly.`
+                  : dailyRate >= 0.5
+                  ? `This card sells approximately ${weeklyRate.toFixed(1)} times per week — healthy trading activity.`
+                  : dailyRate >= 0.2
+                  ? `This card averages about ${weeklyRate.toFixed(1)} sales per week — moderate liquidity. May take time to sell at asking price.`
+                  : `This card sells less than once per week on average — illiquid. Expect longer time-to-sell and wider bid/ask spreads.`
+                return (
+                  <div style={{ ...C }} className="ci-card-surface">
+                    <div style={{ ...P, position: 'relative' }}>
+                      <TileInfo id="adv-15" text="Sale velocity measures how frequently this card sells based on recent eBay data. Higher velocity means more liquid — easier to buy and sell at fair market price. Low velocity means it may sit unsold for weeks." activeTip={activeTip} setActiveTip={setActiveTip} />
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                        <span style={{ ...L, marginBottom: 0 }}>SALE VELOCITY</span>
+                        <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 99, background: lBg, border: `1px solid ${lBorder}`, color: lColor }}>{label}</span>
+                      </div>
+                      <div className="ci-adv-3col" style={{ marginBottom: 14 }}>
+                        {[
+                          { label: 'SALES / 30D', value: count30.toLocaleString() },
+                          { label: 'EST. / WEEK', value: `~${weeklyRate.toFixed(1)}` },
+                          { label: 'EST. / DAY', value: dailyRate >= 0.1 ? `~${dailyRate.toFixed(2)}` : '<0.1' },
+                        ].map((m, i) => (
+                          <div key={i} style={{ borderRadius: 10, padding: '12px 14px', background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                            <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6 }}>{m.label}</div>
+                            <div className="font-num" style={{ fontSize: 14, fontWeight: 700, color: i === 0 ? lColor : 'var(--ink)' }}>{m.value}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ display: 'flex', gap: 16, fontSize: 11, color: 'var(--ink3)' }}>
+                        {totalSales != null && <span>All-time sales: <span className="font-num" style={{ color: 'var(--ink)', fontWeight: 700 }}>{totalSales.toLocaleString()}</span></span>}
+                        {daysSinceUpdate != null && daysSinceUpdate >= 0 && <span>Data age: <span style={{ color: daysSinceUpdate <= 1 ? 'var(--green)' : daysSinceUpdate <= 3 ? 'var(--gold)' : '#ff6b6b' }}>{daysSinceUpdate === 0 ? 'Today' : `${daysSinceUpdate}d ago`}</span></span>}
+                      </div>
+                      <p style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 10, lineHeight: 1.6 }}>{insight}</p>
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* 16 — Score Opportunity Analysis */}
+              {liveData?.score_breakdown && (() => {
+                const sb = liveData.score_breakdown
+                const factors = [
+                  { key: 'trend',       raw: sb.trend,       max: 30, label: 'Trend' },
+                  { key: 'liquidity',   raw: sb.liquidity,   max: 25, label: 'Liquidity' },
+                  { key: 'consistency', raw: sb.consistency, max: 25, label: 'Consistency' },
+                  { key: 'value',       raw: sb.value,       max: 20, label: 'Value' },
+                ].map(f => ({ ...f, pct: Math.round((f.raw ?? 0) / f.max * 100) }))
+                  .sort((a, b) => a.pct - b.pct)
+                const insights16: Record<string, { weak: string; improve: string }> = {
+                  trend:       { weak: 'Price momentum is weak or declining.',          improve: 'Watch for a trend reversal or price stabilisation before buying.' },
+                  liquidity:   { weak: 'Low trading volume limits price discovery.',     improve: 'Consider patience — fewer buyers means wider spreads and longer time-to-sell.' },
+                  consistency: { weak: 'High price volatility makes valuation difficult.', improve: 'Wait for price to stabilise over 2–4 weeks before acting.' },
+                  value:       { weak: 'Current price is near or above market average.',  improve: 'Look for a dip below the 30-day average for a better entry.' },
+                }
+                const bottom2 = factors.slice(0, 2)
+                const top = factors[factors.length - 1]
+                const scoreColor2 = (p: number) => p >= 70 ? 'var(--green)' : p >= 40 ? 'var(--gold)' : '#ff6b6b'
+                return (
+                  <div style={{ ...C }} className="ci-card-surface">
+                    <div style={{ ...P, position: 'relative' }}>
+                      <TileInfo id="adv-16" text="Identifies which score components are limiting your CardIndex score and explains what each weakness means for your investment decision. The top-rated factor shows where this card's strength lies." activeTip={activeTip} setActiveTip={setActiveTip} />
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                        <span style={{ ...L, marginBottom: 0 }}>SCORE OPPORTUNITY</span>
+                        <span className="font-num" style={{ fontSize: 22, fontWeight: 800, color: scoreColor2(factors.reduce((a,f)=>a+f.pct,0)/4) }}>{sb.total ?? liveData.score}<span style={{ fontSize: 12, color: 'var(--ink3)', fontWeight: 400 }}>/100</span></span>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+                        {factors.map((f) => (
+                          <div key={f.key} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div style={{ fontSize: 9, letterSpacing: 1, color: 'var(--ink3)', width: 74, flexShrink: 0, textTransform: 'uppercase' }}>{f.label}</div>
+                            <div style={{ flex: 1, height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                              <div style={{ height: '100%', width: `${f.pct}%`, background: scoreColor2(f.pct), borderRadius: 3, transition: 'width 0.6s' }} />
+                            </div>
+                            <div className="font-num" style={{ fontSize: 11, fontWeight: 700, color: scoreColor2(f.pct), width: 28, textAlign: 'right', flexShrink: 0 }}>{f.pct}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {bottom2.filter(f => f.pct < 70).map(f => (
+                          <div key={f.key} style={{ padding: '10px 12px', borderRadius: 8, background: 'rgba(255,107,107,0.05)', border: '1px solid rgba(255,107,107,0.12)' }}>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: '#ff6b6b', marginBottom: 3 }}>⚠ {f.label} ({f.pct}/100)</div>
+                            <div style={{ fontSize: 11, color: 'var(--ink3)', lineHeight: 1.5 }}>{insights16[f.key].weak} {insights16[f.key].improve}</div>
+                          </div>
+                        ))}
+                        {top.pct >= 70 && (
+                          <div style={{ padding: '10px 12px', borderRadius: 8, background: 'rgba(61,232,138,0.05)', border: '1px solid rgba(61,232,138,0.12)' }}>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--green)', marginBottom: 3 }}>✓ Strength: {top.label} ({top.pct}/100)</div>
+                            <div style={{ fontSize: 11, color: 'var(--ink3)', lineHeight: 1.5 }}>
+                              {top.key === 'trend' ? 'Strong price momentum — card is appreciating.' : top.key === 'liquidity' ? 'Active trading market — easy to buy or sell.' : top.key === 'consistency' ? 'Stable pricing — low risk of sudden value loss.' : 'Trading at a discount to market average — good value.'}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* 17 — Data Source Breakdown */}
+              {(() => {
+                const src = liveData?.data_source ?? 'ebay'
+                const warning = liveData?.data_warning
+                const ebayCount = liveData?.ebay_sale_count ?? liveData?.sales_count_30d ?? 0
+                const daysSince = liveData?.last_updated_pt ? Math.round((Date.now() - new Date(liveData.last_updated_pt).getTime()) / (1000 * 60 * 60 * 24)) : null
+                const warningMessages: Record<string, string> = {
+                  limited_sales: 'Fewer than 10 recent eBay sales — price average may be less stable.',
+                  rare_asset: 'High-value card with very few sales — treat price as indicative only.',
+                  high_value_limited: 'High-value card with limited sales data — use additional sources to verify.',
+                  low_volume_tcg_fallback: 'Insufficient eBay data — price sourced from TCGPlayer instead.',
+                  low_volume_no_fallback: 'Very few sales and no TCGPlayer fallback — price has low confidence.',
+                }
+                const srcColor = src === 'ebay' ? '#3de88a' : 'var(--gold)'
+                const srcBg = src === 'ebay' ? 'rgba(61,232,138,0.08)' : 'rgba(232,197,71,0.08)'
+                const srcBorder = src === 'ebay' ? 'rgba(61,232,138,0.2)' : 'rgba(232,197,71,0.2)'
+                return (
+                  <div style={{ ...C }} className="ci-card-surface">
+                    <div style={{ ...P, position: 'relative' }}>
+                      <TileInfo id="adv-17" text="Explains where the price data comes from and how trustworthy it is. eBay sold listings are the primary source. TCGPlayer is used as a fallback when eBay data is too sparse. Always check the data age before making a decision." activeTip={activeTip} setActiveTip={setActiveTip} />
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                        <span style={{ ...L, marginBottom: 0 }}>DATA SOURCE BREAKDOWN</span>
+                        <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 99, background: srcBg, border: `1px solid ${srcBorder}`, color: srcColor, textTransform: 'uppercase' }}>{src === 'ebay' ? 'eBay' : 'TCGPlayer'}</span>
+                      </div>
+                      <div className="ci-adv-3col" style={{ marginBottom: warning ? 14 : 0 }}>
+                        {[
+                          { label: 'PRIMARY SOURCE', value: src === 'ebay' ? 'eBay Sales' : 'TCGPlayer', color: srcColor },
+                          { label: 'EBAY SALES (30D)', value: ebayCount > 0 ? ebayCount.toLocaleString() : 'N/A', color: ebayCount >= 10 ? 'var(--green)' : ebayCount >= 5 ? 'var(--gold)' : '#ff6b6b' },
+                          { label: 'DATA AGE', value: daysSince === null ? 'Unknown' : daysSince === 0 ? 'Today' : `${daysSince}d ago`, color: daysSince === null ? 'var(--ink3)' : daysSince <= 1 ? 'var(--green)' : daysSince <= 3 ? 'var(--gold)' : '#ff6b6b' },
+                        ].map((m, i) => (
+                          <div key={i} style={{ borderRadius: 10, padding: '12px 14px', background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                            <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6 }}>{m.label}</div>
+                            <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: m.color }}>{m.value}</div>
+                          </div>
+                        ))}
+                      </div>
+                      {warning && warningMessages[warning] && (
+                        <div style={{ marginTop: 14, padding: '10px 12px', borderRadius: 8, background: 'rgba(232,197,71,0.06)', border: '1px solid rgba(232,197,71,0.18)' }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--gold)', marginBottom: 3 }}>DATA NOTE</div>
+                          <div style={{ fontSize: 11, color: 'var(--ink3)', lineHeight: 1.5 }}>{warningMessages[warning]}</div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )

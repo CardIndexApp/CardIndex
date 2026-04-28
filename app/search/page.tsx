@@ -59,6 +59,18 @@ function parseQuery(q: string): { name: string; number: string | null } {
   return { name: t, number: null }
 }
 
+// ── Relevance sort ────────────────────────────────────────────────────────────
+
+function sortByRelevance(cards: PtCard[], q: string): PtCard[] {
+  const lq = q.toLowerCase().trim()
+  return [...cards].sort((a, b) => {
+    const an = a.name.toLowerCase(), bn = b.name.toLowerCase()
+    const ra = an === lq ? 0 : an.startsWith(lq) ? 1 : 2
+    const rb = bn === lq ? 0 : bn.startsWith(lq) ? 1 : 2
+    return ra - rb
+  })
+}
+
 // ── Card thumbnail ─────────────────────────────────────────────────────────────
 
 function CardThumb({ src, alt }: { src: string; alt: string }) {
@@ -159,7 +171,7 @@ export default function SearchPage() {
       const json = await res.json()
       const data: PtCard[] = json.data ?? []
       setBlocked(false)
-      setResults(data)
+      setResults(sortByRelevance(data, name))
       setCommittedQuery(raw.trim())
       if (data.length > 0) {
         cacheSet(key, data)
@@ -365,6 +377,17 @@ export default function SearchPage() {
             <p style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 4, paddingLeft: 2 }}>
               {results.length} result{results.length !== 1 ? 's' : ''}
             </p>
+
+            {results.length >= 20 && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 2 }}>
+                <a
+                  href={`/search/results?q=${encodeURIComponent(query.trim())}`}
+                  style={{ fontSize: 11, color: 'var(--gold)', textDecoration: 'none', fontWeight: 600, letterSpacing: 0.3 }}
+                >
+                  View all results →
+                </a>
+              </div>
+            )}
 
             {results.map(card => {
               const isSelected = selectedCard?.id === card.id

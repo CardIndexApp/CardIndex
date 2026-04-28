@@ -19,7 +19,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ data: [], pagination: { hasMore: false, count: 0 } })
   }
 
-  const params = new URLSearchParams({ game: 'pokemon', market: 'US', limit: '20' })
+  const limitRaw = parseInt(req.nextUrl.searchParams.get('limit') ?? '20')
+  const limit = String(Math.min(100, Math.max(1, isNaN(limitRaw) ? 20 : limitRaw)))
+  const params = new URLSearchParams({ game: 'pokemon', market: 'US', limit })
   if (set)        params.set('set', set)
   if (search)     params.set('search', search)
   if (cardNumber) params.set('card_number', cardNumber)

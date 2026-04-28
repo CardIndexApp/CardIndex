@@ -79,13 +79,28 @@ function median(arr: number[]): number {
 
 function round2(n: number) { return Math.round(n * 100) / 100 }
 
-/** Parse "Jan 2024", "2024-01", "January 2024" → Date for sorting */
+/**
+ * Parse a month string into a timestamp for sorting.
+ * Handles: "Apr 2025", "Jan 2024", "2024-01", "January 2024", "Apr '25"
+ */
 function parseMonth(s: string): number {
-  const d = new Date(s)
-  if (!isNaN(d.getTime())) return d.getTime()
-  // Try "MMM YY" short year
-  const short = new Date(s.replace(/(\w+)\s+(\d{2})$/, '$1 20$2'))
-  return isNaN(short.getTime()) ? 0 : short.getTime()
+  // ISO month "2024-01" → "2024-01-01"
+  if (/^\d{4}-\d{2}$/.test(s)) return new Date(s + '-01').getTime()
+  // "Apr 2025" or "April 2025" — canonical new format
+  const full = s.match(/^(\w+)\s+(\d{4})$/)
+  if (full) {
+    const d = new Date(`${full[1]} 1, ${full[2]}`)
+    if (!isNaN(d.getTime())) return d.getTime()
+  }
+  // "Apr '25" or "Apr 25" short year
+  const short = s.match(/^(\w+)\s+'?(\d{2})$/)
+  if (short) {
+    const d = new Date(`${short[1]} 1, 20${short[2]}`)
+    if (!isNaN(d.getTime())) return d.getTime()
+  }
+  // Legacy "Apr 28" day-level (no year) — assume current year
+  const legacy = new Date(s)
+  return isNaN(legacy.getTime()) ? 0 : legacy.getTime()
 }
 
 function computeIndexStats(rows: CacheRow[]): IndexStats | null {
@@ -121,7 +136,7 @@ function computeIndexStats(rows: CacheRow[]): IndexStats | null {
  */
 function computeIndexHistory(rows: CacheRow[]): { month: string; value: number }[] {
   const withHistory = rows.filter(
-    r => r.price_history && r.price_history.length >= 3 && r.price != null && r.price > 0
+    r => r.price_history && r.price_history.length >= 2 && r.price != null && r.price > 0
   )
   if (withHistory.length < 3) return []
 

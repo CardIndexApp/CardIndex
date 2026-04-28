@@ -110,7 +110,7 @@ async function refreshCard(
   setName: string | null
 ): Promise<'ok' | 'fail'> {
   try {
-    const params = new URLSearchParams({ grade, name: cardName })
+    const params = new URLSearchParams({ grade, name: cardName, bust_cache: '1' })
     if (setName) params.set('set', setName)
 
     const r = await fetch(

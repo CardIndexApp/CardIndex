@@ -384,7 +384,7 @@ export async function GET(
   }
 
   // ── 4. Fetch price history ────────────────────────────────────────────────
-  const history = await getPriceHistory(matchedCard.id, resolvedTier, '90d')
+  const history = await getPriceHistory(matchedCard.id, resolvedTier, '1y')
 
   // ── 5. Compute score ──────────────────────────────────────────────────────
   const scoreBreakdown = computeScore(tierPrice, history)
@@ -400,10 +400,19 @@ export async function GET(
   }
 
   // ── 7. Format history for sparkline / chart ──────────────────────────────
-  const priceHistory = history.map(h => ({
-    month: new Date(h.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-    price: h.avg,
-    volume: h.saleCount ?? 0,
+  // Group by calendar month so the index chart can aggregate across cards.
+  // Format: "Apr 2025" — includes year for correct multi-year sorting.
+  // Duplicate months are de-duplicated by keeping the last (most recent) price.
+  const monthMap = new Map<string, { price: number; volume: number }>()
+  for (const h of history) {
+    const d = new Date(h.date)
+    const key = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+    monthMap.set(key, { price: h.avg, volume: h.saleCount ?? 0 })
+  }
+  const priceHistory = Array.from(monthMap.entries()).map(([month, v]) => ({
+    month,
+    price: v.price,
+    volume: v.volume,
   }))
 
   // ── 8. Build all-tier price ladder ────────────────────────────────────────

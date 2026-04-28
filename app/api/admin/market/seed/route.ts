@@ -32,7 +32,10 @@ export async function POST() {
   let inserted = 0, failed = 0
   const errors: string[] = []
 
-  // Upsert all 100 cards in one batched DB call — no external API needed
+  // Wipe existing constituents so stale grades/cards don't linger
+  await admin.from('market_constituents').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+
+  // Insert all 100 cards in one batched DB call — no external API needed
   const rows = CI_100_DEDUPED.map(seed => ({
     card_id:   `${seed.setId}-${seed.number}`,
     grade:     seed.grade,

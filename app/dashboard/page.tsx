@@ -4,7 +4,6 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Navbar from '@/components/Navbar'
 import { createClient } from '@/lib/supabase/client'
-import { rising, scoreColor } from '@/lib/data'
 import { usePullToRefresh } from '@/lib/usePullToRefresh'
 import { cacheGet } from '@/lib/searchCache'
 import { useCurrency } from '@/lib/currency'
@@ -133,6 +132,13 @@ export default function Dashboard() {
   const [recentlyViewed, setRecentlyViewed] = useState<RecentlyViewedItem[]>([])
   const [portfolioStats, setPortfolioStats] = useState<PortfolioStats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [marketSnap, setMarketSnap] = useState<{
+    signal: string
+    level: number | null
+    change7d: number | null
+    change30d: number | null
+    topRising: { card_id: string; card_name: string; grade: string; change: number | null; price: number | null; image_url: string | null }[]
+  } | null>(null)
 
   const load = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -170,6 +176,21 @@ export default function Dashboard() {
     } catch {
       setRecentlyViewed([])
     }
+
+    // Market snapshot — non-blocking, best-effort
+    fetch('/api/market')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!d || d.empty) return
+        setMarketSnap({
+          signal: d.signal ?? 'stable',
+          level: d.indexMetrics?.level ?? null,
+          change7d: d.indexMetrics?.change7d ?? null,
+          change30d: d.indexMetrics?.change30d ?? null,
+          topRising: (d.topRising ?? []).slice(0, 5),
+        })
+      })
+      .catch(() => {})
 
     setLoading(false)
   }, [])
@@ -359,32 +380,96 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* Market movers */}
-            <div className="dash-top-rising" style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden' }}>
-              <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Top Rising Today</span>
-                <Link href="/market" style={{ fontSize: 11, color: 'var(--gold)', textDecoration: 'none' }}>Full market →</Link>
-              </div>
-              {rising.slice(0, 5).map((item, i) => (
-                <Link key={i} href={`/card/${item.id}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderBottom: i < 4 ? '1px solid var(--border)' : 'none', textDecoration: 'none' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                    <span className="font-num" style={{ fontSize: 11, color: 'var(--ink3)', width: 14, flexShrink: 0 }}>{i + 1}</span>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.name}</div>
-                      <div style={{ fontSize: 11, color: 'var(--ink3)' }}>{item.grade}</div>
+            {/* Market Snapshot */}
+            {(() => {
+              const SIGNAL_COLOR: Record<string, string> = {
+                new_high: '#3de88a', rising: '#3de88a', stable: '#8c8cb4', falling: '#e8524a', new_low: '#e8524a',
+              }
+              const SIGNAL_LABEL: Record<string, string> = {
+                new_high: 'New high', rising: 'Rising', stable: 'Stable', falling: 'Falling', new_low: 'New low',
+              }
+              const sig = marketSnap?.signal ?? 'stable'
+              const sigColor = SIGNAL_COLOR[sig] ?? 'var(--ink3)'
+
+              const Chg = ({ v }: { v: number | null | undefined }) => {
+                if (v == null) return <span style={{ fontSize: 12, color: 'var(--ink3)' }}>—</span>
+                return <span className="font-num" style={{ fontSize: 12, fontWeight: 700, color: v >= 0 ? 'var(--green)' : 'var(--red)' }}>{v >= 0 ? '+' : ''}{v.toFixed(2)}%</span>
+              }
+
+              return (
+                <div className="dash-top-rising" style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden' }}>
+                  {/* Header */}
+                  <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Market Snapshot</span>
+                      {marketSnap && (
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 99, color: sigColor, background: `${sigColor}18`, border: `1px solid ${sigColor}44` }}>
+                          {SIGNAL_LABEL[sig]}
+                        </span>
+                      )}
                     </div>
+                    <Link href="/market" style={{ fontSize: 11, color: 'var(--gold)', textDecoration: 'none', flexShrink: 0 }}>Full market →</Link>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-                    <span className="font-num" style={{ fontSize: 13, color: 'var(--green)' }}>+{item.change}%</span>
-                    <div style={{ width: 32, height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${item.score}%`, background: scoreColor(item.score), borderRadius: 2 }} />
-                    </div>
+
+                  {/* Index metrics strip */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', borderBottom: '1px solid var(--border)' }}>
+                    {[
+                      { label: 'CI Index', value: marketSnap?.level != null ? <span className="font-num" style={{ fontSize: 16, fontWeight: 800, color: 'var(--gold)' }}>{marketSnap.level.toFixed(2)}</span> : <span style={{ fontSize: 13, color: 'var(--ink3)' }}>—</span> },
+                      { label: '7d change', value: <Chg v={marketSnap?.change7d} /> },
+                      { label: '30d change', value: <Chg v={marketSnap?.change30d} /> },
+                    ].map(({ label, value }, i) => (
+                      <div key={i} style={{ padding: '12px 16px', borderRight: i < 2 ? '1px solid var(--border)' : 'none' }}>
+                        <div style={{ fontSize: 9, color: 'var(--ink3)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 5 }}>{label}</div>
+                        {value}
+                      </div>
+                    ))}
                   </div>
-                </Link>
-              ))}
-            </div>
+
+                  {/* Top rising */}
+                  {marketSnap && marketSnap.topRising.length > 0 ? (
+                    marketSnap.topRising.map((item, i) => {
+                      const params = new URLSearchParams({ name: item.card_name, grade: item.grade })
+                      return (
+                        <Link key={i} href={`/card/${item.card_id}?${params.toString()}`}
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 20px', borderBottom: i < marketSnap.topRising.length - 1 ? '1px solid var(--border)' : 'none', textDecoration: 'none' }}
+                          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                            <span className="font-num" style={{ fontSize: 10, color: 'var(--ink3)', width: 14, flexShrink: 0 }}>{i + 1}</span>
+                            {item.image_url && (
+                              <div style={{ width: 28, height: 28, borderRadius: 4, overflow: 'hidden', flexShrink: 0, background: 'var(--surface2)' }}>
+                                <img src={item.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                              </div>
+                            )}
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.card_name}</div>
+                              <div style={{ fontSize: 10, color: 'var(--ink3)' }}>{item.grade}</div>
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                            {item.price != null && <span className="font-num" style={{ fontSize: 12, color: 'var(--ink2)' }}>{fmtCurrency(item.price)}</span>}
+                            <Chg v={item.change} />
+                          </div>
+                        </Link>
+                      )
+                    })
+                  ) : (
+                    /* Skeleton / empty */
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 20px', borderBottom: i < 4 ? '1px solid var(--border)' : 'none' }}>
+                        <div style={{ width: 14, height: 10, borderRadius: 3, background: 'var(--surface2)' }} />
+                        <div style={{ width: 28, height: 28, borderRadius: 4, background: 'var(--surface2)' }} />
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          <div style={{ height: 12, width: '60%', borderRadius: 3, background: 'var(--surface2)' }} />
+                          <div style={{ height: 10, width: '35%', borderRadius: 3, background: 'var(--surface2)' }} />
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )
+            })()}
           </div>
 
           {/* ── Recently Viewed ── */}

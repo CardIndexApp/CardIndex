@@ -109,6 +109,7 @@ export default function AdminPage() {
   const [removingId, setRemovingId] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [refreshProgress, setRefreshProgress] = useState<{ done: number; total: number } | null>(null)
+  const [refreshDelay, setRefreshDelay] = useState(500) // ms between card fetches
   const [seeding, setSeeding] = useState(false)
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -278,18 +279,13 @@ export default function AdminPage() {
     }
   }
 
-  async function refreshAllPrices() {
-    const stale = constituents.filter(c => {
-      if (!c.last_fetched) return true
-      const age = Date.now() - new Date(c.last_fetched).getTime()
-      return age > 6 * 60 * 60 * 1000 // older than 6h
-    })
-    if (stale.length === 0) { flash('ok', 'All prices are fresh (< 6h old)'); return }
+  async function runRefresh(cards: Constituent[], label: string, delayMs = refreshDelay) {
+    if (cards.length === 0) { flash('ok', `No cards to refresh`); return }
     setRefreshing(true)
-    setRefreshProgress({ done: 0, total: stale.length })
+    setRefreshProgress({ done: 0, total: cards.length })
     let ok = 0, failed = 0, cacheWarnings = 0
     let firstErrMsg = ''
-    for (const c of stale) {
+    for (const c of cards) {
       try {
         const params = new URLSearchParams({ grade: c.grade, name: c.card_name, bust_cache: '1' })
         if (c.set_name) params.set('set', c.set_name)
@@ -314,22 +310,35 @@ export default function AdminPage() {
         if (!firstErrMsg) firstErrMsg = `${c.card_name}: network error`
         console.error(`[refresh] ${c.card_name} network error`, e)
       }
-      setRefreshProgress({ done: ok + failed, total: stale.length })
-      // Pro tier rate limit: 200ms between requests
-      await new Promise(r => setTimeout(r, 200))
+      setRefreshProgress({ done: ok + failed, total: cards.length })
+      await new Promise(r => setTimeout(r, delayMs))
     }
     setRefreshing(false)
     setRefreshProgress(null)
     if (failed === 0 && cacheWarnings === 0) {
-      flash('ok', `Refreshed ${ok} card prices`)
+      flash('ok', `${label}: refreshed ${ok} cards`)
     } else if (failed === 0 && cacheWarnings > 0) {
       flash('err', `${ok} fetched but ${cacheWarnings} cache writes failed — run DB Migration to fix`)
     } else if (ok === 0) {
       flash('err', `All ${failed} failed. First: ${firstErrMsg}`)
     } else {
-      flash('ok', `${ok} refreshed, ${failed} failed. First failure: ${firstErrMsg}`)
+      flash('ok', `${ok} refreshed, ${failed} failed. First: ${firstErrMsg}`)
     }
     loadConstituents()
+  }
+
+  async function refreshAllPrices() {
+    const stale = constituents.filter(c => {
+      if (!c.last_fetched) return true
+      return Date.now() - new Date(c.last_fetched).getTime() > 6 * 60 * 60 * 1000
+    })
+    if (stale.length === 0) { flash('ok', 'All prices are fresh (< 6h old)'); return }
+    await runRefresh(stale, 'Stale refresh')
+  }
+
+  async function forceRefreshAll() {
+    if (!confirm(`Force re-fetch all ${constituents.length} cards from Poketrace? This will take ~${Math.ceil(constituents.length * 0.2 / 60)} min.`)) return
+    await runRefresh(constituents, 'Force refresh')
   }
 
   const filteredUsers = users.filter(u =>
@@ -638,13 +647,37 @@ export default function AdminPage() {
                           Refreshing {refreshProgress.done}/{refreshProgress.total}…
                         </span>
                       ) : (
-                        <button
-                          onClick={refreshAllPrices}
-                          disabled={refreshing || constituents.length === 0}
-                          style={{ padding: '7px 16px', borderRadius: 8, border: '1px solid var(--border2)', background: 'transparent', color: 'var(--ink2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: refreshing ? 0.5 : 1 }}
-                        >
-                          {refreshing ? 'Refreshing…' : `↺ Refresh stale (${stale.length})`}
-                        </button>
+                        <>
+                          {/* Delay selector */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 8, border: '1px solid var(--border2)', background: 'var(--surface2)' }}>
+                            <span style={{ fontSize: 10, color: 'var(--ink3)', whiteSpace: 'nowrap' }}>Delay</span>
+                            <select
+                              value={refreshDelay}
+                              onChange={e => setRefreshDelay(Number(e.target.value))}
+                              style={{ fontSize: 11, background: 'transparent', border: 'none', color: 'var(--ink2)', cursor: 'pointer', outline: 'none' }}
+                            >
+                              <option value={300}>300ms (~30s)</option>
+                              <option value={500}>500ms (~50s) ✓</option>
+                              <option value={750}>750ms (~1.3m)</option>
+                              <option value={1000}>1000ms (~1.7m)</option>
+                            </select>
+                          </div>
+                          <button
+                            onClick={refreshAllPrices}
+                            disabled={refreshing || constituents.length === 0}
+                            style={{ padding: '7px 16px', borderRadius: 8, border: '1px solid var(--border2)', background: 'transparent', color: 'var(--ink2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: refreshing ? 0.5 : 1 }}
+                          >
+                            ↺ Refresh stale ({stale.length})
+                          </button>
+                          <button
+                            onClick={forceRefreshAll}
+                            disabled={refreshing || constituents.length === 0}
+                            style={{ padding: '7px 16px', borderRadius: 8, border: '1px solid rgba(232,82,74,0.3)', background: 'rgba(232,82,74,0.07)', color: 'var(--red)', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: refreshing ? 0.5 : 1 }}
+                            title="Re-fetch all cards regardless of freshness — use after DB migration"
+                          >
+                            ⟳ Force all ({constituents.length})
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>

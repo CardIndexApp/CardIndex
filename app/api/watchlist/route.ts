@@ -38,6 +38,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'card_id, card_name and grade are required' }, { status: 400 })
   }
 
+  // ── Type & length validation ──────────────────────────────────────────────
+  if (typeof card_id !== 'string' || card_id.length > 128)
+    return NextResponse.json({ error: 'Invalid card_id' }, { status: 400 })
+  if (typeof card_name !== 'string' || card_name.trim().length === 0 || card_name.length > 255)
+    return NextResponse.json({ error: 'card_name must be 1–255 characters' }, { status: 400 })
+  if (set_name != null && (typeof set_name !== 'string' || set_name.length > 255))
+    return NextResponse.json({ error: 'set_name must be ≤255 characters' }, { status: 400 })
+  if (typeof grade !== 'string' || grade.length > 64)
+    return NextResponse.json({ error: 'Invalid grade' }, { status: 400 })
+  if (alert_price != null && (typeof alert_price !== 'number' || alert_price <= 0 || alert_price > 10_000_000))
+    return NextResponse.json({ error: 'alert_price must be a positive number ≤10,000,000' }, { status: 400 })
+  if (image_url != null) {
+    try { const u = new URL(image_url); if (!['https:','http:'].includes(u.protocol)) throw new Error() }
+    catch { return NextResponse.json({ error: 'image_url must be a valid URL' }, { status: 400 }) }
+  }
+
   // Tier-based limit check
   const { data: profile } = await supabase
     .from('profiles')
@@ -99,6 +115,11 @@ export async function PATCH(req: NextRequest) {
 
   const body = await req.json()
   const { alert_price, notes } = body
+
+  if (alert_price != null && (typeof alert_price !== 'number' || alert_price <= 0 || alert_price > 10_000_000))
+    return NextResponse.json({ error: 'alert_price must be a positive number ≤10,000,000' }, { status: 400 })
+  if (notes != null && (typeof notes !== 'string' || notes.length > 2000))
+    return NextResponse.json({ error: 'notes must be ≤2000 characters' }, { status: 400 })
 
   const { data, error } = await supabase
     .from('watchlists')

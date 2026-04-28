@@ -85,12 +85,47 @@ create table if not exists public.search_log (
 );
 
 
+-- ── Additional tables ───────────────────────────────
+
+-- Portfolios (one row per card position per user)
+create table if not exists public.portfolios (
+  id             uuid default gen_random_uuid() primary key,
+  user_id        uuid references public.profiles(id) on delete cascade not null,
+  card_id        text not null,
+  card_name      text not null,
+  set_name       text,
+  grade          text not null,
+  card_number    text,
+  image_url      text,
+  purchase_price numeric not null check (purchase_price > 0),
+  quantity       integer not null default 1 check (quantity >= 1 and quantity <= 9999),
+  purchased_at   date,
+  added_at       timestamptz default now(),
+  notes          text check (char_length(notes) <= 2000)
+);
+
+-- Upgrade requests (manual tier upgrade queue)
+create table if not exists public.upgrade_requests (
+  id             uuid default gen_random_uuid() primary key,
+  user_id        uuid references public.profiles(id) on delete cascade not null,
+  requested_tier text not null,
+  requested_at   timestamptz default now(),
+  actioned_at    timestamptz,
+  actioned_by    uuid references public.profiles(id) on delete set null,
+  action         text check (action in ('approve','deny'))
+);
+
+
 -- ── Row Level Security ──────────────────────────────
 
-alter table public.profiles  enable row level security;
-alter table public.watchlists enable row level security;
-alter table public.search_log enable row level security;
--- search_cache is public read (no RLS needed for SELECT)
+alter table public.profiles        enable row level security;
+alter table public.watchlists      enable row level security;
+alter table public.search_log      enable row level security;
+alter table public.portfolios      enable row level security;
+alter table public.upgrade_requests enable row level security;
+-- search_cache: no direct client access — all reads/writes go through
+-- server-side API routes using the service-role key (bypasses RLS intentionally).
+-- Client-side Supabase client has no SELECT policy, so rows are invisible to browsers.
 
 -- Profiles: users can only see/edit their own
 create policy "profiles_select_own" on public.profiles
@@ -107,6 +142,23 @@ create policy "watchlist_update_own" on public.watchlists
   for update using (auth.uid() = user_id);
 create policy "watchlist_delete_own" on public.watchlists
   for delete using (auth.uid() = user_id);
+
+-- Portfolios: full CRUD for owner only
+create policy "portfolio_select_own" on public.portfolios
+  for select using (auth.uid() = user_id);
+create policy "portfolio_insert_own" on public.portfolios
+  for insert with check (auth.uid() = user_id);
+create policy "portfolio_update_own" on public.portfolios
+  for update using (auth.uid() = user_id);
+create policy "portfolio_delete_own" on public.portfolios
+  for delete using (auth.uid() = user_id);
+
+-- Upgrade requests: users can insert and view their own; only admins can update
+create policy "upgrade_request_insert_own" on public.upgrade_requests
+  for insert with check (auth.uid() = user_id);
+create policy "upgrade_request_select_own" on public.upgrade_requests
+  for select using (auth.uid() = user_id);
+-- UPDATE (actioning) is done exclusively via the service-role key in admin API routes
 
 -- Search log: users can insert (for logged queries)
 create policy "search_log_insert" on public.search_log

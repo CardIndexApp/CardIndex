@@ -72,10 +72,17 @@ interface PokemonTcgCardInfo {
   imageUrl: string | null
 }
 
+/** Shared 8-second timeout for all external API calls */
+function fetchWithTimeout(url: string, init?: RequestInit, timeoutMs = 8000): Promise<Response> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  return fetch(url, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer))
+}
+
 /** Fetch pokemontcg.io card, extract TCGPlayer product ID + card number + subtypes */
 async function getPokemonTcgCardInfo(pokemontcgId: string): Promise<PokemonTcgCardInfo> {
   try {
-    const res = await fetch(`https://api.pokemontcg.io/v2/cards/${pokemontcgId}`, {
+    const res = await fetchWithTimeout(`https://api.pokemontcg.io/v2/cards/${pokemontcgId}`, {
       next: { revalidate: 3600 }, // 1h — short enough to pick up new cards/TCGPlayer IDs
     })
     if (!res.ok) return { tcgplayerId: null, fullNumber: null, bareNumber: null, subtypes: [], supertypes: [], imageUrl: null }
@@ -269,19 +276,23 @@ export async function GET(
     }
   }
 
+  const isDev = process.env.NODE_ENV === 'development'
+
   if (!matchedCard) {
     if (cached) return NextResponse.json({ source: 'stale_cache', data: cached })
     return NextResponse.json({
       error: 'Card not found on Poketrace',
-      debug: {
-        searched: cardName,
-        setName,
-        cardNumber,
-        tcgplayerId: ptcgInfo.tcgplayerId,
-        fullNumber: ptcgInfo.fullNumber,
-        poketraceSetSlugs,
-        tried,
-      }
+      ...(isDev && {
+        debug: {
+          searched: cardName,
+          setName,
+          cardNumber,
+          tcgplayerId: ptcgInfo.tcgplayerId,
+          fullNumber: ptcgInfo.fullNumber,
+          poketraceSetSlugs,
+          tried,
+        }
+      }),
     }, { status: 404 })
   }
 
@@ -298,7 +309,10 @@ export async function GET(
   }
   if (!fullCard) {
     if (cached) return NextResponse.json({ source: 'stale_cache', data: cached })
-    return NextResponse.json({ error: 'Failed to fetch card pricing', debug: { matchedCard: matchedCard.id, matchReason } }, { status: 502 })
+    return NextResponse.json({
+      error: 'Failed to fetch card pricing',
+      ...(isDev && { debug: { matchedCard: matchedCard.id, matchReason } }),
+    }, { status: 502 })
   }
 
   const tier   = gradeToTier(grade)
@@ -308,16 +322,18 @@ export async function GET(
     if (cached) return NextResponse.json({ source: 'stale_cache', data: cached })
     return NextResponse.json({
       error: `No price data for ${grade}`,
-      debug: {
-        matchedCard: fullCard.name,
-        matchedSet: fullCard.set.name,
-        matchReason,
-        tier,
-        availableTiers: [
-          ...Object.keys(fullCard.prices.ebay ?? {}),
-          ...Object.keys(fullCard.prices.tcgplayer ?? {}),
-        ],
-      }
+      ...(isDev && {
+        debug: {
+          matchedCard: fullCard.name,
+          matchedSet: fullCard.set.name,
+          matchReason,
+          tier,
+          availableTiers: [
+            ...Object.keys(fullCard.prices.ebay ?? {}),
+            ...Object.keys(fullCard.prices.tcgplayer ?? {}),
+          ],
+        }
+      }),
     }, { status: 404 })
   }
 

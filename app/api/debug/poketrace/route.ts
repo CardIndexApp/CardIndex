@@ -12,11 +12,26 @@
  * Remove this file before going fully public.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient as createUserClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { getPoketraceSetSlug, findBySetAndNumber, toPoketraceVariants } from '@/lib/poketrace'
 
 const BASE = 'https://api.poketrace.com/v1'
 
 export async function GET(req: NextRequest) {
+  // Admin-only: verify session and is_admin flag before returning any data
+  const userSupabase = await createUserClient()
+  const { data: { user } } = await userSupabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const admin = createAdminClient()
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('is_admin')
+    .eq('id', user.id)
+    .single()
+  if (!profile?.is_admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
   const { searchParams } = req.nextUrl
   const name          = searchParams.get('name') ?? ''
   const tcgplayerId   = searchParams.get('tcgplayer_id') ?? ''
@@ -30,7 +45,7 @@ export async function GET(req: NextRequest) {
   const apiKey = process.env.POKETRACE_API_KEY
   const results: Record<string, unknown> = {
     env: {
-      POKETRACE_API_KEY: apiKey ? `SET (starts with ${apiKey.slice(0, 6)}...)` : 'NOT SET ❌',
+      POKETRACE_API_KEY: apiKey ? 'SET ✓' : 'NOT SET ❌',
       NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ? 'SET ✓' : 'NOT SET',
       SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SET ✓' : 'NOT SET',
     },

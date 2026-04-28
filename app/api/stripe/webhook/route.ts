@@ -18,13 +18,19 @@ function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-04-22.dahlia' })
 }
 
-// Map Stripe Price IDs → internal tier names
-const PRICE_TO_TIER: Record<string, Tier> = {
-  [process.env.STRIPE_PRICE_STANDARD_MONTHLY ?? '']: 'standard',
-  [process.env.STRIPE_PRICE_STANDARD_ANNUAL  ?? '']: 'standard',
-  [process.env.STRIPE_PRICE_PRO_MONTHLY      ?? '']: 'pro',
-  [process.env.STRIPE_PRICE_PRO_ANNUAL       ?? '']: 'pro',
-}
+// Map Stripe Price IDs → internal tier names.
+// Only entries where the env var is actually set are included — an empty-string
+// key would match any webhook with a missing priceId and silently grant the wrong tier.
+const PRICE_TO_TIER: Record<string, Tier> = Object.fromEntries(
+  (
+    [
+      [process.env.STRIPE_PRICE_STANDARD_MONTHLY, 'standard' as Tier],
+      [process.env.STRIPE_PRICE_STANDARD_ANNUAL,  'standard' as Tier],
+      [process.env.STRIPE_PRICE_PRO_MONTHLY,      'pro'      as Tier],
+      [process.env.STRIPE_PRICE_PRO_ANNUAL,        'pro'      as Tier],
+    ] as [string | undefined, Tier][]
+  ).filter(([priceId]) => !!priceId)
+)
 
 async function updateProfile(customerId: string, tier: Tier, status: string) {
   const admin = createAdminClient()

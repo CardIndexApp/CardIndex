@@ -68,21 +68,13 @@ function CardImage({ src, alt }: { src: string; alt: string }) {
   const [failed, setFailed] = useState(false)
   if (failed || !src) {
     return (
-      <div style={{
-        width: '100%', height: '100%', borderRadius: 8,
-        background: 'var(--surface2)', display: 'flex', alignItems: 'center',
-        justifyContent: 'center', fontSize: 28,
-      }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, background: 'var(--surface2)', borderRadius: 8 }}>
         🃏
       </div>
     )
   }
   return (
-    <img
-      src={src} alt={alt}
-      onError={() => setFailed(true)}
-      style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8, display: 'block', background: 'var(--surface2)' }}
-    />
+    <img src={src} alt={alt} onError={() => setFailed(true)} />
   )
 }
 
@@ -287,7 +279,7 @@ function SearchResultsInner() {
   const showNumberHint = number !== null && rawQuery.trim().length > 0
 
   return (
-    <>
+    <div className="res-page-root">
       <Navbar />
       <main style={{ maxWidth: 1200, margin: '0 auto', padding: '72px 20px 120px' }}>
 
@@ -418,7 +410,11 @@ function SearchResultsInner() {
       )}
 
       <style>{`
+
         @keyframes res-spin { to { transform: rotate(360deg); } }
+
+        /* ── Page — prevent horizontal overflow on mobile ─── */
+        .res-page-root { overflow-x: hidden; }
 
         /* ── Grid layout ─────────────────────────────────── */
         .res-grid {
@@ -427,15 +423,18 @@ function SearchResultsInner() {
           gap: 18px;
         }
 
+        /* Each cell stretches to full row height (grid default),
+           flex column so the button fills it */
         .res-grid-item {
           display: flex;
           flex-direction: column;
+          min-width: 0;
         }
 
-        /* Card button — vertical card layout on all breakpoints */
+        /* Card button — fills cell height so all cards in a row are equal */
         .res-card-btn {
           width: 100%;
-          height: 100%;
+          flex: 1;               /* fill the grid-item height */
           background: var(--surface);
           border-radius: 12px;
           padding: 10px;
@@ -445,6 +444,7 @@ function SearchResultsInner() {
           display: flex;
           flex-direction: column;
           gap: 8px;
+          min-width: 0;
         }
         .res-card-btn:hover {
           border-color: rgba(232,197,71,0.5) !important;
@@ -452,25 +452,45 @@ function SearchResultsInner() {
           box-shadow: 0 8px 28px rgba(0,0,0,0.45) !important;
         }
 
+        /* Image wrapper: fixed 3:4 aspect-ratio — Pokémon card proportions.
+           Using position:relative + absolute img is the most reliable cross-
+           browser way to enforce this regardless of natural image dimensions
+           and regardless of when the image loads. */
         .res-card-img-wrap {
           width: 100%;
+          position: relative;
+          padding-bottom: 133.33%;   /* 4/3 × 100 = card height/width ratio */
           border-radius: 8px;
           overflow: hidden;
           background: var(--surface2);
-          /* Explicit image area — card ratio ≈ 1.4:1 */
-          aspect-ratio: 5 / 7;
+          flex-shrink: 0;            /* never let the image area compress */
+        }
+        .res-card-img-wrap > * {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+        }
+        .res-card-img-wrap img {
+          object-fit: cover;
+          border-radius: 8px;
+          display: block;
         }
 
         .res-card-meta {
           display: flex;
           flex-direction: column;
           gap: 2px;
+          min-width: 0;
         }
         .res-card-name {
           font-size: 12px;
           font-weight: 700;
           color: var(--ink);
           line-height: 1.3;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
         .res-card-set {
           font-size: 9px;
@@ -488,6 +508,9 @@ function SearchResultsInner() {
           font-weight: 600;
           color: var(--gold);
           margin-top: 2px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
 
         /* Modal shown on all breakpoints — no inline picker */
@@ -521,7 +544,7 @@ function SearchResultsInner() {
           .srch-grade-grid { grid-template-columns: repeat(3, 1fr) !important; gap: 8px !important; }
         }
       `}</style>
-    </>
+    </div>
   )
 }
 

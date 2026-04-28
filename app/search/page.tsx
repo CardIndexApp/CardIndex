@@ -92,6 +92,9 @@ export default function SearchPage() {
 
   const [query, setQuery]                   = useState('')
   const [results, setResults]               = useState<PtCard[]>([])
+  // staleResults: last non-empty result set — shown as fallback while a new
+  // search is loading so the list never flashes to empty mid-type.
+  const [staleResults, setStaleResults]     = useState<PtCard[]>([])
   const [loading, setLoading]               = useState(false)
   // committedQuery: the query string whose results are currently displayed.
   // "No results" is only shown when this matches what the user has typed,
@@ -104,6 +107,9 @@ export default function SearchPage() {
   // Auth + anon rate-limit
   // null = still resolving auth; true/false = known
   const [isLoggedIn, setIsLoggedIn]       = useState<boolean | null>(null)
+  // Keep a ref in sync so runSearch can read the latest value without being
+  // recreated every time isLoggedIn changes (which would restart the debounce).
+  const isLoggedInRef                     = useRef<boolean | null>(null)
   const [blocked, setBlocked]             = useState(false)   // anon limit reached
   const [showSignup, setShowSignup]       = useState(false)   // auth modal open
   const [cooldownMins, setCooldownMins]   = useState(0)
@@ -117,15 +123,22 @@ export default function SearchPage() {
   useEffect(() => {
     setIsMobile(window.matchMedia('(max-width: 700px)').matches)
     createClient().auth.getUser().then(({ data }) => {
-      setIsLoggedIn(!!data.user)
+      const loggedIn = !!data.user
+      setIsLoggedIn(loggedIn)
+      isLoggedInRef.current = loggedIn
     })
   }, [])
 
   // ── Search ────────────────────────────────────────────────────────────────
+  // runSearch has NO dependency on isLoggedIn state — it reads from the ref
+  // instead. This means runSearch never gets a new reference mid-session,
+  // which prevents the debounce useEffect below from re-firing and aborting
+  // in-flight requests whenever auth resolves.
   const runSearch = useCallback(async (raw: string) => {
     const { name, number } = parseQuery(raw)
     if (name.length < MIN_CHARS) {
       setResults([])
+      setStaleResults([])
       setCommittedQuery('')
       setLoading(false)
       return
@@ -147,18 +160,18 @@ export default function SearchPage() {
     const cached = cacheGet<PtCard[]>(key)
     if (cached) {
       if (controller.signal.aborted) return
+      const filtered = cached.filter(isCardResult)
       setBlocked(false)
-      setResults(cached.filter(isCardResult))  // re-filter in case cache pre-dates this fix
+      setResults(filtered)
+      if (filtered.length > 0) setStaleResults(filtered)
       setCommittedQuery(raw.trim())
       setLoading(false)
       return
     }
 
     // ── Anon rate-limit gate (only applies to live API calls) ────────────────
-    // Wait until auth is resolved before gating so logged-in users are never blocked.
-    // isLoggedIn === null means we're still resolving — let the request through
-    // to avoid blocking on first load.
-    if (isLoggedIn === false && anonLimitReached()) {
+    // Read from ref so this closure never goes stale.
+    if (isLoggedInRef.current === false && anonLimitReached()) {
       setCooldownMins(Math.ceil(anonWindowRemainingMs() / 60_000))
       setBlocked(true)
       setLoading(false)
@@ -170,14 +183,16 @@ export default function SearchPage() {
       if (controller.signal.aborted) return
       const json = await res.json()
       const data: PtCard[] = json.data ?? []
+      const sorted = sortByRelevance(data, name)
       setBlocked(false)
-      setResults(sortByRelevance(data, name))
-      setCommittedQuery(raw.trim())
-      if (data.length > 0) {
+      setResults(sorted)
+      if (sorted.length > 0) {
+        setStaleResults(sorted)
         cacheSet(key, data)
         // Only count fresh, successful API calls toward the anon limit
-        if (isLoggedIn === false) incrementAnonSearchCount()
+        if (isLoggedInRef.current === false) incrementAnonSearchCount()
       }
+      setCommittedQuery(raw.trim())
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return
       setResults([])
@@ -185,7 +200,7 @@ export default function SearchPage() {
     } finally {
       if (!controller.signal.aborted) setLoading(false)
     }
-  }, [isLoggedIn])
+  }, []) // stable — reads isLoggedIn via ref, never recreated
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -194,6 +209,7 @@ export default function SearchPage() {
       // Abort any in-flight fetch immediately when the box is cleared
       if (abortRef.current) abortRef.current.abort()
       setResults([])
+      setStaleResults([])
       setCommittedQuery('')
       setLoading(false)
       return
@@ -229,9 +245,13 @@ export default function SearchPage() {
   }
 
   function clearSearch() {
-    setQuery(''); setResults([]); setCommittedQuery('')
+    setQuery(''); setResults([]); setStaleResults([]); setCommittedQuery('')
     inputRef.current?.focus()
   }
+
+  // While a new search is loading, keep showing the previous results so the
+  // list never flashes to empty mid-type.
+  const displayResults = results.length > 0 ? results : (loading ? staleResults : [])
 
   const { name: parsedName, number: parsedNumber } = parseQuery(query)
   const showHint = parsedNumber !== null && query.trim().length >= MIN_CHARS
@@ -372,7 +392,7 @@ export default function SearchPage() {
         )}
 
         {/* Results list */}
-        {!blocked && results.length > 0 && (
+        {!blocked && displayResults.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: showHint ? 0 : 16 }}>
             <p style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 4, paddingLeft: 2 }}>
               {results.length} result{results.length !== 1 ? 's' : ''}
@@ -389,7 +409,7 @@ export default function SearchPage() {
               </div>
             )}
 
-            {results.map(card => {
+            {displayResults.map(card => {
               const isSelected = selectedCard?.id === card.id
               const variant = card.variant && card.variant !== 'Normal'
                 ? VARIANT_LABELS[card.variant] ?? card.variant

@@ -96,6 +96,36 @@ body {
   }
 }
 
+/* ── Global mobile baseline ── */
+@media (max-width: 640px) {
+  /* Prevent horizontal overflow */
+  body { overflow-x: hidden; }
+
+  /* Comfortable page-level side padding */
+  .ci-page-outer { padding-left: 14px !important; padding-right: 14px !important; }
+
+  /* Surface cards: tighter padding on mobile */
+  .ci-card-surface { border-radius: 14px !important; }
+
+  /* Inputs: prevent iOS zoom by keeping font >= 16px */
+  input, select, textarea { font-size: 16px !important; }
+
+  /* Better touch targets for icon buttons */
+  button { min-height: 40px; }
+
+  /* Headings scale down */
+  h1 { font-size: clamp(20px, 6vw, 28px) !important; }
+  h2 { font-size: clamp(16px, 4vw, 22px) !important; }
+
+  /* Horizontal scroll containers: momentum + hide scrollbar */
+  .scroll-x {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .scroll-x::-webkit-scrollbar { display: none; }
+}
+
 /* Watchlist responsive grid */
 .wl-row,
 .wl-header {

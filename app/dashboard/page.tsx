@@ -446,77 +446,40 @@ export default function Dashboard() {
 
         @media (max-width: 640px) {
           /* Make the outer column a flex container so order works on all children */
-          .dash-content { display: flex !important; flex-direction: column; }
+          .dash-content { display: flex !important; flex-direction: column; gap: 10px; }
 
           /* Dissolve the two-col wrapper so watchlist & top-rising become direct flex children */
           .dash-two-col { display: contents !important; }
 
-          /* ── Order ── */
-          .dash-pf-snap          { order: 1; }
-          .dash-quick-actions    { order: 2; }
-          .dash-watchlist        { order: 3; }
-          .dash-recently-searched{ order: 4; }
-          .dash-top-rising       { order: 5; }
+          /* ── Quick actions hidden on mobile — same functions live in bottom nav ── */
+          .dash-quick-actions { display: none !important; }
 
-          /* Space between cards */
-          .dash-watchlist,
-          .dash-top-rising,
-          .dash-recently-searched { margin-bottom: 12px; }
+          /* ── Order (quick actions removed) ── */
+          .dash-pf-snap           { order: 1; }
+          .dash-watchlist         { order: 2; }
+          .dash-recently-searched { order: 3; }
+          .dash-top-rising        { order: 4; }
 
           /* ── Portfolio snapshot: stack cells vertically → taller card ── */
           .dash-pf-snap {
             grid-template-columns: 1fr !important;
-            margin-bottom: 12px;
+            margin-bottom: 0;
           }
           .dash-pf-snap > div:first-child {
             border-right: none !important;
             border-bottom: 1px solid var(--border);
-            padding: 20px 20px 16px !important;
+            padding: 18px 16px 14px !important;
           }
           .dash-pf-snap > div:last-child {
-            padding: 16px 20px 20px !important;
+            padding: 14px 16px 18px !important;
           }
 
-          /* ── Quick actions: horizontal scroll pill row ── */
-          .dash-quick-actions {
-            display: flex !important;
-            flex-direction: row !important;
-            overflow-x: auto;
-            flex-wrap: nowrap;
-            gap: 8px !important;
-            padding-bottom: 2px;
-            -webkit-overflow-scrolling: touch;
-            scrollbar-width: none;
-            margin-bottom: 12px;
+          /* Tighten up section inner padding on mobile */
+          .dash-watchlist,
+          .dash-top-rising,
+          .dash-recently-searched {
+            border-radius: 14px;
           }
-          .dash-quick-actions::-webkit-scrollbar { display: none; }
-
-          /* Each pill item */
-          .dash-quick-actions > a {
-            flex-direction: row !important;
-            align-items: center !important;
-            padding: 10px 16px !important;
-            gap: 8px !important;
-            border-radius: 99px !important;
-            flex-shrink: 0;
-            width: auto !important;
-          }
-          /* Hide the large icon box, show a tiny inline icon */
-          .dash-quick-actions > a > div:first-child {
-            width: 28px !important;
-            height: 28px !important;
-            border-radius: 50% !important;
-            flex-shrink: 0;
-          }
-          /* Label row: hide description */
-          .dash-quick-actions > a > div:last-child > div:last-child {
-            display: none !important;
-          }
-          .dash-quick-actions > a > div:last-child > div:first-child {
-            font-size: 13px !important;
-            margin-bottom: 0 !important;
-          }
-          .dash-qa-account { grid-column: unset !important; }
         }
       `}</style>
     </>

@@ -179,6 +179,11 @@ const PAGE_STYLES = `
   .ci-grade-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
   .ci-analysis-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 
+  /* Analytics grid helpers */
+  .ci-adv-4col { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .ci-adv-3col { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .ci-adv-2col { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+
   @media (max-width: 700px) {
     .ci-controls { grid-template-columns: 1fr; }
     .ci-sum-grid  { grid-template-columns: repeat(2, 1fr); }
@@ -199,6 +204,19 @@ const PAGE_STYLES = `
     .ci-section { margin-bottom: 8px !important; }
     .ci-pc-row { grid-template-columns: 1fr 1fr !important; }
     .ci-pc-row > div:last-child { grid-column: 1 / -1; }
+
+    /* Analytics grids: collapse 4→2 col, 3→2 col on mobile */
+    .ci-adv-4col { grid-template-columns: repeat(2, 1fr) !important; }
+    .ci-adv-3col { grid-template-columns: repeat(2, 1fr) !important; }
+
+    /* Analytics panel inner padding */
+    .ci-card-surface > div { padding: 14px 14px !important; }
+
+    /* Grade premium: allow label to wrap */
+    .ci-grade-label { white-space: normal !important; font-size: 11px !important; }
+
+    /* Bottom nav extra clearance on card page */
+    .ci-main { padding-bottom: 100px !important; }
   }
 
   @media (min-width: 701px) {
@@ -1409,7 +1427,7 @@ export default function CardPage() {
                                   {signal === 'BULLISH' ? '▲' : signal === 'BEARISH' ? '▼' : '●'} {signal}
                                 </span>
                               </div>
-                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                              <div className="ci-adv-4col">
                                 {([{ label: 'CURRENT', value: cur, highlight: true }, { label: '1D AVG', value: a1 }, { label: '7D AVG', value: a7 }, { label: '30D AVG', value: a30 }] as { label: string; value: number | null | undefined; highlight?: boolean }[]).map((m, i) => (
                                   <div key={i} style={{ borderRadius: 10, padding: '12px 14px', background: m.highlight ? 'rgba(232,197,71,0.06)' : 'var(--bg)', border: `1px solid ${m.highlight ? 'rgba(232,197,71,0.2)' : 'var(--border)'}` }}>
                                     <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6 }}>{m.label}</div>
@@ -1449,7 +1467,7 @@ export default function CardPage() {
                                   <div style={{ position: 'absolute', left: `${Math.min(volPct / 60 * 100, 96)}%`, top: '50%', transform: 'translate(-50%, -50%)', width: 13, height: 13, borderRadius: '50%', background: 'var(--surface)', border: `2px solid ${volColor}`, boxShadow: `0 0 6px ${volColor}80` }} />
                                 </div>
                               </div>
-                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                              <div className="ci-adv-4col">
                                 {[{ label: 'STD DEV', value: fmtCurrency(stdDev) }, { label: 'VOLATILITY', value: `${volPct.toFixed(1)}%` }, { label: 'RANGE', value: fmtCurrency(maxP - minP) }, { label: 'MEAN PRICE', value: fmtCurrency(mean) }].map((m, i) => (
                                   <div key={i} style={{ borderRadius: 8, padding: '10px 12px', background: 'var(--bg)', border: '1px solid var(--border)' }}>
                                     <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 4 }}>{m.label}</div>
@@ -1609,7 +1627,7 @@ export default function CardPage() {
                           <div style={{ ...aC }} className="ci-card-surface">
                             <div style={{ ...aP }}>
                               <span style={{ ...aL }}>DATA CONFIDENCE & QUALITY</span>
-                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                              <div className="ci-adv-3col" style={{ gap: 10 }}>
                                 <div style={{ borderRadius: 10, padding: '12px 14px', background: conf ? confBg : 'var(--bg)', border: `1px solid ${conf ? confBorder : 'var(--border)'}` }}>
                                   <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6 }}>CONFIDENCE</div>
                                   <div style={{ fontSize: 14, fontWeight: 700, color: confColor, textTransform: 'capitalize' }}>{conf ?? 'Unknown'}</div>
@@ -1689,7 +1707,7 @@ export default function CardPage() {
                                 <span style={{ ...aL, marginBottom: 0 }}>PRICE VELOCITY</span>
                                 <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 99, background: velBg, border: `1px solid ${velBorder}`, color: velColor }}>{velLabel}</span>
                               </div>
-                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                              <div className="ci-adv-3col">
                                 {[
                                   { label: 'CURRENT',      value: fmtCurrency(liveData.price), highlight: true },
                                   { label: 'PROJ. 30D',    value: fmtCurrency(proj30d),        color: proj30d > liveData.price ? 'var(--green)' : '#ff6b6b' },
@@ -2651,7 +2669,7 @@ export default function CardPage() {
                           {signal === 'BULLISH' ? '▲' : signal === 'BEARISH' ? '▼' : '●'} {signal}
                         </span>
                       </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                      <div className="ci-adv-4col">
                         {([
                           { label: 'CURRENT', value: cur, highlight: true },
                           { label: '1D AVG',  value: a1 },
@@ -2708,7 +2726,7 @@ export default function CardPage() {
                           <div style={{ position: 'absolute', left: `${Math.min(volPct / 60 * 100, 96)}%`, top: '50%', transform: 'translate(-50%, -50%)', width: 13, height: 13, borderRadius: '50%', background: 'var(--surface)', border: `2px solid ${volColor}`, boxShadow: `0 0 6px ${volColor}80` }} />
                         </div>
                       </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                      <div className="ci-adv-4col">
                         {[
                           { label: 'STD DEV',    value: fmtCurrency(stdDev) },
                           { label: 'VOLATILITY', value: `${volPct.toFixed(1)}%` },
@@ -2906,7 +2924,7 @@ export default function CardPage() {
                   <div style={{ ...C }} className="ci-card-surface">
                     <div style={{ ...P }}>
                       <span style={{ ...L }}>DATA CONFIDENCE & QUALITY</span>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                      <div className="ci-adv-3col" style={{ gap: 10 }}>
                         <div style={{ borderRadius: 10, padding: '12px 14px', background: conf ? confBg : 'var(--bg)', border: `1px solid ${conf ? confBorder : 'var(--border)'}` }}>
                           <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6 }}>CONFIDENCE</div>
                           <div style={{ fontSize: 14, fontWeight: 700, color: confColor, textTransform: 'capitalize' }}>{conf ?? 'Unknown'}</div>
@@ -2943,7 +2961,7 @@ export default function CardPage() {
                         <span style={{ ...L, marginBottom: 0 }}>PRICE VELOCITY</span>
                         <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 99, background: velBg, border: `1px solid ${velBorder}`, color: velColor }}>{velLabel}</span>
                       </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                      <div className="ci-adv-3col">
                         {[
                           { label: 'CURRENT',      value: fmtCurrency(liveData.price), highlight: true },
                           { label: 'PROJ. 30D',    value: fmtCurrency(proj30d),        color: proj30d > liveData.price ? 'var(--green)' : '#ff6b6b' },

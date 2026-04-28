@@ -221,7 +221,7 @@ export default function Navbar() {
           .nav-desktop { display: none !important; }
           .nav-hamburger { display: flex !important; }
           /* push page content above the bottom nav */
-          main { padding-bottom: calc(72px + env(safe-area-inset-bottom)) !important; }
+          main { padding-bottom: calc(92px + env(safe-area-inset-bottom)) !important; }
         }
         @media (min-width: 641px) {
           .nav-drawer { display: none !important; }

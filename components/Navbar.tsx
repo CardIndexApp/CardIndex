@@ -221,7 +221,7 @@ export default function Navbar() {
           .nav-desktop { display: none !important; }
           .nav-hamburger { display: flex !important; }
           /* push page content above the bottom nav */
-          main { padding-bottom: calc(92px + env(safe-area-inset-bottom)) !important; }
+          main { padding-bottom: calc(108px + env(safe-area-inset-bottom)) !important; }
         }
         @media (min-width: 641px) {
           .nav-drawer { display: none !important; }
@@ -238,10 +238,10 @@ export default function Navbar() {
           borderTop: '1px solid rgba(255,255,255,0.07)',
           display: 'flex', alignItems: 'stretch',
           paddingBottom: 'env(safe-area-inset-bottom)',
-          height: 'calc(68px + env(safe-area-inset-bottom))',
+          height: 'calc(84px + env(safe-area-inset-bottom))',
         }}>
           {/* Dashboard */}
-          <Link href="/dashboard" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, textDecoration: 'none', color: pathname === '/dashboard' ? 'var(--gold)' : 'rgba(255,255,255,0.35)', paddingBottom: 2 }}>
+          <Link href="/dashboard" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, textDecoration: 'none', color: pathname === '/dashboard' ? 'var(--gold)' : 'rgba(255,255,255,0.35)', paddingBottom: 8 }}>
             <svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={pathname === '/dashboard' ? 2 : 1.6} strokeLinecap="round" strokeLinejoin="round">
               <rect x="2" y="2" width="7" height="7" rx="1.5"/>
               <rect x="11" y="2" width="7" height="7" rx="1.5"/>
@@ -252,7 +252,7 @@ export default function Navbar() {
           </Link>
 
           {/* Portfolio */}
-          <Link href="/portfolio" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, textDecoration: 'none', color: pathname === '/portfolio' ? 'var(--gold)' : 'rgba(255,255,255,0.35)', paddingBottom: 2 }}>
+          <Link href="/portfolio" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, textDecoration: 'none', color: pathname === '/portfolio' ? 'var(--gold)' : 'rgba(255,255,255,0.35)', paddingBottom: 8 }}>
             <svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={pathname === '/portfolio' ? 2 : 1.6} strokeLinecap="round" strokeLinejoin="round">
               <rect x="2" y="13" width="4" height="6" rx="0.5"/>
               <rect x="8" y="8"  width="4" height="11" rx="0.5"/>
@@ -262,7 +262,7 @@ export default function Navbar() {
           </Link>
 
           {/* Search — raised centre FAB */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, paddingBottom: 2 }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, paddingBottom: 8 }}>
             <Link href="/search" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 46, height: 46, borderRadius: '50%', background: pathname === '/search' ? 'var(--gold)' : 'rgba(232,197,71,0.12)', border: `1.5px solid ${pathname === '/search' ? 'var(--gold)' : 'rgba(232,197,71,0.3)'}`, color: pathname === '/search' ? '#080810' : 'var(--gold)', boxShadow: pathname === '/search' ? '0 4px 20px rgba(232,197,71,0.35)' : '0 2px 12px rgba(232,197,71,0.15)', textDecoration: 'none' }}>
               <svg width="19" height="19" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="6.5" cy="6.5" r="4.5"/><path d="M14 14l-3-3"/>
@@ -272,7 +272,7 @@ export default function Navbar() {
           </div>
 
           {/* Market */}
-          <Link href="/market" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, textDecoration: 'none', color: pathname === '/market' ? 'var(--gold)' : 'rgba(255,255,255,0.35)', paddingBottom: 2 }}>
+          <Link href="/market" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, textDecoration: 'none', color: pathname === '/market' ? 'var(--gold)' : 'rgba(255,255,255,0.35)', paddingBottom: 8 }}>
             <svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={pathname === '/market' ? 2 : 1.6} strokeLinecap="round" strokeLinejoin="round">
               <polyline points="2 14 7 8 11 11 18 4"/>
               <polyline points="14 4 18 4 18 8"/>
@@ -281,7 +281,7 @@ export default function Navbar() {
           </Link>
 
           {/* Account */}
-          <Link href="/account" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, textDecoration: 'none', color: pathname === '/account' ? 'var(--gold)' : 'rgba(255,255,255,0.35)', paddingBottom: 2 }}>
+          <Link href="/account" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, textDecoration: 'none', color: pathname === '/account' ? 'var(--gold)' : 'rgba(255,255,255,0.35)', paddingBottom: 8 }}>
             <svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={pathname === '/account' ? 2 : 1.6} strokeLinecap="round" strokeLinejoin="round">
               <circle cx="10" cy="6" r="3.5"/>
               <path d="M3 18c0-3.9 3.1-7 7-7s7 3.1 7 7"/>

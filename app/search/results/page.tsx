@@ -69,11 +69,11 @@ function CardImage({ src, alt }: { src: string; alt: string }) {
   if (failed || !src) {
     return (
       <div style={{
-        width: '100%', paddingBottom: '140%', borderRadius: 8,
+        width: '100%', height: '100%', borderRadius: 8,
         background: 'var(--surface2)', display: 'flex', alignItems: 'center',
-        justifyContent: 'center', fontSize: 28, position: 'relative',
+        justifyContent: 'center', fontSize: 28,
       }}>
-        <span style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)' }}>🃏</span>
+        🃏
       </div>
     )
   }
@@ -81,7 +81,7 @@ function CardImage({ src, alt }: { src: string; alt: string }) {
     <img
       src={src} alt={alt}
       onError={() => setFailed(true)}
-      style={{ width: '100%', borderRadius: 8, display: 'block', background: 'var(--surface2)' }}
+      style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8, display: 'block', background: 'var(--surface2)' }}
     />
   )
 }
@@ -424,7 +424,7 @@ function SearchResultsInner() {
         .res-grid {
           display: grid;
           grid-template-columns: repeat(5, 1fr);
-          gap: 16px;
+          gap: 18px;
         }
 
         .res-grid-item {
@@ -435,6 +435,7 @@ function SearchResultsInner() {
         /* Card button — vertical card layout on all breakpoints */
         .res-card-btn {
           width: 100%;
+          height: 100%;
           background: var(--surface);
           border-radius: 12px;
           padding: 10px;
@@ -456,6 +457,8 @@ function SearchResultsInner() {
           border-radius: 8px;
           overflow: hidden;
           background: var(--surface2);
+          /* Explicit image area — card ratio ≈ 1.4:1 */
+          aspect-ratio: 5 / 7;
         }
 
         .res-card-meta {

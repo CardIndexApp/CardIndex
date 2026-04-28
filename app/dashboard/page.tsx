@@ -266,13 +266,13 @@ export default function Dashboard() {
 
           {/* ── Portfolio Snapshot ── */}
           {portfolioStats && portfolioStats.posCount > 0 && (() => {
-            const rate       = rates[currency] ?? 1
-            const costLocal  = portfolioStats.costBasis * rate
+            // fmtCurrency handles USD→local conversion internally — do NOT pre-multiply by rate
+            const costUSD    = portfolioStats.costBasis
             const hasPrices  = portfolioStats.cachedCount > 0
-            const valueLocal = portfolioStats.currentValue * rate
-            const pnlLocal   = hasPrices ? valueLocal - costLocal : null
-            const pnlPct     = pnlLocal != null && costLocal > 0 ? (pnlLocal / costLocal) * 100 : null
-            const pnlPos     = pnlLocal == null ? null : pnlLocal >= 0
+            const valueUSD   = portfolioStats.currentValue
+            const pnlUSD     = hasPrices ? valueUSD - costUSD : null
+            const pnlPct     = pnlUSD != null && costUSD > 0 ? (pnlUSD / costUSD) * 100 : null
+            const pnlPos     = pnlUSD == null ? null : pnlUSD >= 0
             return (
               <Link href="/portfolio" className="dash-pf-snap" style={{ textDecoration: 'none', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0, marginBottom: 16, borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden', transition: 'border-color 0.15s' }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(61,232,138,0.3)' }}
@@ -282,7 +282,7 @@ export default function Dashboard() {
                 <div style={{ padding: '14px 20px', borderRight: '1px solid var(--border)' }}>
                   <div style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', marginBottom: 5, fontWeight: 600 }}>TOTAL VALUE</div>
                   {hasPrices ? (
-                    <div className="font-num" style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)' }}>{fmtCurrency(valueLocal)}</div>
+                    <div className="font-num" style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)' }}>{fmtCurrency(valueUSD)}</div>
                   ) : (
                     <div className="font-num" style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink3)' }}>—</div>
                   )}
@@ -294,10 +294,10 @@ export default function Dashboard() {
                 {/* Total P&L */}
                 <div style={{ padding: '14px 20px' }}>
                   <div style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', marginBottom: 5, fontWeight: 600 }}>TOTAL P&amp;L</div>
-                  {pnlLocal != null ? (
+                  {pnlUSD != null ? (
                     <>
                       <div className="font-num" style={{ fontSize: 20, fontWeight: 700, color: pnlPos ? 'var(--green)' : '#ff6b6b' }}>
-                        {pnlPos ? '+' : '−'}{fmtCurrency(Math.abs(pnlLocal))}
+                        {pnlPos ? '+' : '−'}{fmtCurrency(Math.abs(pnlUSD))}
                       </div>
                       <div style={{ fontSize: 10, color: pnlPos ? 'var(--green)' : '#ff6b6b', marginTop: 3, opacity: 0.8 }}>
                         {pnlPos ? '+' : ''}{pnlPct?.toFixed(1)}%

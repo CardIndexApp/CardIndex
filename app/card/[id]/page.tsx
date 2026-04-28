@@ -1616,41 +1616,36 @@ export default function CardPage() {
                       {/* 5 — Grade Premium Comparison */}
                       {liveData.all_tier_prices && Object.keys(liveData.all_tier_prices).length > 1 && (() => {
                         const tiers = liveData.all_tier_prices as Record<string, { avg: number; source: string; saleCount?: number }>
-                        const fmtTierLabel = (k: string) => k.includes('_') ? k.split('_').map((w: string) => w.charAt(0) + w.slice(1).toLowerCase()).join(' ') : k
-                        const currentKey = liveData.resolved_tier ?? (selectedGrade === 'RAW' ? 'Raw' : `PSA ${selectedGrade}`)
-                        const currentAvg = tiers[currentKey]?.avg ?? liveData.price
-                        const entries = Object.entries(tiers).filter(([k, v]) => k !== 'AGGREGATED' && v.avg > 0).sort(([, a], [, b]) => b.avg - a.avg)
-                        if (!entries.length) return null
+                        const psa10 = tiers['PSA_10']?.avg ?? 0
+                        const psa9  = tiers['PSA_9']?.avg  ?? 0
+                        const nm    = tiers['NEAR_MINT']?.avg ?? 0
+                        const lp    = tiers['LIGHTLY_PLAYED']?.avg ?? 0
+                        const psa10Premium = (psa10 > 0 && nm > 0) ? psa10 / nm : null
+                        const psa9of10     = (psa9  > 0 && psa10 > 0) ? psa9 / psa10 : null
+                        const mintPremium  = (nm > 0 && lp > 0) ? nm / lp : null
+                        // Only render if we have at least one PSA entry
+                        const hasPSA = Object.keys(tiers).some(k => k.startsWith('PSA_'))
+                        if (!hasPSA) return null
+                        const fmtMult = (v: number | null) => v == null ? 'n/a' : `${v.toFixed(2)}x`
                         return (
                           <div style={{ ...aC }} className="ci-card-surface">
                             <div style={{ ...aP }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14 }}>
                                 <span style={{ ...aL, marginBottom: 0 }}>GRADE PREMIUM COMPARISON</span>
-                                <TileInfo id="adv-5" text="Market prices across all available condition grades. The bar width shows each grade's price relative to the top grade, helping you evaluate whether upgrading your grade is worth the premium." activeTip={activeTip} setActiveTip={setActiveTip} inline />
+                                <TileInfo id="adv-5" text="How much more a PSA 10 commands over raw Near Mint, and how Near Mint compares to Lightly Played. Helps you decide whether grading is worth the cost." activeTip={activeTip} setActiveTip={setActiveTip} inline />
                               </div>
-                              {entries.map(([grade, data], i) => {
-                                const isCurrent = grade === currentKey
-                                const premiumPct = currentAvg > 0 ? ((data.avg - currentAvg) / currentAvg) * 100 : 0
-                                const topAvg = entries[0][1].avg
-                                return (
-                                  <div key={grade} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: i < entries.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, width: 110, flexShrink: 0 }}>
-                                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: isCurrent ? 'var(--gold)' : 'var(--border2)', flexShrink: 0 }} />
-                                      <span style={{ fontSize: 12, fontWeight: isCurrent ? 700 : 400, color: isCurrent ? 'var(--gold)' : 'var(--ink2)' }}>{fmtTierLabel(grade)}</span>
-                                    </div>
-                                    <div style={{ flex: 1 }}>
-                                      <div style={{ height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.05)', overflow: 'hidden' }}>
-                                        <div style={{ height: '100%', width: `${topAvg > 0 ? (data.avg / topAvg) * 100 : 0}%`, background: isCurrent ? 'var(--gold)' : 'rgba(255,255,255,0.2)', borderRadius: 2 }} />
-                                      </div>
-                                    </div>
-                                    <div style={{ textAlign: 'right', minWidth: 80, flexShrink: 0 }}>
-                                      <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: isCurrent ? 'var(--gold)' : 'var(--ink)' }}>{fmtCurrency(data.avg)}</div>
-                                      <div style={{ fontSize: 9, color: isCurrent ? 'var(--ink3)' : premiumPct > 0 ? 'var(--green)' : '#ff6b6b' }}>{isCurrent ? 'your grade' : `${premiumPct > 0 ? '+' : ''}${premiumPct.toFixed(0)}% vs yours`}</div>
-                                    </div>
-                                    {data.saleCount != null && <div style={{ fontSize: 9, color: 'var(--ink3)', width: 40, textAlign: 'right', flexShrink: 0 }}>{data.saleCount} sales</div>}
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                                {[
+                                  { label: 'PSA 10 PREMIUM', value: fmtMult(psa10Premium) },
+                                  { label: 'PSA 9 / 10',     value: fmtMult(psa9of10) },
+                                  { label: 'MINT PREMIUM',   value: fmtMult(mintPremium) },
+                                ].map(({ label, value }) => (
+                                  <div key={label} style={{ borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)', padding: '12px 14px' }}>
+                                    <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6 }}>{label}</div>
+                                    <div className="font-num" style={{ fontSize: 22, fontWeight: 700, color: value === 'n/a' ? 'var(--ink3)' : 'var(--ink)' }}>{value}</div>
                                   </div>
-                                )
-                              })}
+                                ))}
+                              </div>
                             </div>
                           </div>
                         )
@@ -2398,13 +2393,14 @@ export default function CardPage() {
                 {liveData.all_tier_prices && Object.keys(liveData.all_tier_prices).length > 0 && (() => {
                   const tiers = liveData.all_tier_prices!
                   const resolvedTier = liveData.resolved_tier ?? ''
+                  // Only show PSA graded entries
                   const gradedEntries = Object.entries(tiers)
-                    .filter(([k]) => !RAW_TIER_KEYS.has(k) && k !== 'AGGREGATED')
+                    .filter(([k]) => k.startsWith('PSA_'))
                     .sort(([, a], [, b]) => b.avg - a.avg)
+                  // Only show Near Mint for raw
                   const rawEntries = Object.entries(tiers)
-                    .filter(([k]) => RAW_TIER_KEYS.has(k))
+                    .filter(([k]) => k === 'NEAR_MINT')
                     .sort(([, a], [, b]) => b.avg - a.avg)
-                  const marketEntry = tiers['AGGREGATED']
 
                   const TierRow = ({ tierKey, data }: { tierKey: string; data: { avg: number; source: string; saleCount?: number } }) => {
                     const isActive = tierKey === resolvedTier
@@ -2437,6 +2433,8 @@ export default function CardPage() {
                     )
                   }
 
+                  if (gradedEntries.length === 0 && rawEntries.length === 0) return null
+
                   return (
                     <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', padding: '20px', marginBottom: 10 }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
@@ -2448,22 +2446,15 @@ export default function CardPage() {
 
                       {gradedEntries.length > 0 && (
                         <>
-                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8, paddingLeft: 4 }}>GRADED</div>
+                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8, paddingLeft: 4 }}>PSA GRADED</div>
                           {gradedEntries.map(([k, v]) => <TierRow key={k} tierKey={k} data={v} />)}
                         </>
                       )}
 
                       {rawEntries.length > 0 && (
                         <>
-                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginTop: gradedEntries.length > 0 ? 14 : 0, marginBottom: 8, paddingLeft: 4 }}>RAW / UNGRADED</div>
+                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginTop: gradedEntries.length > 0 ? 14 : 0, marginBottom: 8, paddingLeft: 4 }}>RAW</div>
                           {rawEntries.map(([k, v]) => <TierRow key={k} tierKey={k} data={v} />)}
-                        </>
-                      )}
-
-                      {marketEntry && (
-                        <>
-                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginTop: 14, marginBottom: 8, paddingLeft: 4 }}>MARKET</div>
-                          <TierRow tierKey="AGGREGATED" data={marketEntry} />
                         </>
                       )}
 
@@ -3181,48 +3172,34 @@ export default function CardPage() {
               {/* 5 — Grade Premium Table */}
               {liveData?.all_tier_prices && Object.keys(liveData.all_tier_prices).length > 1 && (() => {
                 const tiers = liveData.all_tier_prices as Record<string, { avg: number; source: string; saleCount?: number }>
-                const fmtTierLabel = (k: string) => k.includes('_') ? k.split('_').map((w: string) => w.charAt(0) + w.slice(1).toLowerCase()).join(' ') : k
-                const currentKey = liveData?.resolved_tier ?? (selectedGrade === 'RAW' ? 'Raw' : `PSA ${selectedGrade}`)
-                const currentAvg = tiers[currentKey]?.avg ?? liveData?.price
-                const entries = Object.entries(tiers)
-                  .filter(([k, v]) => k !== 'AGGREGATED' && v.avg > 0)
-                  .sort(([, a], [, b]) => b.avg - a.avg)
-                if (!entries.length) return null
+                const hasPSA = Object.keys(tiers).some(k => k.startsWith('PSA_'))
+                if (!hasPSA) return null
+                const psa10 = tiers['PSA_10']?.avg ?? 0
+                const psa9  = tiers['PSA_9']?.avg  ?? 0
+                const nm    = tiers['NEAR_MINT']?.avg ?? 0
+                const lp    = tiers['LIGHTLY_PLAYED']?.avg ?? 0
+                const psa10Premium = (psa10 > 0 && nm > 0) ? psa10 / nm : null
+                const psa9of10     = (psa9  > 0 && psa10 > 0) ? psa9 / psa10 : null
+                const mintPremium  = (nm > 0 && lp > 0) ? nm / lp : null
+                const fmtMult = (v: number | null) => v == null ? 'n/a' : `${v.toFixed(2)}x`
                 return (
                   <div style={{ ...C }} className="ci-card-surface">
                     <div style={{ ...P }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14 }}>
                         <span style={{ ...L, marginBottom: 0 }}>GRADE PREMIUM COMPARISON</span>
-                        <TileInfo id="adv-5" text="Market prices across all available condition grades. The bar width shows each grade's price relative to the top grade, helping you evaluate whether upgrading your grade is worth the premium." activeTip={activeTip} setActiveTip={setActiveTip} inline />
+                        <TileInfo id="adv-5" text="How much more a PSA 10 commands over raw Near Mint, and how Near Mint compares to Lightly Played. Helps you decide whether grading is worth the cost." activeTip={activeTip} setActiveTip={setActiveTip} inline />
                       </div>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        {entries.map(([grade, data], i) => {
-                          const isCurrent = grade === currentKey
-                          const premiumPct = currentAvg > 0 ? ((data.avg - currentAvg) / currentAvg) * 100 : 0
-                          const topAvg = entries[0][1].avg
-                          return (
-                            <div key={grade} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: i < entries.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 7, width: 110, flexShrink: 0 }}>
-                                <span style={{ width: 6, height: 6, borderRadius: '50%', background: isCurrent ? 'var(--gold)' : 'var(--border2)', flexShrink: 0 }} />
-                                <span style={{ fontSize: 12, fontWeight: isCurrent ? 700 : 400, color: isCurrent ? 'var(--gold)' : 'var(--ink2)' }}>{fmtTierLabel(grade)}</span>
-                              </div>
-                              <div style={{ flex: 1 }}>
-                                <div style={{ height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.05)', overflow: 'hidden' }}>
-                                  <div style={{ height: '100%', width: `${topAvg > 0 ? (data.avg / topAvg) * 100 : 0}%`, background: isCurrent ? 'var(--gold)' : 'rgba(255,255,255,0.2)', borderRadius: 2 }} />
-                                </div>
-                              </div>
-                              <div style={{ textAlign: 'right', minWidth: 80, flexShrink: 0 }}>
-                                <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: isCurrent ? 'var(--gold)' : 'var(--ink)' }}>{fmtCurrency(data.avg)}</div>
-                                <div style={{ fontSize: 9, color: isCurrent ? 'var(--ink3)' : premiumPct > 0 ? 'var(--green)' : '#ff6b6b' }}>
-                                  {isCurrent ? 'your grade' : `${premiumPct > 0 ? '+' : ''}${premiumPct.toFixed(0)}% vs yours`}
-                                </div>
-                              </div>
-                              {data.saleCount != null && (
-                                <div style={{ fontSize: 9, color: 'var(--ink3)', width: 40, textAlign: 'right', flexShrink: 0 }}>{data.saleCount} sales</div>
-                              )}
-                            </div>
-                          )
-                        })}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                        {[
+                          { label: 'PSA 10 PREMIUM', value: fmtMult(psa10Premium) },
+                          { label: 'PSA 9 / 10',     value: fmtMult(psa9of10) },
+                          { label: 'MINT PREMIUM',   value: fmtMult(mintPremium) },
+                        ].map(({ label, value }) => (
+                          <div key={label} style={{ borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)', padding: '12px 14px' }}>
+                            <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6 }}>{label}</div>
+                            <div className="font-num" style={{ fontSize: 22, fontWeight: 700, color: value === 'n/a' ? 'var(--ink3)' : 'var(--ink)' }}>{value}</div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>

@@ -36,6 +36,7 @@ type Era = {
   match: (slug: string, name: string) => boolean
 }
 
+// Ordered newest → oldest
 const ERAS: Era[] = [
   {
     id: 'sv',
@@ -86,7 +87,7 @@ const ERAS: Era[] = [
   {
     id: 'bw',
     label: 'Black & White',
-    color: '#888',
+    color: '#aaa',
     match: (s) =>
       s.startsWith('bw') || s.includes('black-white') || s.includes('emerging-powers') ||
       s.includes('noble-victories') || s.includes('next-destinies') || s.includes('dark-explorers') ||
@@ -168,9 +169,9 @@ function classifyEra(slug: string, name: string): string {
   return 'promo'
 }
 
-// ── Grade constants ────────────────────────────────────────────────────────────
+// ── Grades ─────────────────────────────────────────────────────────────────────
 
-const EN_GRADES = [
+const PSA_GRADES = [
   { label: 'Raw',    sub: 'Ungraded'  },
   { label: 'PSA 10', sub: 'Gem Mint'  },
   { label: 'PSA 9',  sub: 'Mint'      },
@@ -184,20 +185,6 @@ const EN_GRADES = [
   { label: 'PSA 1',  sub: 'Poor'      },
 ]
 
-const JP_GRADES = [
-  { label: 'Raw',    sub: 'Ungraded' },
-  { label: 'PSA 10', sub: 'Gem Mint' },
-  { label: 'PSA 9',  sub: 'Mint'     },
-  { label: 'PSA 8',  sub: 'NM-Mint'  },
-  { label: 'PSA 7',  sub: 'Near Mint'},
-  { label: 'PSA 6',  sub: 'Ex-Mt'    },
-  { label: 'PSA 5',  sub: 'Excellent'},
-  { label: 'PSA 4',  sub: 'VG-Ex'    },
-  { label: 'PSA 3',  sub: 'Very Good'},
-  { label: 'PSA 2',  sub: 'Good'     },
-  { label: 'PSA 1',  sub: 'Poor'     },
-]
-
 const VARIANT_LABELS: Record<string, string> = {
   Holofoil:               'Holo',
   Normal:                 'Normal',
@@ -207,23 +194,14 @@ const VARIANT_LABELS: Record<string, string> = {
   Unlimited:              'Unlimited',
 }
 
-// ── Card thumbnail ─────────────────────────────────────────────────────────────
+// ── Small helpers ──────────────────────────────────────────────────────────────
 
-function CardThumb({ src, alt, width = 48, height = 67 }: { src: string; alt: string; width?: number; height?: number }) {
+function CardThumb({ src, alt }: { src: string; alt: string }) {
   const [failed, setFailed] = useState(false)
-  if (failed || !src) {
-    return (
-      <div style={{
-        width, height, borderRadius: 6, flexShrink: 0,
-        background: 'var(--surface2)',
-      }} />
-    )
-  }
+  if (failed || !src) return <div style={{ width: 48, height: 67, borderRadius: 6, flexShrink: 0, background: 'var(--surface2)' }} />
   return (
-    <img
-      src={src} alt={alt} onError={() => setFailed(true)}
-      style={{ width, height, objectFit: 'contain', borderRadius: 6, flexShrink: 0, background: 'var(--surface2)' }}
-    />
+    <img src={src} alt={alt} onError={() => setFailed(true)}
+      style={{ width: 48, height: 67, objectFit: 'contain', borderRadius: 6, flexShrink: 0, background: 'var(--surface2)' }} />
   )
 }
 
@@ -231,17 +209,14 @@ function SetSymbol({ src, alt }: { src: string; alt: string }) {
   const [failed, setFailed] = useState(false)
   if (failed || !src) return null
   return (
-    <img
-      src={src} alt={alt} onError={() => setFailed(true)}
-      style={{ width: 28, height: 28, objectFit: 'contain', flexShrink: 0, opacity: 0.85 }}
-    />
+    <img src={src} alt={alt} onError={() => setFailed(true)}
+      style={{ width: 26, height: 26, objectFit: 'contain', flexShrink: 0, opacity: 0.8 }} />
   )
 }
 
-function formatDate(dateStr: string | null): string {
-  if (!dateStr) return ''
-  const d = new Date(dateStr)
-  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short' })
+function formatDate(d: string | null): string {
+  if (!d) return ''
+  return new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short' })
 }
 
 // ── Main page ─────────────────────────────────────────────────────────────────
@@ -251,11 +226,12 @@ export default function BrowseSetsPage() {
 
   const [sets, setSets]             = useState<PtSet[]>([])
   const [loading, setLoading]       = useState(true)
-  const [activeEra, setActiveEra]   = useState<string>('sv')
   const [filterText, setFilterText] = useState('')
   const [lang, setLang]             = useState<'en' | 'jp'>('en')
+  // collapsed era ids (all expanded by default)
+  const [collapsed, setCollapsed]   = useState<Set<string>>(new Set())
 
-  // Per-set card state
+  // Per-set card expansion state
   const [expandedSet, setExpandedSet]     = useState<string | null>(null)
   const [setCards, setSetCards]           = useState<PtCard[]>([])
   const [cardsLoading, setCardsLoading]   = useState(false)
@@ -264,18 +240,17 @@ export default function BrowseSetsPage() {
   const [selectedCard, setSelectedCard]   = useState<PtCard | null>(null)
   const [selectedGrade, setSelectedGrade] = useState<string | null>(null)
 
-  // Load sets (cached 24h)
+  // Load sets on lang change
   useEffect(() => {
     setLoading(true)
     setSets([])
     setExpandedSet(null)
     setSetCards([])
     setSelectedCard(null)
-    setFilterText('')
 
     const game = lang === 'jp' ? 'pokemon-japanese' : 'pokemon'
-    const SETS_KEY = `sets_all_${game}`
-    const cached = cacheGet<PtSet[]>(SETS_KEY)
+    const KEY = `sets_all_${game}`
+    const cached = cacheGet<PtSet[]>(KEY)
     if (cached) {
       setSets(cached)
       setLoading(false)
@@ -286,13 +261,13 @@ export default function BrowseSetsPage() {
       .then(json => {
         const data: PtSet[] = json.data ?? []
         setSets(data)
-        if (data.length > 0) cacheSet(SETS_KEY, data)
+        if (data.length > 0) cacheSet(KEY, data)
       })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [lang])
 
-  // Group sets by era
+  // Group sets by era, sort each group newest first
   const grouped = useMemo(() => {
     const map = new Map<string, PtSet[]>()
     for (const era of ERAS) map.set(era.id, [])
@@ -300,32 +275,27 @@ export default function BrowseSetsPage() {
       const era = classifyEra(s.slug, s.name)
       map.get(era)?.push(s)
     }
+    // Sort each group by releaseDate descending
+    for (const [, arr] of map) {
+      arr.sort((a, b) => {
+        if (!a.releaseDate && !b.releaseDate) return 0
+        if (!a.releaseDate) return 1
+        if (!b.releaseDate) return -1
+        return b.releaseDate.localeCompare(a.releaseDate)
+      })
+    }
     return map
   }, [sets])
 
-  // Eras that actually have sets
-  const activeEras = useMemo(
+  // Only eras with sets
+  const populatedEras = useMemo(
     () => ERAS.filter(e => (grouped.get(e.id)?.length ?? 0) > 0),
     [grouped]
   )
 
-  // Default to first available era when lang changes
-  useEffect(() => {
-    if (activeEras.length > 0 && !activeEras.find(e => e.id === activeEra)) {
-      setActiveEra(activeEras[0].id)
-    }
-  }, [activeEras, activeEra])
-
-  // Filtered sets for active era
-  const visibleSets = useMemo(() => {
-    const all = grouped.get(activeEra) ?? []
-    if (!filterText.trim()) return all
-    const q = filterText.toLowerCase()
-    return all.filter(s => s.name.toLowerCase().includes(q))
-  }, [grouped, activeEra, filterText])
-
-  const currentEra = ERAS.find(e => e.id === activeEra)
-  const GRADES = lang === 'jp' ? JP_GRADES : EN_GRADES
+  // Global filter
+  const q = filterText.trim().toLowerCase()
+  const isFiltering = q.length > 0
 
   // Load cards for a set
   async function loadSetCards(slug: string, cursor = '') {
@@ -334,15 +304,12 @@ export default function BrowseSetsPage() {
       const game = lang === 'jp' ? 'pokemon-japanese' : 'pokemon'
       const params = new URLSearchParams({ set: slug, limit: '20', game })
       if (cursor) params.set('cursor', cursor)
-
       const key = cacheKey(params)
 
       interface PageData { cards: PtCard[]; hasMore: boolean; nextCursor: string }
       const cached = cacheGet<PageData>(key)
 
-      let pageCards: PtCard[]
-      let hasMore: boolean
-      let nextCursor: string
+      let pageCards: PtCard[], hasMore: boolean, nextCursor: string
 
       if (cached) {
         pageCards  = cached.cards.filter(isCardResult)
@@ -375,9 +342,7 @@ export default function BrowseSetsPage() {
 
   function handleSetClick(slug: string) {
     if (expandedSet === slug) {
-      setExpandedSet(null)
-      setSetCards([])
-      setSelectedCard(null)
+      setExpandedSet(null); setSetCards([]); setSelectedCard(null)
       return
     }
     setExpandedSet(slug)
@@ -399,17 +364,22 @@ export default function BrowseSetsPage() {
     router.push(`/card/${card.id}?${params}`)
   }
 
+  function toggleEra(id: string) {
+    setCollapsed(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
   return (
     <>
       <Navbar />
       <main style={{ maxWidth: 760, margin: '0 auto', padding: '72px 16px 100px' }}>
 
-        {/* Back + header */}
+        {/* Header */}
         <div style={{ marginBottom: 28 }}>
-          <a
-            href="/search"
-            style={{ fontSize: 13, color: 'var(--ink3)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, marginBottom: 18 }}
-          >
+          <a href="/search" style={{ fontSize: 13, color: 'var(--ink3)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, marginBottom: 18 }}>
             ← Back to search
           </a>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
@@ -418,31 +388,23 @@ export default function BrowseSetsPage() {
               <h1 style={{ fontSize: 26, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px', marginBottom: 6, lineHeight: 1.1 }}>
                 Browse by set
               </h1>
-              <p style={{ fontSize: 13, color: 'var(--ink3)', lineHeight: 1.5 }}>
-                Pick an era and set to explore its cards.
-              </p>
+              <p style={{ fontSize: 13, color: 'var(--ink3)' }}>Pick a set to explore its cards.</p>
             </div>
 
             {/* EN / JP toggle */}
             <div style={{
               display: 'flex', alignItems: 'center', gap: 2,
               background: 'var(--surface)', border: '1.5px solid var(--border2)',
-              borderRadius: 10, padding: 3, flexShrink: 0, alignSelf: 'flex-start',
-              marginTop: 4,
+              borderRadius: 10, padding: 3, flexShrink: 0, alignSelf: 'flex-start', marginTop: 4,
             }}>
               {(['en', 'jp'] as const).map(l => (
-                <button
-                  key={l}
-                  onClick={() => setLang(l)}
-                  style={{
-                    padding: '6px 14px', borderRadius: 7,
-                    background: lang === l ? (l === 'jp' ? 'rgba(220,50,50,0.15)' : 'rgba(232,197,71,0.12)') : 'transparent',
-                    border: `1.5px solid ${lang === l ? (l === 'jp' ? 'rgba(220,50,50,0.6)' : 'var(--gold)') : 'transparent'}`,
-                    color: lang === l ? (l === 'jp' ? '#e03232' : 'var(--gold)') : 'var(--ink3)',
-                    fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                    letterSpacing: 0.5, transition: 'all 0.15s',
-                  }}
-                >
+                <button key={l} onClick={() => setLang(l)} style={{
+                  padding: '6px 14px', borderRadius: 7,
+                  background: lang === l ? (l === 'jp' ? 'rgba(220,50,50,0.15)' : 'rgba(232,197,71,0.12)') : 'transparent',
+                  border: `1.5px solid ${lang === l ? (l === 'jp' ? 'rgba(220,50,50,0.6)' : 'var(--gold)') : 'transparent'}`,
+                  color: lang === l ? (l === 'jp' ? '#e03232' : 'var(--gold)') : 'var(--ink3)',
+                  fontSize: 12, fontWeight: 700, cursor: 'pointer', letterSpacing: 0.5, transition: 'all 0.15s',
+                }}>
                   {l === 'en' ? '🇺🇸 EN' : '🇯🇵 JP'}
                 </button>
               ))}
@@ -450,282 +412,254 @@ export default function BrowseSetsPage() {
           </div>
         </div>
 
+        {/* Global search */}
+        <div style={{ position: 'relative', marginBottom: 28 }}>
+          <input
+            type="text"
+            value={filterText}
+            onChange={e => setFilterText(e.target.value)}
+            placeholder="Search all sets…"
+            style={{
+              width: '100%', padding: '10px 36px 10px 14px', borderRadius: 10,
+              background: 'var(--surface)', border: '1.5px solid var(--border2)',
+              color: 'var(--ink)', fontSize: 14, outline: 'none',
+              boxSizing: 'border-box', WebkitAppearance: 'none', appearance: 'none',
+            }}
+            onFocus={e => (e.currentTarget.style.borderColor = 'var(--gold)')}
+            onBlur={e => (e.currentTarget.style.borderColor = 'var(--border2)')}
+          />
+          {filterText && (
+            <button onClick={() => setFilterText('')} style={{
+              position: 'absolute', right: 0, top: 0, bottom: 0, width: 36,
+              background: 'none', border: 'none', color: 'var(--ink3)', cursor: 'pointer', fontSize: 18,
+            }}>×</button>
+          )}
+        </div>
+
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--ink3)', fontSize: 14 }}>
-            Loading sets…
-          </div>
+          <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--ink3)', fontSize: 14 }}>Loading sets…</div>
         ) : (
-          <>
-            {/* Era tabs */}
-            <div className="era-scroll" style={{ display: 'flex', gap: 6, marginBottom: 20, overflowX: 'auto', paddingBottom: 4 }}>
-              {activeEras.map(era => {
-                const isActive = activeEra === era.id
-                return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+            {populatedEras.map(era => {
+              const eraSets = grouped.get(era.id) ?? []
+              const filtered = isFiltering
+                ? eraSets.filter(s => s.name.toLowerCase().includes(q))
+                : eraSets
+              if (isFiltering && filtered.length === 0) return null
+
+              const isCollapsed = collapsed.has(era.id) && !isFiltering
+
+              return (
+                <div key={era.id}>
+                  {/* Era heading */}
                   <button
-                    key={era.id}
-                    onClick={() => {
-                      setActiveEra(era.id)
-                      setExpandedSet(null)
-                      setSetCards([])
-                      setSelectedCard(null)
-                      setFilterText('')
-                    }}
+                    onClick={() => { if (!isFiltering) toggleEra(era.id) }}
                     style={{
-                      padding: '7px 14px', borderRadius: 99, flexShrink: 0,
-                      border: `1.5px solid ${isActive ? era.color : 'var(--border2)'}`,
-                      background: isActive ? `${era.color}18` : 'var(--surface)',
-                      color: isActive ? era.color : 'var(--ink3)',
-                      fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                      transition: 'all 0.15s', whiteSpace: 'nowrap',
+                      width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+                      background: 'none', border: 'none', cursor: isFiltering ? 'default' : 'pointer',
+                      padding: '0 0 10px', marginBottom: 8,
+                      borderBottom: `2px solid ${era.color}33`,
+                      textAlign: 'left',
                     }}
-                    onMouseEnter={e => { if (!isActive) e.currentTarget.style.borderColor = `${era.color}66` }}
-                    onMouseLeave={e => { if (!isActive) e.currentTarget.style.borderColor = 'var(--border2)' }}
                   >
-                    {era.label}
-                    <span style={{ marginLeft: 5, fontSize: 10, opacity: 0.65 }}>
-                      {grouped.get(era.id)?.length ?? 0}
+                    {/* Color dot */}
+                    <span style={{ width: 10, height: 10, borderRadius: '50%', background: era.color, flexShrink: 0 }} />
+                    <span style={{ fontSize: 13, fontWeight: 800, color: era.color, letterSpacing: 0.5, flex: 1 }}>
+                      {era.label.toUpperCase()}
                     </span>
+                    <span style={{ fontSize: 11, color: 'var(--ink3)', marginRight: 6 }}>
+                      {filtered.length} set{filtered.length !== 1 ? 's' : ''}
+                    </span>
+                    {!isFiltering && (
+                      <span style={{
+                        fontSize: 16, color: 'var(--ink3)', lineHeight: 1,
+                        transition: 'transform 0.2s',
+                        transform: isCollapsed ? 'none' : 'rotate(90deg)',
+                      }}>›</span>
+                    )}
                   </button>
-                )
-              })}
-            </div>
 
-            {/* Era heading + set filter */}
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 14 }}>
-              <div style={{ position: 'relative', flex: 1 }}>
-                <input
-                  type="text"
-                  value={filterText}
-                  onChange={e => setFilterText(e.target.value)}
-                  placeholder={`Filter ${currentEra?.label ?? ''} sets…`}
-                  style={{
-                    width: '100%', padding: '10px 36px 10px 14px', borderRadius: 10,
-                    background: 'var(--surface)', border: '1.5px solid var(--border2)',
-                    color: 'var(--ink)', fontSize: 14, outline: 'none',
-                    boxSizing: 'border-box', WebkitAppearance: 'none', appearance: 'none',
-                  }}
-                  onFocus={e => (e.currentTarget.style.borderColor = currentEra?.color ?? 'var(--gold)')}
-                  onBlur={e => (e.currentTarget.style.borderColor = 'var(--border2)')}
-                />
-                {filterText && (
-                  <button
-                    onClick={() => setFilterText('')}
-                    style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 36, background: 'none', border: 'none', color: 'var(--ink3)', cursor: 'pointer', fontSize: 18 }}
-                  >×</button>
-                )}
-              </div>
-            </div>
+                  {/* Sets in this era */}
+                  {!isCollapsed && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      {filtered.map(set => {
+                        const isExpanded = expandedSet === set.slug
 
-            {/* Sets list */}
-            {visibleSets.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--ink3)', fontSize: 14 }}>
-                {filterText ? 'No sets match your filter.' : 'No sets found for this era.'}
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {visibleSets.map(set => {
-                  const isExpanded = expandedSet === set.slug
-                  const eraColor = currentEra?.color ?? 'var(--gold)'
-
-                  return (
-                    <div key={set.slug}>
-                      {/* Set row */}
-                      <button
-                        onClick={() => handleSetClick(set.slug)}
-                        style={{
-                          width: '100%', display: 'flex', alignItems: 'center', gap: 12,
-                          padding: '13px 16px',
-                          borderRadius: isExpanded ? '12px 12px 0 0' : 10,
-                          background: 'var(--surface)',
-                          border: `1.5px solid ${isExpanded ? eraColor : 'var(--border)'}`,
-                          borderBottom: isExpanded ? '1.5px solid transparent' : undefined,
-                          cursor: 'pointer', textAlign: 'left',
-                          transition: 'border-color 0.15s',
-                        }}
-                        onMouseEnter={e => { if (!isExpanded) e.currentTarget.style.borderColor = `${eraColor}66` }}
-                        onMouseLeave={e => { if (!isExpanded) e.currentTarget.style.borderColor = 'var(--border)' }}
-                      >
-                        {/* Set symbol */}
-                        {set.symbol && (
-                          <SetSymbol src={ptImg(set.symbol)} alt={set.name} />
-                        )}
-
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.3 }}>{set.name}</div>
-                          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 3, flexWrap: 'wrap' }}>
-                            <span style={{ fontSize: 11, color: 'var(--ink3)' }}>{set.cardCount} cards</span>
-                            {set.releaseDate && (
-                              <>
-                                <span style={{ fontSize: 9, color: 'var(--ink3)', opacity: 0.4 }}>·</span>
-                                <span style={{ fontSize: 11, color: 'var(--ink3)' }}>{formatDate(set.releaseDate)}</span>
-                              </>
-                            )}
-                            {lang === 'jp' && (
+                        return (
+                          <div key={set.slug}>
+                            {/* Set row */}
+                            <button
+                              onClick={() => handleSetClick(set.slug)}
+                              style={{
+                                width: '100%', display: 'flex', alignItems: 'center', gap: 12,
+                                padding: '13px 16px',
+                                borderRadius: isExpanded ? '12px 12px 0 0' : 10,
+                                background: 'var(--surface)',
+                                border: `1.5px solid ${isExpanded ? era.color : 'var(--border)'}`,
+                                borderBottom: isExpanded ? '1.5px solid transparent' : undefined,
+                                cursor: 'pointer', textAlign: 'left', transition: 'border-color 0.15s',
+                              }}
+                              onMouseEnter={e => { if (!isExpanded) e.currentTarget.style.borderColor = `${era.color}66` }}
+                              onMouseLeave={e => { if (!isExpanded) e.currentTarget.style.borderColor = 'var(--border)' }}
+                            >
+                              {set.symbol && <SetSymbol src={ptImg(set.symbol)} alt={set.name} />}
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.3 }}>{set.name}</div>
+                                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 3, flexWrap: 'wrap' }}>
+                                  <span style={{ fontSize: 11, color: 'var(--ink3)' }}>{set.cardCount} cards</span>
+                                  {set.releaseDate && (
+                                    <>
+                                      <span style={{ fontSize: 9, color: 'var(--ink3)', opacity: 0.4 }}>·</span>
+                                      <span style={{ fontSize: 11, color: 'var(--ink3)' }}>{formatDate(set.releaseDate)}</span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
                               <span style={{
-                                fontSize: 9, fontWeight: 800, letterSpacing: 0.5,
-                                color: '#e03232', border: '1px solid rgba(220,50,50,0.4)',
-                                borderRadius: 4, padding: '1px 4px', lineHeight: 1.4,
-                              }}>JP</span>
+                                fontSize: 20, color: isExpanded ? era.color : 'var(--ink3)',
+                                flexShrink: 0, lineHeight: 1,
+                                transition: 'transform 0.2s, color 0.15s',
+                                transform: isExpanded ? 'rotate(90deg)' : 'none',
+                              }}>›</span>
+                            </button>
+
+                            {/* Expanded: cards */}
+                            {isExpanded && (
+                              <div style={{
+                                border: `1.5px solid ${era.color}`, borderTop: 'none',
+                                borderRadius: '0 0 12px 12px',
+                                background: 'var(--surface)',
+                                padding: '12px 14px 14px',
+                              }}>
+                                {cardsLoading && setCards.length === 0 ? (
+                                  <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--ink3)', fontSize: 13 }}>Loading cards…</div>
+                                ) : setCards.length === 0 ? (
+                                  <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--ink3)', fontSize: 13 }}>No cards found</div>
+                                ) : (
+                                  <>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                      {setCards.map(card => {
+                                        const isCardSelected = selectedCard?.id === card.id
+                                        const variant = card.variant && card.variant !== 'Normal'
+                                          ? (VARIANT_LABELS[card.variant] ?? card.variant)
+                                          : null
+
+                                        return (
+                                          <div key={card.id}>
+                                            <button
+                                              onClick={() => handleCardClick(card)}
+                                              style={{
+                                                width: '100%', display: 'flex', alignItems: 'center', gap: 12,
+                                                padding: '10px 12px', minHeight: 60,
+                                                borderRadius: isCardSelected ? '10px 10px 0 0' : 8,
+                                                background: 'var(--surface2)',
+                                                border: `1.5px solid ${isCardSelected ? `${era.color}99` : 'var(--border2)'}`,
+                                                borderBottom: isCardSelected ? '1.5px solid transparent' : undefined,
+                                                cursor: 'pointer', textAlign: 'left', transition: 'border-color 0.15s',
+                                              }}
+                                              onMouseEnter={e => { if (!isCardSelected) e.currentTarget.style.borderColor = `${era.color}55` }}
+                                              onMouseLeave={e => { if (!isCardSelected) e.currentTarget.style.borderColor = 'var(--border2)' }}
+                                            >
+                                              <CardThumb src={ptImg(card.image)} alt={card.name} />
+                                              <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
+                                                  <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.3 }}>{card.name}</span>
+                                                  <span style={{ fontSize: 11, color: 'var(--ink3)', flexShrink: 0 }}>#{card.cardNumber}</span>
+                                                </div>
+                                                <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 2 }}>
+                                                  {variant ?? card.rarity ?? ''}
+                                                </div>
+                                              </div>
+                                              <span style={{
+                                                fontSize: 18, color: isCardSelected ? era.color : 'var(--ink3)',
+                                                flexShrink: 0, lineHeight: 1,
+                                                transition: 'transform 0.2s, color 0.15s',
+                                                transform: isCardSelected ? 'rotate(90deg)' : 'none',
+                                              }}>›</span>
+                                            </button>
+
+                                            {/* Grade picker */}
+                                            {isCardSelected && (
+                                              <div style={{
+                                                border: `1.5px solid ${era.color}99`, borderTop: 'none',
+                                                borderRadius: '0 0 10px 10px',
+                                                background: 'var(--surface2)',
+                                                padding: '12px 12px 14px',
+                                              }}>
+                                                <p style={{ fontSize: 10, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 10 }}>SELECT GRADE</p>
+                                                <div className="sets-grade-grid">
+                                                  {PSA_GRADES.map(g => (
+                                                    <button
+                                                      key={g.label}
+                                                      onClick={() => handleGrade(g.label, card)}
+                                                      style={{
+                                                        padding: '10px 4px', borderRadius: 8, minHeight: 52,
+                                                        cursor: 'pointer', textAlign: 'center',
+                                                        background: selectedGrade === g.label ? `${era.color}18` : 'var(--surface)',
+                                                        border: `1.5px solid ${selectedGrade === g.label ? era.color : 'var(--border2)'}`,
+                                                        transition: 'all 0.15s',
+                                                      }}
+                                                      onMouseEnter={e => {
+                                                        if (selectedGrade !== g.label) {
+                                                          e.currentTarget.style.borderColor = era.color
+                                                          e.currentTarget.style.background = `${era.color}0d`
+                                                        }
+                                                      }}
+                                                      onMouseLeave={e => {
+                                                        if (selectedGrade !== g.label) {
+                                                          e.currentTarget.style.borderColor = 'var(--border2)'
+                                                          e.currentTarget.style.background = 'var(--surface)'
+                                                        }
+                                                      }}
+                                                    >
+                                                      <span style={{
+                                                        display: 'block',
+                                                        fontSize: g.label === 'Raw' ? 13 : 11, fontWeight: 700, lineHeight: 1.2,
+                                                        color: selectedGrade === g.label ? era.color : 'var(--ink)',
+                                                      }}>{g.label}</span>
+                                                      <span style={{ display: 'block', fontSize: 8, color: 'var(--ink3)', marginTop: 2 }}>{g.sub}</span>
+                                                    </button>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            )}
+                                          </div>
+                                        )
+                                      })}
+                                    </div>
+
+                                    {cardsHasMore && (
+                                      <button
+                                        onClick={() => loadSetCards(set.slug, cardsCursor)}
+                                        disabled={cardsLoading}
+                                        style={{
+                                          width: '100%', marginTop: 10, padding: '10px 0',
+                                          borderRadius: 8, border: '1px solid var(--border2)',
+                                          background: 'none', color: 'var(--ink3)',
+                                          fontSize: 13, cursor: cardsLoading ? 'default' : 'pointer',
+                                          opacity: cardsLoading ? 0.5 : 1,
+                                        }}
+                                      >
+                                        {cardsLoading ? 'Loading…' : 'Load more cards'}
+                                      </button>
+                                    )}
+                                  </>
+                                )}
+                              </div>
                             )}
                           </div>
-                        </div>
-                        <span style={{
-                          fontSize: 20, color: isExpanded ? eraColor : 'var(--ink3)',
-                          flexShrink: 0, lineHeight: 1,
-                          transition: 'transform 0.2s, color 0.15s',
-                          transform: isExpanded ? 'rotate(90deg)' : 'none',
-                        }}>›</span>
-                      </button>
-
-                      {/* Expanded: cards */}
-                      {isExpanded && (
-                        <div style={{
-                          border: `1.5px solid ${eraColor}`, borderTop: 'none',
-                          borderRadius: '0 0 12px 12px',
-                          background: 'var(--surface)',
-                          padding: '12px 14px 14px',
-                        }}>
-                          {cardsLoading && setCards.length === 0 ? (
-                            <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--ink3)', fontSize: 13 }}>
-                              Loading cards…
-                            </div>
-                          ) : setCards.length === 0 ? (
-                            <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--ink3)', fontSize: 13 }}>
-                              No cards found
-                            </div>
-                          ) : (
-                            <>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                {setCards.map(card => {
-                                  const isCardSelected = selectedCard?.id === card.id
-                                  const variant = card.variant && card.variant !== 'Normal'
-                                    ? VARIANT_LABELS[card.variant] ?? card.variant
-                                    : null
-
-                                  return (
-                                    <div key={card.id}>
-                                      <button
-                                        onClick={() => handleCardClick(card)}
-                                        style={{
-                                          width: '100%', display: 'flex', alignItems: 'center', gap: 12,
-                                          padding: '10px 12px',
-                                          borderRadius: isCardSelected ? '10px 10px 0 0' : 8,
-                                          background: 'var(--surface2)',
-                                          border: `1.5px solid ${isCardSelected ? `${eraColor}99` : 'var(--border2)'}`,
-                                          borderBottom: isCardSelected ? '1.5px solid transparent' : undefined,
-                                          cursor: 'pointer', textAlign: 'left',
-                                          transition: 'border-color 0.15s',
-                                          minHeight: 60,
-                                        }}
-                                        onMouseEnter={e => { if (!isCardSelected) e.currentTarget.style.borderColor = `${eraColor}55` }}
-                                        onMouseLeave={e => { if (!isCardSelected) e.currentTarget.style.borderColor = 'var(--border2)' }}
-                                      >
-                                        <CardThumb src={ptImg(card.image)} alt={card.name} />
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
-                                            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.3 }}>{card.name}</span>
-                                            <span style={{ fontSize: 11, color: 'var(--ink3)', flexShrink: 0 }}>#{card.cardNumber}</span>
-                                          </div>
-                                          <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 2 }}>
-                                            {variant ?? card.rarity ?? ''}
-                                          </div>
-                                        </div>
-                                        <span style={{
-                                          fontSize: 18, color: isCardSelected ? eraColor : 'var(--ink3)',
-                                          flexShrink: 0, lineHeight: 1,
-                                          transition: 'transform 0.2s, color 0.15s',
-                                          transform: isCardSelected ? 'rotate(90deg)' : 'none',
-                                        }}>›</span>
-                                      </button>
-
-                                      {/* Inline grade picker */}
-                                      {isCardSelected && (
-                                        <div style={{
-                                          border: `1.5px solid ${eraColor}99`, borderTop: 'none',
-                                          borderRadius: '0 0 10px 10px',
-                                          background: 'var(--surface2)',
-                                          padding: '12px 12px 14px',
-                                        }}>
-                                          <p style={{ fontSize: 10, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 10 }}>SELECT GRADE</p>
-                                          <div className="sets-grade-grid">
-                                            {GRADES.map(g => (
-                                              <button
-                                                key={g.label}
-                                                onClick={() => handleGrade(g.label, card)}
-                                                style={{
-                                                  padding: '10px 4px', borderRadius: 8,
-                                                  cursor: 'pointer', textAlign: 'center',
-                                                  background: selectedGrade === g.label
-                                                    ? `${eraColor}18` : 'var(--surface)',
-                                                  border: `1.5px solid ${selectedGrade === g.label ? eraColor : 'var(--border2)'}`,
-                                                  transition: 'all 0.15s',
-                                                  minHeight: 52,
-                                                }}
-                                                onMouseEnter={e => {
-                                                  if (selectedGrade !== g.label) {
-                                                    e.currentTarget.style.borderColor = eraColor
-                                                    e.currentTarget.style.background = `${eraColor}0d`
-                                                  }
-                                                }}
-                                                onMouseLeave={e => {
-                                                  if (selectedGrade !== g.label) {
-                                                    e.currentTarget.style.borderColor = 'var(--border2)'
-                                                    e.currentTarget.style.background = 'var(--surface)'
-                                                  }
-                                                }}
-                                              >
-                                                <span style={{
-                                                  display: 'block',
-                                                  fontSize: g.label === 'Raw' ? 13 : 11,
-                                                  fontWeight: 700,
-                                                  color: selectedGrade === g.label ? eraColor : 'var(--ink)',
-                                                  lineHeight: 1.2,
-                                                }}>{g.label}</span>
-                                                <span style={{ display: 'block', fontSize: 8, color: 'var(--ink3)', marginTop: 2 }}>{g.sub}</span>
-                                              </button>
-                                            ))}
-                                          </div>
-                                        </div>
-                                      )}
-                                    </div>
-                                  )
-                                })}
-                              </div>
-
-                              {/* Load more */}
-                              {cardsHasMore && (
-                                <button
-                                  onClick={() => loadSetCards(set.slug, cardsCursor)}
-                                  disabled={cardsLoading}
-                                  style={{
-                                    width: '100%', marginTop: 10, padding: '10px 0',
-                                    borderRadius: 8, border: '1px solid var(--border2)',
-                                    background: 'none', color: 'var(--ink3)',
-                                    fontSize: 13, cursor: cardsLoading ? 'default' : 'pointer',
-                                    opacity: cardsLoading ? 0.5 : 1,
-                                  }}
-                                >
-                                  {cardsLoading ? 'Loading…' : 'Load more cards'}
-                                </button>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      )}
+                        )
+                      })}
                     </div>
-                  )
-                })}
-              </div>
-            )}
-          </>
+                  )}
+                </div>
+              )
+            })}
+          </div>
         )}
       </main>
 
       <style>{`
-        .era-scroll::-webkit-scrollbar { display: none; }
-        .era-scroll { -ms-overflow-style: none; scrollbar-width: none; }
-
-        /* Grade grid: 4-col desktop, auto-fill → 3-col mobile */
         .sets-grade-grid {
           display: grid;
           grid-template-columns: repeat(4, 1fr);

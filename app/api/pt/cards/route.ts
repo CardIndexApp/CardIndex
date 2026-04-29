@@ -22,7 +22,8 @@ export async function GET(req: NextRequest) {
   const limitRaw = parseInt(req.nextUrl.searchParams.get('limit') ?? '20')
   const limit = String(Math.min(100, Math.max(1, isNaN(limitRaw) ? 20 : limitRaw)))
   const game = req.nextUrl.searchParams.get('game') === 'pokemon-japanese' ? 'pokemon-japanese' : 'pokemon'
-  const params = new URLSearchParams({ game, market: 'US', limit })
+  const market = game === 'pokemon-japanese' ? 'JP' : 'US'
+  const params = new URLSearchParams({ game, market, limit })
   if (set)        params.set('set', set)
   if (search)     params.set('search', search)
   if (cardNumber) params.set('card_number', cardNumber)

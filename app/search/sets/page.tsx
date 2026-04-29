@@ -361,10 +361,11 @@ export default function BrowseSetsPage() {
   const isFiltering = q.length > 0
 
   // Determine which game param to use for a given set slug.
-  // Mega Evolution sets are catalogued under pokemon-japanese in Poketrace
-  // even when they appear in the EN sets feed.
+  // Check the grouped mega list directly — more reliable than re-running
+  // the classifier on a bare slug (e.g. "me01" wouldn't match the keyword).
   function gameForSlug(slug: string): 'pokemon' | 'pokemon-japanese' {
-    if (classifyEra(slug, '') === 'mega') return 'pokemon-japanese'
+    const megaSlugs = new Set((grouped.get('mega') ?? []).map(s => s.slug))
+    if (megaSlugs.has(slug)) return 'pokemon-japanese'
     return lang === 'jp' ? 'pokemon-japanese' : 'pokemon'
   }
 

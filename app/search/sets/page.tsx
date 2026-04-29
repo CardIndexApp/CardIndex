@@ -352,11 +352,6 @@ export default function BrowseSetsPage() {
       if (!ex || s.cardCount > ex.cardCount) megaByNorm.set(norm, s)
     }
 
-    // Debug: log what we found (remove after confirming fix)
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('[Mega] jpSets matches:', jpSets.filter(s => classifyEra(s.slug, s.name) === 'mega').map(s => `${s.slug} | ${s.name}`))
-      console.log('[Mega] sets matches:', sets.filter(s => classifyEra(s.slug, s.name) === 'mega').map(s => `${s.slug} | ${s.name}`))
-    }
 
     map.set('mega', [...megaByNorm.values()])
 

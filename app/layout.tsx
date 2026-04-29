@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { CurrencyProvider } from '@/lib/currency'
+import { ThemeProvider } from '@/lib/theme'
 
 export const metadata: Metadata = {
   title: 'CardIndex — TCG Market Intelligence',
@@ -19,10 +20,20 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
+      <head>
+        {/* Prevent flash of wrong theme: apply stored theme before first paint */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('ci_theme');document.documentElement.setAttribute('data-theme',t==='light'?'light':'dark')}catch(e){}})()`,
+          }}
+        />
+      </head>
       <body>
-        <CurrencyProvider>
-          {children}
-        </CurrencyProvider>
+        <ThemeProvider>
+          <CurrencyProvider>
+            {children}
+          </CurrencyProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

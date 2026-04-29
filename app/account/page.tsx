@@ -5,6 +5,7 @@ import Link from 'next/link'
 import Navbar from '@/components/Navbar'
 import { createClient } from '@/lib/supabase/client'
 import { CURRENCIES, useCurrency, type CurrencyCode } from '@/lib/currency'
+import { useTheme } from '@/lib/theme'
 
 type Tier = 'free' | 'standard' | 'pro'
 
@@ -46,6 +47,9 @@ export default function AccountPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [pwLoading, setPwLoading] = useState(false)
   const [pwMsg, setPwMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+
+  // Theme preference
+  const { theme, setTheme } = useTheme()
 
   // Currency preference
   const { currency, setCurrency, fmtCurrency, rates, ratesLoading } = useCurrency()
@@ -320,9 +324,45 @@ export default function AccountPage() {
               )}
             </div>
             <div style={S.cardBody}>
-              <p style={{ fontSize: 13, color: 'var(--ink3)', lineHeight: 1.6, marginBottom: 20 }}>
-                Card prices are sourced in USD and converted client-side using live exchange rates. Rates update hourly.
-              </p>
+              {/* Theme toggle */}
+              <div style={{ marginBottom: 28 }}>
+                <span style={S.label}>APPEARANCE</span>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {(['dark', 'light'] as const).map(t => {
+                    const selected = theme === t
+                    return (
+                      <button
+                        key={t}
+                        onClick={() => setTheme(t)}
+                        style={{
+                          padding: '10px 20px',
+                          borderRadius: 10,
+                          border: `1.5px solid ${selected ? 'var(--gold)' : 'var(--border2)'}`,
+                          background: selected ? 'rgba(232,197,71,0.08)' : 'var(--bg)',
+                          color: selected ? 'var(--gold)' : 'var(--ink2)',
+                          fontSize: 13,
+                          fontWeight: selected ? 700 : 500,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          transition: 'all 0.15s',
+                        }}
+                      >
+                        {t === 'dark' ? '🌙' : '☀️'}
+                        {t.charAt(0).toUpperCase() + t.slice(1)}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div style={{ borderTop: '1px solid var(--border)', paddingTop: 24 }}>
+                <span style={S.label}>CURRENCY</span>
+                <p style={{ fontSize: 13, color: 'var(--ink3)', lineHeight: 1.6, marginBottom: 16 }}>
+                  Prices are sourced in USD and converted client-side using live exchange rates. Rates update hourly.
+                </p>
+              </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 8 }}>
                 {(Object.keys(CURRENCIES) as CurrencyCode[]).map(code => {

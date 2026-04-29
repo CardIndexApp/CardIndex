@@ -67,8 +67,9 @@ function TileInfo({ id, text, activeTip, setActiveTip, inline }: {
   setActiveTip: (v: string | null) => void
   inline?: boolean
 }) {
-  const open   = activeTip === id
-  const btnRef = useRef<HTMLButtonElement>(null)
+  const open    = activeTip === id
+  const btnRef  = useRef<HTMLButtonElement>(null)
+  const tipRef  = useRef<HTMLDivElement>(null)
   const [tipRect, setTipRect] = useState<{
     top: number; left: number; alignRight: boolean; above: boolean
   } | null>(null)
@@ -76,52 +77,57 @@ function TileInfo({ id, text, activeTip, setActiveTip, inline }: {
   useEffect(() => {
     if (!open) return
     const close = (e: MouseEvent | TouchEvent) => {
-      if (btnRef.current && !btnRef.current.contains(e.target as Node)) setActiveTip(null)
+      const target = e.target as Node
+      // Stay open if the tap/click is inside the button OR inside the tooltip portal
+      if (btnRef.current?.contains(target)) return
+      if (tipRef.current?.contains(target)) return
+      setActiveTip(null)
     }
     document.addEventListener('mousedown', close)
     document.addEventListener('touchstart', close)
-    return () => { document.removeEventListener('mousedown', close); document.removeEventListener('touchstart', close) }
+    return () => {
+      document.removeEventListener('mousedown', close)
+      document.removeEventListener('touchstart', close)
+    }
   }, [open, setActiveTip])
 
   function openTip() {
     if (!btnRef.current) { setActiveTip(id); return }
-    const r     = btnRef.current.getBoundingClientRect()
-    const tipW  = Math.min(220, window.innerWidth - 24)
-    // Horizontal: align right edge of tooltip to button right unless that would clip left edge
+    const r      = btnRef.current.getBoundingClientRect()
+    const tipW   = Math.min(240, window.innerWidth - 24)
     const alignRight = r.right - tipW >= 8
-    // Vertical: place below by default; flip above if less than 120px below the button
-    const above = window.innerHeight - r.bottom < 120
-    const top   = above ? r.top - 8 : r.bottom + 8  // 8px gap in both directions
+    const above  = window.innerHeight - r.bottom < 120
+    const top    = above ? r.top - 8 : r.bottom + 8
     setTipRect({ top, left: alignRight ? r.right : r.left, alignRight, above })
     setActiveTip(id)
   }
 
   return (
-    // Outer hit area is 32×32 for comfortable mobile tapping
     <span
       className="ci-no-print"
       style={inline
         ? { display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            width: 22, height: 22, flexShrink: 0 }
-        : { position: 'absolute', top: 4, right: 4, zIndex: 10,
-            width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center' }
+            width: 28, height: 28, flexShrink: 0 }
+        : { position: 'absolute', top: 2, right: 2, zIndex: 10,
+            width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center' }
       }
     >
       <button
         ref={btnRef}
-        // Hover (mouse only) — pointer events let us distinguish mouse vs touch
         onPointerEnter={e => { if (e.pointerType !== 'touch') openTip() }}
         onPointerLeave={e => { if (e.pointerType !== 'touch') setActiveTip(null) }}
-        // Tap / click toggle
-        onClick={e => { e.stopPropagation(); open ? setActiveTip(null) : openTip() }}
+        onTouchEnd={e => { e.preventDefault(); e.stopPropagation(); open ? setActiveTip(null) : openTip() }}
+        onClick={e => { e.stopPropagation(); if (!('ontouchstart' in window)) { open ? setActiveTip(null) : openTip() } }}
         style={{
-          width: 18, height: 18, minHeight: 18, borderRadius: '50%',
+          width: 22, height: 22, minHeight: 22, borderRadius: '50%',
           background: open ? 'rgba(232,197,71,0.18)' : 'rgba(255,255,255,0.07)',
           border: `1px solid ${open ? 'rgba(232,197,71,0.4)' : 'rgba(255,255,255,0.13)'}`,
           color: open ? 'var(--gold)' : 'rgba(255,255,255,0.4)',
-          fontSize: 9, fontWeight: 700, cursor: 'pointer',
+          fontSize: 10, fontWeight: 700, cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           padding: 0, lineHeight: 1, transition: 'all 0.15s',
+          touchAction: 'manipulation',
+          WebkitTapHighlightColor: 'transparent',
         }}
         aria-label="More info"
         aria-expanded={open}
@@ -129,17 +135,16 @@ function TileInfo({ id, text, activeTip, setActiveTip, inline }: {
 
       {open && tipRect && typeof document !== 'undefined' && createPortal(
         <div
-          // Keep open while hovering the tooltip itself (mouse only)
+          ref={tipRef}
           onPointerEnter={e => { if (e.pointerType !== 'touch') setActiveTip(id) }}
           onPointerLeave={e => { if (e.pointerType !== 'touch') setActiveTip(null) }}
+          onTouchStart={e => e.stopPropagation()}
           onClick={e => e.stopPropagation()}
           style={{
             position: 'fixed',
-            // Vertical placement — above or below the button
             ...(tipRect.above
               ? { bottom: window.innerHeight - tipRect.top }
               : { top: tipRect.top }),
-            // Horizontal placement — right- or left-aligned
             ...(tipRect.alignRight
               ? { right: window.innerWidth - tipRect.left }
               : { left: tipRect.left }),
@@ -147,16 +152,15 @@ function TileInfo({ id, text, activeTip, setActiveTip, inline }: {
             background: '#1a1a2e',
             border: '1px solid rgba(255,255,255,0.14)',
             borderRadius: 10,
-            padding: '11px 14px',
-            width: Math.min(220, window.innerWidth - 24),
+            padding: '12px 14px',
+            width: Math.min(240, window.innerWidth - 24),
             fontSize: 12,
-            color: 'rgba(255,255,255,0.75)',
+            color: 'rgba(255,255,255,0.82)',
             lineHeight: 1.6,
             boxShadow: '0 8px 40px rgba(0,0,0,0.7)',
             pointerEvents: 'auto',
           }}
         >
-          {/* Arrow — points down when above, up when below */}
           <div style={{
             position: 'absolute',
             ...(tipRect.above

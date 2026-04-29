@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 import { CurrencyProvider } from '@/lib/currency'
 import { ThemeProvider } from '@/lib/theme'
+import InstallPrompt from '@/components/InstallPrompt'
 
 export const metadata: Metadata = {
   title: 'CardIndex — TCG Market Intelligence',
@@ -32,6 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider>
           <CurrencyProvider>
             {children}
+            <InstallPrompt />
           </CurrencyProvider>
         </ThemeProvider>
       </body>

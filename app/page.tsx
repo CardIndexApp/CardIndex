@@ -73,7 +73,7 @@ export default function Home() {
               <span style={{ fontSize: 12, color: 'var(--ink3)', fontWeight: 500 }}>Sales Data from</span>
               <EbayLogo height={22} />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1, borderRadius: 16, overflow: 'hidden', background: 'var(--border)' }}>
+            <div className="home-sales-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1, borderRadius: 16, overflow: 'hidden', background: 'var(--border)' }}>
               {[
                 { card: 'Charizard Base Set', grade: 'PSA 9', price: '$4,250', delta: '+3.2%', up: true },
                 { card: 'Pikachu Illustrator', grade: 'PSA 7', price: '$38,000', delta: '+1.8%', up: true },
@@ -110,7 +110,7 @@ export default function Home() {
 
         {/* Recently Searched */}
         <section style={{ padding: '0 24px 80px', maxWidth: 1100, margin: '0 auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24 }}>
+          <div className="home-section-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24, flexWrap: 'wrap', gap: 8 }}>
             <div>
               <p style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' }}>Recently Searched</p>
               <h2 style={{ fontSize: 28, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.5px' }}>Popular right now</h2>
@@ -126,25 +126,26 @@ export default function Home() {
               { id: 'gengar-vmax-alt-psa10',   name: 'Gengar VMAX Alt Art',  set: 'Fusion Strike',  grade: 'PSA 10', price: 260,  change: 3.1, up: true,  ago: '24m ago', img: 'https://images.pokemontcg.io/swsh8/271_hires.png' },
               { id: 'leafeon-vmax-alt-psa9',   name: 'Leafeon VMAX Alt Art', set: 'Evolving Skies', grade: 'PSA 9',  price: 195,  change: 0.8, up: false, ago: '31m ago', img: 'https://images.pokemontcg.io/swsh7/211_hires.png' },
             ].map((item, i, arr) => (
-              <a key={i} href={`/card/${item.id}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none', textDecoration: 'none', background: 'transparent', transition: 'background 0.15s' }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
+              <a key={i} href={`/card/${item.id}`} className="home-recent-row"
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none', textDecoration: 'none', background: 'transparent', transition: 'background 0.15s', gap: 12 }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'var(--hover-subtle)')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div className="home-recent-left" style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0, flex: 1 }}>
                   <div style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0 }}>
                     <img src={tcgImg(item.img)} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 3 }} />
                   </div>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 2 }}>{item.name}</div>
-                    <div style={{ fontSize: 11, color: 'var(--ink3)' }}>{item.set} · {item.grade}</div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.name}</div>
+                    <div style={{ fontSize: 11, color: 'var(--ink3)', whiteSpace: 'nowrap' }}>{item.set} · {item.grade}</div>
                   </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
-                  <span style={{ fontSize: 10, color: 'var(--ink3)', minWidth: 48, textAlign: 'right' }}>{item.ago}</span>
-                  <span className="font-num" style={{ fontSize: 12, color: item.up ? 'var(--green)' : 'var(--red)', minWidth: 52, textAlign: 'right' }}>
+                <div className="home-recent-right" style={{ display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
+                  <span className="home-recent-ago" style={{ fontSize: 10, color: 'var(--ink3)', textAlign: 'right' }}>{item.ago}</span>
+                  <span className="font-num" style={{ fontSize: 12, color: item.up ? 'var(--green)' : 'var(--red)', textAlign: 'right', minWidth: 48 }}>
                     {item.up ? '▲' : '▼'} {item.change}%
                   </span>
-                  <span className="font-num" style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', minWidth: 64, textAlign: 'right' }}>${item.price.toLocaleString()}</span>
+                  <span className="font-num home-recent-price" style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', textAlign: 'right', minWidth: 56 }}>${item.price.toLocaleString()}</span>
                 </div>
               </a>
             ))}
@@ -272,7 +273,7 @@ export default function Home() {
                   <div className="font-num" style={{ fontSize: 56, fontWeight: 800, color: 'var(--green)', letterSpacing: '-2px', lineHeight: 1 }}>87</div>
                   <div style={{ fontSize: 12, color: 'var(--ink3)', marginTop: 4 }}>out of 100</div>
                 </div>
-                <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'conic-gradient(var(--green) 0% 87%, rgba(255,255,255,0.06) 87% 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'conic-gradient(var(--green) 0% 87%, var(--track) 87% 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
                   <div style={{ width: 60, height: 60, borderRadius: '50%', background: 'var(--surface)' }} />
                 </div>
               </div>
@@ -289,7 +290,7 @@ export default function Home() {
                       <span style={{ fontSize: 12, color: 'var(--ink2)' }}>{f.label}</span>
                       <span className="font-num" style={{ fontSize: 12, color: f.color }}>{f.val}</span>
                     </div>
-                    <div style={{ height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                    <div style={{ height: 3, borderRadius: 2, background: 'var(--track)', overflow: 'hidden' }}>
                       <div style={{ height: '100%', width: `${f.val}%`, background: f.color, borderRadius: 2 }} />
                     </div>
                   </div>
@@ -378,6 +379,51 @@ export default function Home() {
 
         <Footer />
       </main>
+
+      <style>{`
+        /* ── Mobile: Samsung S24+ and similar narrow viewports ── */
+        @media (max-width: 640px) {
+
+          /* Hero section: tighter padding */
+          section:first-of-type {
+            padding-left: 16px !important;
+            padding-right: 16px !important;
+          }
+
+          /* Hero sales mock: single column */
+          .home-sales-grid {
+            grid-template-columns: 1fr !important;
+          }
+
+          /* "Popular right now" rows */
+          .home-recent-row {
+            padding: 12px 16px !important;
+            gap: 10px !important;
+          }
+          .home-recent-left {
+            min-width: 0;
+            flex: 1 1 0;
+          }
+          .home-recent-right {
+            gap: 10px !important;
+          }
+          /* Hide "ago" timestamp on narrow screens */
+          .home-recent-ago {
+            display: none !important;
+          }
+
+          /* Section horizontal padding */
+          section {
+            padding-left: 16px !important;
+            padding-right: 16px !important;
+          }
+
+          /* CTA block: reduce inner padding */
+          section:last-of-type > div {
+            padding: 32px 20px !important;
+          }
+        }
+      `}</style>
     </>
   )
 }

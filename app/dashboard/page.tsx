@@ -360,7 +360,7 @@ export default function Dashboard() {
                         key={item.id}
                         href={`/card/${item.card_id}?${params.toString()}`}
                         style={{ padding: '12px 20px', borderBottom: i < watchlist.length - 1 ? '1px solid var(--border)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, textDecoration: 'none', background: 'transparent', transition: 'background 0.12s' }}
-                        onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--hover-subtle)')}
                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                       >
                         <div style={{ minWidth: 0 }}>
@@ -432,7 +432,7 @@ export default function Dashboard() {
                       return (
                         <Link key={i} href={`/card/${item.card_id}?${params.toString()}`}
                           style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 20px', borderBottom: i < marketSnap.topRising.length - 1 ? '1px solid var(--border)' : 'none', textDecoration: 'none' }}
-                          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
+                          onMouseEnter={e => (e.currentTarget.style.background = 'var(--hover-subtle)')}
                           onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
@@ -488,7 +488,7 @@ export default function Dashboard() {
                       key={`${item.card_id}-${i}`}
                       href={`/card/${item.card_id}?${params.toString()}`}
                       style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderBottom: '1px solid var(--border)', borderRight: '1px solid var(--border)', textDecoration: 'none', gap: 8 }}
-                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--hover-subtle)')}
                       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                     >
                       <div style={{ minWidth: 0 }}>
@@ -559,6 +559,28 @@ export default function Dashboard() {
           .dash-top-rising,
           .dash-recently-searched {
             border-radius: 14px;
+          }
+
+          /* Recently-viewed: single column on narrow screens */
+          .dash-recently-searched > div:last-child {
+            grid-template-columns: 1fr !important;
+          }
+
+          /* Tighten card row padding */
+          .dash-watchlist a,
+          .dash-recently-searched a {
+            padding: 11px 16px !important;
+          }
+
+          /* Market snapshot: 3-col metrics → single row with smaller values */
+          .dash-top-rising .mkt-metrics > div {
+            padding: 10px 10px !important;
+          }
+
+          /* Welcome header: tighten margin */
+          .dash-content > div:first-child {
+            margin-top: 16px !important;
+            margin-bottom: 20px !important;
           }
         }
       `}</style>

@@ -138,9 +138,9 @@ function PositionModal({ mode, editPosition, onClose, onSave, currency, rates }:
     debounceRef.current = setTimeout(async () => {
       setSearchLoading(true)
       try {
-        const r = await fetch(`/api/pt/cards?search=${encodeURIComponent(searchQuery)}&limit=8`)
+        const r = await fetch(`/api/pt/cards?search=${encodeURIComponent(searchQuery)}&limit=20`)
         const json = await r.json()
-        setSearchResults((json.data ?? []).slice(0, 8))
+        setSearchResults((json.data ?? []).slice(0, 20))
       } catch { setSearchResults([]) } finally { setSearchLoading(false) }
     }, 350)
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
@@ -183,7 +183,7 @@ function PositionModal({ mode, editPosition, onClose, onSave, currency, rates }:
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div style={{ width: '100%', maxWidth: 480, borderRadius: 20, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden' }}>
+      <div style={{ width: '100%', maxWidth: 480, borderRadius: 20, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden', maxHeight: 'calc(100vh - 48px)', display: 'flex', flexDirection: 'column' }}>
 
         {/* Header */}
         <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -193,7 +193,7 @@ function PositionModal({ mode, editPosition, onClose, onSave, currency, rates }:
           <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid var(--border2)', background: 'transparent', color: 'var(--ink3)', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 18 }}>
+        <form onSubmit={handleSubmit} style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 18, overflowY: 'auto', flex: 1 }}>
 
           {/* Card search (add mode only) */}
           {mode === 'add' && (
@@ -212,36 +212,52 @@ function PositionModal({ mode, editPosition, onClose, onSave, currency, rates }:
                   <span style={{ fontSize: 11, color: 'var(--ink3)', flexShrink: 0 }}>Change ×</span>
                 </div>
               ) : (
-                <div style={{ position: 'relative' }}>
-                  <input
-                    autoFocus
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    placeholder="Search by card name…"
-                    style={{ width: '100%', boxSizing: 'border-box', padding: '11px 14px', borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 14, outline: 'none' }}
-                    onFocus={e => (e.currentTarget.style.borderColor = 'var(--gold)')}
-                    onBlur={e => (e.currentTarget.style.borderColor = 'var(--border2)')}
-                  />
-                  {(searchLoading || searchResults.length > 0) && (
-                    <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 10, borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
-                      {searchLoading && (
-                        <div style={{ padding: '12px 16px', fontSize: 12, color: 'var(--ink3)' }}>Searching…</div>
+                <div>
+                  <div style={{ position: 'relative' }}>
+                    <div style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+                      {searchLoading
+                        ? <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--ink3)" strokeWidth="2" strokeLinecap="round" style={{ animation: 'srch-spin 0.7s linear infinite', display: 'block' }}><path d="M8 1a7 7 0 1 0 7 7"/></svg>
+                        : <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--ink3)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}><circle cx="6.5" cy="6.5" r="4.5"/><path d="M14 14l-3-3"/></svg>
+                      }
+                    </div>
+                    <input
+                      autoFocus
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                      placeholder="Search by card name…"
+                      style={{ width: '100%', boxSizing: 'border-box', padding: '11px 14px 11px 36px', borderRadius: searchResults.length > 0 ? '10px 10px 0 0' : 10, background: 'var(--bg)', border: '1px solid var(--border2)', borderBottom: searchResults.length > 0 ? '1px solid var(--border)' : '1px solid var(--border2)', color: 'var(--ink)', fontSize: 14, outline: 'none' }}
+                      onFocus={e => (e.currentTarget.style.borderColor = 'var(--gold)')}
+                      onBlur={e => (e.currentTarget.style.borderColor = searchResults.length > 0 ? 'var(--border2)' : 'var(--border2)')}
+                    />
+                    {searchQuery && (
+                      <button type="button" onClick={() => { setSearchQuery(''); setSearchResults([]) }}
+                        style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 40, background: 'none', border: 'none', color: 'var(--ink3)', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+                    )}
+                  </div>
+                  {searchResults.length > 0 && (
+                    <div style={{ borderRadius: '0 0 10px 10px', background: 'var(--bg)', border: '1px solid var(--border2)', borderTop: 'none', overflow: 'hidden' }}>
+                      <div style={{ maxHeight: 280, overflowY: 'auto' }}>
+                        {searchResults.map((r, i) => (
+                          <button
+                            key={r.id} type="button"
+                            onClick={() => { setSelectedCard(r); setSearchResults([]) }}
+                            style={{ width: '100%', padding: '10px 14px', background: 'transparent', border: 'none', borderBottom: i < searchResults.length - 1 ? '1px solid var(--border)' : 'none', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10, transition: 'background 0.1s' }}
+                            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
+                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                          >
+                            {r.image && <img src={tcgImg(r.image)} alt="" style={{ width: 32, height: 44, objectFit: 'contain', borderRadius: 3, flexShrink: 0 }} />}
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</div>
+                              <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 2 }}>{r.set.name}{r.cardNumber ? ` · #${r.cardNumber}` : ''}</div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                      {searchResults.length >= 20 && (
+                        <div style={{ padding: '8px 14px', borderTop: '1px solid var(--border)', fontSize: 11, color: 'var(--ink3)', textAlign: 'center' }}>
+                          Showing top 20 — type more to narrow results
+                        </div>
                       )}
-                      {searchResults.map((r, i) => (
-                        <button
-                          key={r.id} type="button"
-                          onClick={() => { setSelectedCard(r); setSearchResults([]) }}
-                          style={{ width: '100%', padding: '10px 14px', background: 'transparent', border: 'none', borderBottom: i < searchResults.length - 1 ? '1px solid var(--border)' : 'none', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10, transition: 'background 0.1s' }}
-                          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
-                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                        >
-                          {r.image && <img src={tcgImg(r.image)} alt="" style={{ width: 30, height: 30, objectFit: 'contain', borderRadius: 4, flexShrink: 0 }} />}
-                          <div style={{ minWidth: 0 }}>
-                            <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.name}</div>
-                            <div style={{ fontSize: 11, color: 'var(--ink3)' }}>{r.set.name}{r.cardNumber ? ` · #${r.cardNumber}` : ''}</div>
-                          </div>
-                        </button>
-                      ))}
                     </div>
                   )}
                 </div>

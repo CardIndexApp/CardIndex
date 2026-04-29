@@ -48,19 +48,59 @@ export async function GET() {
 
   const rows = portfolioRows ?? []
 
-  // Build the cache keys we need and fetch them all in one query
-  const cacheKeys = [...new Set(rows.map(r => `${r.card_id}:${r.grade}`))]
-  const { data: cacheRows } = cacheKeys.length
-    ? await admin.from('search_cache').select('cache_key, price, last_fetched').in('cache_key', cacheKeys)
+  // ── Exact lookup: cache_key = card_id:grade ──────────────────────────────
+  const exactKeys = [...new Set(rows.map(r => `${r.card_id}:${r.grade}`))]
+  const { data: exactCacheRows } = exactKeys.length
+    ? await admin.from('search_cache').select('cache_key, card_id, price, last_fetched').in('cache_key', exactKeys)
     : { data: [] }
 
-  const priceMap = Object.fromEntries((cacheRows ?? []).map(c => [c.cache_key, c.price as number | null]))
+  const exactPriceMap = Object.fromEntries(
+    (exactCacheRows ?? []).map(c => [c.cache_key, c.price as number | null])
+  )
+
+  // ── Fallback: for positions with no exact cache hit, look up any priced
+  //    cache entry for that card_id (covers stale keys, grade format drift,
+  //    and entries written before the DB migration fixed the upsert).
+  const missingCardIds = [...new Set(
+    rows
+      .filter(r => (exactPriceMap[`${r.card_id}:${r.grade}`] ?? null) === null)
+      .map(r => r.card_id)
+  )]
+
+  const { data: fallbackCacheRows } = missingCardIds.length
+    ? await admin
+        .from('search_cache')
+        .select('card_id, grade, price, last_fetched')
+        .in('card_id', missingCardIds)
+        .not('price', 'is', null)
+        .order('last_fetched', { ascending: false })
+    : { data: [] }
+
+  // For each missing card_id, prefer a matching-grade row, then take the
+  // most-recently-fetched row as a best-effort fallback.
+  const fallbackPriceMap: Record<string, number> = {}
+  for (const row of (fallbackCacheRows ?? [])) {
+    const key = row.card_id
+    if (!fallbackPriceMap[key]) {
+      // first row is most recent — use it unless we find a grade match later
+      fallbackPriceMap[key] = row.price as number
+    }
+  }
+  // Prefer exact grade match where available
+  for (const row of (fallbackCacheRows ?? [])) {
+    const missingRow = rows.find(r => r.card_id === row.card_id)
+    if (missingRow && row.grade === missingRow.grade) {
+      fallbackPriceMap[row.card_id] = row.price as number
+    }
+  }
 
   const portfolioStats = rows.reduce(
     (acc, row) => {
-      const qty        = row.quantity ?? 1
-      const cost       = (row.purchase_price ?? 0) * qty
-      const mktPrice   = priceMap[`${row.card_id}:${row.grade}`] ?? null
+      const qty      = row.quantity ?? 1
+      const cost     = (row.purchase_price ?? 0) * qty
+      const mktPrice = exactPriceMap[`${row.card_id}:${row.grade}`]
+        ?? fallbackPriceMap[row.card_id]
+        ?? null
 
       acc.totalCostBasis += cost
       acc.totalPositions += qty

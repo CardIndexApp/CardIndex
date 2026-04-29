@@ -23,7 +23,6 @@ interface WatchlistItem {
   grade: string
   card_number: string | null
   image_url: string | null
-  alert_price: number | null
   added_at: string
 }
 
@@ -125,7 +124,7 @@ function SignInPrompt({ onSignIn }: { onSignIn: () => void }) {
           Sign in to view your watchlist
         </h2>
         <p style={{ fontSize: 13, color: 'var(--ink3)', lineHeight: 1.6, marginBottom: 28 }}>
-          Track cards you care about, set price alerts, and see live market data in one place.
+          Track cards you care about and see live market data in one place.
         </p>
         <button
           onClick={onSignIn}
@@ -168,10 +167,6 @@ export default function Watchlist() {
   const [sort, setSort] = useState<SortKey>('score')
   const [filter, setFilter] = useState<Filter>('all')
 
-  // ── Alert price editing ───────────────────────────────────────────────────
-  const [editingAlertId, setEditingAlertId] = useState<string | null>(null)
-  const [alertDraft, setAlertDraft] = useState('')
-  const [alertSaving, setAlertSaving] = useState(false)
 
   const { fmtCurrency } = useCurrency()
 
@@ -294,26 +289,6 @@ export default function Watchlist() {
     await fetch(`/api/watchlist?id=${id}`, { method: 'DELETE' })
   }
 
-  // ── Alert price save handler ──────────────────────────────────────────────
-  async function handleSaveAlert(id: string) {
-    const val = alertDraft.trim()
-    const parsed = val === '' ? null : parseFloat(val)
-    if (val !== '' && (isNaN(parsed!) || parsed! <= 0)) return
-    setAlertSaving(true)
-    try {
-      const r = await fetch(`/api/watchlist?id=${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ alert_price: parsed }),
-      })
-      if (r.ok) {
-        setItems(prev => prev.map(p => p.id === id ? { ...p, alert_price: parsed } : p))
-        setEditingAlertId(null)
-      }
-    } finally {
-      setAlertSaving(false)
-    }
-  }
 
   // ── Derived lists ─────────────────────────────────────────────────────────
   const visible = items
@@ -584,51 +559,6 @@ export default function Watchlist() {
                             {item.set_name && <span style={{ fontSize: 10, color: 'var(--border2)' }}>·</span>}
                             <span style={{ fontSize: 10, color: 'var(--ink3)' }}>{item.grade}</span>
                           </div>
-                          {/* Alert price display / inline edit */}
-                          {editingAlertId === item.id ? (
-                            <div
-                              onClick={e => { e.preventDefault(); e.stopPropagation() }}
-                              style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}
-                            >
-                              <span style={{ fontSize: 9, color: 'var(--ink3)' }}>$</span>
-                              <input
-                                autoFocus
-                                type="number"
-                                min="0.01"
-                                step="0.01"
-                                value={alertDraft}
-                                onChange={e => setAlertDraft(e.target.value)}
-                                onKeyDown={e => {
-                                  if (e.key === 'Enter') handleSaveAlert(item.id)
-                                  if (e.key === 'Escape') setEditingAlertId(null)
-                                }}
-                                placeholder="e.g. 150"
-                                style={{ width: 72, fontSize: 11, padding: '2px 6px', borderRadius: 4, background: 'var(--surface2)', border: '1px solid var(--border2)', color: 'var(--ink)', outline: 'none' }}
-                              />
-                              <button
-                                onClick={e => { e.preventDefault(); e.stopPropagation(); handleSaveAlert(item.id) }}
-                                disabled={alertSaving}
-                                style={{ fontSize: 10, padding: '2px 7px', borderRadius: 4, background: 'var(--gold)', color: '#080810', border: 'none', cursor: 'pointer', fontWeight: 700 }}
-                              >{alertSaving ? '…' : '✓'}</button>
-                              <button
-                                onClick={e => { e.preventDefault(); e.stopPropagation(); setEditingAlertId(null) }}
-                                style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: 'var(--surface2)', color: 'var(--ink3)', border: '1px solid var(--border2)', cursor: 'pointer' }}
-                              >✕</button>
-                            </div>
-                          ) : getTierLimits(userTier).emailAlerts ? (
-                            <button
-                              onClick={e => { e.preventDefault(); e.stopPropagation(); setEditingAlertId(item.id); setAlertDraft(item.alert_price != null ? String(item.alert_price) : '') }}
-                              style={{ display: 'inline-flex', alignItems: 'center', gap: 3, marginTop: 4, fontSize: 9, color: item.alert_price != null ? 'var(--gold)' : 'var(--ink3)', background: item.alert_price != null ? 'var(--gold2)' : 'transparent', border: `1px solid ${item.alert_price != null ? 'rgba(232,197,71,0.2)' : 'var(--border2)'}`, borderRadius: 4, padding: '2px 6px', letterSpacing: 0.5, cursor: 'pointer', transition: 'all 0.15s' }}
-                            >
-                              ⚡ {item.alert_price != null ? fmtCurrency(item.alert_price) : 'Set alert'}
-                            </button>
-                          ) : (
-                            <Link
-                              href="/pricing"
-                              onClick={e => e.stopPropagation()}
-                              style={{ display: 'inline-block', marginTop: 4, fontSize: 9, color: 'var(--ink3)', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 4, padding: '2px 6px', letterSpacing: 0.5, textDecoration: 'none' }}
-                            >🔒 Alerts — Standard+</Link>
-                          )}
                         </div>
                       </div>
 

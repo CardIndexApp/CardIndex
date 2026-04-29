@@ -25,7 +25,7 @@ export const TIER_LIMITS: Record<Tier, TierLimits> = {
     savedSearches: 0,
     priceHistory: false,
     trendIndicators: false,
-    emailAlerts: false,
+    emailAlerts: false,   // not implemented
     realtimeAlerts: false,
     advancedAnalytics: false,
     portfolioTracking: false,
@@ -36,9 +36,9 @@ export const TIER_LIMITS: Record<Tier, TierLimits> = {
     savedSearches: 10,
     priceHistory: true,
     trendIndicators: true,
-    emailAlerts: true,
+    emailAlerts: false,
     realtimeAlerts: false,
-    advancedAnalytics: false,
+    advancedAnalytics: true,
     portfolioTracking: false,
     dataExport: false,
   },
@@ -47,8 +47,8 @@ export const TIER_LIMITS: Record<Tier, TierLimits> = {
     savedSearches: Infinity,
     priceHistory: true,
     trendIndicators: true,
-    emailAlerts: true,
-    realtimeAlerts: true,
+    emailAlerts: false,   // not implemented
+    realtimeAlerts: false, // not implemented
     advancedAnalytics: true,
     portfolioTracking: true,
     dataExport: true,

@@ -5,8 +5,21 @@ import { ThemeProvider } from '@/lib/theme'
 import InstallPrompt from '@/components/InstallPrompt'
 
 export const metadata: Metadata = {
-  title: 'CardIndex — TCG Market Intelligence',
+  metadataBase: new URL('https://card-index.app'),
+  title: {
+    default: 'CardIndex — TCG Market Intelligence',
+    template: '%s — CardIndex',
+  },
   description: 'Real-time price intelligence, CardIndex scores, and market analysis for trading card collectors and investors.',
+  openGraph: {
+    siteName: 'CardIndex',
+    type: 'website',
+    images: [{ url: '/icon-512.png', width: 512, height: 512, alt: 'CardIndex' }],
+  },
+  twitter: {
+    card: 'summary',
+    site: '@cardindexapp',
+  },
   icons: {
     icon: [
       { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },

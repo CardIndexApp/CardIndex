@@ -1678,8 +1678,8 @@ export default function CardPageClient() {
                                   { label: 'PSA 9 / 10',     value: fmtMult(psa9of10) },
                                   { label: 'MINT PREMIUM',   value: fmtMult(mintPremium) },
                                 ].map(({ label, value }) => (
-                                  <div key={label} style={{ borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)', padding: '12px 14px' }}>
-                                    <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6 }}>{label}</div>
+                                  <div key={label} style={{ borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)', padding: '12px 14px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 72 }}>
+                                    <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)' }}>{label}</div>
                                     <div className="font-num" style={{ fontSize: 22, fontWeight: 700, color: value === 'n/a' ? 'var(--ink3)' : 'var(--ink)' }}>{value}</div>
                                   </div>
                                 ))}
@@ -3291,8 +3291,8 @@ export default function CardPageClient() {
                           { label: 'PSA 9 / 10',     value: fmtMult(psa9of10) },
                           { label: 'MINT PREMIUM',   value: fmtMult(mintPremium) },
                         ].map(({ label, value }) => (
-                          <div key={label} style={{ borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)', padding: '12px 14px' }}>
-                            <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6 }}>{label}</div>
+                          <div key={label} style={{ borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)', padding: '12px 14px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 72 }}>
+                            <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)' }}>{label}</div>
                             <div className="font-num" style={{ fontSize: 22, fontWeight: 700, color: value === 'n/a' ? 'var(--ink3)' : 'var(--ink)' }}>{value}</div>
                           </div>
                         ))}

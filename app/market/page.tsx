@@ -240,7 +240,7 @@ export default function Market() {
         .mkt-movers  { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
         @media (max-width: 900px) { .mkt-indices { grid-template-columns: repeat(2,1fr); } }
         @media (max-width: 900px) { .mkt-metrics-grid { grid-template-columns: repeat(4,1fr) !important; } }
-        @media (max-width: 640px) { .mkt-indices { grid-template-columns: 1fr 1fr; } .mkt-movers { grid-template-columns: 1fr; } .mkt-hero { flex-direction: column !important; } .mkt-metrics-grid { grid-template-columns: repeat(2,1fr) !important; } }
+        @media (max-width: 640px) { .mkt-indices { grid-template-columns: 1fr 1fr; } .mkt-movers { grid-template-columns: 1fr; } .mkt-hero { flex-direction: column !important; } .mkt-metrics-grid { grid-template-columns: repeat(2,1fr) !important; } .mkt-most-traded { grid-template-columns: 1fr !important; } .mkt-most-traded .mkt-most-traded-item { border-right: none !important; border-bottom: 1px solid var(--border) !important; } .mkt-most-traded .mkt-most-traded-item:last-child { border-bottom: none !important; } }
       `}</style>
 
       <main style={{ paddingTop: 72, paddingBottom: 96, minHeight: '100vh' }}>
@@ -465,9 +465,9 @@ export default function Market() {
                   {[...Array(5)].map((_, i) => <Skeleton key={i} h={36} />)}
                 </div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)' }}>
+                <div className="mkt-most-traded" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)' }}>
                   {data!.mostTraded.map((item, i) => (
-                    <div key={`${item.card_id}-${item.grade}`} style={{ borderBottom: i < data!.mostTraded.length - 2 ? '1px solid var(--border)' : 'none', borderRight: i % 2 === 0 ? '1px solid var(--border)' : 'none' }}>
+                    <div key={`${item.card_id}-${item.grade}`} className="mkt-most-traded-item" style={{ borderBottom: i < data!.mostTraded.length - 2 ? '1px solid var(--border)' : 'none', borderRight: i % 2 === 0 ? '1px solid var(--border)' : 'none' }}>
                       <MoverRow item={item} rank={i + 1} showSales fmtCurrency={fmtCurrency} />
                     </div>
                   ))}

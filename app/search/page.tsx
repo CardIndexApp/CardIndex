@@ -24,16 +24,17 @@ interface PtCard {
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const GRADES = [
-  { label: 'Raw',     sub: 'Ungraded'  },
-  { label: 'PSA 10',  sub: 'Gem Mint'  },
-  { label: 'PSA 9',   sub: 'Mint'      },
-  { label: 'PSA 8',   sub: 'NM-Mint'   },
-  { label: 'PSA 7',   sub: 'Near Mint' },
-  { label: 'BGS 10',  sub: 'Pristine'  },
-  { label: 'BGS 9.5', sub: 'Gem Mint'  },
-  { label: 'CGC 10',  sub: 'Pristine'  },
-  { label: 'CGC 9',   sub: 'Mint'      },
-  { label: 'CGC 9.5', sub: 'Gem Mint'  },
+  { label: 'Raw',    sub: 'Ungraded'  },
+  { label: 'PSA 10', sub: 'Gem Mint'  },
+  { label: 'PSA 9',  sub: 'Mint'      },
+  { label: 'PSA 8',  sub: 'NM-Mint'   },
+  { label: 'PSA 7',  sub: 'Near Mint' },
+  { label: 'PSA 6',  sub: 'Ex-Mt'     },
+  { label: 'PSA 5',  sub: 'Excellent'  },
+  { label: 'PSA 4',  sub: 'VG-Ex'     },
+  { label: 'PSA 3',  sub: 'Very Good' },
+  { label: 'PSA 2',  sub: 'Good'      },
+  { label: 'PSA 1',  sub: 'Poor'      },
 ]
 
 const JP_GRADES = [

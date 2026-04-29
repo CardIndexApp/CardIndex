@@ -17,6 +17,8 @@ interface PtSet {
   name: string
   releaseDate: string | null
   cardCount: number
+  logo?: string
+  symbol?: string
 }
 
 const delay = (ms: number) => new Promise(r => setTimeout(r, ms))
@@ -68,7 +70,7 @@ export async function GET(_req: NextRequest) {
   for (const s of allSets) {
     if (s.cardCount === 0) continue
     const existing = byName.get(s.name)
-    if (!existing || s.cardCount > existing.cardCount) {
+    if (!existing || s.cardCount > existing.cardCount || (s.cardCount === existing.cardCount && s.logo && !existing.logo)) {
       byName.set(s.name, s)
     }
   }

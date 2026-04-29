@@ -321,18 +321,22 @@ export default function BrowseSetsPage() {
       if (era !== 'mega') map.get(era)?.push(s)
     }
 
-    // Merge EN + JP mega sets, deduped by slug
-    const megaMap = new Map<string, PtSet>()
-    for (const s of sets) {
-      if (classifyEra(s.slug, s.name) === 'mega') megaMap.set(s.slug, s)
+    // Mega era: always sourced from the JP feed (those slugs resolve in the
+    // cards API with game=pokemon-japanese). Deduplicate by normalised name
+    // so "ME: Ascended Heroes" and "Ascended Heroes" collapse into one entry.
+    // Strip leading set-code prefixes like "ME01: ", "ME: ", "MEE: " etc.
+    const stripPrefix = (n: string) =>
+      n.replace(/^(ME\d*|MEE|MEP|ME)\s*:\s*/i, '').trim()
+
+    const megaByNorm = new Map<string, PtSet>()
+    const jpMegaSets = (lang === 'jp' ? sets : jpSets)
+      .filter(s => classifyEra(s.slug, s.name) === 'mega')
+    for (const s of jpMegaSets) {
+      const norm = stripPrefix(s.name).toLowerCase()
+      const existing = megaByNorm.get(norm)
+      if (!existing || s.cardCount > existing.cardCount) megaByNorm.set(norm, s)
     }
-    // Only pull in JP-exclusive mega sets when the JP feed is active
-    if (lang === 'jp') {
-      for (const s of jpSets) {
-        if (classifyEra(s.slug, s.name) === 'mega') megaMap.set(s.slug, s)
-      }
-    }
-    map.set('mega', [...megaMap.values()])
+    map.set('mega', [...megaByNorm.values()])
 
     // Sort each group by releaseDate descending
     for (const [, arr] of map) {

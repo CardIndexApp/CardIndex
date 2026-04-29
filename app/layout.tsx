@@ -1,8 +1,15 @@
 import type { Metadata } from 'next'
+import { Inter } from 'next/font/google'
 import './globals.css'
 import { CurrencyProvider } from '@/lib/currency'
 import { ThemeProvider } from '@/lib/theme'
 import InstallPrompt from '@/components/InstallPrompt'
+
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://card-index.app'),
@@ -14,10 +21,9 @@ export const metadata: Metadata = {
   openGraph: {
     siteName: 'CardIndex',
     type: 'website',
-    images: [{ url: '/icon-512.png', width: 512, height: 512, alt: 'CardIndex' }],
   },
   twitter: {
-    card: 'summary',
+    card: 'summary_large_image',
     site: '@cardindexapp',
   },
   icons: {
@@ -33,7 +39,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className={inter.variable}>
       <head>
         {/* Prevent flash of wrong theme: apply stored theme before first paint */}
         <script

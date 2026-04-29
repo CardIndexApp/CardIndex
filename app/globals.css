@@ -57,13 +57,13 @@
 body {
   background: var(--bg);
   color: var(--ink);
-  font-family: Helvetica, Arial, sans-serif;
+  font-family: var(--font-inter), Inter, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
-.font-display { font-family: Helvetica, Arial, sans-serif; }
-.font-mono-custom { font-family: Helvetica, Arial, sans-serif; }
-.font-num { font-family: Helvetica, Arial, sans-serif; font-weight: 700; }
+.font-display { font-family: var(--font-inter), Inter, Helvetica, Arial, sans-serif; }
+.font-mono-custom { font-family: var(--font-inter), Inter, Helvetica, Arial, sans-serif; }
+.font-num { font-family: var(--font-inter), Inter, Helvetica, Arial, sans-serif; font-weight: 700; }
 
 .grid-bg {
   background-image:

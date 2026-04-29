@@ -632,11 +632,12 @@ export default function CardPage() {
     fetch('/api/market')
       .then(r => r.ok ? r.json() : null)
       .then(d => {
-        if (!d || d.empty || !d.indexMetrics) return
+        if (!d || d.empty) return
+        // Prefer indexMetrics (normalized history-based), fall back to overall per-card medians
         setMarketSnap({
-          change7d:     d.indexMetrics.change7d  ?? null,
-          change30d:    d.indexMetrics.change30d ?? null,
-          change90d:    d.indexMetrics.change90d ?? null,
+          change7d:     d.indexMetrics?.change7d  ?? d.overall?.change7d  ?? null,
+          change30d:    d.indexMetrics?.change30d ?? d.overall?.change30d ?? null,
+          change90d:    d.indexMetrics?.change90d ?? null,
           risingCount:  d.stats?.risingCount  ?? 0,
           fallingCount: d.stats?.fallingCount ?? 0,
           totalCards:   d.stats?.totalCards   ?? 0,
@@ -3791,7 +3792,7 @@ export default function CardPage() {
               })()}
 
               {/* 18 — CI Index Comparison */}
-              {liveData && marketSnap && (() => {
+              {liveData && marketSnap && marketSnap.totalCards > 0 && (() => {
                 const card30d = liveData.price_change_pct ?? null
                 const card7d  = (liveData.avg7d && liveData.avg7d > 0 && liveData.price)
                   ? ((liveData.price - liveData.avg7d) / liveData.avg7d) * 100

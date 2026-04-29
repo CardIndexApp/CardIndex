@@ -229,8 +229,9 @@ function formatDate(d: string | null): string {
 export default function BrowseSetsPage() {
   const router = useRouter()
 
-  const [sets, setSets]             = useState<PtSet[]>([])
-  const [loading, setLoading]       = useState(true)
+  const [sets, setSets]           = useState<PtSet[]>([])
+  const [jpSets, setJpSets]       = useState<PtSet[]>([])   // always-fetched JP sets for Mega Era
+  const [loading, setLoading]     = useState(true)
   const [filterText, setFilterText] = useState('')
   const [lang, setLang]             = useState<'en' | 'jp'>('en')
   // collapsed era ids (all expanded by default)
@@ -245,7 +246,22 @@ export default function BrowseSetsPage() {
   const [selectedCard, setSelectedCard]   = useState<PtCard | null>(null)
   const [selectedGrade, setSelectedGrade] = useState<string | null>(null)
 
-  // Load sets on lang change
+  // Always fetch JP sets once (for Mega Evolution era, regardless of lang)
+  useEffect(() => {
+    const KEY = 'sets_all_pokemon-japanese'
+    const cached = cacheGet<PtSet[]>(KEY)
+    if (cached) { setJpSets(cached); return }
+    fetch('/api/pt/sets?game=pokemon-japanese')
+      .then(r => r.json())
+      .then(json => {
+        const data: PtSet[] = json.data ?? []
+        setJpSets(data)
+        if (data.length > 0) cacheSet(KEY, data)
+      })
+      .catch(() => {})
+  }, [])
+
+  // Load main sets on lang change
   useEffect(() => {
     setLoading(true)
     setSets([])
@@ -272,14 +288,29 @@ export default function BrowseSetsPage() {
       .finally(() => setLoading(false))
   }, [lang])
 
-  // Group sets by era, sort each group newest first
+  // Group sets by era, sort each group newest first.
+  // For the Mega era, merge EN + JP feeds (deduped by slug) so both EN and JP
+  // Mega Evolution sets are always visible regardless of the lang toggle.
   const grouped = useMemo(() => {
     const map = new Map<string, PtSet[]>()
     for (const era of ERAS) map.set(era.id, [])
+
+    // Classify main-lang sets (skip mega — handled separately below)
     for (const s of sets) {
       const era = classifyEra(s.slug, s.name)
-      map.get(era)?.push(s)
+      if (era !== 'mega') map.get(era)?.push(s)
     }
+
+    // Merge EN + JP mega sets, deduped by slug
+    const megaMap = new Map<string, PtSet>()
+    for (const s of sets) {
+      if (classifyEra(s.slug, s.name) === 'mega') megaMap.set(s.slug, s)
+    }
+    for (const s of jpSets) {
+      if (classifyEra(s.slug, s.name) === 'mega') megaMap.set(s.slug, s)
+    }
+    map.set('mega', [...megaMap.values()])
+
     // Sort each group by releaseDate descending
     for (const [, arr] of map) {
       arr.sort((a, b) => {
@@ -290,7 +321,7 @@ export default function BrowseSetsPage() {
       })
     }
     return map
-  }, [sets])
+  }, [sets, jpSets])
 
   // Only eras with sets
   const populatedEras = useMemo(
@@ -302,42 +333,57 @@ export default function BrowseSetsPage() {
   const q = filterText.trim().toLowerCase()
   const isFiltering = q.length > 0
 
+  // Determine which game param to use for a given set slug.
+  // Mega Evolution sets are catalogued under pokemon-japanese in Poketrace
+  // even when they appear in the EN sets feed.
+  function gameForSlug(slug: string): 'pokemon' | 'pokemon-japanese' {
+    if (classifyEra(slug, '') === 'mega') return 'pokemon-japanese'
+    return lang === 'jp' ? 'pokemon-japanese' : 'pokemon'
+  }
+
   // Load cards for a set
   async function loadSetCards(slug: string, cursor = '') {
     setCardsLoading(true)
     try {
-      const game = lang === 'jp' ? 'pokemon-japanese' : 'pokemon'
-      const params = new URLSearchParams({ set: slug, limit: '20', game })
-      if (cursor) params.set('cursor', cursor)
-      const key = cacheKey(params)
-
       interface PageData { cards: PtCard[]; hasMore: boolean; nextCursor: string }
-      const cached = cacheGet<PageData>(key)
 
-      let pageCards: PtCard[], hasMore: boolean, nextCursor: string
-
-      if (cached) {
-        pageCards  = cached.cards.filter(isCardResult)
-        hasMore    = cached.hasMore
-        nextCursor = cached.nextCursor
-      } else {
+      async function fetchPage(game: 'pokemon' | 'pokemon-japanese') {
+        const params = new URLSearchParams({ set: slug, limit: '20', game })
+        if (cursor) params.set('cursor', cursor)
+        const key = cacheKey(params)
+        const cached = cacheGet<PageData>(key)
+        if (cached) return { ...cached, cards: cached.cards.filter(isCardResult) }
         const res  = await fetch(`/api/pt/cards?${params}`)
         const json = await res.json()
-        pageCards  = (json.data ?? []).filter(isCardResult)
-        hasMore    = json.pagination?.hasMore ?? false
-        nextCursor = json.pagination?.nextCursor ?? ''
-        if (pageCards.length > 0) cacheSet<PageData>(key, { cards: pageCards, hasMore, nextCursor })
+        const cards = (json.data ?? []).filter(isCardResult)
+        const result: PageData = {
+          cards,
+          hasMore:    json.pagination?.hasMore ?? false,
+          nextCursor: json.pagination?.nextCursor ?? '',
+        }
+        if (cards.length > 0) cacheSet<PageData>(key, result)
+        return result
+      }
+
+      const primaryGame = gameForSlug(slug)
+      let result = await fetchPage(primaryGame)
+
+      // Fallback: if primary returned nothing and we haven't tried the other game yet
+      if (result.cards.length === 0 && !cursor) {
+        const fallbackGame = primaryGame === 'pokemon-japanese' ? 'pokemon' : 'pokemon-japanese'
+        const fallback = await fetchPage(fallbackGame)
+        if (fallback.cards.length > 0) result = fallback
       }
 
       if (cursor) {
-        setSetCards(prev => [...prev, ...pageCards])
+        setSetCards(prev => [...prev, ...result.cards])
       } else {
-        setSetCards(pageCards)
+        setSetCards(result.cards)
         setSelectedCard(null)
         setSelectedGrade(null)
       }
-      setCardsHasMore(hasMore)
-      setCardsCursor(nextCursor)
+      setCardsHasMore(result.hasMore)
+      setCardsCursor(result.nextCursor)
     } catch {
       if (!cursor) setSetCards([])
     } finally {
@@ -361,11 +407,12 @@ export default function BrowseSetsPage() {
 
   function handleGrade(grade: string, card: PtCard) {
     setSelectedGrade(grade)
+    const game = gameForSlug(card.set.slug)
     const params = new URLSearchParams({
       grade, name: card.name, set: card.set.name,
       number: card.cardNumber, set_slug: card.set.slug,
     })
-    if (lang === 'jp') params.set('game', 'pokemon-japanese')
+    if (game === 'pokemon-japanese') params.set('game', 'pokemon-japanese')
     router.push(`/card/${card.id}?${params}`)
   }
 

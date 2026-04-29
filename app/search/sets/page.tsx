@@ -39,6 +39,12 @@ type Era = {
 // Ordered newest → oldest
 const ERAS: Era[] = [
   {
+    id: 'mega',
+    label: 'Mega Evolution',
+    color: '#c084fc',
+    match: (s, n) => s.includes('mega') || n.includes('mega'),
+  },
+  {
     id: 'sv',
     label: 'Scarlet & Violet',
     color: '#e8613a',
@@ -74,15 +80,14 @@ const ERAS: Era[] = [
   },
   {
     id: 'xy',
-    label: 'XY / Mega Evolution',
+    label: 'XY',
     color: '#3ae8c8',
-    match: (s, n) =>
+    match: (s) =>
       s.startsWith('xy') || s.includes('kalos') || s.includes('flashfire') ||
       s.includes('furious-fists') || s.includes('phantom-forces') || s.includes('primal-clash') ||
       s.includes('roaring-skies') || s.includes('ancient-origins') || s.includes('breakthrough') ||
       s.includes('breakpoint') || s.includes('generations') || s.includes('fates-collide') ||
-      s.includes('steam-siege') || s.includes('evolutions') || s.includes('double-crisis') ||
-      s.includes('mega') || n.includes('mega'),
+      s.includes('steam-siege') || s.includes('evolutions') || s.includes('double-crisis'),
   },
   {
     id: 'bw',

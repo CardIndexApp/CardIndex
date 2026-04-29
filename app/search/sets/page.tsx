@@ -238,25 +238,6 @@ function CardThumb({ src, alt }: { src: string; alt: string }) {
   )
 }
 
-function SetLogo({ src, alt, color }: { src: string; alt: string; color: string }) {
-  const [failed, setFailed] = useState(false)
-  return (
-    <div style={{
-      width: '100%', aspectRatio: '16/9', borderRadius: '8px 8px 0 0',
-      overflow: 'hidden', background: `${color}18`,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-    }}>
-      {!failed && src ? (
-        <img
-          src={src} alt={alt} onError={() => setFailed(true)}
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-        />
-      ) : (
-        <span style={{ fontSize: 11, color, opacity: 0.5, padding: '0 8px', textAlign: 'center', fontWeight: 600 }}>{alt}</span>
-      )}
-    </div>
-  )
-}
 
 function formatDate(d: string | null): string {
   if (!d) return ''
@@ -345,8 +326,11 @@ export default function BrowseSetsPage() {
     for (const s of sets) {
       if (classifyEra(s.slug, s.name) === 'mega') megaMap.set(s.slug, s)
     }
-    for (const s of jpSets) {
-      if (classifyEra(s.slug, s.name) === 'mega') megaMap.set(s.slug, s)
+    // Only pull in JP-exclusive mega sets when the JP feed is active
+    if (lang === 'jp') {
+      for (const s of jpSets) {
+        if (classifyEra(s.slug, s.name) === 'mega') megaMap.set(s.slug, s)
+      }
     }
     map.set('mega', [...megaMap.values()])
 
@@ -360,7 +344,7 @@ export default function BrowseSetsPage() {
       })
     }
     return map
-  }, [sets, jpSets])
+  }, [sets, jpSets, lang])
 
   // Only eras with sets
   const populatedEras = useMemo(
@@ -570,54 +554,41 @@ export default function BrowseSetsPage() {
                     )}
                   </button>
 
-                  {/* Sets image grid */}
-                  {!isCollapsed && (() => {
-                    // Find the index of the expanded set so we can inject the panel after its row
-                    const COLS = 4 // must match CSS grid-template-columns
-                    const expandedIdx = filtered.findIndex(s => s.slug === expandedSet)
-                    // Insert panel after the row that contains expandedIdx
-                    const panelAfterRow = expandedIdx >= 0
-                      ? Math.floor(expandedIdx / COLS)
-                      : -1
+                  {/* Sets list */}
+                  {!isCollapsed && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      {filtered.map(set => {
+                        const isExpanded = expandedSet === set.slug
+                        return (
+                          <div key={set.slug}>
+                            <button
+                              onClick={() => handleSetClick(set.slug)}
+                              style={{
+                                width: '100%', display: 'flex', alignItems: 'center', gap: 12,
+                                padding: '12px 16px',
+                                borderRadius: isExpanded ? '10px 10px 0 0' : 10,
+                                background: 'var(--surface)',
+                                border: `1.5px solid ${isExpanded ? era.color : 'var(--border)'}`,
+                                borderBottom: isExpanded ? '1.5px solid transparent' : undefined,
+                                cursor: 'pointer', textAlign: 'left', transition: 'border-color 0.15s',
+                              }}
+                              onMouseEnter={e => { if (!isExpanded) e.currentTarget.style.borderColor = `${era.color}66` }}
+                              onMouseLeave={e => { if (!isExpanded) e.currentTarget.style.borderColor = 'var(--border)' }}
+                            >
+                              {/* Era color accent bar */}
+                              <span style={{ width: 3, height: 32, borderRadius: 2, background: era.color, flexShrink: 0, opacity: isExpanded ? 1 : 0.4 }} />
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 14, fontWeight: 700, color: isExpanded ? era.color : 'var(--ink)', lineHeight: 1.3 }}>{set.name}</div>
+                                <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 2 }}>{set.cardCount} cards{set.releaseDate ? ` · ${formatDate(set.releaseDate)}` : ''}</div>
+                              </div>
+                              <span style={{
+                                fontSize: 20, color: isExpanded ? era.color : 'var(--ink3)',
+                                flexShrink: 0, lineHeight: 1, transition: 'transform 0.2s, color 0.15s',
+                                transform: isExpanded ? 'rotate(90deg)' : 'none',
+                              }}>›</span>
+                            </button>
 
-                    const rows: PtSet[][] = []
-                    for (let i = 0; i < filtered.length; i += COLS) {
-                      rows.push(filtered.slice(i, i + COLS))
-                    }
-
-                    return (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        {rows.map((row, rowIdx) => (
-                          <div key={rowIdx}>
-                            <div className="sets-grid" style={{ marginBottom: 0 }}>
-                              {row.map(set => {
-                                const isExpanded = expandedSet === set.slug
-                                return (
-                                  <button
-                                    key={set.slug}
-                                    onClick={() => handleSetClick(set.slug)}
-                                    className="set-card-btn"
-                                    style={{
-                                      border: `2px solid ${isExpanded ? era.color : 'transparent'}`,
-                                      boxShadow: isExpanded ? `0 0 0 1px ${era.color}44` : undefined,
-                                    }}
-                                  >
-                                    <SetLogo src={set.logo ? ptImg(set.logo) : ''} alt={set.name} color={era.color} />
-                                    <div style={{ padding: '8px 6px 6px' }}>
-                                      <div style={{ fontSize: 12, fontWeight: 700, color: isExpanded ? era.color : 'var(--ink)', lineHeight: 1.3, textAlign: 'center' }}>
-                                        {set.name}
-                                      </div>
-                                      <div style={{ fontSize: 10, color: 'var(--ink3)', textAlign: 'center', marginTop: 2 }}>
-                                        {set.cardCount} cards
-                                      </div>
-                                    </div>
-                                  </button>
-                                )
-                              })}
-                            </div>
-
-                            {/* Expand panel below this row */}
-                            {rowIdx === panelAfterRow && (
+                            {isExpanded && (
                               <div className="set-expand-panel" style={{ borderColor: era.color }}>
                                 {cardsLoading && setCards.length === 0 ? (
                                   <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--ink3)', fontSize: 13 }}>Loading cards…</div>
@@ -734,10 +705,10 @@ export default function BrowseSetsPage() {
                               </div>
                             )}
                           </div>
-                        ))}
-                      </div>
-                    )
-                  })()}
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
               )
             })}
@@ -746,46 +717,6 @@ export default function BrowseSetsPage() {
       </main>
 
       <style>{`
-        /* Set image card grid */
-        .sets-grid {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 12px;
-          margin-bottom: 4px;
-        }
-        @media (max-width: 600px) {
-          .sets-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
-        }
-
-        /* Each set card sits in the grid normally.
-           The expand panel is placed after the grid via grid-column span. */
-
-        .set-card-btn {
-          background: var(--surface);
-          border-radius: 10px;
-          cursor: pointer;
-          text-align: left;
-          padding: 0;
-          overflow: hidden;
-          transition: transform 0.15s, box-shadow 0.15s;
-          width: 100%;
-        }
-        .set-card-btn:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 6px 20px rgba(0,0,0,0.3);
-        }
-
-        /* Expanded panel spans full grid width */
-        .set-expand-panel {
-          grid-column: 1 / -1;
-          border: 1.5px solid;
-          border-radius: 12px;
-          background: var(--surface);
-          padding: 14px 14px 16px;
-          margin-top: -4px;
-        }
-
-        /* Grade grid */
         .sets-grade-grid {
           display: grid;
           grid-template-columns: repeat(4, 1fr);

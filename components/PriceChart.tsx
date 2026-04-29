@@ -1,6 +1,7 @@
 'use client'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { fmt } from '@/lib/data'
+import { useTheme } from '@/lib/theme'
 
 interface Props {
   data: { month: string; price: number }[]
@@ -19,12 +20,19 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
 }
 
 export default function PriceChart({ data }: Props) {
+  const { theme } = useTheme()
+  const isLight = theme === 'light'
+
   const prices = data.map(d => d.price)
   const min = Math.min(...prices)
   const max = Math.max(...prices)
   const pad = (max - min) * 0.1
   const isUp = data[data.length - 1].price >= data[0].price
   const color = isUp ? '#3de88a' : '#e8524a'
+
+  const gridStroke = isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.04)'
+  const tickFill   = isLight ? '#9090aa' : '#55556a'
+  const cursorStroke = isLight ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.1)'
 
   return (
     <ResponsiveContainer width="100%" height={220}>
@@ -35,10 +43,10 @@ export default function PriceChart({ data }: Props) {
             <stop offset="100%" stopColor={color} stopOpacity={0} />
           </linearGradient>
         </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
-        <XAxis dataKey="month" tick={{ fill: '#55556a', fontSize: 11, fontFamily: 'Helvetica' }} axisLine={false} tickLine={false} />
-        <YAxis domain={[min - pad, max + pad]} tick={{ fill: '#55556a', fontSize: 11, fontFamily: 'Helvetica' }} tickFormatter={v => fmt(v).replace('$', '')} axisLine={false} tickLine={false} width={52} />
-        <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }} />
+        <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} vertical={false} />
+        <XAxis dataKey="month" tick={{ fill: tickFill, fontSize: 11, fontFamily: 'Helvetica' }} axisLine={false} tickLine={false} />
+        <YAxis domain={[min - pad, max + pad]} tick={{ fill: tickFill, fontSize: 11, fontFamily: 'Helvetica' }} tickFormatter={v => fmt(v).replace('$', '')} axisLine={false} tickLine={false} width={52} />
+        <Tooltip content={<CustomTooltip />} cursor={{ stroke: cursorStroke, strokeWidth: 1 }} />
         <Area type="monotone" dataKey="price" stroke={color} strokeWidth={2} fill="url(#grad)" dot={false} activeDot={{ r: 4, fill: color, stroke: 'var(--surface)' }} />
       </AreaChart>
     </ResponsiveContainer>

@@ -46,7 +46,7 @@ export default function CardPreview({ card }: { card: Card }) {
           <span style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 0.5 }}>CardIndex Score</span>
           <span className="font-num" style={{ fontSize: 13, fontWeight: 700, color: scoreColor(card.score) }}>{card.score}</span>
         </div>
-        <div style={{ height: 4, borderRadius: 3, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+        <div style={{ height: 4, borderRadius: 3, background: 'var(--track)', overflow: 'hidden' }}>
           <div style={{ height: '100%', width: `${card.score}%`, background: scoreColor(card.score), borderRadius: 3, transition: 'width 0.4s ease' }} />
         </div>
       </div>

@@ -18,7 +18,7 @@ export default function ScoreRing({ score, size = 'md', breakdown }: Props) {
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
       <div style={{ position: 'relative', width: r * 2, height: r * 2 }}>
         <svg width={r * 2} height={r * 2} style={{ transform: 'rotate(-90deg)' }}>
-          <circle cx={r} cy={r} r={r - sw} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={sw} />
+          <circle cx={r} cy={r} r={r - sw} fill="none" stroke="var(--track)" strokeWidth={sw} />
           <circle cx={r} cy={r} r={r - sw} fill="none" stroke={c} strokeWidth={sw}
             strokeLinecap="round" strokeDasharray={`${dash} ${circ}`} />
         </svg>
@@ -30,7 +30,7 @@ export default function ScoreRing({ score, size = 'md', breakdown }: Props) {
             <div key={key} style={{ borderRadius: 10, padding: 12, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
               <div style={{ fontSize: 10, color: 'var(--ink3)', textTransform: 'capitalize', marginBottom: 6, letterSpacing: '0.5px' }}>{key}</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ flex: 1, height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                <div style={{ flex: 1, height: 3, borderRadius: 2, background: 'var(--track)', overflow: 'hidden' }}>
                   <div style={{ height: '100%', width: `${val}%`, background: scoreColor(val), borderRadius: 2 }} />
                 </div>
                 <span className="font-mono-custom" style={{ fontSize: 11, color: scoreColor(val) }}>{val}</span>

@@ -94,7 +94,7 @@ export default function Navbar() {
         height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '0 24px',
         borderBottom: '1px solid var(--border)',
-        background: 'rgba(8,8,16,0.92)',
+        background: 'var(--nav-bg)',
         backdropFilter: 'blur(12px)',
       }}>
         {/* Logo */}
@@ -141,7 +141,7 @@ export default function Navbar() {
                 {initials}
               </button>
               {userMenuOpen && (
-                <div style={{ position: 'absolute', right: 0, top: 42, width: 200, borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden', boxShadow: '0 16px 40px rgba(0,0,0,0.5)' }}>
+                <div style={{ position: 'absolute', right: 0, top: 42, width: 200, borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden', boxShadow: '0 16px 40px var(--shadow-lg)' }}>
                   <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
                     <div style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 700, marginBottom: 2 }}>{displayName}</div>
                     <div style={{ fontSize: 11, color: 'var(--ink3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</div>
@@ -181,7 +181,7 @@ export default function Navbar() {
       </nav>
 
       {/* Mobile drawer */}
-      <div className="nav-drawer" style={{ position: 'fixed', top: 56, left: 0, right: 0, bottom: 'calc(84px + env(safe-area-inset-bottom))', zIndex: 49, background: 'rgba(8,8,16,0.97)', backdropFilter: 'blur(16px)', display: 'flex', flexDirection: 'column', padding: '32px 24px 24px', overflowY: 'auto', transform: open ? 'translateY(0)' : 'translateY(-12px)', opacity: open ? 1 : 0, pointerEvents: open ? 'auto' : 'none', transition: 'opacity 0.25s, transform 0.25s' }}>
+      <div className="nav-drawer" style={{ position: 'fixed', top: 56, left: 0, right: 0, bottom: 'calc(84px + env(safe-area-inset-bottom))', zIndex: 49, background: 'var(--nav-solid)', backdropFilter: 'blur(16px)', display: 'flex', flexDirection: 'column', padding: '32px 24px 24px', overflowY: 'auto', transform: open ? 'translateY(0)' : 'translateY(-12px)', opacity: open ? 1 : 0, pointerEvents: open ? 'auto' : 'none', transition: 'opacity 0.25s, transform 0.25s' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 32 }}>
           {user ? (
             <>
@@ -233,15 +233,15 @@ export default function Navbar() {
       {user && (
         <nav className="bottom-nav" style={{
           position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100,
-          background: 'rgba(10,10,18,0.98)',
+          background: 'var(--bottom-nav)',
           backdropFilter: 'blur(20px)',
-          borderTop: '1px solid rgba(255,255,255,0.07)',
+          borderTop: '1px solid var(--nav-border)',
           display: 'flex', alignItems: 'stretch',
           paddingBottom: 'env(safe-area-inset-bottom)',
           height: 'calc(84px + env(safe-area-inset-bottom))',
         }}>
           {/* Dashboard */}
-          <Link href="/dashboard" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, textDecoration: 'none', color: pathname === '/dashboard' ? 'var(--gold)' : 'rgba(255,255,255,0.35)', paddingBottom: 8 }}>
+          <Link href="/dashboard" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, textDecoration: 'none', color: pathname === '/dashboard' ? 'var(--gold)' : 'var(--nav-inactive)', paddingBottom: 8 }}>
             <svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={pathname === '/dashboard' ? 2 : 1.6} strokeLinecap="round" strokeLinejoin="round">
               <rect x="2" y="2" width="7" height="7" rx="1.5"/>
               <rect x="11" y="2" width="7" height="7" rx="1.5"/>
@@ -252,7 +252,7 @@ export default function Navbar() {
           </Link>
 
           {/* Portfolio */}
-          <Link href="/portfolio" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, textDecoration: 'none', color: pathname === '/portfolio' ? 'var(--gold)' : 'rgba(255,255,255,0.35)', paddingBottom: 8 }}>
+          <Link href="/portfolio" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, textDecoration: 'none', color: pathname === '/portfolio' ? 'var(--gold)' : 'var(--nav-inactive)', paddingBottom: 8 }}>
             <svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={pathname === '/portfolio' ? 2 : 1.6} strokeLinecap="round" strokeLinejoin="round">
               <rect x="2" y="13" width="4" height="6" rx="0.5"/>
               <rect x="8" y="8"  width="4" height="11" rx="0.5"/>
@@ -268,11 +268,11 @@ export default function Navbar() {
                 <circle cx="6.5" cy="6.5" r="4.5"/><path d="M14 14l-3-3"/>
               </svg>
             </Link>
-            <span style={{ fontSize: 10, color: pathname === '/search' ? 'var(--gold)' : 'rgba(255,255,255,0.35)', fontWeight: pathname === '/search' ? 700 : 400, letterSpacing: 0.1 }}>Search</span>
+            <span style={{ fontSize: 10, color: pathname === '/search' ? 'var(--gold)' : 'var(--nav-inactive)', fontWeight: pathname === '/search' ? 700 : 400, letterSpacing: 0.1 }}>Search</span>
           </div>
 
           {/* Market */}
-          <Link href="/market" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, textDecoration: 'none', color: pathname === '/market' ? 'var(--gold)' : 'rgba(255,255,255,0.35)', paddingBottom: 8 }}>
+          <Link href="/market" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, textDecoration: 'none', color: pathname === '/market' ? 'var(--gold)' : 'var(--nav-inactive)', paddingBottom: 8 }}>
             <svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={pathname === '/market' ? 2 : 1.6} strokeLinecap="round" strokeLinejoin="round">
               <polyline points="2 14 7 8 11 11 18 4"/>
               <polyline points="14 4 18 4 18 8"/>
@@ -281,7 +281,7 @@ export default function Navbar() {
           </Link>
 
           {/* Account */}
-          <Link href="/account" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, textDecoration: 'none', color: pathname === '/account' ? 'var(--gold)' : 'rgba(255,255,255,0.35)', paddingBottom: 8 }}>
+          <Link href="/account" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, textDecoration: 'none', color: pathname === '/account' ? 'var(--gold)' : 'var(--nav-inactive)', paddingBottom: 8 }}>
             <svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={pathname === '/account' ? 2 : 1.6} strokeLinecap="round" strokeLinejoin="round">
               <circle cx="10" cy="6" r="3.5"/>
               <path d="M3 18c0-3.9 3.1-7 7-7s7 3.1 7 7"/>

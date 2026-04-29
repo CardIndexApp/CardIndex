@@ -5,6 +5,7 @@ import Navbar from '@/components/Navbar'
 import { scoreColor } from '@/lib/data'
 import { tcgImg } from '@/lib/img'
 import { useCurrency } from '@/lib/currency'
+import { useTheme } from '@/lib/theme'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
@@ -150,7 +151,7 @@ function MoverRow({ item, rank, showSales, fmtCurrency }: {
 
   return (
     <Link href={href} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', borderBottom: '1px solid var(--border)', textDecoration: 'none', background: 'transparent', transition: 'background 0.15s' }}
-      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
+      onMouseEnter={e => (e.currentTarget.style.background = 'var(--hover-subtle)')}
       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
     >
       <span className="font-num" style={{ fontSize: 10, color: 'var(--ink3)', width: 18, flexShrink: 0 }}>{rank}</span>
@@ -217,6 +218,12 @@ export default function Market() {
       .catch(() => setLoading(false))
   }, [])
 
+  const { theme } = useTheme()
+  const isLight = theme === 'light'
+  const gridStroke    = isLight ? 'rgba(0,0,0,0.06)'  : 'rgba(255,255,255,0.04)'
+  const tickFill      = isLight ? '#9090aa'            : '#55556a'
+  const cursorStroke  = isLight ? 'rgba(0,0,0,0.12)'  : 'rgba(255,255,255,0.08)'
+
   const signal = data?.signal ?? 'stable'
   const sigStyle = SIGNAL_LABELS[signal]
   const chartData = data ? sliceHistory(data.indexHistory, chartWindow) : []
@@ -270,30 +277,30 @@ export default function Market() {
             {/* Signal snapshot */}
             <div style={{
               flex: '0 0 240px', borderRadius: 16, padding: '22px 24px',
-              background: 'linear-gradient(135deg, #12121e 0%, #1a1a2e 100%)',
-              border: '1px solid rgba(255,255,255,0.06)',
+              background: 'var(--surface2)',
+              border: '1px solid var(--border2)',
             }}>
-              <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 16 }}>Signal snapshot</div>
+              <div style={{ fontSize: 9, color: 'var(--ink3)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 16 }}>Signal snapshot</div>
 
               <div style={{ marginBottom: 20 }}>
-                <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 }}>30d trend</div>
+                <div style={{ fontSize: 9, color: 'var(--ink3)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 }}>30d trend</div>
                 {loading ? <Skeleton h={22} w={90} /> : <SignalBadge signal={signal} />}
                 <div style={{ marginTop: 10 }}>
-                  <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', letterSpacing: 1, marginBottom: 4 }}>30d change</div>
+                  <div style={{ fontSize: 9, color: 'var(--ink3)', letterSpacing: 1, marginBottom: 4 }}>30d change</div>
                   {loading ? <Skeleton h={20} w={70} /> : (
                     <Chg v={data?.overall?.change30d} size={20} />
                   )}
                 </div>
               </div>
 
-              <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 16 }}>
-                <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', letterSpacing: 1, marginBottom: 4 }}>7d change</div>
+              <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+                <div style={{ fontSize: 9, color: 'var(--ink3)', letterSpacing: 1, marginBottom: 4 }}>7d change</div>
                 {loading ? <Skeleton h={18} w={60} /> : (
                   <Chg v={data?.overall?.change7d} size={18} />
                 )}
                 <div style={{ marginTop: 12 }}>
-                  <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', letterSpacing: 1, marginBottom: 4 }}>Cards tracked</div>
-                  <div className="font-num" style={{ fontSize: 16, fontWeight: 700, color: 'rgba(255,255,255,0.8)' }}>
+                  <div style={{ fontSize: 9, color: 'var(--ink3)', letterSpacing: 1, marginBottom: 4 }}>Cards tracked</div>
+                  <div className="font-num" style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>
                     {loading ? '—' : data?.stats.totalCards ?? '—'}
                   </div>
                 </div>
@@ -341,9 +348,9 @@ export default function Market() {
                       {data.stats.fallingCount} falling ▼
                     </span>
                   </div>
-                  <div style={{ height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.05)', overflow: 'hidden', display: 'flex' }}>
+                  <div style={{ height: 5, borderRadius: 3, background: 'var(--track)', overflow: 'hidden', display: 'flex' }}>
                     <div style={{ height: '100%', width: `${(data.stats.risingCount / data.stats.totalCards) * 100}%`, background: 'var(--green)', borderRadius: '3px 0 0 3px', transition: 'width 0.4s' }} />
-                    <div style={{ height: '100%', width: `${(data.stats.unchangedCount / data.stats.totalCards) * 100}%`, background: 'rgba(140,140,180,0.3)' }} />
+                    <div style={{ height: '100%', width: `${(data.stats.unchangedCount / data.stats.totalCards) * 100}%`, background: 'var(--border2)' }} />
                     <div style={{ height: '100%', flex: 1, background: 'var(--red)', borderRadius: '0 3px 3px 0' }} />
                   </div>
                 </div>
@@ -396,10 +403,10 @@ export default function Market() {
                       <stop offset="100%" stopColor={chartColor} stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
-                  <XAxis dataKey="month" tick={{ fill: '#55556a', fontSize: 10, fontFamily: 'Helvetica' }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
-                  <YAxis tick={{ fill: '#55556a', fontSize: 10, fontFamily: 'Helvetica' }} axisLine={false} tickLine={false} width={40} tickFormatter={v => v.toFixed(0)} />
-                  <Tooltip content={<IndexTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.08)', strokeWidth: 1 }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} vertical={false} />
+                  <XAxis dataKey="month" tick={{ fill: tickFill, fontSize: 10, fontFamily: 'Helvetica' }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                  <YAxis tick={{ fill: tickFill, fontSize: 10, fontFamily: 'Helvetica' }} axisLine={false} tickLine={false} width={40} tickFormatter={v => v.toFixed(0)} />
+                  <Tooltip content={<IndexTooltip />} cursor={{ stroke: cursorStroke, strokeWidth: 1 }} />
                   <Area type="monotone" dataKey="value" stroke={chartColor} strokeWidth={2} fill="url(#mktGrad)" dot={false} activeDot={{ r: 4, fill: chartColor, stroke: 'var(--surface)' }} />
                 </AreaChart>
               </ResponsiveContainer>
@@ -470,7 +477,7 @@ export default function Market() {
           )}
 
           {/* ── Methodology note ── */}
-          <div style={{ marginTop: 24, padding: '14px 18px', borderRadius: 12, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
+          <div style={{ marginTop: 24, padding: '14px 18px', borderRadius: 12, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
             <p style={{ fontSize: 11, color: 'var(--ink3)', lineHeight: 1.7 }}>
               <strong style={{ color: 'var(--ink2)' }}>Methodology:</strong>{' '}
               Index levels reflect the median price of cards in each category from CardIndex&apos;s price cache.

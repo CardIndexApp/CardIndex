@@ -49,7 +49,7 @@ export default function CardSearch() {
       {/* Search icon */}
       <span style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink3)', fontSize: 15, zIndex: 1, pointerEvents: 'none' }}>
         {loading ? (
-          <span style={{ display: 'inline-block', width: 14, height: 14, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.1)', borderTopColor: 'var(--gold)', animation: 'spin 0.7s linear infinite' }} />
+          <span style={{ display: 'inline-block', width: 14, height: 14, borderRadius: '50%', border: '2px solid var(--border2)', borderTopColor: 'var(--gold)', animation: 'spin 0.7s linear infinite' }} />
         ) : '🔍'}
       </span>
 
@@ -65,7 +65,7 @@ export default function CardSearch() {
 
       {/* Dropdown */}
       {open && results.length > 0 && (
-        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, background: 'var(--surface)', border: '1px solid var(--border2)', borderRadius: 14, overflow: 'hidden', zIndex: 200, boxShadow: '0 20px 60px rgba(0,0,0,0.6)', maxHeight: 360, overflowY: 'auto' }}>
+        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, background: 'var(--surface)', border: '1px solid var(--border2)', borderRadius: 14, overflow: 'hidden', zIndex: 200, boxShadow: '0 20px 60px var(--shadow-lg)', maxHeight: 360, overflowY: 'auto' }}>
           {results.map(card => (
             <button
               key={card.id}
@@ -74,7 +74,7 @@ export default function CardSearch() {
                 setOpen(false)
               }}
               style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', borderBottom: '1px solid var(--border)' }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--hover-subtle)')}
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
             >
               {card.images?.small ? (

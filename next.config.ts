@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       { protocol: 'https', hostname: 'images.pokemontcg.io' },
     ],
+    formats: ['image/avif', 'image/webp'],
   },
   async headers() {
     return [

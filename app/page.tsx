@@ -133,7 +133,7 @@ export default function Home() {
               >
                 <div className="home-recent-left" style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0, flex: 1 }}>
                   <div style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0 }}>
-                    <img src={tcgImg(item.img)} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 3 }} />
+                    <img src={tcgImg(item.img)} alt={item.name} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 3 }} />
                   </div>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.name}</div>
@@ -221,7 +221,7 @@ export default function Home() {
             <div style={{ borderRadius: 20, padding: 28, background: 'var(--bg)', border: '1px solid var(--border2)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 24, paddingBottom: 20, borderBottom: '1px solid var(--border)' }}>
                 <div style={{ width: 52, height: 52, borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0 }}>
-                  <img src={tcgImg('https://images.pokemontcg.io/base1/4_hires.png')} alt="Charizard" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                  <img src={tcgImg('https://images.pokemontcg.io/base1/4_hires.png')} alt="Charizard" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                 </div>
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginBottom: 2 }}>Charizard Base Set</div>

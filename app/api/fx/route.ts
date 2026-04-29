@@ -21,8 +21,12 @@ export async function GET() {
     if (!res.ok) throw new Error(`upstream ${res.status}`)
     const json = await res.json()
     if (json.result !== 'success' || !json.rates) throw new Error('bad response')
-    return NextResponse.json({ rates: json.rates as Record<string, number> })
+    return NextResponse.json({ rates: json.rates as Record<string, number> }, {
+      headers: { 'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400' },
+    })
   } catch {
-    return NextResponse.json({ rates: FALLBACK_RATES })
+    return NextResponse.json({ rates: FALLBACK_RATES }, {
+      headers: { 'Cache-Control': 'public, max-age=300, stale-while-revalidate=3600' },
+    })
   }
 }

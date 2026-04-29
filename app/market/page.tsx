@@ -158,7 +158,7 @@ function MoverRow({ item, rank, showSales, fmtCurrency }: {
 
       {item.image_url ? (
         <div style={{ width: 32, height: 32, borderRadius: 6, overflow: 'hidden', flexShrink: 0, background: 'var(--surface2)' }}>
-          <img src={tcgImg(item.image_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+          <img src={tcgImg(item.image_url)} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
         </div>
       ) : (
         <div style={{ width: 32, height: 32, borderRadius: 6, background: 'var(--surface2)', flexShrink: 0 }} />

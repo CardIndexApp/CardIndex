@@ -43,10 +43,12 @@ const ERAS: Era[] = [
     label: 'Mega Evolution',
     color: '#c084fc',
     match: (s, n) => {
-      // Specific EN set names for the Mega Evolution TCG series
+      // Specific named sub-sets of the Mega Evolution TCG series
       if (s.includes('ascended-heroes'))   return true
       if (s.includes('phantasmal-flames')) return true
       if (s.includes('perfect-order'))     return true
+      // Slug is literally "mega-evolution" or "mega-evolution-*"
+      if (s === 'mega-evolution' || s.startsWith('mega-evolution-')) return true
       // JP ME-coded slugs: me01-…, me02-…, me03-…, mee-…, mep-…
       if (/^me0\d/.test(s) || s.startsWith('mee-') || s.startsWith('mep-')) return true
       // Name starts with a JP set-code prefix like "ME01:", "ME02:", "ME:", "MEE:", "MEP:"
@@ -320,37 +322,45 @@ export default function BrowseSetsPage() {
       .finally(() => setLoading(false))
   }, [lang])
 
+  // Strip leading JP set-code prefixes so "ME: Ascended Heroes" and
+  // "Ascended Heroes" normalise to the same key for deduplication.
+  const stripPrefix = (n: string) =>
+    n.replace(/^(ME\d*|MEE|MEP|ME)\s*:\s*/i, '').trim()
+
   // Group sets by era, sort each group newest first.
-  // For the Mega era, merge EN + JP feeds (deduped by slug) so both EN and JP
-  // Mega Evolution sets are always visible regardless of the lang toggle.
   const grouped = useMemo(() => {
     const map = new Map<string, PtSet[]>()
     for (const era of ERAS) map.set(era.id, [])
 
-    // Classify main-lang sets (skip mega — handled separately below)
+    // All non-mega sets come from the current language feed
     for (const s of sets) {
       const era = classifyEra(s.slug, s.name)
       if (era !== 'mega') map.get(era)?.push(s)
     }
 
-    // Mega era: always sourced from the JP feed (those slugs resolve in the
-    // cards API with game=pokemon-japanese). Deduplicate by normalised name
-    // so "ME: Ascended Heroes" and "Ascended Heroes" collapse into one entry.
-    // Strip leading set-code prefixes like "ME01: ", "ME: ", "MEE: " etc.
-    const stripPrefix = (n: string) =>
-      n.replace(/^(ME\d*|MEE|MEP|ME)\s*:\s*/i, '').trim()
-
+    // Mega era: draw from BOTH feeds.
+    // Use JP feed as primary source (Mega Evolution is a JP series).
+    // Also include any EN-feed entries in case Poketrace lists them under pokemon too.
+    // Dedup by normalised name, keeping highest cardCount.
     const megaByNorm = new Map<string, PtSet>()
-    const jpMegaSets = (lang === 'jp' ? sets : jpSets)
-      .filter(s => classifyEra(s.slug, s.name) === 'mega')
-    for (const s of jpMegaSets) {
+
+    const allForMega = [...jpSets, ...sets]
+    for (const s of allForMega) {
+      if (classifyEra(s.slug, s.name) !== 'mega') continue
       const norm = stripPrefix(s.name).toLowerCase()
-      const existing = megaByNorm.get(norm)
-      if (!existing || s.cardCount > existing.cardCount) megaByNorm.set(norm, s)
+      const ex = megaByNorm.get(norm)
+      if (!ex || s.cardCount > ex.cardCount) megaByNorm.set(norm, s)
     }
+
+    // Debug: log what we found (remove after confirming fix)
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[Mega] jpSets matches:', jpSets.filter(s => classifyEra(s.slug, s.name) === 'mega').map(s => `${s.slug} | ${s.name}`))
+      console.log('[Mega] sets matches:', sets.filter(s => classifyEra(s.slug, s.name) === 'mega').map(s => `${s.slug} | ${s.name}`))
+    }
+
     map.set('mega', [...megaByNorm.values()])
 
-    // Sort each group by releaseDate descending
+    // Sort each group newest → oldest
     for (const [, arr] of map) {
       arr.sort((a, b) => {
         if (!a.releaseDate && !b.releaseDate) return 0
@@ -373,12 +383,11 @@ export default function BrowseSetsPage() {
   const isFiltering = q.length > 0
 
   // Determine which game param to use for a given set slug.
-  // Check the grouped mega list directly — more reliable than re-running
-  // the classifier on a bare slug (e.g. "me01" wouldn't match the keyword).
+  // If the slug exists in the current-language feed, use that language's game.
+  // If it only exists in jpSets (JP-only set), use pokemon-japanese.
   function gameForSlug(slug: string): 'pokemon' | 'pokemon-japanese' {
-    const megaSlugs = new Set((grouped.get('mega') ?? []).map(s => s.slug))
-    if (megaSlugs.has(slug)) return 'pokemon-japanese'
-    return lang === 'jp' ? 'pokemon-japanese' : 'pokemon'
+    if (sets.some(s => s.slug === slug)) return lang === 'jp' ? 'pokemon-japanese' : 'pokemon'
+    return 'pokemon-japanese'
   }
 
   // Load cards for a set

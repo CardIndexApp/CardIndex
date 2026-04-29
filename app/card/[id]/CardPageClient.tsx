@@ -422,8 +422,22 @@ function computeAnalysis(d: LiveData) {
   }
 
   // Momentum vs moving averages
-  const vs7d  = d.avg7d  && d.avg7d  > 0 ? ((d.price - d.avg7d)  / d.avg7d)  * 100 : null
-  const vs30d = d.avg30d && d.avg30d > 0 ? ((d.price - d.avg30d) / d.avg30d) * 100 : null
+  // Detect Poketrace tier contamination (e.g. PSA 10 avg leaking into Raw tier).
+  // Fingerprint: avg7d ≈ avg30d (within 3%) while both are more than 3x away from
+  // the current price. In a real crash the 7d avg always diverges from the 30d avg
+  // because recent prices have already fallen — identical averages = static wrong-tier data.
+  const _a7  = d.avg7d  && d.avg7d  > 0 ? d.avg7d  : null
+  const _a30 = d.avg30d && d.avg30d > 0 ? d.avg30d : null
+  const _contaminated = (() => {
+    if (!_a7 || !_a30 || !d.price) return false
+    const divergence = Math.abs(_a7 - _a30) / _a30          // how different are the two averages?
+    const ratio      = Math.max(_a7 / d.price, d.price / _a7) // how far from current price?
+    return divergence < 0.03 && ratio > 3                    // nearly identical + far from price = bad data
+  })()
+  const clean7d  = _contaminated ? null : _a7
+  const clean30d = _contaminated ? null : _a30
+  const vs7d  = clean7d  ? ((d.price - clean7d)  / clean7d)  * 100 : null
+  const vs30d = clean30d ? ((d.price - clean30d) / clean30d) * 100 : null
 
   // Liquidity bucket
   const liqLabel  = sales >= 500 ? 'Extremely High' : sales >= 200 ? 'Very High' : sales >= 50 ? 'High' : sales >= 15 ? 'Moderate' : sales >= 5 ? 'Low' : 'Very Low'
@@ -479,7 +493,7 @@ function computeAnalysis(d: LiveData) {
     ? parts.join(', ').replace(/^(.)/, c => c.toUpperCase()) + '.'
     : 'Insufficient data for a confident recommendation.'
 
-  return { signal, sigColor, sigBg, sigBorder, vs7d, vs30d, liqLabel, liqColor, consPct, consLabel, valuePct, valueLabel, rangePct, rangeLabel, rangeColor, reasoning }
+  return { signal, sigColor, sigBg, sigBorder, vs7d, vs30d, clean7d, clean30d, liqLabel, liqColor, consPct, consLabel, valuePct, valueLabel, rangePct, rangeLabel, rangeColor, reasoning }
 }
 
 // ── Price Check ───────────────────────────────────────────────────────────────
@@ -1082,11 +1096,23 @@ export default function CardPageClient() {
                   </div>
 
                   {/* Moving averages row */}
-                  {(liveData.avg7d != null || liveData.avg30d != null) && (
+                  {(() => {
+                    const _a7  = liveData.avg7d  && liveData.avg7d  > 0 ? liveData.avg7d  : null
+                    const _a30 = liveData.avg30d && liveData.avg30d > 0 ? liveData.avg30d : null
+                    const contaminated = (() => {
+                      if (!_a7 || !_a30 || !liveData.price) return false
+                      const div   = Math.abs(_a7 - _a30) / _a30
+                      const ratio = Math.max(_a7 / liveData.price, liveData.price / _a7)
+                      return div < 0.03 && ratio > 3
+                    })()
+                    const c7  = contaminated ? null : _a7
+                    const c30 = contaminated ? null : _a30
+                    if (c7 == null && c30 == null) return null
+                    return (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
                       {[
-                        { label: '7D AVG', value: liveData.avg7d },
-                        { label: '30D AVG', value: liveData.avg30d },
+                        { label: '7D AVG', value: c7 },
+                        { label: '30D AVG', value: c30 },
                       ].map(({ label, value }) => (
                         <div key={label} style={{ textAlign: 'center', padding: '10px 8px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
                           <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6 }}>{label}</div>
@@ -1096,7 +1122,7 @@ export default function CardPageClient() {
                         </div>
                       ))}
                     </div>
-                  )}
+                  )})()}
 
                   {/* ── Price Check trigger ─────────────────────────────── */}
                   <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
@@ -1289,9 +1315,12 @@ export default function CardPageClient() {
                           <div className="ci-tile-label" style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8, paddingRight: 22 }}>PRICE TREND</div>
                           {(() => {
                             // Build sparkline data: prefer real history, fall back to synthetic 3-point from avg30d→avg7d→price
+                            // Only use avg30d/avg7d for synthetic if they pass the same sanity check as momentum
                             const histPrices = liveData.price_history?.length >= 2 ? liveData.price_history.map(p => p.price) : null
-                            const synthetic: number[] | null = (!histPrices && liveData.avg30d && liveData.avg7d && liveData.price)
-                              ? [liveData.avg30d, liveData.avg7d, liveData.price]
+                            const safeAvg30d = a.clean30d ?? null
+                            const safeAvg7d  = a.clean7d  ?? null
+                            const synthetic: number[] | null = (!histPrices && safeAvg30d && safeAvg7d && liveData.price)
+                              ? [safeAvg30d, safeAvg7d, liveData.price]
                               : null
                             const pts = histPrices ?? synthetic
                             const pct = pts && pts[0] > 0 ? ((pts[pts.length - 1] - pts[0]) / pts[0] * 100) : (liveData.price_change_pct ?? null)
@@ -1490,6 +1519,7 @@ export default function CardPageClient() {
 
                 {/* ── Advanced Analytics (Standard+) ── */}
                 {showAnalysis && ['standard', 'pro'].includes(userTier) && (() => {
+                  const a = computeAnalysis(liveData)
                   const { C: aC, P: aP, L: aL } = CPL
                   const liveRangeLowAdv  = liveData.price_range_low  ?? liveData.price
                   const liveRangeHighAdv = liveData.price_range_high ?? liveData.price
@@ -1509,8 +1539,8 @@ export default function CardPageClient() {
                       </div>
 
                       {/* 1 — Moving Average Signal */}
-                      {(liveData.avg7d || liveData.avg30d) && (() => {
-                        const a1 = liveData.avg1d; const a7 = liveData.avg7d; const a30 = liveData.avg30d; const cur = liveData.price
+                      {(a.clean7d || a.clean30d) && (() => {
+                        const a1 = liveData.avg1d; const a7 = a.clean7d; const a30 = a.clean30d; const cur = liveData.price
                         const signal = a7 && a30 ? (a7 > a30 * 1.02 ? 'BULLISH' : a7 < a30 * 0.98 ? 'BEARISH' : 'NEUTRAL') : 'NEUTRAL'
                         const sigColor = signal === 'BULLISH' ? 'var(--green)' : signal === 'BEARISH' ? '#ff6b6b' : 'var(--gold)'
                         const sigBg = signal === 'BULLISH' ? 'rgba(61,232,138,0.08)' : signal === 'BEARISH' ? 'rgba(255,107,107,0.08)' : 'rgba(232,197,71,0.08)'

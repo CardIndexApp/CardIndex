@@ -24,7 +24,7 @@ export default function AuthModal({ onClose, defaultTab = 'signup' }: Props) {
 
     if (tab === 'forgot') {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/callback?next=/account`,
+        redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset-password`,
       })
       if (error) setError(error.message)
       else setSuccess('Check your email for a password reset link.')

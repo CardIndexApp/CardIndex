@@ -784,6 +784,7 @@ export default function CardPageClient() {
   const [analysisWindow, setAnalysisWindow] = useState<'1M' | '3M' | '6M'>('3M')
   const [chartWindow, setChartWindow] = useState<'7d' | '30d' | '90d'>('30d')
   const [showAnalysis, setShowAnalysis] = useState(true)
+  const [ladderGrader, setLadderGrader] = useState<'PSA' | 'BGS' | 'CGC'>('PSA')
   const [activeTip, setActiveTip]             = useState<string | null>(null)
   const [priceCheckOpen, setPriceCheckOpen]   = useState(false)
   const [priceCheckInput, setPriceCheckInput] = useState('')
@@ -2430,15 +2431,34 @@ export default function CardPageClient() {
                 {liveData.all_tier_prices && Object.keys(liveData.all_tier_prices).length > 0 && (() => {
                   const tiers = liveData.all_tier_prices!
                   const resolvedTier = liveData.resolved_tier ?? ''
-                  // Only show PSA whole-number grades (PSA_1 – PSA_10), no half-grades
-                  const PSA_WHOLE = new Set(['PSA_10','PSA_9','PSA_8','PSA_7','PSA_6','PSA_5','PSA_4','PSA_3','PSA_2','PSA_1'])
+                  const isRawView = RAW_TIER_KEYS.has(resolvedTier)
+
+                  // Key sets per grader
+                  const PSA_KEYS = new Set(['PSA_10','PSA_9','PSA_8','PSA_7','PSA_6','PSA_5','PSA_4','PSA_3','PSA_2','PSA_1'])
+                  const BGS_KEYS = new Set(['BGS_10','BGS_9_5','BGS_9','BGS_8_5'])
+                  const CGC_KEYS = new Set(['CGC_10','CGC_9_5','CGC_9'])
+
+                  // Which grader key-set to show in the graded section
+                  const activeGraderKeys = isRawView
+                    ? (ladderGrader === 'BGS' ? BGS_KEYS : ladderGrader === 'CGC' ? CGC_KEYS : PSA_KEYS)
+                    : PSA_KEYS
+
                   const gradedEntries = Object.entries(tiers)
-                    .filter(([k]) => PSA_WHOLE.has(k))
+                    .filter(([k]) => activeGraderKeys.has(k))
                     .sort(([, a], [, b]) => b.avg - a.avg)
-                  // Only show Near Mint for raw
+
+                  // Raw row — only Near Mint
                   const rawEntries = Object.entries(tiers)
                     .filter(([k]) => k === 'NEAR_MINT')
                     .sort(([, a], [, b]) => b.avg - a.avg)
+
+                  // Check which graders actually have data (for showing/hiding tabs)
+                  const hasGrader = (keys: Set<string>) => Object.keys(tiers).some(k => keys.has(k))
+                  const availableGraders = [
+                    hasGrader(PSA_KEYS) && 'PSA',
+                    hasGrader(BGS_KEYS) && 'BGS',
+                    hasGrader(CGC_KEYS) && 'CGC',
+                  ].filter(Boolean) as ('PSA' | 'BGS' | 'CGC')[]
 
                   const TierRow = ({ tierKey, data }: { tierKey: string; data: { avg: number; source: string; saleCount?: number } }) => {
                     const isActive = tierKey === resolvedTier
@@ -2475,6 +2495,7 @@ export default function CardPageClient() {
 
                   return (
                     <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', padding: '20px', marginBottom: 10 }}>
+                      {/* Header row */}
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                         <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)' }}>PRICE LADDER</span>
                         {liveData.total_sale_count != null && liveData.total_sale_count > 0 && (
@@ -2482,13 +2503,41 @@ export default function CardPageClient() {
                         )}
                       </div>
 
+                      {/* Grader toggle — only shown when viewing a raw card and multiple graders have data */}
+                      {isRawView && availableGraders.length > 1 && (
+                        <div style={{ display: 'flex', gap: 4, marginBottom: 14 }}>
+                          {availableGraders.map(g => {
+                            const active = ladderGrader === g
+                            return (
+                              <button
+                                key={g}
+                                onClick={() => setLadderGrader(g)}
+                                style={{
+                                  padding: '5px 14px', borderRadius: 8, fontSize: 11, fontWeight: 600,
+                                  cursor: 'pointer', border: `1px solid ${active ? 'var(--gold)' : 'var(--border2)'}`,
+                                  background: active ? 'rgba(232,197,71,0.1)' : 'var(--surface2)',
+                                  color: active ? 'var(--gold)' : 'var(--ink3)',
+                                  transition: 'all 0.15s',
+                                }}
+                              >
+                                {g}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+
+                      {/* Graded section */}
                       {gradedEntries.length > 0 && (
                         <>
-                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8, paddingLeft: 4 }}>PSA GRADED</div>
+                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8, paddingLeft: 4 }}>
+                            {isRawView ? `${ladderGrader} GRADED` : 'PSA GRADED'}
+                          </div>
                           {gradedEntries.map(([k, v]) => <TierRow key={k} tierKey={k} data={v} />)}
                         </>
                       )}
 
+                      {/* Raw section */}
                       {rawEntries.length > 0 && (
                         <>
                           <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginTop: gradedEntries.length > 0 ? 14 : 0, marginBottom: 8, paddingLeft: 4 }}>RAW</div>

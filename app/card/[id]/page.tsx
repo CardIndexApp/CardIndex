@@ -11,16 +11,24 @@ import { createClient } from '@/lib/supabase/client'
 import { useCurrency, CURRENCIES } from '@/lib/currency'
 
 const GRADES = [
-  { key: 'RAW', label: 'Ungraded' },
-  { key: '10', label: 'GEM MT' },
-  { key: '9', label: 'MINT' },
-  { key: '8', label: 'NM-MT' },
-  { key: '7', label: 'NEAR MT' },
-  { key: '6', label: 'EX-MT' },
-  { key: '5', label: 'EXCEL' },
-  { key: '4', label: 'VG-EX' },
-  { key: '3', label: 'VG' },
-  { key: '1-2', label: 'POOR' },
+  { key: 'Raw',    label: 'RAW',    grader: 'RAW' },
+  { key: 'PSA 10', label: 'PSA 10', grader: 'PSA' },
+  { key: 'PSA 9',  label: 'PSA 9',  grader: 'PSA' },
+  { key: 'PSA 8',  label: 'PSA 8',  grader: 'PSA' },
+  { key: 'PSA 7',  label: 'PSA 7',  grader: 'PSA' },
+  { key: 'PSA 6',  label: 'PSA 6',  grader: 'PSA' },
+  { key: 'PSA 5',  label: 'PSA 5',  grader: 'PSA' },
+  { key: 'PSA 4',  label: 'PSA 4',  grader: 'PSA' },
+  { key: 'PSA 3',  label: 'PSA 3',  grader: 'PSA' },
+  { key: 'PSA 2',  label: 'PSA 2',  grader: 'PSA' },
+  { key: 'PSA 1',  label: 'PSA 1',  grader: 'PSA' },
+  { key: 'BGS 10', label: 'BGS 10', grader: 'BGS' },
+  { key: 'BGS 9.5',label: 'BGS 9.5',grader: 'BGS' },
+  { key: 'BGS 9',  label: 'BGS 9',  grader: 'BGS' },
+  { key: 'BGS 8.5',label: 'BGS 8.5',grader: 'BGS' },
+  { key: 'CGC 10', label: 'CGC 10', grader: 'CGC' },
+  { key: 'CGC 9.5',label: 'CGC 9.5',grader: 'CGC' },
+  { key: 'CGC 9',  label: 'CGC 9',  grader: 'CGC' },
 ]
 
 const WINDOWS = [
@@ -769,7 +777,7 @@ export default function CardPage() {
     setWatchlistLoading(false)
   }
 
-  const defaultGrade = card?.grade.replace('PSA ', '') ?? '10'
+  const defaultGrade = urlGrade ?? card?.grade ?? 'PSA 10'
   const [selectedGrade, setSelectedGrade] = useState(defaultGrade)
   const [priceInput, setPriceInput] = useState(card ? String(card.price) : '')
   const [userPrice, setUserPrice] = useState(card ? card.price : 0)
@@ -807,7 +815,7 @@ export default function CardPage() {
     if (card) {
       pdfName  = card.name
       pdfSet   = `${card.set} · #${card.cardNumber}`
-      pdfGrade = selectedGrade === 'RAW' ? 'Raw / Ungraded' : `PSA ${selectedGrade}`
+      pdfGrade = selectedGrade === 'Raw' ? 'Raw / Ungraded' : selectedGrade
       pdfTags  = card.tags
       pdfImage = card.imageUrl
     } else {
@@ -2728,17 +2736,26 @@ export default function CardPage() {
                 {/* Grade */}
                 <div>
                   <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', marginBottom: 8, display: 'block' }}>GRADE</span>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                    {GRADES.map(g => {
-                      const active = selectedGrade === g.key
-                      return (
-                        <button key={g.key} onClick={() => setSelectedGrade(g.key)}
-                          style={{ padding: '5px 9px', borderRadius: 6, border: active ? '1px solid rgba(232,197,71,0.4)' : '1px solid var(--border)', background: active ? 'var(--gold2)' : 'transparent', cursor: 'pointer' }}>
-                          <span className="font-num" style={{ fontSize: 11, fontWeight: 700, color: active ? 'var(--gold)' : 'var(--ink3)' }}>{g.key}</span>
-                        </button>
-                      )
-                    })}
-                  </div>
+                  {['RAW', 'PSA', 'BGS', 'CGC'].map(grp => {
+                    const items = GRADES.filter(g => g.grader === grp)
+                    if (!items.length) return null
+                    return (
+                      <div key={grp} style={{ marginBottom: 6 }}>
+                        {grp !== 'RAW' && <span style={{ fontSize: 8, letterSpacing: 1.5, color: 'var(--ink3)', display: 'block', marginBottom: 4 }}>{grp}</span>}
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                          {items.map(g => {
+                            const active = selectedGrade === g.key
+                            return (
+                              <button key={g.key} onClick={() => setSelectedGrade(g.key)}
+                                style={{ padding: '5px 9px', borderRadius: 6, border: active ? '1px solid rgba(232,197,71,0.4)' : '1px solid var(--border)', background: active ? 'var(--gold2)' : 'transparent', cursor: 'pointer' }}>
+                                <span className="font-num" style={{ fontSize: 11, fontWeight: 700, color: active ? 'var(--gold)' : 'var(--ink3)' }}>{g.label}</span>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
                 {/* Price */}
                 <div>
@@ -2902,7 +2919,7 @@ export default function CardPage() {
                 <div style={{ padding: '10px 20px', borderTop: '1px solid var(--border)' }}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 99, background: 'rgba(61,232,138,0.06)', border: '1px solid rgba(61,232,138,0.15)', fontSize: 10, color: '#3de88a' }}>
                     <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#3de88a', display: 'inline-block' }} />
-                    LIVE DATA · eBay completed listings — {card.rarity} {selectedGrade === 'RAW' ? 'raw/ungraded' : `PSA ${selectedGrade}`}
+                    LIVE DATA · eBay completed listings — {card.rarity} {selectedGrade === 'Raw' ? 'raw/ungraded' : selectedGrade}
                   </span>
                 </div>
               </div>

@@ -24,31 +24,38 @@ interface PtCard {
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const GRADES = [
-  { label: 'Raw',    sub: 'Ungraded'  },
-  { label: 'PSA 10', sub: 'Gem Mint'  },
-  { label: 'PSA 9',  sub: 'Mint'      },
-  { label: 'PSA 8',  sub: 'NM-Mint'   },
-  { label: 'PSA 7',  sub: 'Near Mint' },
-  { label: 'PSA 6',  sub: 'Ex-Mt'     },
-  { label: 'PSA 5',  sub: 'Excellent'  },
-  { label: 'PSA 4',  sub: 'VG-Ex'     },
-  { label: 'PSA 3',  sub: 'Very Good' },
-  { label: 'PSA 2',  sub: 'Good'      },
-  { label: 'PSA 1',  sub: 'Poor'      },
+  { label: 'Raw',    sub: 'Ungraded',  grader: 'RAW' },
+  { label: 'PSA 10', sub: 'Gem Mint',  grader: 'PSA' },
+  { label: 'PSA 9',  sub: 'Mint',      grader: 'PSA' },
+  { label: 'PSA 8',  sub: 'NM-Mint',   grader: 'PSA' },
+  { label: 'PSA 7',  sub: 'Near Mint', grader: 'PSA' },
+  { label: 'PSA 6',  sub: 'Ex-Mt',     grader: 'PSA' },
+  { label: 'PSA 5',  sub: 'Excellent', grader: 'PSA' },
+  { label: 'PSA 4',  sub: 'VG-Ex',     grader: 'PSA' },
+  { label: 'PSA 3',  sub: 'Very Good', grader: 'PSA' },
+  { label: 'PSA 2',  sub: 'Good',      grader: 'PSA' },
+  { label: 'PSA 1',  sub: 'Poor',      grader: 'PSA' },
+  { label: 'BGS 10', sub: 'Pristine',  grader: 'BGS' },
+  { label: 'BGS 9.5',sub: 'Gem Mint',  grader: 'BGS' },
+  { label: 'BGS 9',  sub: 'Mint',      grader: 'BGS' },
+  { label: 'BGS 8.5',sub: 'NM-Mint',   grader: 'BGS' },
+  { label: 'CGC 10', sub: 'Pristine',  grader: 'CGC' },
+  { label: 'CGC 9.5',sub: 'Gem Mint',  grader: 'CGC' },
+  { label: 'CGC 9',  sub: 'Mint',      grader: 'CGC' },
 ]
 
 const JP_GRADES = [
-  { label: 'Raw',    sub: 'Ungraded' },
-  { label: 'PSA 10', sub: 'Gem Mint' },
-  { label: 'PSA 9',  sub: 'Mint'     },
-  { label: 'PSA 8',  sub: 'NM-Mint'  },
-  { label: 'PSA 7',  sub: 'Near Mint'},
-  { label: 'PSA 6',  sub: 'Ex-Mt'    },
-  { label: 'PSA 5',  sub: 'Excellent' },
-  { label: 'PSA 4',  sub: 'Very Good' },
-  { label: 'PSA 3',  sub: 'Good'     },
-  { label: 'PSA 2',  sub: 'Fair'     },
-  { label: 'PSA 1',  sub: 'Poor'     },
+  { label: 'Raw',    sub: 'Ungraded',  grader: 'RAW' },
+  { label: 'PSA 10', sub: 'Gem Mint',  grader: 'PSA' },
+  { label: 'PSA 9',  sub: 'Mint',      grader: 'PSA' },
+  { label: 'PSA 8',  sub: 'NM-Mint',   grader: 'PSA' },
+  { label: 'PSA 7',  sub: 'Near Mint', grader: 'PSA' },
+  { label: 'PSA 6',  sub: 'Ex-Mt',     grader: 'PSA' },
+  { label: 'PSA 5',  sub: 'Excellent', grader: 'PSA' },
+  { label: 'PSA 4',  sub: 'Very Good', grader: 'PSA' },
+  { label: 'PSA 3',  sub: 'Good',      grader: 'PSA' },
+  { label: 'PSA 2',  sub: 'Fair',      grader: 'PSA' },
+  { label: 'PSA 1',  sub: 'Poor',      grader: 'PSA' },
 ]
 
 const VARIANT_LABELS: Record<string, string> = {
@@ -390,20 +397,6 @@ export default function SearchPage() {
             <p style={{ fontSize: 13, color: 'var(--ink3)', marginBottom: 28, lineHeight: 1.6 }}>
               Results appear as you type.<br />Add a card number to get exact matches.
             </p>
-            <a
-              href="/search/sets"
-              className="srch-browse-btn"
-              style={{
-                display: 'block', padding: '14px 0', borderRadius: 12,
-                background: 'var(--surface)', border: '1px solid var(--border2)',
-                color: 'var(--ink2)', fontSize: 14, fontWeight: 600,
-                textDecoration: 'none', transition: 'border-color 0.15s',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--gold)')}
-              onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border2)')}
-            >
-              Browse by set →
-            </a>
           </div>
         )}
 
@@ -521,46 +514,61 @@ export default function SearchPage() {
                       <p style={{ fontSize: 10, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 12 }}>
                         SELECT GRADE
                       </p>
-                      <div className="srch-grade-grid">
-                        {(lang === 'jp' ? JP_GRADES : GRADES).map(g => {
-                          const active = selectedGrade === g.label
+                      {(() => {
+                        const gradeList = lang === 'jp' ? JP_GRADES : GRADES
+                        const graders = lang === 'jp'
+                          ? [{ key: 'RAW', label: 'Ungraded' }, { key: 'PSA', label: 'PSA' }]
+                          : [{ key: 'RAW', label: 'Ungraded' }, { key: 'PSA', label: 'PSA' }, { key: 'BGS', label: 'BGS' }, { key: 'CGC', label: 'CGC' }]
+                        return graders.map(grp => {
+                          const items = gradeList.filter(g => g.grader === grp.key)
+                          if (!items.length) return null
                           return (
-                            <button
-                              key={g.label}
-                              onClick={() => handleGrade(g.label, card)}
-                              style={{
-                                padding: '10px 4px', borderRadius: 8,
-                                cursor: 'pointer', textAlign: 'center',
-                                background: active ? 'rgba(232,197,71,0.1)' : 'var(--surface2)',
-                                border: `1.5px solid ${active ? 'var(--gold)' : 'var(--border2)'}`,
-                                transition: 'all 0.15s',
-                                minHeight: 52,
-                              }}
-                              onMouseEnter={e => {
-                                if (!active) {
-                                  e.currentTarget.style.borderColor = 'var(--gold)'
-                                  e.currentTarget.style.background = 'rgba(232,197,71,0.05)'
-                                }
-                              }}
-                              onMouseLeave={e => {
-                                if (!active) {
-                                  e.currentTarget.style.borderColor = 'var(--border2)'
-                                  e.currentTarget.style.background = 'var(--surface2)'
-                                }
-                              }}
-                            >
-                              <span style={{
-                                display: 'block',
-                                fontSize: g.label === 'Raw' ? 13 : 11,
-                                fontWeight: 700,
-                                color: active ? 'var(--gold)' : 'var(--ink)',
-                                lineHeight: 1.2,
-                              }}>{g.label}</span>
-                              <span style={{ display: 'block', fontSize: 8, color: 'var(--ink3)', marginTop: 2 }}>{g.sub}</span>
-                            </button>
+                            <div key={grp.key} style={{ marginBottom: 10 }}>
+                              {grp.key !== 'RAW' && <p style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6, marginTop: 2 }}>{grp.label}</p>}
+                              <div className="srch-grade-grid">
+                                {items.map(g => {
+                                  const active = selectedGrade === g.label
+                                  return (
+                                    <button
+                                      key={g.label}
+                                      onClick={() => handleGrade(g.label, card)}
+                                      style={{
+                                        padding: '10px 4px', borderRadius: 8,
+                                        cursor: 'pointer', textAlign: 'center',
+                                        background: active ? 'rgba(232,197,71,0.1)' : 'var(--surface2)',
+                                        border: `1.5px solid ${active ? 'var(--gold)' : 'var(--border2)'}`,
+                                        transition: 'all 0.15s',
+                                        minHeight: 52,
+                                      }}
+                                      onMouseEnter={e => {
+                                        if (!active) {
+                                          e.currentTarget.style.borderColor = 'var(--gold)'
+                                          e.currentTarget.style.background = 'rgba(232,197,71,0.05)'
+                                        }
+                                      }}
+                                      onMouseLeave={e => {
+                                        if (!active) {
+                                          e.currentTarget.style.borderColor = 'var(--border2)'
+                                          e.currentTarget.style.background = 'var(--surface2)'
+                                        }
+                                      }}
+                                    >
+                                      <span style={{
+                                        display: 'block',
+                                        fontSize: g.label === 'Raw' ? 13 : 11,
+                                        fontWeight: 700,
+                                        color: active ? 'var(--gold)' : 'var(--ink)',
+                                        lineHeight: 1.2,
+                                      }}>{g.label}</span>
+                                      <span style={{ display: 'block', fontSize: 8, color: 'var(--ink3)', marginTop: 2 }}>{g.sub}</span>
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            </div>
                           )
-                        })}
-                      </div>
+                        })
+                      })()}
                     </div>
                   )}
                 </div>

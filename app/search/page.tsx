@@ -36,6 +36,20 @@ const GRADES = [
   { label: 'CGC 9.5', sub: 'Gem Mint'  },
 ]
 
+const JP_GRADES = [
+  { label: 'Raw',    sub: 'Ungraded' },
+  { label: 'PSA 10', sub: 'Gem Mint' },
+  { label: 'PSA 9',  sub: 'Mint'     },
+  { label: 'PSA 8',  sub: 'NM-Mint'  },
+  { label: 'PSA 7',  sub: 'Near Mint'},
+  { label: 'PSA 6',  sub: 'Ex-Mt'    },
+  { label: 'PSA 5',  sub: 'Excellent' },
+  { label: 'PSA 4',  sub: 'Very Good' },
+  { label: 'PSA 3',  sub: 'Good'     },
+  { label: 'PSA 2',  sub: 'Fair'     },
+  { label: 'PSA 1',  sub: 'Poor'     },
+]
+
 const VARIANT_LABELS: Record<string, string> = {
   Holofoil:               'Holo',
   Normal:                 'Normal',
@@ -110,6 +124,8 @@ export default function SearchPage() {
   // Keep a ref in sync so runSearch can read the latest value without being
   // recreated every time isLoggedIn changes (which would restart the debounce).
   const isLoggedInRef                     = useRef<boolean | null>(null)
+  const [lang, setLang]   = useState<'en' | 'jp'>('en')
+  const langRef           = useRef<'en' | 'jp'>('en')
   const [blocked, setBlocked]             = useState(false)   // anon limit reached
   const [showSignup, setShowSignup]       = useState(false)   // auth modal open
   const [cooldownMins, setCooldownMins]   = useState(0)
@@ -158,6 +174,7 @@ export default function SearchPage() {
 
     const params = new URLSearchParams({ search: name })
     if (number) params.set('card_number', number)
+    if (langRef.current === 'jp') params.set('game', 'pokemon-japanese')
 
     // ── Cache check first (never counts toward the rate limit) ───────────────
     const key    = cacheKey(params)
@@ -223,6 +240,19 @@ export default function SearchPage() {
     debounceRef.current = setTimeout(() => runSearch(query), DEBOUNCE_MS)
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
   }, [query, runSearch])
+
+  // Keep langRef in sync + clear results when language changes
+  useEffect(() => {
+    langRef.current = lang
+    setResults([])
+    setStaleResults([])
+    setCommittedQuery('')
+    if (query.trim()) {
+      setLoading(true)
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      debounceRef.current = setTimeout(() => runSearch(query), DEBOUNCE_MS)
+    }
+  }, [lang, query, runSearch])
 
   // Scroll selected card + grade picker into view on mobile
   useEffect(() => {
@@ -329,6 +359,25 @@ export default function SearchPage() {
             Searching <span style={{ color: 'var(--ink2)' }}>"{parsedName}"</span> · card #{parsedNumber}
           </p>
         )}
+
+        {/* EN / JP language toggle */}
+        <div style={{ display: 'flex', gap: 6, marginBottom: 16, marginTop: showHint ? 8 : 4 }}>
+          {(['en', 'jp'] as const).map(l => (
+            <button
+              key={l}
+              onClick={() => setLang(l)}
+              style={{
+                padding: '5px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                border: `1px solid ${lang === l ? 'var(--gold)' : 'var(--border2)'}`,
+                background: lang === l ? 'rgba(232,197,71,0.1)' : 'transparent',
+                color: lang === l ? 'var(--gold)' : 'var(--ink3)',
+                cursor: 'pointer', letterSpacing: 0.5, transition: 'all 0.15s',
+              }}
+            >
+              {l === 'en' ? '🇺🇸 English' : '🇯🇵 Japanese'}
+            </button>
+          ))}
+        </div>
 
         {/* Empty state — browse fallback */}
         {!committedQuery && !loading && (
@@ -446,7 +495,7 @@ export default function SearchPage() {
                         <span style={{ fontSize: 11, color: 'var(--ink3)', flexShrink: 0 }}>#{card.cardNumber}</span>
                       </div>
                       <div style={{ fontSize: 12, color: 'var(--ink3)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {card.set.name}{variant ? ` · ${variant}` : ''}
+                        {card.set.name}{variant ? ` · ${variant}` : ''}{lang === 'jp' && <span style={{ marginLeft: 6, fontSize: 9, letterSpacing: 1, padding: '1px 5px', borderRadius: 4, background: 'rgba(255,50,50,0.1)', border: '1px solid rgba(255,50,50,0.2)', color: '#ff6060' }}>JP</span>}
                       </div>
                       {card.rarity && (
                         <div style={{ fontSize: 10, color: 'var(--gold)', marginTop: 3, fontWeight: 600 }}>{card.rarity}</div>
@@ -472,7 +521,7 @@ export default function SearchPage() {
                         SELECT GRADE
                       </p>
                       <div className="srch-grade-grid">
-                        {GRADES.map(g => {
+                        {(lang === 'jp' ? JP_GRADES : GRADES).map(g => {
                           const active = selectedGrade === g.label
                           return (
                             <button

@@ -34,7 +34,8 @@ export async function GET(_req: NextRequest) {
   for (let page = 0; page < MAX_PAGES && hasMore; page++) {
     if (page > 0) await delay(1200) // respect burst rate limit between pages
 
-    const params = new URLSearchParams({ game: 'pokemon', limit: '100' })
+    const game = _req.nextUrl.searchParams.get('game') === 'pokemon-japanese' ? 'pokemon-japanese' : 'pokemon'
+    const params = new URLSearchParams({ game, limit: '100' })
     if (cursor) params.set('cursor', cursor)
     const url = `https://api.poketrace.com/v1/sets?${params}`
 

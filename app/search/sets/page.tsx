@@ -36,13 +36,17 @@ type Era = {
   match: (slug: string, name: string) => boolean
 }
 
-// Ordered newest → oldest
+// Ordered newest → oldest (matching pokedata.io era structure)
 const ERAS: Era[] = [
   {
     id: 'mega',
     label: 'Mega Evolution',
     color: '#c084fc',
-    match: (s, n) => s.includes('mega') || n.includes('mega'),
+    match: (s, n) =>
+      s.includes('mega') || n.includes('mega') ||
+      s.includes('ascended-heroes') || n.includes('ascended heroes') ||
+      s.includes('phantasmal-flames') || n.includes('phantasmal flames') ||
+      s.includes('perfect-order') || n.includes('perfect order'),
   },
   {
     id: 'sv',
@@ -52,7 +56,10 @@ const ERAS: Era[] = [
       s.startsWith('sv') || s.includes('scarlet') || s.includes('violet') ||
       s.includes('paldea') || s.includes('paradox') || s.includes('temporal') ||
       s.includes('obsidian') || s.includes('twilight') || s.includes('stellar') ||
-      s.includes('shrouded') || s.includes('surging') || s.includes('prismatic'),
+      s.includes('shrouded') || s.includes('surging') || s.includes('prismatic') ||
+      s.includes('journey-together') || s.includes('destined-rivals') ||
+      s.includes('white-flare') || s.includes('black-bolt') ||
+      s.includes('trick-or-trade'),
   },
   {
     id: 'swsh',
@@ -60,11 +67,12 @@ const ERAS: Era[] = [
     color: '#3a7be8',
     match: (s) =>
       s.startsWith('swsh') || s.includes('sword') || s.includes('shield') ||
-      s.includes('chilling-reign') || s.includes('evolving') || s.includes('fusion-strike') ||
-      s.includes('brilliant-stars') || s.includes('astral') || s.includes('lost-origin') ||
+      s.includes('chilling-reign') || s.includes('evolving-skies') || s.includes('fusion-strike') ||
+      s.includes('brilliant-stars') || s.includes('astral-radiance') || s.includes('lost-origin') ||
       s.includes('silver-tempest') || s.includes('crown-zenith') || s.includes('vivid-voltage') ||
       s.includes('darkness-ablaze') || s.includes('rebel-clash') || s.includes('battle-styles') ||
-      s.includes('shining-fates') || s.includes('champions-path'),
+      s.includes('shining-fates') || s.includes('champions-path') || s.includes('pokemon-go') ||
+      s.includes('celebrations') || s.includes('trading-card-game-classic'),
   },
   {
     id: 'sm',
@@ -76,7 +84,8 @@ const ERAS: Era[] = [
       s.includes('crimson-invasion') || s.includes('ultra-prism') || s.includes('forbidden-light') ||
       s.includes('celestial-storm') || s.includes('lost-thunder') || s.includes('team-up') ||
       s.includes('detective-pikachu') || s.includes('unbroken-bonds') ||
-      s.includes('unified-minds') || s.includes('hidden-fates') || s.includes('cosmic-eclipse'),
+      s.includes('unified-minds') || s.includes('hidden-fates') || s.includes('cosmic-eclipse') ||
+      s.includes('dragon-majesty'),
   },
   {
     id: 'xy',
@@ -94,35 +103,51 @@ const ERAS: Era[] = [
     label: 'Black & White',
     color: '#aaa',
     match: (s) =>
-      s.startsWith('bw') || s.includes('black-white') || s.includes('emerging-powers') ||
-      s.includes('noble-victories') || s.includes('next-destinies') || s.includes('dark-explorers') ||
-      s.includes('dragons-exalted') || s.includes('dragon-vault') || s.includes('boundaries-crossed') ||
-      s.includes('plasma-storm') || s.includes('plasma-freeze') || s.includes('plasma-blast') ||
+      s.startsWith('bw') || s.includes('black-white') || s.includes('black-and-white') ||
+      s.includes('emerging-powers') || s.includes('noble-victories') ||
+      s.includes('next-destinies') || s.includes('dark-explorers') ||
+      s.includes('dragons-exalted') || s.includes('dragon-vault') ||
+      s.includes('boundaries-crossed') || s.includes('plasma-storm') ||
+      s.includes('plasma-freeze') || s.includes('plasma-blast') ||
       s.includes('legendary-treasures'),
   },
   {
+    id: 'col',
+    label: 'Call of Legends',
+    color: '#60a5fa',
+    match: (s) => s.includes('call-of-legends'),
+  },
+  {
     id: 'hgss',
-    label: 'HeartGold & SoulSilver',
+    label: 'HeartGold SoulSilver',
     color: '#e8c83a',
     match: (s) =>
       s.startsWith('hgss') || s.includes('heartgold') || s.includes('soulsilver') ||
-      s.includes('unleashed') || s.includes('undaunted') || s.includes('triumphant') ||
-      s.includes('call-of-legends'),
+      s.includes('unleashed') || s.includes('undaunted') || s.includes('triumphant'),
+  },
+  {
+    id: 'pl',
+    label: 'Platinum',
+    color: '#94a3b8',
+    match: (s) =>
+      s.includes('platinum') || s.includes('rising-rivals') ||
+      s.includes('supreme-victors') || s.includes('arceus') ||
+      s.includes('pokemon-rumble') || s.includes('pop-series-9'),
   },
   {
     id: 'dp',
     label: 'Diamond & Pearl',
     color: '#a03ae8',
     match: (s) =>
-      s.startsWith('dp') || s.includes('diamond-pearl') || s.includes('mysterious-treasures') ||
-      s.includes('secret-wonders') || s.includes('great-encounters') ||
-      s.includes('majestic-dawn') || s.includes('legends-awakened') ||
-      s.includes('stormfront') || s.includes('platinum') || s.includes('rising-rivals') ||
-      s.includes('supreme-victors') || s.includes('arceus'),
+      s.startsWith('dp') || s.includes('diamond-pearl') || s.includes('diamond-and-pearl') ||
+      s.includes('mysterious-treasures') || s.includes('secret-wonders') ||
+      s.includes('great-encounters') || s.includes('majestic-dawn') ||
+      s.includes('legends-awakened') || s.includes('stormfront') ||
+      s.includes('pop-series-6') || s.includes('pop-series-7') || s.includes('pop-series-8'),
   },
   {
     id: 'ex',
-    label: 'EX Series',
+    label: 'EX Ruby & Sapphire',
     color: '#e83a7b',
     match: (s) =>
       s.startsWith('ex-') || s.includes('ruby-sapphire') || s.includes('sandstorm') ||
@@ -132,14 +157,17 @@ const ERAS: Era[] = [
       s.includes('deoxys') || s.includes('emerald') || s.includes('unseen-forces') ||
       s.includes('delta-species') || s.includes('legend-maker') || s.includes('holon') ||
       s.includes('crystal-guardians') || s.includes('dragon-frontiers') ||
-      s.includes('power-keepers'),
+      s.includes('power-keepers') ||
+      s.includes('pop-series-2') || s.includes('pop-series-3') ||
+      s.includes('pop-series-4') || s.includes('pop-series-5'),
   },
   {
     id: 'ecard',
     label: 'e-Card',
     color: '#3a8ee8',
     match: (s) =>
-      s.includes('expedition') || s.includes('aquapolis') || s.includes('skyridge'),
+      s.includes('expedition') || s.includes('aquapolis') || s.includes('skyridge') ||
+      s.includes('pop-series-1'),
   },
   {
     id: 'neo',

@@ -29,30 +29,19 @@ export async function GET(req: NextRequest) {
   if (cardNumber) params.set('card_number', cardNumber)
   if (cursor)     params.set('cursor', cursor)
 
-  const url = `https://api.poketrace.com/v1/cards?${params}`
-  console.log('[pt/cards] →', url)
-
   try {
-    const res = await fetch(url, {
+    const res = await fetch(`https://api.poketrace.com/v1/cards?${params}`, {
       headers: { 'X-API-Key': process.env.POKETRACE_API_KEY },
       next: { revalidate: 86400 },
     })
-    console.log('[pt/cards] status', res.status)
-    if (!res.ok) {
-      const errText = await res.text().catch(() => '')
-      console.log('[pt/cards] error body', errText)
-      return NextResponse.json({ data: [], pagination: { hasMore: false, count: 0 } })
-    }
+    if (!res.ok) return NextResponse.json({ data: [], pagination: { hasMore: false, count: 0 } })
     const json = await res.json()
-    const raw = json.data ?? []
-    const filtered = raw.filter(isCardResult)
-    console.log('[pt/cards] raw', raw.length, '→ filtered', filtered.length, '| first raw card:', JSON.stringify(raw[0] ?? null))
+    const filtered = (json.data ?? []).filter(isCardResult)
     return NextResponse.json(
       { ...json, data: filtered, pagination: { ...json.pagination, count: filtered.length } },
       { headers: { 'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=3600' } }
     )
-  } catch (e) {
-    console.log('[pt/cards] exception', e)
+  } catch {
     return NextResponse.json({ data: [], pagination: { hasMore: false, count: 0 } })
   }
 }

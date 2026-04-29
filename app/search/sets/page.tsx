@@ -42,11 +42,23 @@ const ERAS: Era[] = [
     id: 'mega',
     label: 'Mega Evolution',
     color: '#c084fc',
-    match: (s, n) =>
-      s.includes('mega') || n.includes('mega') ||
-      s.includes('ascended-heroes') || n.includes('ascended heroes') ||
-      s.includes('phantasmal-flames') || n.includes('phantasmal flames') ||
-      s.includes('perfect-order') || n.includes('perfect order'),
+    match: (s, n) => {
+      // Specific EN set names for the Mega Evolution TCG series
+      if (s.includes('ascended-heroes'))   return true
+      if (s.includes('phantasmal-flames')) return true
+      if (s.includes('perfect-order'))     return true
+      // JP ME-coded slugs: me01-…, me02-…, me03-…, mee-…, mep-…
+      if (/^me0\d/.test(s) || s.startsWith('mee-') || s.startsWith('mep-')) return true
+      // Name starts with a JP set-code prefix like "ME01:", "ME02:", "ME:", "MEE:", "MEP:"
+      if (/^me\d*\s*:/.test(n)) return true
+      // Exact "Mega Evolution" set family (not "Mega Battle Deck", "Meganium", etc.)
+      if (n === 'mega evolution')                       return true
+      if (n.startsWith('mega evolution '))              return true
+      if (n.startsWith('me: mega evolution'))           return true
+      if (n.startsWith('mee: mega evolution'))          return true
+      if (n.startsWith('mep: mega evolution'))          return true
+      return false
+    },
   },
   {
     id: 'sv',

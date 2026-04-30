@@ -581,7 +581,7 @@ export default function PortfolioPage() {
       <button
         onClick={() => handleSort(k)}
         className="pf-hide-mobile"
-        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: right ? 'right' : 'left', fontSize: 10, letterSpacing: 1, color: active ? 'var(--gold)' : 'var(--ink3)', fontWeight: active ? 700 : 500, display: 'flex', alignItems: 'center', justifyContent: right ? 'flex-end' : 'flex-start', gap: 4 }}
+        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', width: '100%', textAlign: right ? 'right' : 'left', fontSize: 10, letterSpacing: 1, color: active ? 'var(--gold)' : 'var(--ink3)', fontWeight: active ? 700 : 500, display: 'flex', alignItems: 'center', justifyContent: right ? 'flex-end' : 'flex-start', gap: 4 }}
       >
         {label}
         {active && <span style={{ fontSize: 9 }}>{sortDir === 'desc' ? '▼' : '▲'}</span>}
@@ -801,7 +801,7 @@ export default function PortfolioPage() {
 
             {/* Header */}
             <div className="pf-header" style={{ borderBottom: '1px solid var(--border)' }}>
-              <button onClick={() => handleSort('name')} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', fontSize: 10, letterSpacing: 1, color: sort === 'name' ? 'var(--gold)' : 'var(--ink3)', fontWeight: sort === 'name' ? 700 : 500, display: 'flex', gap: 4, alignItems: 'center' }}>
+              <button onClick={() => handleSort('name')} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', width: '100%', textAlign: 'left', fontSize: 10, letterSpacing: 1, color: sort === 'name' ? 'var(--gold)' : 'var(--ink3)', fontWeight: sort === 'name' ? 700 : 500, display: 'flex', gap: 4, alignItems: 'center' }}>
                 CARD {sort === 'name' && <span style={{ fontSize: 9 }}>{sortDir === 'desc' ? '▼' : '▲'}</span>}
               </button>
               <SortTh label="MKT VALUE" k="current" />

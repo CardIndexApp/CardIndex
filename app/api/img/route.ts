@@ -36,7 +36,8 @@ export async function GET(req: NextRequest) {
     return new NextResponse(body, {
       headers: {
         'Content-Type': upstream.headers.get('content-type') ?? 'image/png',
-        'Cache-Control': 'public, max-age=86400, immutable',
+        // Card images are immutable for a given URL — cache for 1 year
+        'Cache-Control': 'public, max-age=31536000, immutable',
       },
     })
   } catch {

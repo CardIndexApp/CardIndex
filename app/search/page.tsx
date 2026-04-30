@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
+import NextImage from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import BetaModal from '@/components/BetaModal'
@@ -97,13 +98,20 @@ function sortByRelevance(cards: PtCard[], q: string): PtCard[] {
 
 function CardThumb({ src, alt }: { src: string; alt: string }) {
   const [failed, setFailed] = useState(false)
-  if (failed || !src) return <div className="search-thumb" style={{ background: 'var(--surface2)', borderRadius: 6, flexShrink: 0 }} />
+  if (failed || !src) {
+    return <div style={{ width: 48, height: 67, background: 'var(--surface2)', borderRadius: 6, flexShrink: 0 }} />
+  }
   return (
-    <img
-      src={src} alt={alt} onError={() => setFailed(true)}
-      className="search-thumb"
-      style={{ objectFit: 'contain', borderRadius: 6, flexShrink: 0, background: 'var(--surface2)' }}
-    />
+    <div style={{ position: 'relative', width: 48, height: 67, flexShrink: 0, borderRadius: 6, overflow: 'hidden', background: 'var(--surface2)' }}>
+      <NextImage
+        src={src}
+        alt={alt}
+        fill
+        sizes="48px"
+        style={{ objectFit: 'contain' }}
+        onError={() => setFailed(true)}
+      />
+    </div>
   )
 }
 
@@ -599,10 +607,7 @@ function SearchPageInner() {
       <style>{`
         @keyframes srch-spin { to { transform: rotate(360deg); } }
 
-        /* Thumbnail size */
-        .search-thumb { width: 48px; height: 67px; }
-
-        /* Grade grid: 5-col desktop → 3-col mobile */
+/* Grade grid: 5-col desktop → 3-col mobile */
         .srch-grade-grid {
           display: grid;
           grid-template-columns: repeat(5, 1fr);

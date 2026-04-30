@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import NextImage from 'next/image'
 import Navbar from '@/components/Navbar'
 import Ticker from '@/components/Ticker'
 import EbayLogo from '@/components/EbayLogo'
@@ -54,17 +55,25 @@ function scoreColor(s: number) {
   return s >= 80 ? '#3de88a' : s >= 60 ? '#e8c547' : '#e8524a'
 }
 
-function FeaturedCardItem({ card }: { card: FeaturedCard }) {
+function FeaturedCardItem({ card, priority }: { card: FeaturedCard; priority?: boolean }) {
   const [imgErr, setImgErr] = useState(false)
   const up = card.change >= 0
   const url = `/card/${card.id}?grade=${encodeURIComponent(card.grade)}&name=${encodeURIComponent(card.name)}&set=${encodeURIComponent(card.set)}`
   return (
     <a href={url} className="card-hover" style={{ display: 'flex', flexDirection: 'column', borderRadius: 16, padding: 16, background: 'var(--surface)', border: '1px solid var(--border)', textDecoration: 'none' }}>
       {/* Image */}
-      <div style={{ width: '100%', height: 180, borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14, overflow: 'hidden', flexShrink: 0 }}>
+      <div style={{ position: 'relative', width: '100%', height: 180, borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)', marginBottom: 14, overflow: 'hidden', flexShrink: 0 }}>
         {card.img && !imgErr
-          ? <img src={ptImg(card.img)} alt={card.name} onError={() => setImgErr(true)} style={{ height: '100%', width: '100%', objectFit: 'contain', padding: 8 }} loading="lazy" decoding="async" />
-          : <span style={{ fontSize: 48 }}>🃏</span>}
+          ? <NextImage
+              src={ptImg(card.img)}
+              alt={card.name}
+              fill
+              sizes="(max-width: 640px) 45vw, 220px"
+              style={{ objectFit: 'contain', padding: 8 }}
+              onError={() => setImgErr(true)}
+              priority={priority}
+            />
+          : <span style={{ fontSize: 48, position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)' }}>🃏</span>}
       </div>
       {/* Name / price */}
       <div style={{ flex: 1 }}>
@@ -233,7 +242,7 @@ export default function Home() {
                   </div>
                 ))
               : featured.length > 0
-                ? featured.map(card => <FeaturedCardItem key={card.id + card.grade} card={card} />)
+                ? featured.map((card, i) => <FeaturedCardItem key={card.id + card.grade} card={card} priority={i < 2} />)
                 : null
             }
           </div>
@@ -301,8 +310,8 @@ export default function Home() {
                       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                     >
                       <div className="home-recent-left" style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0, flex: 1 }}>
-                        <div style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0 }}>
-                          {item.img && <img src={ptImg(item.img)} alt={item.name} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 3 }} />}
+                        <div style={{ position: 'relative', width: 40, height: 40, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0 }}>
+                          {item.img && <NextImage src={ptImg(item.img)} alt={item.name} fill sizes="40px" style={{ objectFit: 'contain', padding: 3 }} />}
                         </div>
                         <div style={{ minWidth: 0 }}>
                           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.name}</div>
@@ -392,8 +401,8 @@ export default function Home() {
             {/* Mock verdict card */}
             <div style={{ borderRadius: 20, padding: 28, background: 'var(--bg)', border: '1px solid var(--border2)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 24, paddingBottom: 20, borderBottom: '1px solid var(--border)' }}>
-                <div style={{ width: 52, height: 52, borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0 }}>
-                  <img src={tcgImg('https://images.pokemontcg.io/base1/4_hires.png')} alt="Charizard" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                <div style={{ position: 'relative', width: 52, height: 52, borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0 }}>
+                  <NextImage src={tcgImg('https://images.pokemontcg.io/base1/4_hires.png')} alt="Charizard" fill sizes="52px" style={{ objectFit: 'contain' }} />
                 </div>
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginBottom: 2 }}>Charizard Base Set</div>

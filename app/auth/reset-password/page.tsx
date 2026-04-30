@@ -1,9 +1,9 @@
 'use client'
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-export default function ResetPasswordPage() {
+function ResetPasswordInner() {
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [loading, setLoading] = useState(false)
@@ -11,23 +11,33 @@ export default function ResetPasswordPage() {
   const [done, setDone] = useState(false)
   const [sessionReady, setSessionReady] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
 
-  // Supabase sets up the recovery session after exchangeCodeForSession in the
-  // callback route. By the time the user arrives here the session should already
-  // be active, but we listen for the PASSWORD_RECOVERY event too as a fallback.
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) setSessionReady(true)
-    })
+    const code = searchParams.get('code')
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') {
-        setSessionReady(true)
-      }
-    })
-
-    return () => subscription.unsubscribe()
+    if (code) {
+      // Exchange the PKCE code for a session — this is the primary path when
+      // the user clicks the reset link in their email.
+      supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
+        if (error) {
+          setError('This reset link is invalid or has expired. Please request a new one.')
+        } else {
+          setSessionReady(true)
+        }
+      })
+    } else {
+      // Fallback: check for an existing recovery session (e.g. if the page was
+      // reloaded after the code was already exchanged).
+      supabase.auth.getSession().then(({ data }) => {
+        if (data.session) {
+          setSessionReady(true)
+        } else {
+          setError('No valid reset link found. Please request a new password reset.')
+        }
+      })
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -106,6 +116,35 @@ export default function ResetPasswordPage() {
               Password updated! Redirecting you home…
             </p>
           </div>
+        ) : error && !sessionReady ? (
+          <div style={{ textAlign: 'center' }}>
+            <div style={{
+              borderRadius: 12,
+              padding: '20px 16px',
+              background: 'rgba(232,82,74,0.06)',
+              border: '1px solid rgba(232,82,74,0.18)',
+              marginBottom: 20,
+            }}>
+              <div style={{ fontSize: 22, marginBottom: 8 }}>🔗</div>
+              <p style={{ fontSize: 13, color: 'var(--ink2)', lineHeight: 1.7, margin: 0 }}>
+                {error}
+              </p>
+            </div>
+            <button
+              onClick={() => router.push('/')}
+              style={{
+                fontSize: 13,
+                color: 'var(--gold)',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                textDecoration: 'underline',
+                textUnderlineOffset: 2,
+              }}
+            >
+              ← Back to CardIndex
+            </button>
+          </div>
         ) : !sessionReady ? (
           <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--ink3)' }}>
             Verifying your reset link…
@@ -179,5 +218,17 @@ export default function ResetPasswordPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
+        <p style={{ fontSize: 13, color: 'var(--ink3)' }}>Loading…</p>
+      </div>
+    }>
+      <ResetPasswordInner />
+    </Suspense>
   )
 }

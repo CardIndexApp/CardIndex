@@ -1,13 +1,101 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import Ticker from '@/components/Ticker'
-import CardPreview from '@/components/CardPreview'
 import EbayLogo from '@/components/EbayLogo'
 import Footer from '@/components/Footer'
-import { cards } from '@/lib/data'
 import { tcgImg } from '@/lib/img'
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+interface FeaturedCard {
+  id: string
+  name: string
+  set: string
+  grade: string
+  price: number
+  change: number
+  score: number
+  img: string
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+interface TrendingCard {
+  id: string
+  name: string
+  set: string
+  grade: string
+  price: number
+  change: number
+  img: string
+  searchedAt: string
+}
+
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime()
+  const mins = Math.floor(diff / 60_000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  return `${Math.floor(hrs / 24)}d ago`
+}
+
+const TRENDING_CACHE_KEY  = 'ci_trending_v1'
+const FEATURED_CACHE_KEY  = 'ci_featured_v1'
+const FEATURED_TTL_MS     = 43_200_000 // 12 hours
+const TRENDING_TTL_MS     = 43_200_000 // 12 hours
+
+// ── FeaturedCardItem ──────────────────────────────────────────────────────────
+
+function scoreColor(s: number) {
+  return s >= 80 ? '#3de88a' : s >= 60 ? '#e8c547' : '#e8524a'
+}
+
+function FeaturedCardItem({ card }: { card: FeaturedCard }) {
+  const [imgErr, setImgErr] = useState(false)
+  const up = card.change >= 0
+  const url = `/card/${card.id}?grade=${encodeURIComponent(card.grade)}&name=${encodeURIComponent(card.name)}&set=${encodeURIComponent(card.set)}`
+  return (
+    <a href={url} className="card-hover" style={{ display: 'flex', flexDirection: 'column', borderRadius: 16, padding: 16, background: 'var(--surface)', border: '1px solid var(--border)', textDecoration: 'none' }}>
+      {/* Image */}
+      <div style={{ width: '100%', height: 180, borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14, overflow: 'hidden', flexShrink: 0 }}>
+        {card.img && !imgErr
+          ? <img src={card.img} alt={card.name} onError={() => setImgErr(true)} style={{ height: '100%', width: '100%', objectFit: 'contain', padding: 8 }} loading="lazy" decoding="async" />
+          : <span style={{ fontSize: 48 }}>🃏</span>}
+      </div>
+      {/* Name / price */}
+      <div style={{ flex: 1 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="font-display" style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.3px', minHeight: 36, lineHeight: 1.3 }}>{card.name}</div>
+            <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 2 }}>{card.set}{card.set && card.grade ? ' · ' : ''}{card.grade}</div>
+          </div>
+          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+            <div className="font-num" style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>${card.price.toLocaleString()}</div>
+            <div className="font-num" style={{ fontSize: 11, color: up ? 'var(--green)' : 'var(--red)' }}>
+              {up ? '▲' : '▼'} {Math.abs(card.change).toFixed(1)}%
+            </div>
+          </div>
+        </div>
+      </div>
+      {/* Score bar */}
+      <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+          <span style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 0.5 }}>CardIndex Score</span>
+          <span className="font-num" style={{ fontSize: 13, fontWeight: 700, color: scoreColor(card.score) }}>{card.score}</span>
+        </div>
+        <div style={{ height: 4, borderRadius: 3, background: 'var(--track)', overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${card.score}%`, background: scoreColor(card.score), borderRadius: 3 }} />
+        </div>
+      </div>
+    </a>
+  )
+}
+
+// ── FAQ ───────────────────────────────────────────────────────────────────────
 
 const faqItems = [
   {
@@ -27,6 +115,64 @@ const faqItems = [
 export default function Home() {
   const [openFaq, setOpenFaq] = useState<number | null>(null)
   const router = useRouter()
+
+  const [featured, setFeatured]           = useState<FeaturedCard[]>([])
+  const [featuredLoading, setFeaturedLoading] = useState(true)
+
+  const [trending, setTrending]           = useState<TrendingCard[]>([])
+  const [trendingLoading, setTrendingLoading] = useState(true)
+
+  useEffect(() => {
+    // Featured cards — 12h localStorage cache
+    try {
+      const raw = localStorage.getItem(FEATURED_CACHE_KEY)
+      if (raw) {
+        const { data, ts } = JSON.parse(raw) as { data: FeaturedCard[]; ts: number }
+        if (Date.now() - ts < FEATURED_TTL_MS && Array.isArray(data) && data.length > 0) {
+          setFeatured(data)
+          setFeaturedLoading(false)
+          return
+        }
+      }
+    } catch { /* ignore */ }
+    fetch('/api/home/featured')
+      .then(r => r.json())
+      .then(({ cards }: { cards: FeaturedCard[] }) => {
+        if (Array.isArray(cards) && cards.length > 0) {
+          setFeatured(cards)
+          try { localStorage.setItem(FEATURED_CACHE_KEY, JSON.stringify({ data: cards, ts: Date.now() })) } catch { /* full */ }
+        }
+      })
+      .catch(() => {})
+      .finally(() => setFeaturedLoading(false))
+  }, [])
+
+  useEffect(() => {
+    // Try localStorage cache first (12h TTL) so repeat visitors get instant render
+    try {
+      const raw = localStorage.getItem(TRENDING_CACHE_KEY)
+      if (raw) {
+        const { data, ts } = JSON.parse(raw) as { data: TrendingCard[]; ts: number }
+        if (Date.now() - ts < TRENDING_TTL_MS && Array.isArray(data) && data.length > 0) {
+          setTrending(data)
+          setTrendingLoading(false)
+          return
+        }
+      }
+    } catch { /* ignore parse errors */ }
+
+    // Fetch fresh data
+    fetch('/api/home/trending')
+      .then(r => r.json())
+      .then(({ cards }: { cards: TrendingCard[] }) => {
+        if (Array.isArray(cards) && cards.length > 0) {
+          setTrending(cards)
+          try { localStorage.setItem(TRENDING_CACHE_KEY, JSON.stringify({ data: cards, ts: Date.now() })) } catch { /* storage full */ }
+        }
+      })
+      .catch(() => { /* silently fail — section stays hidden */ })
+      .finally(() => setTrendingLoading(false))
+  }, [])
 
   return (
     <>
@@ -63,33 +209,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Live Sales Data from eBay */}
-          <div className="anim d6" style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 720, margin: '64px auto 0' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 14 }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)', display: 'inline-block', boxShadow: '0 0 6px var(--green)' }} />
-                <span style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1 }}>LIVE</span>
-              </span>
-              <span style={{ fontSize: 12, color: 'var(--ink3)', fontWeight: 500 }}>Sales Data from</span>
-              <EbayLogo height={22} />
-            </div>
-            <div className="home-sales-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1, borderRadius: 16, overflow: 'hidden', background: 'var(--border)' }}>
-              {[
-                { card: 'Charizard Base Set', grade: 'PSA 9', price: '$4,250', delta: '+3.2%', up: true },
-                { card: 'Pikachu Illustrator', grade: 'PSA 7', price: '$38,000', delta: '+1.8%', up: true },
-                { card: 'Lugia V Alt Art', grade: 'PSA 10', price: '$680', delta: '-0.5%', up: false },
-              ].map((s, i) => (
-                <div key={i} style={{ padding: '16px 18px', background: 'var(--surface)' }}>
-                  <div style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 4 }}>{s.card}</div>
-                  <div style={{ fontSize: 10, color: 'var(--ink3)', marginBottom: 6, opacity: 0.6 }}>{s.grade}</div>
-                  <div className="font-num" style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>{s.price}</div>
-                  <div className="font-num" style={{ fontSize: 11, color: s.up ? 'var(--green)' : 'var(--red)', marginTop: 2 }}>
-                    {s.up ? '▲' : '▼'} {s.delta}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
         </section>
 
         <Ticker />
@@ -104,11 +223,52 @@ export default function Home() {
             <a href="/market" style={{ fontSize: 13, color: 'var(--ink3)', textDecoration: 'none' }}>View all →</a>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16 }}>
-            {cards.slice(0, 6).map(card => <CardPreview key={card.id} card={card} />)}
+            {featuredLoading
+              ? Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} style={{ borderRadius: 16, padding: 16, background: 'var(--surface)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div style={{ width: '100%', height: 180, borderRadius: 10, background: 'var(--surface2)' }} />
+                    <div style={{ height: 14, width: '70%', borderRadius: 4, background: 'var(--surface2)' }} />
+                    <div style={{ height: 10, width: '50%', borderRadius: 4, background: 'var(--surface2)' }} />
+                    <div style={{ height: 4, borderRadius: 3, background: 'var(--surface2)', marginTop: 'auto' }} />
+                  </div>
+                ))
+              : featured.length > 0
+                ? featured.map(card => <FeaturedCardItem key={card.id + card.grade} card={card} />)
+                : null
+            }
           </div>
         </section>
 
-        {/* Recently Searched */}
+        {/* Live Sales Data from eBay */}
+        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 24px 64px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)', display: 'inline-block', boxShadow: '0 0 6px var(--green)' }} />
+              <span style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1 }}>LIVE</span>
+            </span>
+            <span style={{ fontSize: 12, color: 'var(--ink3)', fontWeight: 500 }}>Sales Data from</span>
+            <EbayLogo height={22} />
+          </div>
+          <div className="home-sales-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1, borderRadius: 16, overflow: 'hidden', background: 'var(--border)' }}>
+            {[
+              { card: 'Charizard Base Set', grade: 'PSA 9', price: '$4,250', delta: '+3.2%', up: true },
+              { card: 'Pikachu Illustrator', grade: 'PSA 7', price: '$38,000', delta: '+1.8%', up: true },
+              { card: 'Lugia V Alt Art', grade: 'PSA 10', price: '$680', delta: '-0.5%', up: false },
+            ].map((s, i) => (
+              <div key={i} style={{ padding: '16px 18px', background: 'var(--surface)' }}>
+                <div style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 4 }}>{s.card}</div>
+                <div style={{ fontSize: 10, color: 'var(--ink3)', marginBottom: 6, opacity: 0.6 }}>{s.grade}</div>
+                <div className="font-num" style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>{s.price}</div>
+                <div className="font-num" style={{ fontSize: 11, color: s.up ? 'var(--green)' : 'var(--red)', marginTop: 2 }}>
+                  {s.up ? '▲' : '▼'} {s.delta}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Recently Searched — hidden while loading or if no data */}
+        {(trendingLoading || trending.length > 0) && (
         <section style={{ padding: '0 24px 80px', maxWidth: 1100, margin: '0 auto' }}>
           <div className="home-section-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24, flexWrap: 'wrap', gap: 8 }}>
             <div>
@@ -118,39 +278,51 @@ export default function Home() {
             <a href="/search" style={{ fontSize: 13, color: 'var(--ink3)', textDecoration: 'none' }}>Search cards →</a>
           </div>
           <div style={{ borderRadius: 16, overflow: 'hidden', background: 'var(--surface)', border: '1px solid var(--border)' }}>
-            {[
-              { id: 'umbreon-vmax-alt-psa10',  name: 'Umbreon VMAX Alt Art', set: 'Evolving Skies', grade: 'PSA 10', price: 890,  change: 8.2, up: true,  ago: '2m ago',  img: 'https://images.pokemontcg.io/swsh7/215_hires.png' },
-              { id: 'blastoise-base-psa9',     name: 'Blastoise Base Set',   set: 'Base Set',       grade: 'PSA 9',  price: 1450, change: 2.1, up: true,  ago: '5m ago',  img: 'https://images.pokemontcg.io/base1/2_hires.png' },
-              { id: 'espeon-vmax-alt-psa10',   name: 'Espeon VMAX Alt Art',  set: 'Evolving Skies', grade: 'PSA 10', price: 320,  change: 1.4, up: false, ago: '11m ago', img: 'https://images.pokemontcg.io/swsh7/208_hires.png' },
-              { id: 'sylveon-vmax-alt-psa10',  name: 'Sylveon VMAX Alt Art', set: 'Evolving Skies', grade: 'PSA 10', price: 275,  change: 4.7, up: true,  ago: '18m ago', img: 'https://images.pokemontcg.io/swsh7/212_hires.png' },
-              { id: 'gengar-vmax-alt-psa10',   name: 'Gengar VMAX Alt Art',  set: 'Fusion Strike',  grade: 'PSA 10', price: 260,  change: 3.1, up: true,  ago: '24m ago', img: 'https://images.pokemontcg.io/swsh8/271_hires.png' },
-              { id: 'leafeon-vmax-alt-psa9',   name: 'Leafeon VMAX Alt Art', set: 'Evolving Skies', grade: 'PSA 9',  price: 195,  change: 0.8, up: false, ago: '31m ago', img: 'https://images.pokemontcg.io/swsh7/211_hires.png' },
-            ].map((item, i, arr) => (
-              <a key={i} href={`/card/${item.id}`} className="home-recent-row"
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none', textDecoration: 'none', background: 'transparent', transition: 'background 0.15s', gap: 12 }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'var(--hover-subtle)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-              >
-                <div className="home-recent-left" style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0, flex: 1 }}>
-                  <div style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0 }}>
-                    <img src={tcgImg(item.img)} alt={item.name} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 3 }} />
+            {trendingLoading
+              /* Skeleton rows while fetching */
+              ? Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 20px', borderBottom: i < 4 ? '1px solid var(--border)' : 'none' }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--surface2)', flexShrink: 0 }} />
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <div style={{ height: 12, width: '45%', borderRadius: 4, background: 'var(--surface2)' }} />
+                      <div style={{ height: 10, width: '30%', borderRadius: 4, background: 'var(--surface2)' }} />
+                    </div>
+                    <div style={{ width: 48, height: 14, borderRadius: 4, background: 'var(--surface2)' }} />
                   </div>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.name}</div>
-                    <div style={{ fontSize: 11, color: 'var(--ink3)', whiteSpace: 'nowrap' }}>{item.set} · {item.grade}</div>
-                  </div>
-                </div>
-                <div className="home-recent-right" style={{ display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
-                  <span className="home-recent-ago" style={{ fontSize: 10, color: 'var(--ink3)', textAlign: 'right' }}>{item.ago}</span>
-                  <span className="font-num" style={{ fontSize: 12, color: item.up ? 'var(--green)' : 'var(--red)', textAlign: 'right', minWidth: 48 }}>
-                    {item.up ? '▲' : '▼'} {item.change}%
-                  </span>
-                  <span className="font-num home-recent-price" style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', textAlign: 'right', minWidth: 56 }}>${item.price.toLocaleString()}</span>
-                </div>
-              </a>
-            ))}
+                ))
+              /* Real rows */
+              : trending.map((item, i, arr) => {
+                  const up = item.change >= 0
+                  const cardUrl = `/card/${item.id}?grade=${encodeURIComponent(item.grade)}&name=${encodeURIComponent(item.name)}&set=${encodeURIComponent(item.set)}`
+                  return (
+                    <a key={item.id + item.grade} href={cardUrl} className="home-recent-row"
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none', textDecoration: 'none', background: 'transparent', transition: 'background 0.15s', gap: 12 }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--hover-subtle)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <div className="home-recent-left" style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0, flex: 1 }}>
+                        <div style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0 }}>
+                          {item.img && <img src={item.img} alt={item.name} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 3 }} />}
+                        </div>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.name}</div>
+                          <div style={{ fontSize: 11, color: 'var(--ink3)', whiteSpace: 'nowrap' }}>{item.set}{item.set && item.grade ? ' · ' : ''}{item.grade}</div>
+                        </div>
+                      </div>
+                      <div className="home-recent-right" style={{ display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
+                        <span className="home-recent-ago" style={{ fontSize: 10, color: 'var(--ink3)', textAlign: 'right' }}>{timeAgo(item.searchedAt)}</span>
+                        <span className="font-num" style={{ fontSize: 12, color: up ? 'var(--green)' : 'var(--red)', textAlign: 'right', minWidth: 48 }}>
+                          {up ? '▲' : '▼'} {Math.abs(item.change).toFixed(1)}%
+                        </span>
+                        <span className="font-num home-recent-price" style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', textAlign: 'right', minWidth: 56 }}>${item.price.toLocaleString()}</span>
+                      </div>
+                    </a>
+                  )
+                })
+            }
           </div>
         </section>
+        )}
 
         {/* How it works */}
         <section style={{ padding: '0 24px 96px', maxWidth: 1100, margin: '0 auto' }}>

@@ -1,6 +1,6 @@
 'use client'
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import BetaModal from '@/components/BetaModal'
 import { ptImg } from '@/lib/img'
@@ -109,10 +109,12 @@ function CardThumb({ src, alt }: { src: string; alt: string }) {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
-export default function SearchPage() {
+function SearchPageInner() {
   const router = useRouter()
+  const searchParams = useSearchParams()
 
-  const [query, setQuery]                   = useState('')
+  // Initialise from URL so back-navigation restores the previous query
+  const [query, setQuery]                   = useState(() => searchParams.get('q') ?? '')
   const [results, setResults]               = useState<PtCard[]>([])
   // staleResults: last non-empty result set — shown as fallback while a new
   // search is loading so the list never flashes to empty mid-type.
@@ -142,6 +144,16 @@ export default function SearchPage() {
   const abortRef     = useRef<AbortController | null>(null)
   const inputRef     = useRef<HTMLInputElement>(null)
   const selectedRef  = useRef<HTMLDivElement>(null)
+
+  // Keep the URL in sync with the typed query so that pressing Back from a
+  // card page restores the search rather than landing on a blank page.
+  // router.replace doesn't add a history entry, so each keystroke doesn't
+  // create a new entry — the user still gets a single Back press to leave.
+  useEffect(() => {
+    const trimmed = query.trim()
+    const url = trimmed ? `/search?q=${encodeURIComponent(trimmed)}` : '/search'
+    router.replace(url, { scroll: false })
+  }, [query]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Detect mobile + resolve auth on mount
   useEffect(() => {
@@ -606,5 +618,14 @@ export default function SearchPage() {
         }
       `}</style>
     </>
+  )
+}
+
+// useSearchParams requires Suspense in the App Router
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<><Navbar /></>}>
+      <SearchPageInner />
+    </Suspense>
   )
 }

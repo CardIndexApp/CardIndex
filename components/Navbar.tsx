@@ -36,6 +36,7 @@ export default function Navbar() {
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
   const [keyboardOpen, setKeyboardOpen] = useState(false)
+  const [showPwResetBanner, setShowPwResetBanner] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
@@ -54,6 +55,11 @@ export default function Navbar() {
       if (!u) {
         setUsername(null)
         setIsAdmin(false)
+        setShowPwResetBanner(false)
+      } else if (event === 'PASSWORD_RECOVERY') {
+        // User clicked a password reset link — prompt them to change their password
+        setShowPwResetBanner(true)
+        fetchProfile(u.id).then(p => { setUsername(p.username); setIsAdmin(p.is_admin) })
       } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         fetchProfile(u.id).then(p => { setUsername(p.username); setIsAdmin(p.is_admin) })
       }
@@ -190,6 +196,43 @@ export default function Navbar() {
           ))}
         </button>
       </nav>
+
+      {/* Password-reset sign-in banner */}
+      {showPwResetBanner && (
+        <div style={{
+          position: 'fixed', top: 56, left: 0, right: 0, zIndex: 49,
+          background: 'rgba(232,197,71,0.10)',
+          borderBottom: '1px solid rgba(232,197,71,0.25)',
+          backdropFilter: 'blur(8px)',
+          padding: '10px 20px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
+          flexWrap: 'wrap',
+        }}>
+          <span style={{ fontSize: 13, color: 'var(--ink2)', lineHeight: 1.4 }}>
+            🔑 You&apos;re signed in via a reset link — please update your password.
+          </span>
+          <a
+            href="/account"
+            onClick={() => setShowPwResetBanner(false)}
+            style={{
+              fontSize: 12, fontWeight: 700, color: '#080810',
+              background: 'var(--gold)', borderRadius: 8,
+              padding: '5px 14px', textDecoration: 'none', flexShrink: 0,
+            }}
+          >
+            Change password →
+          </a>
+          <button
+            onClick={() => setShowPwResetBanner(false)}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: 'var(--ink3)', fontSize: 18, lineHeight: 1,
+              padding: '0 4px', flexShrink: 0,
+            }}
+            aria-label="Dismiss"
+          >×</button>
+        </div>
+      )}
 
       {/* Mobile drawer */}
       <div className="nav-drawer" style={{ position: 'fixed', top: 56, left: 0, right: 0, bottom: 'calc(84px + env(safe-area-inset-bottom))', zIndex: 49, background: 'var(--nav-solid)', backdropFilter: 'blur(16px)', display: 'flex', flexDirection: 'column', padding: '32px 24px 24px', overflowY: 'auto', transform: open ? 'translateY(0)' : 'translateY(-12px)', opacity: open ? 1 : 0, pointerEvents: open ? 'auto' : 'none', transition: 'opacity 0.25s, transform 0.25s' }}>

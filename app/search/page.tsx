@@ -210,28 +210,16 @@ function SearchPageInner() {
       return
     }
 
-    // ── Anon rate-limit gate (only applies to live API calls) ────────────────
-    // Read from ref so this closure never goes stale.
-    if (isLoggedInRef.current === false && anonLimitReached()) {
-      setCooldownMins(Math.ceil(anonWindowRemainingMs() / 60_000))
-      setBlocked(true)
-      setLoading(false)
-      return
-    }
-
     try {
       const res  = await fetch(`/api/pt/cards?${params}`, { signal: controller.signal })
       if (controller.signal.aborted) return
       const json = await res.json()
       const data: PtCard[] = json.data ?? []
       const sorted = sortByRelevance(data, name)
-      setBlocked(false)
       setResults(sorted)
       if (sorted.length > 0) {
         setStaleResults(sorted)
         cacheSet(key, data)
-        // Only count fresh, successful API calls toward the anon limit
-        if (isLoggedInRef.current === false) incrementAnonSearchCount()
       }
       setCommittedQuery(raw.trim())
     } catch (err) {
@@ -286,6 +274,17 @@ function SearchPageInner() {
   // ── Handlers ──────────────────────────────────────────────────────────────
   function handleGrade(grade: string, card: PtCard) {
     setSelectedGrade(grade)
+
+    // Gate non-logged-in users: 1 free card view per hour
+    if (isLoggedInRef.current === false && anonLimitReached()) {
+      setCooldownMins(Math.ceil(anonWindowRemainingMs() / 60_000))
+      setBlocked(true)
+      return // show inline wall instead of navigating
+    }
+
+    // Count this card view toward the anon limit before navigating
+    if (isLoggedInRef.current === false) incrementAnonSearchCount()
+
     const params = new URLSearchParams({
       grade, name: card.name, set: card.set.name,
       number: card.cardNumber, set_slug: card.set.slug,
@@ -296,6 +295,7 @@ function SearchPageInner() {
   function handleCardClick(card: PtCard) {
     setSelectedCard(prev => prev?.id === card.id ? null : card)
     setSelectedGrade(null)
+    setBlocked(false)
   }
 
   function clearSearch() {
@@ -412,29 +412,7 @@ function SearchPageInner() {
           </div>
         )}
 
-        {/* Anon rate-limit wall */}
-        {blocked && !loading && (
-          <div style={{ textAlign: 'center', marginTop: 40, padding: '32px 24px', borderRadius: 16, background: 'var(--surface)', border: '1px solid var(--border2)' }}>
-            <div style={{ fontSize: 32, marginBottom: 12 }}>🔒</div>
-            <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>
-              Free search limit reached
-            </p>
-            <p style={{ fontSize: 13, color: 'var(--ink3)', lineHeight: 1.65, marginBottom: 24 }}>
-              You&apos;ve used your 1 free search.{' '}
-              {cooldownMins > 1
-                ? <>Try again in <strong style={{ color: 'var(--ink2)' }}>{cooldownMins} minutes</strong>, or</>
-                : 'Sign up for free to'}
-              {' '}unlock unlimited searches.
-            </p>
-            <button
-              onClick={() => setShowSignup(true)}
-              style={{ display: 'block', width: '100%', maxWidth: 280, margin: '0 auto', padding: '13px 0', borderRadius: 12, background: 'var(--gold)', color: '#080810', fontSize: 14, fontWeight: 700, border: 'none', cursor: 'pointer' }}
-            >
-              Sign up free — unlimited searches
-            </button>
-            <p style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 12 }}>No credit card required</p>
-          </div>
-        )}
+        {/* Anon card-view wall — shown inline inside grade picker, not here */}
 
         {/* No results — only shown when the committed (fetched) query matches
             what the user currently has typed, preventing false empties mid-word */}
@@ -523,6 +501,31 @@ function SearchPageInner() {
                       background: 'var(--surface)',
                       padding: '14px 14px 16px',
                     }}>
+
+                      {/* Anon card-view limit wall — shown inline */}
+                      {blocked ? (
+                        <div style={{ textAlign: 'center', padding: '12px 8px 8px' }}>
+                          <div style={{ fontSize: 26, marginBottom: 10 }}>🔒</div>
+                          <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginBottom: 6 }}>
+                            Free card limit reached
+                          </p>
+                          <p style={{ fontSize: 12, color: 'var(--ink3)', lineHeight: 1.65, marginBottom: 18 }}>
+                            You&apos;ve used your 1 free card view.{' '}
+                            {cooldownMins > 1
+                              ? <>Try again in <strong style={{ color: 'var(--ink2)' }}>{cooldownMins} minutes</strong>, or sign up for</>
+                              : 'Sign up for'}
+                            {' '}unlimited access.
+                          </p>
+                          <button
+                            onClick={() => setShowSignup(true)}
+                            style={{ display: 'block', width: '100%', padding: '12px 0', borderRadius: 12, background: 'var(--gold)', color: '#080810', fontSize: 14, fontWeight: 700, border: 'none', cursor: 'pointer' }}
+                          >
+                            Sign up free — it&apos;s unlimited
+                          </button>
+                          <p style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 10 }}>No credit card required</p>
+                        </div>
+                      ) : (
+                        <>
                       <p style={{ fontSize: 10, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 12 }}>
                         SELECT GRADE
                       </p>
@@ -581,6 +584,8 @@ function SearchPageInner() {
                           )
                         })
                       })()}
+                        </>
+                      )}
                     </div>
                   )}
                 </div>

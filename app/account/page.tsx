@@ -161,8 +161,15 @@ export default function AccountPage() {
     setPwLoading(true)
     const { error } = await supabase.auth.updateUser({ password: newPassword })
     setPwLoading(false)
-    if (error) setPwMsg({ type: 'err', text: error.message })
-    else { setPwMsg({ type: 'ok', text: 'Password updated successfully.' }); setNewPassword(''); setConfirmPassword('') }
+    if (error) {
+      setPwMsg({ type: 'err', text: error.message })
+    } else {
+      setPwMsg({ type: 'ok', text: 'Password updated successfully. A confirmation email has been sent.' })
+      setNewPassword('')
+      setConfirmPassword('')
+      // Fire-and-forget security notification — don't block the UI on this
+      fetch('/api/auth/password-changed', { method: 'POST' }).catch(() => {})
+    }
   }
 
   const handleDeleteAccount = async () => {

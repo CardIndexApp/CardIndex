@@ -61,6 +61,8 @@ function ResetPasswordInner() {
     if (error) {
       setError(error.message)
     } else {
+      // Fire-and-forget security notification
+      fetch('/api/auth/password-changed', { method: 'POST' }).catch(() => {})
       setDone(true)
       setTimeout(() => router.push('/'), 2500)
     }

@@ -2,6 +2,10 @@ import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
   images: {
+    // Allow next/image to optimise images served through our /api/img proxy
+    localPatterns: [
+      { pathname: '/api/img', search: '**' },
+    ],
     remotePatterns: [
       { protocol: 'https', hostname: 'images.pokemontcg.io' },
     ],

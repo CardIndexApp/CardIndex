@@ -1492,6 +1492,55 @@ export default function CardPageClient() {
                       <ScoreBar label="Consistency" value={Math.round(liveData.score_breakdown.consistency / 25 * 100)} color={scoreColor(Math.round(liveData.score_breakdown.consistency / 25 * 100))} />
                       <ScoreBar label="Value"       value={Math.round(liveData.score_breakdown.value / 20 * 100)}       color={scoreColor(Math.round(liveData.score_breakdown.value / 20 * 100))} />
                     </div>
+
+                    {/* Zero-score explanation banners */}
+                    {(() => {
+                      const sb2 = liveData.score_breakdown
+                      const sales2 = liveData.sales_count_30d ?? 0
+                      const trendPct2 = liveData.price_change_pct ?? 0
+                      type ZeroReason = { label: string; text: string }
+                      const reasons: ZeroReason[] = []
+
+                      if (sb2.trend === 0) {
+                        const msg = sales2 === 0
+                          ? 'No recent sales data to establish a price direction.'
+                          : trendPct2 <= -15
+                            ? `Price has fallen ${Math.abs(trendPct2).toFixed(0)}% recently with no recovery — no positive momentum to score.`
+                            : 'No positive price movement detected. This card is in a declining or stagnant trend with no upward momentum.'
+                        reasons.push({ label: 'Trend', text: msg })
+                      }
+
+                      if (sb2.liquidity === 0) {
+                        const msg = sales2 === 0
+                          ? 'No sales recorded in the last 30 days. Without an active market, buying or selling this card at a fair price may be very difficult.'
+                          : `Only ${sales2} sale${sales2 === 1 ? '' : 's'} in the last 30 days — too thin to score for liquidity.`
+                        reasons.push({ label: 'Liquidity', text: msg })
+                      }
+
+                      if (sb2.consistency === 0) {
+                        reasons.push({ label: 'Consistency', text: 'Extreme price volatility. The gap between high and low sale prices is as wide as the average price itself, making future pricing highly unpredictable.' })
+                      }
+
+                      if (sb2.value === 0) {
+                        reasons.push({ label: 'Value', text: 'Trading at a significant premium. This card is priced at least 20% above its 30-day average — buying now means paying well above recent market value.' })
+                      }
+
+                      if (reasons.length === 0) return null
+                      return (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginTop: 14 }}>
+                          {reasons.map(r => (
+                            <div key={r.label} style={{ borderRadius: 9, background: 'rgba(232,82,74,0.06)', border: '1px solid rgba(232,82,74,0.18)', padding: '10px 12px', display: 'flex', gap: 9, alignItems: 'flex-start' }}>
+                              <span style={{ fontSize: 12, flexShrink: 0, lineHeight: 1.5, opacity: 0.85 }}>⚠</span>
+                              <p style={{ margin: 0, fontSize: 11, lineHeight: 1.6, color: 'var(--ink3)' }}>
+                                <span style={{ fontWeight: 700, color: '#e8524a', marginRight: 4 }}>{r.label} scored 0</span>
+                                {r.text}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    })()}
+
                     <p style={{ fontSize: 12, color: 'var(--ink3)', marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)', lineHeight: 1.65 }}>{a.reasoning}</p>
                   </div>
                   )

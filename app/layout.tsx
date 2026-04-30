@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://card-index.app'),
   title: {
     default: 'CardIndex — TCG Market Intelligence',
-    template: '%s — CardIndex',
+    template: 'CardIndex | %s',
   },
   description: 'Real-time price intelligence, CardIndex scores, and market analysis for trading card collectors and investors.',
   openGraph: {

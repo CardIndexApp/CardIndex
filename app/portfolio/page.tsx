@@ -578,14 +578,17 @@ export default function PortfolioPage() {
   function SortTh({ label, k, right = true }: { label: string; k: SortKey; right?: boolean }) {
     const active = sort === k
     return (
-      <button
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => handleSort(k)}
+        onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && handleSort(k)}
         className="pf-hide-mobile"
-        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', width: '100%', textAlign: right ? 'right' : 'left', fontSize: 10, letterSpacing: 1, color: active ? 'var(--gold)' : 'var(--ink3)', fontWeight: active ? 700 : 500, display: 'flex', alignItems: 'center', justifyContent: right ? 'flex-end' : 'flex-start', gap: 4 }}
+        style={{ cursor: 'pointer', fontSize: 10, letterSpacing: 1, color: active ? 'var(--gold)' : 'var(--ink3)', fontWeight: active ? 700 : 500, display: 'flex', alignItems: 'center', justifyContent: right ? 'flex-end' : 'flex-start', gap: 4 }}
       >
         {label}
         {active && <span style={{ fontSize: 9 }}>{sortDir === 'desc' ? '▼' : '▲'}</span>}
-      </button>
+      </div>
     )
   }
 
@@ -652,9 +655,7 @@ export default function PortfolioPage() {
         }
         .pf-header { padding: 10px 20px; }
         .pf-row    { padding: 13px 20px; min-height: 64px; }
-        /* Stretch grid-item buttons to fill their cell so right-aligned labels
-           sit at the same right edge as the right-aligned data below them */
-        .pf-hide-mobile { display: flex; width: 100%; }
+        .pf-hide-mobile { display: flex; }
         .pf-show-mobile { display: none; }
         .pf-act-btn {
           height: 28px; padding: 0 10px; border-radius: 7px;
@@ -801,9 +802,9 @@ export default function PortfolioPage() {
 
             {/* Header */}
             <div className="pf-header" style={{ borderBottom: '1px solid var(--border)' }}>
-              <button onClick={() => handleSort('name')} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', width: '100%', textAlign: 'left', fontSize: 10, letterSpacing: 1, color: sort === 'name' ? 'var(--gold)' : 'var(--ink3)', fontWeight: sort === 'name' ? 700 : 500, display: 'flex', gap: 4, alignItems: 'center' }}>
+              <div role="button" tabIndex={0} onClick={() => handleSort('name')} onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && handleSort('name')} style={{ cursor: 'pointer', fontSize: 10, letterSpacing: 1, color: sort === 'name' ? 'var(--gold)' : 'var(--ink3)', fontWeight: sort === 'name' ? 700 : 500, display: 'flex', gap: 4, alignItems: 'center' }}>
                 CARD {sort === 'name' && <span style={{ fontSize: 9 }}>{sortDir === 'desc' ? '▼' : '▲'}</span>}
-              </button>
+              </div>
               <SortTh label="MKT VALUE" k="current" />
               <SortTh label="P&amp;L" k="plpct" />
               <div className="pf-hide-mobile" style={{ textAlign: 'right', fontSize: 10, letterSpacing: 1, color: 'var(--ink3)' }}>QTY</div>

@@ -35,6 +35,7 @@ export default function Navbar() {
   const [username, setUsername] = useState<string | null>(null)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [keyboardOpen, setKeyboardOpen] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
@@ -65,6 +66,16 @@ export default function Navbar() {
     const close = () => { setOpen(false); setUserMenuOpen(false) }
     window.addEventListener('resize', close)
     return () => window.removeEventListener('resize', close)
+  }, [])
+
+  // Hide bottom nav when the soft keyboard is open (iOS/Android).
+  // visualViewport.height shrinks when the keyboard appears; window.innerHeight stays fixed.
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    const onResize = () => setKeyboardOpen(vv.height < window.innerHeight * 0.8)
+    vv.addEventListener('resize', onResize)
+    return () => vv.removeEventListener('resize', onResize)
   }, [])
 
   useEffect(() => {
@@ -236,7 +247,7 @@ export default function Navbar() {
           background: 'var(--bottom-nav)',
           backdropFilter: 'blur(20px)',
           borderTop: '1px solid var(--nav-border)',
-          display: 'flex', alignItems: 'stretch',
+          display: keyboardOpen ? 'none' : 'flex', alignItems: 'stretch',
           paddingBottom: 'env(safe-area-inset-bottom)',
           height: 'calc(84px + env(safe-area-inset-bottom))',
         }}>

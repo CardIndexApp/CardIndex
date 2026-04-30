@@ -1,12 +1,16 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import NextImage from 'next/image'
 import Navbar from '@/components/Navbar'
-import Ticker from '@/components/Ticker'
-import EbayLogo from '@/components/EbayLogo'
-import Footer from '@/components/Footer'
 import { tcgImg, ptImg } from '@/lib/img'
+
+// Lazy-load below-fold components so their JS doesn't block the main thread
+// during initial parse. They're never needed for LCP or FCP.
+const Ticker      = dynamic(() => import('@/components/Ticker'),   { ssr: false })
+const EbayLogo    = dynamic(() => import('@/components/EbayLogo'), { ssr: false })
+const Footer      = dynamic(() => import('@/components/Footer'),   { ssr: false })
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

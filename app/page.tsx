@@ -5,7 +5,7 @@ import Navbar from '@/components/Navbar'
 import Ticker from '@/components/Ticker'
 import EbayLogo from '@/components/EbayLogo'
 import Footer from '@/components/Footer'
-import { tcgImg } from '@/lib/img'
+import { tcgImg, ptImg } from '@/lib/img'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -63,7 +63,7 @@ function FeaturedCardItem({ card }: { card: FeaturedCard }) {
       {/* Image */}
       <div style={{ width: '100%', height: 180, borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14, overflow: 'hidden', flexShrink: 0 }}>
         {card.img && !imgErr
-          ? <img src={card.img} alt={card.name} onError={() => setImgErr(true)} style={{ height: '100%', width: '100%', objectFit: 'contain', padding: 8 }} loading="lazy" decoding="async" />
+          ? <img src={ptImg(card.img)} alt={card.name} onError={() => setImgErr(true)} style={{ height: '100%', width: '100%', objectFit: 'contain', padding: 8 }} loading="lazy" decoding="async" />
           : <span style={{ fontSize: 48 }}>🃏</span>}
       </div>
       {/* Name / price */}
@@ -302,7 +302,7 @@ export default function Home() {
                     >
                       <div className="home-recent-left" style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0, flex: 1 }}>
                         <div style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0 }}>
-                          {item.img && <img src={item.img} alt={item.name} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 3 }} />}
+                          {item.img && <img src={ptImg(item.img)} alt={item.name} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 3 }} />}
                         </div>
                         <div style={{ minWidth: 0 }}>
                           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.name}</div>

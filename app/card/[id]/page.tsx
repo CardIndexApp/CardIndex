@@ -68,7 +68,8 @@ export async function generateMetadata(
   const changeStr = change != null ? ` (${change >= 0 ? '+' : ''}${change.toFixed(1)}% 30d)` : ''
   const scoreStr  = score  != null ? ` · Score ${score}/100` : ''
 
-  const title       = `${name} ${grade} Price${priceStr} — CardIndex`
+  const titleStr    = `${name} ${grade} Price${priceStr}`
+  const title       = { absolute: `${titleStr} — CardIndex` }
   const description = [
     `Live market price`,
     set ? `for ${name} ${grade} from ${set}` : `for ${name} ${grade}`,
@@ -87,12 +88,14 @@ export async function generateMetadata(
     ? [{ url: img, width: 245, height: 342, alt: `${name} ${grade}` }]
     : [{ url: `${SITE_URL}/icon-512.png`, width: 512, height: 512, alt: 'CardIndex' }]
 
+  const ogTitle = `${titleStr} — CardIndex`
+
   return {
     title,
     description,
     alternates: { canonical },
     openGraph: {
-      title,
+      title: ogTitle,
       description,
       url: canonical,
       siteName: 'CardIndex',
@@ -101,7 +104,7 @@ export async function generateMetadata(
     },
     twitter: {
       card: img ? 'summary_large_image' : 'summary',
-      title,
+      title: ogTitle,
       description,
       images: images.map(i => i.url),
     },

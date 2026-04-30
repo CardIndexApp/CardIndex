@@ -93,12 +93,15 @@ function TileInfo({ id, text, activeTip, setActiveTip, inline }: {
 
   function openTip() {
     if (!btnRef.current) { setActiveTip(id); return }
-    const r      = btnRef.current.getBoundingClientRect()
-    const tipW   = Math.min(240, window.innerWidth - 24)
-    const alignRight = r.right - tipW >= 8
-    const above  = window.innerHeight - r.bottom < 120
-    const top    = above ? r.top - 8 : r.bottom + 8
-    setTipRect({ top, left: alignRight ? r.right : r.left, alignRight, above })
+    const r    = btnRef.current.getBoundingClientRect()
+    const tipW = Math.min(240, window.innerWidth - 24)
+    // Start anchored to button's left edge, then clamp so it never overflows either side
+    let left = r.left
+    if (left + tipW > window.innerWidth - 8) left = window.innerWidth - tipW - 8
+    if (left < 8) left = 8
+    const above = window.innerHeight - r.bottom < 120
+    const top   = above ? r.top - 8 : r.bottom + 8
+    setTipRect({ top, left, alignRight: false, above })
     setActiveTip(id)
   }
 
@@ -145,9 +148,7 @@ function TileInfo({ id, text, activeTip, setActiveTip, inline }: {
             ...(tipRect.above
               ? { bottom: window.innerHeight - tipRect.top }
               : { top: tipRect.top }),
-            ...(tipRect.alignRight
-              ? { right: window.innerWidth - tipRect.left }
-              : { left: tipRect.left }),
+            left: tipRect.left,
             zIndex: 9999,
             background: '#1a1a2e',
             border: '1px solid rgba(255,255,255,0.14)',
@@ -245,6 +246,11 @@ const PAGE_STYLES = `
 
     /* Bottom nav extra clearance on card page */
     .ci-main { padding-bottom: 100px !important; }
+
+    /* Card header: buttons move below card info on mobile */
+    .ci-card-actions { flex-direction: row !important; width: 100%; align-items: stretch !important; margin-top: 4px; flex-shrink: unset !important; }
+    .ci-card-actions > * { flex: 1 !important; min-width: 0; }
+    .ci-card-actions > * > button { width: 100% !important; }
   }
 
   @media (min-width: 701px) {
@@ -905,7 +911,7 @@ export default function CardPageClient() {
             {/* Card header */}
             <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', overflow: 'hidden', marginTop: 24, marginBottom: 10 }}>
               <div style={{ padding: '18px 20px' }}>
-                <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+                <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
                   <div style={{ width: 80, height: 110, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
                     {imageUrl && !imgError ? (
                       <img src={tcgImg(imageUrl)} alt={displayName} onError={() => setImgError(true)} style={{ height: '100%', width: '100%', objectFit: 'contain' }} />
@@ -921,7 +927,7 @@ export default function CardPageClient() {
                     )}
                   </div>
                   {isLoggedIn && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end', flexShrink: 0 }}>
+                    <div className="ci-card-actions" style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end', flexShrink: 0 }}>
                       <button
                         onClick={watchlistAdded ? removeFromWatchlist : addToWatchlist}
                         disabled={watchlistLoading}
@@ -2755,7 +2761,7 @@ export default function CardPageClient() {
                   </div>
                 </div>
                 {/* Action buttons */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignSelf: 'flex-start', flexShrink: 0 }}>
+                <div className="ci-card-actions" style={{ display: 'flex', flexDirection: 'column', gap: 8, alignSelf: 'flex-start', flexShrink: 0 }}>
                   {/* Watchlist button */}
                   {isLoggedIn && (
                     <button

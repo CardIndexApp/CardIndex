@@ -805,6 +805,9 @@ export default function PortfolioPage() {
               <div role="button" tabIndex={0} onClick={() => handleSort('name')} onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && handleSort('name')} style={{ cursor: 'pointer', fontSize: 10, letterSpacing: 1, color: sort === 'name' ? 'var(--gold)' : 'var(--ink3)', fontWeight: sort === 'name' ? 700 : 500, display: 'flex', gap: 4, alignItems: 'center' }}>
                 CARD {sort === 'name' && <span style={{ fontSize: 9 }}>{sortDir === 'desc' ? '▼' : '▲'}</span>}
               </div>
+              {/* Mobile-only column labels (cols 2 & 3 on narrow screens) */}
+              <div className="pf-show-mobile" style={{ textAlign: 'right', fontSize: 10, letterSpacing: 1, color: 'var(--ink3)' }}>P&amp;L</div>
+              <div className="pf-show-mobile" />
               <SortTh label="MKT VALUE" k="current" />
               <SortTh label="P&amp;L" k="plpct" />
               <div className="pf-hide-mobile" style={{ textAlign: 'right', fontSize: 10, letterSpacing: 1, color: 'var(--ink3)' }}>QTY</div>
@@ -880,7 +883,7 @@ export default function PortfolioPage() {
                   </Link>
 
                   {/* Current (desktop col 2, hidden on mobile — shown in card cell instead) */}
-                  <div style={{ textAlign: 'right' }}>
+                  <div className="pf-hide-mobile" style={{ textAlign: 'right' }}>
                     {pos.priceLoading ? (
                       <div style={{ width: 56, height: 13, borderRadius: 4, background: 'var(--surface2)', marginLeft: 'auto' }} className="sk-pulse" />
                     ) : pd ? (

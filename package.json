@@ -18,6 +18,12 @@
     "recharts": "^3.8.1",
     "stripe": "^22.1.0"
   },
+  "browserslist": [
+    "chrome >= 87",
+    "firefox >= 78",
+    "safari >= 14",
+    "edge >= 88"
+  ],
   "devDependencies": {
     "@fontsource/inter": "^5.2.8",
     "@tailwindcss/postcss": "^4",

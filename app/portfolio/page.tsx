@@ -652,7 +652,9 @@ export default function PortfolioPage() {
         }
         .pf-header { padding: 10px 20px; }
         .pf-row    { padding: 13px 20px; min-height: 64px; }
-        .pf-hide-mobile { display: flex; }
+        /* Stretch grid-item buttons to fill their cell so right-aligned labels
+           sit at the same right edge as the right-aligned data below them */
+        .pf-hide-mobile { display: flex; width: 100%; }
         .pf-show-mobile { display: none; }
         .pf-act-btn {
           height: 28px; padding: 0 10px; border-radius: 7px;

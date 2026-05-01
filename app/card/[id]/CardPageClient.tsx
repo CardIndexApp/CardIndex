@@ -324,6 +324,9 @@ interface LiveData {
   data_source?: string | null    // 'ebay' | 'tcgplayer' | 'cardmarket'
   ebay_sale_count?: number | null
   ebay_avg_usd?: number | null
+  // Debug / match diagnostics
+  poketrace_id?: string | null
+  match_reason?: string | null
 }
 
 const TIER_LABELS: Record<string, string> = {

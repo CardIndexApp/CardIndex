@@ -584,13 +584,15 @@ export default function CardPageClient() {
   const [isAdmin, setIsAdmin] = useState(false)
   useEffect(() => {
     const client = createClient()
-    client.auth.getUser().then(async ({ data }) => {
-      setIsLoggedIn(!!data.user)
-      setUserId(data.user?.id ?? null)
-      if (data.user) {
-        const { data: prof } = await client.from('profiles').select('tier, is_admin').eq('id', data.user.id).single()
+    // Use getSession (localStorage, instant) matching Navbar pattern
+    client.auth.getSession().then(async ({ data: { session } }) => {
+      const u = session?.user ?? null
+      setIsLoggedIn(!!u)
+      setUserId(u?.id ?? null)
+      if (u) {
+        const { data: prof } = await client.from('profiles').select('tier, is_admin').eq('id', u.id).single()
         setUserTier(prof?.tier ?? 'free')
-        setIsAdmin(prof?.is_admin ?? false)
+        setIsAdmin(prof?.is_admin === true)
       }
     })
   }, [])

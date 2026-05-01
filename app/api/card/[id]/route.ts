@@ -378,7 +378,7 @@ export async function GET(
     if (ratio >= 0.25 && ratio <= 4) return tp
 
     // Only one sale — it IS the outlier, use reference as best estimate
-    if (saleCount === 1) return { ...tp, avg: reference }
+    if (saleCount === 1) return cleanFields({ ...tp, avg: reference }, reference)
 
     // Multiple sales: estimate the outlier and remove it
     const total = avg * saleCount
@@ -391,10 +391,23 @@ export async function GET(
 
     // Sanity check — clean avg must be reasonable
     if (cleanAvg > 0 && cleanAvg >= reference * 0.25 && cleanAvg <= reference * 4) {
-      return { ...tp, avg: cleanAvg, saleCount: cleanCount }
+      return cleanFields({ ...tp, avg: cleanAvg, saleCount: cleanCount }, cleanAvg)
     }
 
-    return { ...tp, avg: reference }
+    return cleanFields({ ...tp, avg: reference }, reference)
+  }
+
+  /**
+   * After correcting avg, also fix low/high/avg1d/avg7d if they still
+   * reflect the outlier sale (i.e. they are < 25% of the corrected price).
+   */
+  function cleanFields(tp: typeof rawTierPrice, correctedAvg: number): typeof rawTierPrice {
+    const result = { ...tp }
+    if (result.low  != null && result.low  < correctedAvg * 0.25) result.low  = correctedAvg
+    if (result.high != null && result.high < correctedAvg * 0.25) result.high = correctedAvg
+    if (result.avg1d != null && result.avg1d < correctedAvg * 0.25) result.avg1d = correctedAvg
+    if (result.avg7d != null && result.avg7d < correctedAvg * 0.25) result.avg7d = correctedAvg
+    return result
   }
 
   /** Remove history points that are wildly outside the median of all points */

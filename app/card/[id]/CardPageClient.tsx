@@ -2675,6 +2675,13 @@ export default function CardPageClient() {
                           Data updated {new Date(liveData.last_updated_pt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                         </div>
                       )}
+                      {isAdmin && liveData.poketrace_id && (
+                        <div style={{ marginTop: 8, padding: '6px 10px', borderRadius: 6, background: 'rgba(232,82,74,0.08)', border: '1px solid rgba(232,82,74,0.2)', fontSize: 10, color: 'var(--red)', fontFamily: 'monospace' }}>
+                          <div>🔧 Poketrace ID: {liveData.poketrace_id}</div>
+                          <div>Match: {liveData.match_reason ?? '—'}</div>
+                          {liveData.set_name && <div>Set: {liveData.set_name}</div>}
+                        </div>
+                      )}
                     </div>
                   )
                 })()}

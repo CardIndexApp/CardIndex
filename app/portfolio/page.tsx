@@ -7,6 +7,7 @@ import { useCurrency, CURRENCIES, type CurrencyCode } from '@/lib/currency'
 import { tcgImg } from '@/lib/img'
 import { cacheGet, cacheSet } from '@/lib/searchCache'
 import type { User } from '@supabase/supabase-js'
+import { ComposedChart, Area, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -32,6 +33,7 @@ interface PriceData {
   avg7d: number | null
   avg30d: number | null
   score: number
+  price_history?: Array<{ month: string; price: number; volume?: number }>
 }
 
 interface Position extends DbPosition {
@@ -389,6 +391,152 @@ function ChangePill({ value }: { value: number | null }) {
   )
 }
 
+// ── Portfolio Chart helpers ───────────────────────────────────────────────────
+
+function parseMonthKey(m: string): number {
+  // "Apr 2025" → Date timestamp for sorting
+  return new Date(m).getTime()
+}
+
+function buildPortfolioHistory(
+  positions: Position[],
+  windowMonths: number
+): { month: string; value: number; cost: number }[] {
+  const posWithHistory = positions.filter(p => p.priceData?.price_history?.length)
+  if (!posWithHistory.length) return []
+
+  // Collect all unique months across all histories
+  const allMonthsSet = new Set<string>()
+  for (const pos of posWithHistory) {
+    for (const h of pos.priceData!.price_history!) allMonthsSet.add(h.month)
+  }
+
+  // Sort chronologically and trim to window
+  const sortedMonths = Array.from(allMonthsSet)
+    .sort((a, b) => parseMonthKey(a) - parseMonthKey(b))
+  const sliced = windowMonths > 0 ? sortedMonths.slice(-windowMonths) : sortedMonths
+
+  const totalCost = positions.reduce((s, p) => s + p.purchase_price * p.quantity, 0)
+
+  return sliced.map(month => {
+    let value = 0
+    for (const pos of posWithHistory) {
+      const histMap = new Map(pos.priceData!.price_history!.map(h => [h.month, h.price]))
+      // Use this month's price, or the most recent available price before this month
+      const monthTs = parseMonthKey(month)
+      let price = histMap.get(month)
+      if (price == null) {
+        // find nearest past price
+        const candidates = pos.priceData!.price_history!
+          .filter(h => parseMonthKey(h.month) <= monthTs)
+          .sort((a, b) => parseMonthKey(b.month) - parseMonthKey(a.month))
+        price = candidates[0]?.price ?? pos.priceData!.price
+      }
+      value += price * pos.quantity
+    }
+    // Positions without history: always use current price
+    for (const pos of positions.filter(p => !p.priceData?.price_history?.length && p.priceData)) {
+      value += pos.priceData!.price * pos.quantity
+    }
+    return { month, value, cost: totalCost }
+  })
+}
+
+interface PortfolioChartProps {
+  positions: Position[]
+  fmtCurrency: (n: number) => string
+}
+
+function PortfolioChart({ positions, fmtCurrency }: PortfolioChartProps) {
+  const [window, setWindow] = useState<3 | 6 | 12>(6)
+  const data = buildPortfolioHistory(positions, window)
+
+  if (!data.length) {
+    return (
+      <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--ink3)', fontSize: 13 }}>
+        Price history will appear here once prices have loaded.
+      </div>
+    )
+  }
+
+  const chartMin = Math.min(...data.map(d => Math.min(d.value, d.cost))) * 0.97
+  const chartMax = Math.max(...data.map(d => d.value)) * 1.03
+
+  const latestValue = data[data.length - 1]?.value ?? 0
+  const firstValue  = data[0]?.value ?? 0
+  const totalChange = firstValue > 0 ? ((latestValue - firstValue) / firstValue) * 100 : 0
+  const isUp = totalChange >= 0
+
+  const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: { value: number; dataKey: string }[]; label?: string }) => {
+    if (!active || !payload?.length) return null
+    const val  = payload.find(p => p.dataKey === 'value')?.value ?? 0
+    const cost = payload.find(p => p.dataKey === 'cost')?.value ?? 0
+    const pl   = val - cost
+    return (
+      <div style={{ background: '#181828', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 14px', minWidth: 160 }}>
+        <div style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 6 }}>{label}</div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginBottom: 3 }}>{fmtCurrency(val)}</div>
+        <div style={{ fontSize: 11, color: 'var(--ink3)' }}>Cost: {fmtCurrency(cost)}</div>
+        <div style={{ fontSize: 11, color: pl >= 0 ? 'var(--green)' : 'var(--red)', marginTop: 2 }}>
+          P&L: {pl >= 0 ? '+' : ''}{fmtCurrency(pl)}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      {/* Chart header row */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+          <span className="font-num" style={{ fontSize: 20, fontWeight: 800, color: 'var(--ink)' }}>{fmtCurrency(latestValue)}</span>
+          <span className="font-num" style={{ fontSize: 13, fontWeight: 600, color: isUp ? 'var(--green)' : 'var(--red)' }}>
+            {isUp ? '+' : ''}{totalChange.toFixed(1)}% over period
+          </span>
+        </div>
+        <div style={{ display: 'flex', gap: 4 }}>
+          {([3, 6, 12] as const).map(w => (
+            <button key={w} onClick={() => setWindow(w)}
+              style={{ padding: '4px 12px', borderRadius: 8, border: '1px solid', fontSize: 11, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s',
+                borderColor: window === w ? 'var(--gold)' : 'var(--border2)',
+                background: window === w ? 'var(--gold2)' : 'transparent',
+                color: window === w ? 'var(--gold)' : 'var(--ink3)' }}>
+              {w}M
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div style={{ display: 'flex', gap: 16, marginBottom: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--ink3)' }}>
+          <div style={{ width: 12, height: 12, borderRadius: 2, background: 'var(--gold)', opacity: 0.7 }} /> Portfolio Value
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--ink3)' }}>
+          <div style={{ width: 12, height: 2, background: 'rgba(255,255,255,0.25)' }} /> Cost Basis
+        </div>
+      </div>
+
+      <ResponsiveContainer width="100%" height={200}>
+        <ComposedChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+          <defs>
+            <linearGradient id="portfolioGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%"  stopColor="#e8c547" stopOpacity={0.25} />
+              <stop offset="95%" stopColor="#e8c547" stopOpacity={0}    />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+          <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'var(--ink3)' }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+          <YAxis domain={[chartMin, chartMax]} tick={{ fontSize: 10, fill: 'var(--ink3)' }} tickLine={false} axisLine={false} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} width={44} />
+          <Tooltip content={<CustomTooltip />} />
+          <Area type="monotone" dataKey="value" stroke="#e8c547" strokeWidth={2} fill="url(#portfolioGrad)" dot={false} activeDot={{ r: 4, fill: '#e8c547' }} />
+          <Line type="monotone" dataKey="cost"  stroke="rgba(255,255,255,0.25)" strokeWidth={1.5} strokeDasharray="4 3" dot={false} activeDot={false} />
+        </ComposedChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
 // ── Main page ──────────────────────────────────────────────────────────────────
 
 export default function PortfolioPage() {
@@ -406,6 +554,7 @@ export default function PortfolioPage() {
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
   const [filter, setFilter] = useState<'all' | 'winning' | 'losing'>('all')
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+  const [showChart, setShowChart] = useState(false)
 
   function flash(type: 'ok' | 'err', text: string) {
     setMsg({ type, text })
@@ -797,6 +946,26 @@ export default function PortfolioPage() {
               </div>
             ))}
           </div>
+
+          {/* ── Performance Chart ── */}
+          {positions.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <button
+                onClick={() => setShowChart(v => !v)}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 10, border: '1px solid var(--border2)', background: showChart ? 'var(--surface2)' : 'transparent', color: showChart ? 'var(--gold)' : 'var(--ink3)', fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s', marginBottom: showChart ? 12 : 0 }}
+              >
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><polyline points="1 12 5 7 9 10 15 3"/></svg>
+                Performance Chart
+                <span style={{ marginLeft: 2, fontSize: 10 }}>{showChart ? '▲' : '▼'}</span>
+              </button>
+
+              {showChart && (
+                <div style={{ borderRadius: 14, padding: '20px 20px 8px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
+                  <PortfolioChart positions={positions} fmtCurrency={fmtCurrency} />
+                </div>
+              )}
+            </div>
+          )}
 
           {/* ── Controls ── */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>

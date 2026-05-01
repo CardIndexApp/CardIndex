@@ -975,6 +975,15 @@ export default function CardPageClient() {
                           </button>
                         </div>
                       )}
+                      {/* Compare link */}
+                      <Link
+                        href={`/compare?c=${encodeURIComponent(`${id}:${encodeURIComponent(urlGrade ?? 'Raw')}:${encodeURIComponent(urlName ?? '')}`)}`}
+                        style={{ padding: '8px 14px', borderRadius: 10, background: 'var(--surface2)', border: '1.5px solid var(--border2)', fontSize: 11, fontWeight: 600, color: 'var(--ink2)', cursor: 'pointer', width: '100%', textDecoration: 'none', display: 'block', textAlign: 'center', boxSizing: 'border-box' }}
+                        onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.color = 'var(--gold)' }}
+                        onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => { e.currentTarget.style.borderColor = 'var(--border2)'; e.currentTarget.style.color = 'var(--ink2)' }}
+                      >
+                        ⚖ Compare
+                      </Link>
                     </div>
                   )}
                 </div>
@@ -2822,6 +2831,17 @@ export default function CardPageClient() {
                       )}
                     </div>
                   )}
+                  {/* Compare link */}
+                  <Link
+                    className="ci-no-print"
+                    href={`/compare?c=${encodeURIComponent(`${id}:${encodeURIComponent(urlGrade ?? (card ? card.grade : 'Raw'))}:${encodeURIComponent(urlName ?? card?.name ?? '')}`)}`}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface2)', border: '1.5px solid var(--border2)', borderRadius: 10, padding: '9px 14px', fontSize: 11, fontWeight: 600, color: 'var(--ink2)', textDecoration: 'none', transition: 'all 0.2s' }}
+                    onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.color = 'var(--gold)' }}
+                    onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => { e.currentTarget.style.borderColor = 'var(--border2)'; e.currentTarget.style.color = 'var(--ink2)' }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="1" x2="8" y2="15"/><line x1="1" y1="8" x2="15" y2="8"/><path d="M4 4l8 8M12 4l-8 8"/></svg>
+                    Compare
+                  </Link>
                   {/* Live data badge + force refresh */}
                   {liveData && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>

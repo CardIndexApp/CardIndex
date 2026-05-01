@@ -991,6 +991,26 @@ export default function CardPageClient() {
                       >
                         ⚖ Compare
                       </Link>
+                      {/* Force refresh — desktop only */}
+                      <button
+                        className="ci-hide-mobile"
+                        disabled={liveLoading}
+                        onClick={() => {
+                          setLiveData(null)
+                          const grade = urlGrade ?? 'Raw'
+                          fetch(`/api/cache?id=${encodeURIComponent(id)}&grade=${encodeURIComponent(grade)}`, { method: 'DELETE' })
+                            .finally(() => fetchLiveData(true))
+                        }}
+                        style={{ padding: '8px 14px', borderRadius: 10, background: 'var(--surface2)', border: '1.5px solid var(--border2)', fontSize: 11, fontWeight: 600, color: liveLoading ? 'var(--ink3)' : 'var(--ink2)', cursor: liveLoading ? 'default' : 'pointer', width: '100%', opacity: liveLoading ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, boxSizing: 'border-box' }}
+                        onMouseEnter={e => { if (!liveLoading) { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.color = 'var(--gold)' } }}
+                        onMouseLeave={e => { if (!liveLoading) { e.currentTarget.style.borderColor = 'var(--border2)'; e.currentTarget.style.color = 'var(--ink2)' } }}
+                      >
+                        <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M1 4v4h4"/><path d="M15 12v-4h-4"/>
+                          <path d="M13.5 6A6 6 0 0 0 2.5 5.5M2.5 10a6 6 0 0 0 11 .5"/>
+                        </svg>
+                        {liveLoading ? 'Loading…' : 'Refresh'}
+                      </button>
                     </div>
                   )}
                 </div>

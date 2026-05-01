@@ -109,12 +109,13 @@ interface ModalProps {
   mode: 'add' | 'edit'
   editPosition?: Position
   onClose: () => void
+  onRemove?: () => void
   onSave: (payload: Partial<DbPosition>) => Promise<void>
   currency: CurrencyCode
   rates: Record<string, number>
 }
 
-function PositionModal({ mode, editPosition, onClose, onSave, currency, rates }: ModalProps) {
+function PositionModal({ mode, editPosition, onClose, onSave, onRemove, currency, rates }: ModalProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
@@ -358,6 +359,18 @@ function PositionModal({ mode, editPosition, onClose, onSave, currency, rates }:
           >
             {saving ? 'Saving…' : mode === 'add' ? 'Add to Portfolio' : 'Save Changes'}
           </button>
+
+          {mode === 'edit' && onRemove && (
+            <button
+              type="button"
+              onClick={() => { onRemove(); onClose() }}
+              style={{ width: '100%', padding: '11px 0', borderRadius: 12, border: '1px solid rgba(232,82,74,0.3)', background: 'rgba(232,82,74,0.06)', color: 'var(--red)', fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s' }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(232,82,74,0.12)'; e.currentTarget.style.borderColor = 'rgba(232,82,74,0.5)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(232,82,74,0.06)'; e.currentTarget.style.borderColor = 'rgba(232,82,74,0.3)' }}
+            >
+              Remove position
+            </button>
+          )}
         </form>
       </div>
     </div>
@@ -665,6 +678,8 @@ export default function PortfolioPage() {
         }
         .pf-act-btn:hover { border-color: var(--gold); color: var(--gold); }
         .pf-act-btn.del:hover { border-color: var(--red); color: var(--red); }
+        .pf-del-btn { display: inline-flex; }
+        @media (max-width: 760px) { .pf-del-btn { display: none !important; } }
         @media (max-width: 760px) {
           .pf-row, .pf-header {
             grid-template-columns: 1fr 88px 64px;
@@ -942,7 +957,7 @@ export default function PortfolioPage() {
                   {/* Actions */}
                   <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end', alignItems: 'center' }}>
                     <button className="pf-act-btn" onClick={() => setEditPos(pos)} title="Edit position">Edit</button>
-                    <button className="pf-act-btn del" onClick={e => handleRemove(e, pos.id)} title="Remove position">✕</button>
+                    <button className="pf-act-btn del pf-del-btn" onClick={e => handleRemove(e, pos.id)} title="Remove position">✕</button>
                   </div>
                 </div>
               )
@@ -972,6 +987,7 @@ export default function PortfolioPage() {
           editPosition={editPos}
           onClose={() => setEditPos(null)}
           onSave={handleEdit}
+          onRemove={() => { setPositions(prev => prev.filter(p => p.id !== editPos.id)); setEditPos(null) }}
           currency={currency}
           rates={rates}
         />

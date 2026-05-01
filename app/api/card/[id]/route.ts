@@ -346,21 +346,36 @@ export async function GET(
 
   // ── 3a. Outlier correction ────────────────────────────────────────────────
   //
-  // When sale count is very low (< 3), a single anomalous eBay sale can
-  // massively distort the average. If the current avg deviates by more than
-  // 75% from the 30-day or 7-day moving average, substitute the longer-period
-  // average as a more reliable estimate.
+  // A single anomalous eBay sale (e.g. a "Mystery Grab" listing scraped as a
+  // real sale) can massively distort the current price, moving averages, and
+  // the price history chart. We strip outliers from all three:
   //
-  // Example: 1 sale at $59 vs avg30d of $850 → ratio 0.07 → use $850
-  function correctOutlier(tp: typeof rawTierPrice): typeof rawTierPrice {
+  //   1. Current avg: if < 3 sales and avg deviates > 75% from avg30d/avg7d,
+  //      replace with the longer-period average.
+  //   2. Price history: remove any monthly point that is outside
+  //      [median/3 … median*3] — a 9× band that catches only extreme outliers.
+  //   3. priceChangePct: computed from the cleaned avg vs cleaned history.
+
+  /** Replace current price with a longer-period average when it looks like an outlier */
+  function correctOutlierPrice(tp: typeof rawTierPrice): typeof rawTierPrice {
     const { avg, avg7d, avg30d, saleCount } = tp
-    if ((saleCount ?? 99) >= 3) return tp // enough sales — trust the average
+    if ((saleCount ?? 99) >= 3) return tp
     const reference = avg30d ?? avg7d
     if (!reference || reference <= 0) return tp
     const ratio = avg / reference
-    // Outlier if current price is < 25% or > 400% of the longer-term average
     if (ratio >= 0.25 && ratio <= 4) return tp
+    // Outlier — use the longer-period average as the corrected price
     return { ...tp, avg: reference }
+  }
+
+  /** Remove history points that are wildly outside the median of all points */
+  function removeHistoryOutliers(pts: typeof history): typeof history {
+    if (pts.length < 3) return pts
+    const sorted = [...pts].map(p => p.avg).sort((a, b) => a - b)
+    const median = sorted[Math.floor(sorted.length / 2)]
+    if (median <= 0) return pts
+    // Keep only points within a 9× band around the median (median/3 … median*3)
+    return pts.filter(p => p.avg >= median / 3 && p.avg <= median * 3)
   }
 
   // ── 3b. Data quality gate: eBay sale count → warning + optional TCGPlayer fallback ──
@@ -408,15 +423,19 @@ export async function GET(
   }
 
   // Apply outlier correction to the resolved price
-  tierPrice = correctOutlier(tierPrice)
+  tierPrice = correctOutlierPrice(tierPrice)
 
   // ── 4. Fetch price history ────────────────────────────────────────────────
-  const history = await getPriceHistory(matchedCard.id, resolvedTier, '1y')
+  const rawHistory = await getPriceHistory(matchedCard.id, resolvedTier, '1y')
+
+  // Remove outlier points from history so chart, score, and trend are clean
+  const history = removeHistoryOutliers(rawHistory)
 
   // ── 5. Compute score ──────────────────────────────────────────────────────
   const scoreBreakdown = computeScore(tierPrice, history)
 
   // ── 6. Build price change % ───────────────────────────────────────────────
+  // Use cleaned history — outlier months no longer skew the trend %
   let priceChangePct = 0
   if (tierPrice.avg30d && tierPrice.avg30d > 0) {
     priceChangePct = ((tierPrice.avg - tierPrice.avg30d) / tierPrice.avg30d) * 100

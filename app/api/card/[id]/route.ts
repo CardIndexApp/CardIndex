@@ -26,6 +26,7 @@ import {
   PoketraceApiError,
   type PoketraceVariant,
   type PokétraceCard,
+  type PriceHistoryPoint,
 } from '@/lib/poketrace'
 import { computeScore } from '@/lib/score'
 
@@ -397,7 +398,7 @@ export async function GET(
   }
 
   /** Remove history points that are wildly outside the median of all points */
-  function removeHistoryOutliers(pts: typeof history): typeof history {
+  function removeHistoryOutliers(pts: PriceHistoryPoint[]): PriceHistoryPoint[] {
     if (pts.length < 3) return pts
     const sorted = [...pts].map(p => p.avg).sort((a, b) => a - b)
     const median = sorted[Math.floor(sorted.length / 2)]

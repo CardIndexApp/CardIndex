@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import { tcgImg } from '@/lib/img'
 import { createClient } from '@/lib/supabase/client'
+import { useCurrency } from '@/lib/currency'
 import {
   LineChart,
   Line,
@@ -70,11 +71,6 @@ const GRADES = [
 ]
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function fmt(n: number, currency?: string | null) {
-  const code = currency && currency !== '' ? currency : 'USD'
-  return `${code} ${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
 
 function pctColor(n: number | null | undefined) {
   if (n == null) return 'var(--ink3)'
@@ -147,19 +143,28 @@ function buildChartData(
   })
 }
 
-// ── Comparison table (row-per-section for cross-card alignment) ───────────────
+// ── Comparison table ──────────────────────────────────────────────────────────
 
 function ComparisonTable({
   cards,
   colors,
   onRemove,
+  onReorder,
+  showDragHandles,
+  fmtPrice,
 }: {
   cards: CompareCard[]
   colors: string[]
   onRemove: (id: string, grade: string) => void
+  onReorder: (from: number, to: number) => void
+  showDragHandles: boolean
+  fmtPrice: (amount: number, nativeCurrency?: string | null) => string
 }) {
   const N = cards.length
   if (!N) return null
+
+  const [dragIdx, setDragIdx] = useState<number | null>(null)
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
 
   const rowGrid: React.CSSProperties = {
     display: 'grid',
@@ -167,11 +172,30 @@ function ComparisonTable({
     gap: '0 12px',
   }
 
-  // Shared cell base — left/right borders only; top/bottom handled per-row
-  const mid: React.CSSProperties = {
-    background: 'var(--surface)',
-    borderLeft: '1px solid var(--border2)',
-    borderRight: '1px solid var(--border2)',
+  // Column-aware cell style — dims dragged col, highlights drop target
+  function cs(i: number): React.CSSProperties {
+    const dragging  = dragIdx === i
+    const dropTarget = dragOverIdx === i && dragIdx !== null && dragIdx !== i
+    return {
+      background: dragging ? 'rgba(255,255,255,0.01)' : 'var(--surface)',
+      borderLeft:  `1px solid ${dropTarget ? 'rgba(232,197,71,0.55)' : 'var(--border2)'}`,
+      borderRight: `1px solid ${dropTarget ? 'rgba(232,197,71,0.55)' : 'var(--border2)'}`,
+      opacity: dragging ? 0.4 : 1,
+      transition: 'opacity 0.15s, border-color 0.15s',
+    }
+  }
+
+  // Drag-over / drop handlers (spread on every cell so full card is a target)
+  function dh(i: number) {
+    return {
+      onDragOver: (e: React.DragEvent) => { e.preventDefault(); if (dragOverIdx !== i) setDragOverIdx(i) },
+      onDrop:     (e: React.DragEvent) => {
+        e.preventDefault()
+        if (dragIdx !== null && dragIdx !== i) onReorder(dragIdx, i)
+        setDragIdx(null)
+        setDragOverIdx(null)
+      },
+    }
   }
 
   const hasSomeBreakdown = cards.some(c => c.data?.score_breakdown)
@@ -179,17 +203,41 @@ function ComparisonTable({
   return (
     <div>
 
-      {/* ── Top color bar ── */}
+      {/* ── Drag handle / color bar ── */}
       <div style={rowGrid}>
-        {cards.map((c, i) => (
-          <div key={c.id + c.grade + 'cb'} style={{
-            height: 3,
-            background: colors[i] ?? 'var(--border2)',
-            border: '1px solid var(--border2)',
-            borderBottom: 'none',
-            borderRadius: '14px 14px 0 0',
-          }} />
-        ))}
+        {cards.map((c, i) => {
+          const isOver = dragOverIdx === i && dragIdx !== null && dragIdx !== i
+          return (
+            <div
+              key={c.id + c.grade + 'cb'}
+              draggable={showDragHandles}
+              onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; setDragIdx(i); setDragOverIdx(i) }}
+              onDragEnd={() => { setDragIdx(null); setDragOverIdx(null) }}
+              {...dh(i)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: showDragHandles ? 22 : 3,
+                background: dragIdx === i ? 'rgba(255,255,255,0.18)' : colors[i] ?? 'var(--border2)',
+                border: `1px solid ${isOver ? 'rgba(232,197,71,0.8)' : 'var(--border2)'}`,
+                borderBottom: 'none',
+                borderRadius: '14px 14px 0 0',
+                cursor: showDragHandles ? (dragIdx === i ? 'grabbing' : 'grab') : 'default',
+                transition: 'background 0.15s',
+                userSelect: 'none',
+              }}
+            >
+              {showDragHandles && (
+                <svg width="14" height="8" viewBox="0 0 14 8" fill="none">
+                  {([2, 7, 12] as const).map(x => ([2, 6] as const).map(y => (
+                    <circle key={`${x}${y}`} cx={x} cy={y} r="1.2" fill="rgba(0,0,0,0.35)" />
+                  )))}
+                </svg>
+              )}
+            </div>
+          )
+        })}
       </div>
 
       {/* ── Image + remove button ── */}
@@ -197,8 +245,8 @@ function ComparisonTable({
         {cards.map((c, i) => {
           const imgSrc = c.imageUrl ? tcgImg(c.imageUrl) : null
           return (
-            <div key={c.id + c.grade + 'img'} style={{
-              ...mid,
+            <div key={c.id + c.grade + 'img'} {...dh(i)} style={{
+              ...cs(i),
               padding: '16px 16px 12px',
               position: 'relative',
               display: 'flex',
@@ -227,7 +275,7 @@ function ComparisonTable({
         {cards.map((c, i) => {
           const d = c.data
           return (
-            <div key={c.id + c.grade + 'sc'} style={{ ...mid, textAlign: 'center', padding: '10px 12px 6px' }}>
+            <div key={c.id + c.grade + 'sc'} {...dh(i)} style={{ ...cs(i), textAlign: 'center', padding: '10px 12px 6px' }}>
               {c.loading ? (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
                   <div style={{ width: 60, height: 48, borderRadius: 6, background: 'var(--surface2)' }} className="cmp-sk" />
@@ -249,7 +297,7 @@ function ComparisonTable({
       {/* ── Card name ── */}
       <div style={rowGrid}>
         {cards.map((c, i) => (
-          <div key={c.id + c.grade + 'nm'} style={{ ...mid, textAlign: 'center', padding: '8px 12px 2px' }}>
+          <div key={c.id + c.grade + 'nm'} {...dh(i)} style={{ ...cs(i), textAlign: 'center', padding: '8px 12px 2px' }}>
             {c.loading
               ? <div style={{ width: '65%', height: 14, borderRadius: 4, background: 'var(--surface2)', margin: '0 auto' }} className="cmp-sk" />
               : <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.3 }}>{c.name}</div>
@@ -261,7 +309,7 @@ function ComparisonTable({
       {/* ── Set name ── */}
       <div style={rowGrid}>
         {cards.map((c, i) => (
-          <div key={c.id + c.grade + 'sn'} style={{ ...mid, textAlign: 'center', padding: '2px 12px 8px' }}>
+          <div key={c.id + c.grade + 'sn'} {...dh(i)} style={{ ...cs(i), textAlign: 'center', padding: '2px 12px 8px' }}>
             {c.loading
               ? <div style={{ width: '45%', height: 11, borderRadius: 4, background: 'var(--surface2)', margin: '0 auto' }} className="cmp-sk" />
               : <div style={{ fontSize: 11, color: 'var(--ink3)' }}>{c.setName || '—'}</div>
@@ -273,7 +321,7 @@ function ComparisonTable({
       {/* ── Grade chip ── */}
       <div style={rowGrid}>
         {cards.map((c, i) => (
-          <div key={c.id + c.grade + 'gr'} style={{ ...mid, textAlign: 'center', padding: '0 12px 16px' }}>
+          <div key={c.id + c.grade + 'gr'} {...dh(i)} style={{ ...cs(i), textAlign: 'center', padding: '0 12px 16px' }}>
             {c.loading
               ? <div style={{ width: 56, height: 22, borderRadius: 11, background: 'var(--surface2)', margin: '0 auto' }} className="cmp-sk" />
               : <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 600, padding: '3px 12px', borderRadius: 99, background: 'rgba(232,197,71,0.1)', border: '1px solid rgba(232,197,71,0.25)', color: 'var(--gold)' }}>{c.grade}</span>
@@ -287,7 +335,7 @@ function ComparisonTable({
         {cards.map((c, i) => {
           const d = c.data
           return (
-            <div key={c.id + c.grade + 'pr'} style={{ ...mid, textAlign: 'center', padding: '14px 12px', borderTop: '1px solid var(--border)' }}>
+            <div key={c.id + c.grade + 'pr'} {...dh(i)} style={{ ...cs(i), textAlign: 'center', padding: '14px 12px', borderTop: '1px solid var(--border)' }}>
               <div style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1, marginBottom: 6 }}>CURRENT PRICE</div>
               {c.loading ? (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
@@ -296,7 +344,9 @@ function ComparisonTable({
                 </div>
               ) : d ? (
                 <>
-                  <div className="font-num" style={{ fontSize: 24, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px', lineHeight: 1 }}>{fmt(d.price, d.currency)}</div>
+                  <div className="font-num" style={{ fontSize: 24, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px', lineHeight: 1 }}>
+                    {fmtPrice(d.price, d.currency)}
+                  </div>
                   {d.price_change_pct != null && (
                     <div className="font-num" style={{ fontSize: 12, fontWeight: 600, color: pctColor(d.price_change_pct), marginTop: 6 }}>
                       {pctSign(d.price_change_pct)}{d.price_change_pct.toFixed(1)}% 24h
@@ -334,7 +384,10 @@ function ComparisonTable({
           fn: (c: CompareCard) => {
             const d = c.data
             if (!d || d.price_range_low == null || d.price_range_high == null) return null
-            return { text: `${fmt(d.price_range_low, d.currency)} – ${fmt(d.price_range_high, d.currency)}`, color: 'var(--ink)' }
+            return {
+              text: `${fmtPrice(d.price_range_low, d.currency)} – ${fmtPrice(d.price_range_high, d.currency)}`,
+              color: 'var(--ink)',
+            }
           },
         },
         {
@@ -350,7 +403,7 @@ function ComparisonTable({
           {cards.map((c, i) => {
             const val = row.fn(c)
             return (
-              <div key={c.id + c.grade + row.key} style={{ ...mid, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 14px', borderTop: '1px solid var(--border)' }}>
+              <div key={c.id + c.grade + row.key} {...dh(i)} style={{ ...cs(i), display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 14px', borderTop: '1px solid var(--border)' }}>
                 <span style={{ fontSize: 11, color: 'var(--ink3)' }}>{row.label}</span>
                 {c.loading
                   ? <div style={{ width: 55, height: 11, borderRadius: 4, background: 'var(--surface2)' }} className="cmp-sk" />
@@ -365,12 +418,11 @@ function ComparisonTable({
       {/* ── Score breakdown ── */}
       {hasSomeBreakdown && (
         <>
-          {/* Header */}
           <div style={rowGrid}>
             {cards.map((c, i) => {
               const sb = c.data?.score_breakdown
               return (
-                <div key={c.id + c.grade + 'bkh'} style={{ ...mid, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px 8px', borderTop: '1px solid var(--border)' }}>
+                <div key={c.id + c.grade + 'bkh'} {...dh(i)} style={{ ...cs(i), display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px 8px', borderTop: '1px solid var(--border)' }}>
                   <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)' }}>SCORE BREAKDOWN</span>
                   {sb && (
                     <span style={{ fontSize: 10, fontWeight: 600, color: labelColor(sb.label), background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: 5 }}>
@@ -382,7 +434,6 @@ function ComparisonTable({
             })}
           </div>
 
-          {/* Bar rows */}
           {([
             { key: 'trend', label: 'TREND',       fn: (sb: ScoreBreakdown) => Math.round(sb.trend / 30 * 100) },
             { key: 'liq',   label: 'LIQUIDITY',   fn: (sb: ScoreBreakdown) => Math.round(sb.liquidity / 25 * 100) },
@@ -395,7 +446,7 @@ function ComparisonTable({
                 const val = sb ? brow.fn(sb) : null
                 const color = val != null ? scoreColor(val) : 'var(--ink3)'
                 return (
-                  <div key={c.id + c.grade + brow.key} style={{ ...mid, padding: '6px 14px 8px' }}>
+                  <div key={c.id + c.grade + brow.key} {...dh(i)} style={{ ...cs(i), padding: '6px 14px 8px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
                       <span style={{ fontSize: 10, letterSpacing: 1, color: 'var(--ink3)', fontWeight: 600 }}>{brow.label}</span>
                       <span className="font-num" style={{ fontSize: 11, color, fontWeight: 700 }}>{val ?? '—'}</span>
@@ -439,12 +490,14 @@ function MultiTooltip({
   label,
   cards,
   colors,
+  fmtPrice,
 }: {
   active?: boolean
   payload?: { dataKey: string; value: number; color: string }[]
   label?: string
   cards: CompareCard[]
   colors: string[]
+  fmtPrice: (amount: number, nativeCurrency?: string | null) => string
 }) {
   if (!active || !payload?.length) return null
   return (
@@ -453,11 +506,14 @@ function MultiTooltip({
       {payload.map((p, i) => {
         const key = p.dataKey
         const card = cards.find(c => (c.id + ':' + c.grade) === key)
+        const colorIdx = cards.findIndex(c => (c.id + ':' + c.grade) === key)
         return (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-            <div style={{ width: 8, height: 8, borderRadius: 2, background: colors[cards.findIndex(c => (c.id + ':' + c.grade) === key)] ?? p.color, flexShrink: 0 }} />
+            <div style={{ width: 8, height: 8, borderRadius: 2, background: colors[colorIdx] ?? p.color, flexShrink: 0 }} />
             <span style={{ fontSize: 11, color: 'var(--ink3)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 100 }}>{card?.name ?? key}</span>
-            <span className="font-num" style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>{fmt(p.value, cards.find(c => (c.id + ':' + c.grade) === p.dataKey)?.data?.currency)}</span>
+            <span className="font-num" style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>
+              {fmtPrice(p.value, card?.data?.currency)}
+            </span>
           </div>
         )
       })}
@@ -470,14 +526,25 @@ function MultiTooltip({
 export default function CompareClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { fmtCurrency, rates } = useCurrency()
+
+  // ── Price formatter — converts native-currency prices to user's preferred ──
+  const fmtPrice = useCallback((amount: number, nativeCurrency?: string | null): string => {
+    if (nativeCurrency && nativeCurrency !== 'USD') {
+      // Price is in a non-USD native currency (e.g. AUD from Poketrace AU sets).
+      // Convert to USD first using the exchange rate, then format in the user's currency.
+      const rate = rates[nativeCurrency] ?? 1
+      const usdEquiv = amount / rate
+      return fmtCurrency(usdEquiv)
+    }
+    return fmtCurrency(amount)
+  }, [fmtCurrency, rates])
 
   // ── Auth gate ────────────────────────────────────────────────────────────────
   const [authChecked, setAuthChecked] = useState(false)
   useEffect(() => {
     createClient().auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        router.replace('/')
-      }
+      if (!session) router.replace('/')
       setAuthChecked(true)
     })
   }, [router])
@@ -508,14 +575,12 @@ export default function CompareClient() {
 
   function updateUrl(updatedCards: CompareCard[]) {
     const params = new URLSearchParams()
-    for (const c of updatedCards) {
-      params.append('c', encodeCardParam(c.id, c.grade, c.name))
-    }
+    for (const c of updatedCards) params.append('c', encodeCardParam(c.id, c.grade, c.name))
     const qs = params.toString()
     router.replace(qs ? `/compare?${qs}` : '/compare', { scroll: false })
   }
 
-  // ── Trim to mobile MAX when switching viewport ───────────────────────────────
+  // ── Trim to mobile max ───────────────────────────────────────────────────────
 
   useEffect(() => {
     if (!initialized || !isMobile) return
@@ -530,13 +595,11 @@ export default function CompareClient() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobile, initialized])
 
-  // ── Fetch live data for a card ──────────────────────────────────────────────
+  // ── Fetch live data ──────────────────────────────────────────────────────────
 
   const fetchCardData = useCallback(async (card: CompareCard) => {
     setCards(prev => prev.map(c =>
-      c.id === card.id && c.grade === card.grade
-        ? { ...c, loading: true, error: null }
-        : c
+      c.id === card.id && c.grade === card.grade ? { ...c, loading: true, error: null } : c
     ))
     try {
       const params = new URLSearchParams({ grade: card.grade, name: card.name })
@@ -558,9 +621,7 @@ export default function CompareClient() {
       ))
     } catch {
       setCards(prev => prev.map(c =>
-        c.id === card.id && c.grade === card.grade
-          ? { ...c, loading: false, error: 'Network error' }
-          : c
+        c.id === card.id && c.grade === card.grade ? { ...c, loading: false, error: 'Network error' } : c
       ))
     }
   }, [])
@@ -573,19 +634,11 @@ export default function CompareClient() {
     const cParams = searchParams.getAll('c')
     if (!cParams.length) return
     const initialCards: CompareCard[] = cParams
-      .slice(0, 5) // always load up to 5 from URL; trimming handles mobile
+      .slice(0, 5)
       .map(param => {
         const parsed = decodeCardParam(param)
         if (!parsed) return null
-        return {
-          id: parsed.id,
-          name: parsed.name,
-          setName: '',
-          grade: parsed.grade,
-          data: null,
-          loading: true,
-          error: null,
-        }
+        return { id: parsed.id, name: parsed.name, setName: '', grade: parsed.grade, data: null, loading: true, error: null }
       })
       .filter(Boolean) as CompareCard[]
     if (initialCards.length) {
@@ -619,66 +672,61 @@ export default function CompareClient() {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
   }, [searchQuery])
 
-  // ── Click-outside to close dropdown ─────────────────────────────────────────
+  // ── Click-outside ────────────────────────────────────────────────────────────
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
-        setShowDropdown(false)
-      }
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) setShowDropdown(false)
     }
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  // ── Add card ────────────────────────────────────────────────────────────────
+  // ── Add / remove / clear ─────────────────────────────────────────────────────
 
   function addCard(result: SearchResult, grade: string) {
     if (cards.length >= MAX_CARDS) return
     if (cards.some(c => c.id === result.id && c.grade === grade)) return
     const newCard: CompareCard = {
-      id: result.id,
-      name: result.name,
-      setName: result.set.name,
-      grade,
-      imageUrl: result.image,
-      data: null,
-      loading: true,
-      error: null,
+      id: result.id, name: result.name, setName: result.set.name,
+      grade, imageUrl: result.image, data: null, loading: true, error: null,
     }
-    const updatedCards = [...cards, newCard]
-    setCards(updatedCards)
-    updateUrl(updatedCards)
+    const updated = [...cards, newCard]
+    setCards(updated)
+    updateUrl(updated)
     fetchCardData(newCard)
     setSearchQuery('')
     setSearchResults([])
     setShowDropdown(false)
   }
 
-  // ── Remove card ─────────────────────────────────────────────────────────────
-
   function removeCard(id: string, grade: string) {
-    const updatedCards = cards.filter(c => !(c.id === id && c.grade === grade))
-    setCards(updatedCards)
-    updateUrl(updatedCards)
+    const updated = cards.filter(c => !(c.id === id && c.grade === grade))
+    setCards(updated)
+    updateUrl(updated)
   }
-
-  // ── Clear all ───────────────────────────────────────────────────────────────
 
   function clearAll() {
     setCards([])
     router.replace('/compare', { scroll: false })
   }
 
-  // ── Chart data ──────────────────────────────────────────────────────────────
+  // ── Reorder (drag-and-drop) ──────────────────────────────────────────────────
+
+  function reorderCards(from: number, to: number) {
+    const next = [...cards]
+    const [moved] = next.splice(from, 1)
+    next.splice(to, 0, moved)
+    setCards(next)
+    updateUrl(next)
+  }
+
+  // ── Chart ────────────────────────────────────────────────────────────────────
 
   const chartData = buildChartData(cards, chartWindow)
   const cardsWithHistory = cards.filter(c => c.data?.price_history?.length)
   const showChart = cardsWithHistory.length >= 2
-
   const atMax = cards.length >= MAX_CARDS
-
-  // ── Auth loading state ───────────────────────────────────────────────────────
 
   if (!authChecked) return null
 
@@ -696,18 +744,17 @@ export default function CompareClient() {
       <main style={{ paddingTop: 72, paddingBottom: 80, minHeight: '100vh' }}>
         <div style={{ maxWidth: 1100, margin: '0 auto', padding: '48px 16px 0' }}>
 
-          {/* ── Page header ── */}
+          {/* Header */}
           <div style={{ marginBottom: 32 }}>
             <p style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' }}>Compare</p>
             <h1 style={{ fontSize: 30, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-1px', marginBottom: 6 }}>Compare Cards</h1>
             <p style={{ fontSize: 13, color: 'var(--ink3)' }}>Side-by-side price &amp; score analysis</p>
           </div>
 
-          {/* ── Search bar (hidden when at max) ── */}
+          {/* Search bar — hidden when at max */}
           {!atMax && (
             <div ref={searchRef} style={{ position: 'relative', marginBottom: 24 }}>
               <div style={{ display: 'flex', gap: 8 }}>
-                {/* Grade selector */}
                 <select
                   value={pendingGrade}
                   onChange={e => setPendingGrade(e.target.value)}
@@ -715,8 +762,6 @@ export default function CompareClient() {
                 >
                   {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
                 </select>
-
-                {/* Search input */}
                 <div style={{ position: 'relative', flex: 1 }}>
                   <div style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
                     {searchLoading
@@ -739,7 +784,6 @@ export default function CompareClient() {
                 </div>
               </div>
 
-              {/* Dropdown */}
               {showDropdown && searchResults.length > 0 && (
                 <div style={{ position: 'absolute', left: 0, right: 0, top: '100%', zIndex: 100, background: 'var(--surface)', border: '1px solid var(--border2)', borderTop: 'none', borderRadius: '0 0 12px 12px', overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
                   <div style={{ maxHeight: 320, overflowY: 'auto' }}>
@@ -751,24 +795,19 @@ export default function CompareClient() {
                           type="button"
                           disabled={alreadyAdded}
                           onClick={() => !alreadyAdded && addCard(r, pendingGrade)}
-                          style={{ width: '100%', padding: '10px 14px', background: 'transparent', border: 'none', borderBottom: i < searchResults.length - 1 ? '1px solid var(--border)' : 'none', cursor: alreadyAdded ? 'default' : 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12, opacity: alreadyAdded ? 0.4 : 1, transition: 'background 0.1s' }}
+                          style={{ width: '100%', padding: '10px 14px', background: 'transparent', border: 'none', borderBottom: i < searchResults.length - 1 ? '1px solid var(--border)' : 'none', cursor: alreadyAdded ? 'default' : 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12, opacity: alreadyAdded ? 0.4 : 1 }}
                           onMouseEnter={e => { if (!alreadyAdded) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
                           onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
                         >
-                          {r.image && (
-                            <img src={tcgImg(r.image)} alt="" style={{ width: 32, height: 44, objectFit: 'contain', borderRadius: 3, flexShrink: 0 }} />
-                          )}
+                          {r.image && <img src={tcgImg(r.image)} alt="" style={{ width: 32, height: 44, objectFit: 'contain', borderRadius: 3, flexShrink: 0 }} />}
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</div>
                             <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 2 }}>{r.set.name}{r.number ? ` · #${r.number}` : ''}</div>
                           </div>
-                          {alreadyAdded ? (
-                            <span style={{ fontSize: 10, color: 'var(--ink3)', flexShrink: 0 }}>Added</span>
-                          ) : (
-                            <span style={{ fontSize: 10, color: 'var(--gold)', background: 'rgba(232,197,71,0.1)', border: '1px solid rgba(232,197,71,0.25)', borderRadius: 6, padding: '2px 8px', flexShrink: 0 }}>
-                              + {pendingGrade}
-                            </span>
-                          )}
+                          {alreadyAdded
+                            ? <span style={{ fontSize: 10, color: 'var(--ink3)', flexShrink: 0 }}>Added</span>
+                            : <span style={{ fontSize: 10, color: 'var(--gold)', background: 'rgba(232,197,71,0.1)', border: '1px solid rgba(232,197,71,0.25)', borderRadius: 6, padding: '2px 8px', flexShrink: 0 }}>+ {pendingGrade}</span>
+                          }
                         </button>
                       )
                     })}
@@ -778,33 +817,24 @@ export default function CompareClient() {
             </div>
           )}
 
-          {/* ── Selected card chips ── */}
+          {/* Chips */}
           {cards.length > 0 && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 24, alignItems: 'center' }}>
               {cards.map((c, i) => (
-                <div
-                  key={c.id + ':' + c.grade}
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px 5px 8px', borderRadius: 8, background: 'var(--surface)', border: `1px solid ${CARD_COLORS[i] ?? 'var(--border2)'}`, fontSize: 12, color: 'var(--ink)' }}
-                >
+                <div key={c.id + ':' + c.grade} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px 5px 8px', borderRadius: 8, background: 'var(--surface)', border: `1px solid ${CARD_COLORS[i] ?? 'var(--border2)'}`, fontSize: 12, color: 'var(--ink)' }}>
                   <div style={{ width: 8, height: 8, borderRadius: '50%', background: CARD_COLORS[i] ?? 'var(--border2)', flexShrink: 0 }} />
                   <span style={{ fontWeight: 600 }}>{c.name}</span>
                   <span style={{ color: 'var(--ink3)', fontSize: 10 }}>{c.grade}</span>
-                  <button
-                    onClick={() => removeCard(c.id, c.grade)}
-                    style={{ background: 'none', border: 'none', color: 'var(--ink3)', cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: '0 0 0 2px', display: 'flex', alignItems: 'center' }}
-                  >×</button>
+                  <button onClick={() => removeCard(c.id, c.grade)} style={{ background: 'none', border: 'none', color: 'var(--ink3)', cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: '0 0 0 2px', display: 'flex', alignItems: 'center' }}>×</button>
                 </div>
               ))}
-              <button
-                onClick={clearAll}
-                style={{ padding: '5px 12px', borderRadius: 8, background: 'transparent', border: '1px solid var(--border2)', color: 'var(--ink3)', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}
-              >
+              <button onClick={clearAll} style={{ padding: '5px 12px', borderRadius: 8, background: 'transparent', border: '1px solid var(--border2)', color: 'var(--ink3)', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
                 Clear all
               </button>
             </div>
           )}
 
-          {/* ── Empty state ── */}
+          {/* Empty state */}
           {cards.length === 0 && (
             <div style={{ textAlign: 'center', padding: '80px 24px', borderRadius: 16, background: 'var(--surface)', border: '1px solid var(--border2)' }}>
               <div style={{ fontSize: 40, marginBottom: 16 }}>⚖️</div>
@@ -813,7 +843,7 @@ export default function CompareClient() {
             </div>
           )}
 
-          {/* ── Comparison table ── */}
+          {/* Comparison table */}
           {cards.length > 0 && (
             <div style={{ overflowX: 'auto', marginBottom: 24 }}>
               <div style={{ minWidth: `${Math.max(cards.length * 160, 320)}px` }}>
@@ -821,35 +851,33 @@ export default function CompareClient() {
                   cards={cards}
                   colors={CARD_COLORS}
                   onRemove={removeCard}
+                  onReorder={reorderCards}
+                  showDragHandles={!isMobile}
+                  fmtPrice={fmtPrice}
                 />
               </div>
             </div>
           )}
 
-          {/* ── Price history chart ── */}
+          {/* Price history chart */}
           {showChart && (
             <div style={{ borderRadius: 14, padding: '20px 20px 12px', background: 'var(--surface)', border: '1px solid var(--border2)', marginBottom: 24 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Price History</div>
                 <div style={{ display: 'flex', gap: 4 }}>
                   {([3, 6, 12] as const).map(w => (
-                    <button
-                      key={w}
-                      onClick={() => setChartWindow(w)}
+                    <button key={w} onClick={() => setChartWindow(w)}
                       style={{ padding: '4px 12px', borderRadius: 8, border: '1px solid', fontSize: 11, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s',
                         borderColor: chartWindow === w ? 'var(--gold)' : 'var(--border2)',
                         background: chartWindow === w ? 'rgba(232,197,71,0.1)' : 'transparent',
-                        color: chartWindow === w ? 'var(--gold)' : 'var(--ink3)' }}
-                    >
+                        color: chartWindow === w ? 'var(--gold)' : 'var(--ink3)' }}>
                       {w}M
                     </button>
                   ))}
                 </div>
               </div>
-
-              {/* Legend */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 12 }}>
-                {cardsWithHistory.map((c) => {
+                {cardsWithHistory.map(c => {
                   const colorIdx = cards.findIndex(cc => cc.id === c.id && cc.grade === c.grade)
                   return (
                     <div key={c.id + ':' + c.grade} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--ink3)' }}>
@@ -859,26 +887,18 @@ export default function CompareClient() {
                   )
                 })}
               </div>
-
               {chartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={220}>
                   <LineChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                     <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'var(--ink3)' }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
-                    <YAxis tick={{ fontSize: 10, fill: 'var(--ink3)' }} tickLine={false} axisLine={false} tickFormatter={v => `$${v}`} width={48} />
-                    <Tooltip content={<MultiTooltip cards={cards} colors={CARD_COLORS} />} />
+                    <YAxis tick={{ fontSize: 10, fill: 'var(--ink3)' }} tickLine={false} axisLine={false} tickFormatter={v => fmtPrice(v)} width={56} />
+                    <Tooltip content={<MultiTooltip cards={cards} colors={CARD_COLORS} fmtPrice={fmtPrice} />} />
                     {cardsWithHistory.map(c => {
                       const colorIdx = cards.findIndex(cc => cc.id === c.id && cc.grade === c.grade)
                       return (
-                        <Line
-                          key={c.id + ':' + c.grade}
-                          type="monotone"
-                          dataKey={c.id + ':' + c.grade}
-                          stroke={CARD_COLORS[colorIdx] ?? '#fff'}
-                          strokeWidth={2}
-                          dot={false}
-                          activeDot={{ r: 4 }}
-                        />
+                        <Line key={c.id + ':' + c.grade} type="monotone" dataKey={c.id + ':' + c.grade}
+                          stroke={CARD_COLORS[colorIdx] ?? '#fff'} strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
                       )
                     })}
                   </LineChart>

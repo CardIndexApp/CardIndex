@@ -191,14 +191,19 @@ export async function GET(
   let poketraceSetSlugs: string[] = []
   let variants: PoketraceVariant[] = []
 
-  if (isPoketraceId) {
-    // Direct UUID — skip pokemontcg.io lookup and all matching strategies
+  if (isPoketraceId && !(setName && cardNumber)) {
+    // Direct UUID with no set+number context — trust the UUID
     matchedCard = { id } as PokétraceCard
     matchReason = 'direct-uuid'
   } else {
+    // Either not a Poketrace UUID, or we have set+number params that let us find
+    // the exact variant (e.g. Alternate Full Art vs regular). Prefer set+number
+    // over a potentially-wrong UUID from the search index.
+
     // ── 2. Fetch pokemontcg.io info + all matching Poketrace set slugs in parallel ──
+    // Skip pokemontcg.io lookup when the id is a Poketrace UUID — it won't resolve there.
     const [ptcgInfoResult, slugResult] = await Promise.allSettled([
-      getPokemonTcgCardInfo(id),
+      isPoketraceId ? Promise.resolve({ tcgplayerId: null, fullNumber: null, bareNumber: null, subtypes: [], supertypes: [], imageUrl: null } as PokemonTcgCardInfo) : getPokemonTcgCardInfo(id),
       setName ? getPoketraceSetSlugs(setName) : Promise.resolve([] as string[]),
     ])
 

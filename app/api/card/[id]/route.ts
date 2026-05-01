@@ -356,15 +356,43 @@ export async function GET(
   //      [median/3 … median*3] — a 9× band that catches only extreme outliers.
   //   3. priceChangePct: computed from the cleaned avg vs cleaned history.
 
-  /** Replace current price with a longer-period average when it looks like an outlier */
+  /**
+   * Detect an outlier sale and mathematically remove it from the average.
+   *
+   * Formula: cleanAvg = (avg * saleCount - outlierPrice) / (saleCount - 1)
+   *
+   * The outlier price is estimated as avg1d (most recent day's average) when
+   * available, otherwise back-calculated from total vs the reference period.
+   * Falls back to the reference average when saleCount === 1.
+   */
   function correctOutlierPrice(tp: typeof rawTierPrice): typeof rawTierPrice {
-    const { avg, avg7d, avg30d, saleCount } = tp
-    if ((saleCount ?? 99) >= 3) return tp
+    const { avg, avg1d, avg7d, avg30d, saleCount } = tp
+    if (!saleCount || saleCount < 1) return tp
+
     const reference = avg30d ?? avg7d
     if (!reference || reference <= 0) return tp
+
+    // No outlier if price is within a 4× band of the longer-period average
     const ratio = avg / reference
     if (ratio >= 0.25 && ratio <= 4) return tp
-    // Outlier — use the longer-period average as the corrected price
+
+    // Only one sale — it IS the outlier, use reference as best estimate
+    if (saleCount === 1) return { ...tp, avg: reference }
+
+    // Multiple sales: estimate the outlier and remove it
+    const total = avg * saleCount
+    const outlierPrice = (avg1d != null && avg1d > 0)
+      ? avg1d                                       // most recent day avg
+      : total - reference * (saleCount - 1)         // back-calculated
+
+    const cleanCount = saleCount - 1
+    const cleanAvg   = (total - outlierPrice) / cleanCount
+
+    // Sanity check — clean avg must be reasonable
+    if (cleanAvg > 0 && cleanAvg >= reference * 0.25 && cleanAvg <= reference * 4) {
+      return { ...tp, avg: cleanAvg, saleCount: cleanCount }
+    }
+
     return { ...tp, avg: reference }
   }
 

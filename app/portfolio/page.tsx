@@ -448,13 +448,18 @@ interface PortfolioChartProps {
 }
 
 function PortfolioChart({ positions, fmtCurrency }: PortfolioChartProps) {
-  const [window, setWindow] = useState<3 | 6 | 12>(6)
-  const data = buildPortfolioHistory(positions, window)
+  const [chartWindow, setChartWindow] = useState<3 | 6 | 12>(6)
+  const data = buildPortfolioHistory(positions, chartWindow)
+
+  const stillLoading = positions.some(p => p.priceLoading)
+  const anyPriced    = positions.some(p => p.priceData)
 
   if (!data.length) {
     return (
       <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--ink3)', fontSize: 13 }}>
-        Price history will appear here once prices have loaded.
+        {stillLoading || !anyPriced
+          ? 'Loading price history…'
+          : 'Price history will appear once more price data has been collected.'}
       </div>
     )
   }
@@ -496,11 +501,11 @@ function PortfolioChart({ positions, fmtCurrency }: PortfolioChartProps) {
         </div>
         <div style={{ display: 'flex', gap: 4 }}>
           {([3, 6, 12] as const).map(w => (
-            <button key={w} onClick={() => setWindow(w)}
+            <button key={w} onClick={() => setChartWindow(w)}
               style={{ padding: '4px 12px', borderRadius: 8, border: '1px solid', fontSize: 11, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s',
-                borderColor: window === w ? 'var(--gold)' : 'var(--border2)',
-                background: window === w ? 'var(--gold2)' : 'transparent',
-                color: window === w ? 'var(--gold)' : 'var(--ink3)' }}>
+                borderColor: chartWindow === w ? 'var(--gold)' : 'var(--border2)',
+                background: chartWindow === w ? 'var(--gold2)' : 'transparent',
+                color: chartWindow === w ? 'var(--gold)' : 'var(--ink3)' }}>
               {w}M
             </button>
           ))}
@@ -554,7 +559,7 @@ export default function PortfolioPage() {
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
   const [filter, setFilter] = useState<'all' | 'winning' | 'losing'>('all')
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
-  const [showChart, setShowChart] = useState(false)
+  const [showChart, setShowChart] = useState(true)
 
   function flash(type: 'ok' | 'err', text: string) {
     setMsg({ type, text })

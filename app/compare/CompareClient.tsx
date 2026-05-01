@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Navbar from '@/components/Navbar'
+import { tcgImg } from '@/lib/img'
 import {
   LineChart,
   Line,
@@ -162,87 +163,96 @@ function ComparisonCardPanel({
   if (card.loading) return <SkeletonCard />
 
   const d = card.data
-
-  const change7d = d?.avg7d && d.price ? ((d.price - d.avg7d) / d.avg7d) * 100 : null
+  const change7d  = d?.avg7d  && d.price ? ((d.price - d.avg7d)  / d.avg7d)  * 100 : null
   const change30d = d?.avg30d && d.price ? ((d.price - d.avg30d) / d.avg30d) * 100 : null
+  const imgSrc    = card.imageUrl ? tcgImg(card.imageUrl) : null
 
   return (
-    <div style={{ borderRadius: 14, background: 'var(--surface)', border: `1px solid var(--border2)`, padding: 20, position: 'relative' }}>
+    <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden', position: 'relative' }}>
       {/* Color accent bar */}
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, borderRadius: '14px 14px 0 0', background: color }} />
+      <div style={{ height: 3, background: color }} />
 
-      {/* Remove button */}
-      <button
-        onClick={onRemove}
-        style={{ position: 'absolute', top: 10, right: 10, width: 24, height: 24, borderRadius: 6, border: '1px solid var(--border2)', background: 'var(--surface2)', color: 'var(--ink3)', fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}
-      >
-        ×
-      </button>
+      <div style={{ padding: 20 }}>
+        {/* Remove button */}
+        <button
+          onClick={onRemove}
+          style={{ position: 'absolute', top: 14, right: 14, width: 26, height: 26, borderRadius: 7, border: '1px solid var(--border2)', background: 'var(--surface2)', color: 'var(--ink3)', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1 }}
+        >
+          ×
+        </button>
 
-      {/* Card header */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 16, paddingTop: 8 }}>
-        {card.imageUrl ? (
-          <img
-            src={card.imageUrl}
-            alt={card.name}
-            style={{ width: 56, height: 78, objectFit: 'contain', borderRadius: 6, flexShrink: 0, background: 'var(--surface2)' }}
-          />
-        ) : (
-          <div style={{ width: 56, height: 78, borderRadius: 6, background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 22 }}>
-            🃏
+        {/* Card header: image + meta + score */}
+        <div style={{ display: 'flex', gap: 14, marginBottom: 20, alignItems: 'flex-start' }}>
+          {/* Image */}
+          {imgSrc ? (
+            <img src={imgSrc} alt={card.name}
+              style={{ width: 64, height: 90, objectFit: 'contain', borderRadius: 7, flexShrink: 0, background: 'var(--surface2)' }} />
+          ) : (
+            <div style={{ width: 64, height: 90, borderRadius: 7, background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 24 }}>🃏</div>
+          )}
+
+          {/* Name + set + grade */}
+          <div style={{ flex: 1, minWidth: 0, paddingRight: 32 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.3, marginBottom: 4 }}>{card.name}</div>
+            <div style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 10, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{card.setName}</div>
+            <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 99, background: 'rgba(232,197,71,0.1)', border: '1px solid rgba(232,197,71,0.25)', color: 'var(--gold)' }}>
+              {card.grade}
+            </span>
+          </div>
+
+          {/* CI Score — large, anchored right */}
+          {d?.score != null && (
+            <div style={{ flexShrink: 0, textAlign: 'center', paddingTop: 4 }}>
+              <div className="font-num" style={{ fontSize: 36, fontWeight: 900, color: scoreColor(d.score), lineHeight: 1 }}>{d.score}</div>
+              <div style={{ fontSize: 9, color: 'var(--ink3)', letterSpacing: 1, marginTop: 3 }}>CI SCORE</div>
+            </div>
+          )}
+        </div>
+
+        {card.error && (
+          <div style={{ fontSize: 12, color: 'var(--red)', padding: '8px 12px', borderRadius: 8, background: 'rgba(232,82,74,0.07)', border: '1px solid rgba(232,82,74,0.2)', marginBottom: 16 }}>
+            Failed to load price data
           </div>
         )}
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 28 }}>{card.name}</div>
-          <div style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{card.setName}</div>
-          <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 99, background: 'rgba(232,197,71,0.1)', border: '1px solid rgba(232,197,71,0.25)', color: 'var(--gold)' }}>
-            {card.grade}
-          </span>
-        </div>
+
+        {d && (
+          <>
+            {/* Current price block */}
+            <div style={{ marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1, marginBottom: 4 }}>CURRENT PRICE</div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+                <div className="font-num" style={{ fontSize: 28, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px' }}>{fmt(d.price)}</div>
+                {d.price_change_pct != null && (
+                  <div className="font-num" style={{ fontSize: 13, fontWeight: 600, color: pctColor(d.price_change_pct) }}>
+                    {pctSign(d.price_change_pct)}{d.price_change_pct.toFixed(1)}% 24h
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Stats rows */}
+            <div>
+              {[
+                { label: '7D Change',    value: change7d  != null ? `${pctSign(change7d)}${change7d.toFixed(1)}%`   : '—', color: pctColor(change7d) },
+                { label: '30D Change',   value: change30d != null ? `${pctSign(change30d)}${change30d.toFixed(1)}%` : '—', color: pctColor(change30d) },
+                {
+                  label: 'Price Range',
+                  value: (d.price_range_low != null && d.price_range_high != null)
+                    ? `${fmt(d.price_range_low)} – ${fmt(d.price_range_high)}`
+                    : '—',
+                  color: 'var(--ink)',
+                },
+                { label: '30D Sales', value: d.sales_count_30d != null ? String(d.sales_count_30d) : '—', color: 'var(--ink)' },
+              ].map((row, i, arr) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 0', borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                  <span style={{ fontSize: 11, color: 'var(--ink3)' }}>{row.label}</span>
+                  <span className="font-num" style={{ fontSize: 12, fontWeight: 600, color: row.color }}>{row.value}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </div>
-
-      {card.error && (
-        <div style={{ fontSize: 12, color: 'var(--red)', padding: '8px 12px', borderRadius: 8, background: 'rgba(232,82,74,0.07)', border: '1px solid rgba(232,82,74,0.2)', marginBottom: 12 }}>
-          Failed to load price data
-        </div>
-      )}
-
-      {d && (
-        <>
-          {/* Current price */}
-          <div style={{ marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>
-            <div style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1, marginBottom: 4 }}>CURRENT PRICE</div>
-            <div className="font-num" style={{ fontSize: 26, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px' }}>{fmt(d.price)}</div>
-            {d.price_change_pct != null && (
-              <div className="font-num" style={{ fontSize: 12, fontWeight: 600, color: pctColor(d.price_change_pct), marginTop: 2 }}>
-                {pctSign(d.price_change_pct)}{d.price_change_pct.toFixed(1)}% 24h
-              </div>
-            )}
-          </div>
-
-          {/* Stats rows */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-            {[
-              { label: '7D Change', value: change7d != null ? `${pctSign(change7d)}${change7d.toFixed(1)}%` : '—', color: pctColor(change7d) },
-              { label: '30D Change', value: change30d != null ? `${pctSign(change30d)}${change30d.toFixed(1)}%` : '—', color: pctColor(change30d) },
-              { label: 'CI Score', value: d.score != null ? String(d.score) : '—', color: scoreColor(d.score), bold: true },
-              {
-                label: 'Price Range',
-                value: (d.price_range_low != null && d.price_range_high != null)
-                  ? `${fmt(d.price_range_low)} – ${fmt(d.price_range_high)}`
-                  : '—',
-                color: 'var(--ink2)',
-              },
-              { label: '30D Sales', value: d.sales_count_30d != null ? String(d.sales_count_30d) : '—', color: 'var(--ink2)' },
-            ].map((row, i, arr) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 0', borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                <span style={{ fontSize: 11, color: 'var(--ink3)' }}>{row.label}</span>
-                <span className="font-num" style={{ fontSize: 12, fontWeight: row.bold ? 700 : 600, color: row.color }}>{row.value}</span>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
     </div>
   )
 }
@@ -534,7 +544,7 @@ export default function CompareClient() {
                           onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
                         >
                           {r.image && (
-                            <img src={r.image} alt="" style={{ width: 32, height: 44, objectFit: 'contain', borderRadius: 3, flexShrink: 0 }} />
+                            <img src={tcgImg(r.image)} alt="" style={{ width: 32, height: 44, objectFit: 'contain', borderRadius: 3, flexShrink: 0 }} />
                           )}
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</div>

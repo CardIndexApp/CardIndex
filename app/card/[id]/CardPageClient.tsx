@@ -2845,21 +2845,23 @@ export default function CardPageClient() {
                   {/* Live data badge + force refresh */}
                   {liveData && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 9, color: 'var(--green)', letterSpacing: 1, padding: '4px 8px', borderRadius: 6, background: 'rgba(61,232,138,0.07)', border: '1px solid rgba(61,232,138,0.15)' }}>
-                        <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--green)', display: 'inline-block' }} />
-                        LIVE DATA
-                      </div>
                       <button
                         onClick={() => {
                           setLiveData(null)
-                          // Delete Supabase cache entry then re-fetch live
                           const grade = urlGrade ?? (card ? `PSA ${card.grade.replace('PSA ', '')}` : 'PSA 10')
                           fetch(`/api/cache?id=${encodeURIComponent(id)}&grade=${encodeURIComponent(grade)}`, { method: 'DELETE' })
                             .finally(() => fetchLiveData(true))
                         }}
-                        title="Force refresh prices"
-                        style={{ padding: '3px 7px', borderRadius: 6, background: 'transparent', border: '1px solid var(--border2)', fontSize: 10, color: 'var(--ink3)', cursor: 'pointer', lineHeight: 1 }}
-                      >↺</button>
+                        style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '9px 14px', borderRadius: 10, background: 'var(--surface2)', border: '1.5px solid var(--border2)', fontSize: 11, fontWeight: 600, color: 'var(--ink2)', cursor: 'pointer', transition: 'all 0.2s' }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.color = 'var(--gold)' }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border2)'; e.currentTarget.style.color = 'var(--ink2)' }}
+                      >
+                        <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M1 4v4h4"/><path d="M15 12v-4h-4"/>
+                          <path d="M13.5 6A6 6 0 0 0 2.5 5.5M2.5 10a6 6 0 0 0 11 .5"/>
+                        </svg>
+                        Refresh
+                      </button>
                     </div>
                   )}
                   {liveLoading && (

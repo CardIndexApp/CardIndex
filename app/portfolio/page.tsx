@@ -648,7 +648,7 @@ export default function PortfolioPage() {
         .sk-pulse { animation: sk-pulse 1.6s ease-in-out infinite; }
         .pf-row, .pf-header {
           display: grid;
-          grid-template-columns: minmax(180px,1fr) 110px 110px 50px 110px 72px 72px 72px 80px;
+          grid-template-columns: minmax(180px,1fr) 110px 110px 70px 110px 72px 72px 72px 80px;
           align-items: center;
           padding: 0 20px;
           gap: 8px;
@@ -919,8 +919,9 @@ export default function PortfolioPage() {
 
                   {/* Cost/card — desktop only */}
                   <div className="pf-hide-mobile" style={{ textAlign: 'right' }}>
-                    <div className="font-num" style={{ fontSize: 12, color: 'var(--ink2)' }}>{fmtCurrency(costUSD)}</div>
-                    <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>avg cost</div>
+                    <div className="font-num" style={{ fontSize: 12, color: 'var(--ink2)' }}>
+                      {fmtCurrency(costUSD)}<span style={{ fontSize: 9, fontWeight: 400, color: 'var(--ink3)', marginLeft: 2 }}>avg</span>
+                    </div>
                   </div>
 
                   {/* 24h — desktop only */}

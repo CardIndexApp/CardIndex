@@ -2849,8 +2849,8 @@ export default function CardPageClient() {
                     <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="1" x2="8" y2="15"/><line x1="1" y1="8" x2="15" y2="8"/><path d="M4 4l8 8M12 4l-8 8"/></svg>
                     Compare
                   </Link>
-                  {/* Force refresh — admin only, desktop only */}
-                  {isAdmin && (
+                  {/* Force refresh — logged-in users, desktop only */}
+                  {isLoggedIn && (
                     <button
                       className="ci-no-print ci-hide-mobile"
                       disabled={liveLoading}

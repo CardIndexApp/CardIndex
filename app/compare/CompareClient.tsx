@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import { tcgImg } from '@/lib/img'
+import { createClient } from '@/lib/supabase/client'
 import {
   LineChart,
   Line,
@@ -60,7 +61,7 @@ interface CompareCard {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const CARD_COLORS = ['#e8c547', '#3de88a', '#8b5cf6', '#60a5fa']
+const CARD_COLORS = ['#e8c547', '#3de88a', '#8b5cf6', '#60a5fa', '#f97316']
 
 const GRADES = [
   'Raw', 'PSA 10', 'PSA 9', 'PSA 8', 'PSA 7', 'PSA 6',
@@ -71,10 +72,8 @@ const GRADES = [
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function fmt(n: number, currency?: string | null) {
-  if (currency && currency !== 'USD') {
-    return `${currency} ${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-  }
-  return `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  const code = currency && currency !== '' ? currency : 'USD'
+  return `${code} ${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 function pctColor(n: number | null | undefined) {
@@ -91,18 +90,11 @@ function scoreColor(s: number | undefined) {
   return 'var(--red)'
 }
 
-function ScoreBar({ label, value, color }: { label: string; value: number; color: string }) {
-  return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-        <span style={{ fontSize: 10, letterSpacing: 1, color: 'var(--ink3)', fontWeight: 600 }}>{label}</span>
-        <span className="font-num" style={{ fontSize: 11, color, fontWeight: 700 }}>{value}</span>
-      </div>
-      <div style={{ height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-        <div style={{ height: '100%', width: `${value}%`, background: color, borderRadius: 2, transition: 'width 0.6s ease' }} />
-      </div>
-    </div>
-  )
+function labelColor(label: string) {
+  const l = label.toLowerCase()
+  if (l === 'strong' || l === 'excellent') return 'var(--green)'
+  if (l === 'good' || l === 'fair') return 'var(--gold)'
+  return 'var(--red)'
 }
 
 function encodeCardParam(id: string, grade: string, name: string) {
@@ -112,13 +104,14 @@ function encodeCardParam(id: string, grade: string, name: string) {
 function decodeCardParam(param: string): { id: string; grade: string; name: string } | null {
   const parts = param.split(':')
   if (parts.length < 3) return null
-  const id = parts[0]
-  const grade = decodeURIComponent(parts[1])
-  const name = decodeURIComponent(parts.slice(2).join(':'))
-  return { id, grade, name }
+  return {
+    id: parts[0],
+    grade: decodeURIComponent(parts[1]),
+    name: decodeURIComponent(parts.slice(2).join(':')),
+  }
 }
 
-// ── Build combined chart data from multiple cards ─────────────────────────────
+// ── Build combined chart data ─────────────────────────────────────────────────
 
 function buildChartData(
   cards: CompareCard[],
@@ -128,9 +121,8 @@ function buildChartData(
   if (cardsWithHistory.length < 2) return []
 
   const allMonthsSet = new Set<string>()
-  for (const c of cardsWithHistory) {
+  for (const c of cardsWithHistory)
     for (const h of c.data!.price_history!) allMonthsSet.add(h.month)
-  }
 
   const parseTs = (m: string) => new Date(m).getTime()
   const sorted = Array.from(allMonthsSet).sort((a, b) => parseTs(a) - parseTs(b))
@@ -155,169 +147,286 @@ function buildChartData(
   })
 }
 
-// ── Skeleton card ─────────────────────────────────────────────────────────────
+// ── Comparison table (row-per-section for cross-card alignment) ───────────────
 
-function SkeletonCard() {
+function ComparisonTable({
+  cards,
+  colors,
+  onRemove,
+}: {
+  cards: CompareCard[]
+  colors: string[]
+  onRemove: (id: string, grade: string) => void
+}) {
+  const N = cards.length
+  if (!N) return null
+
+  const rowGrid: React.CSSProperties = {
+    display: 'grid',
+    gridTemplateColumns: `repeat(${N}, 1fr)`,
+    gap: '0 12px',
+  }
+
+  // Shared cell base — left/right borders only; top/bottom handled per-row
+  const mid: React.CSSProperties = {
+    background: 'var(--surface)',
+    borderLeft: '1px solid var(--border2)',
+    borderRight: '1px solid var(--border2)',
+  }
+
+  const hasSomeBreakdown = cards.some(c => c.data?.score_breakdown)
+
   return (
-    <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden' }}>
-      <div style={{ height: 3, background: 'var(--surface2)' }} />
-      <div style={{ padding: '16px 20px 20px' }}>
-        {/* Image placeholder */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
-          <div style={{ width: 115, height: 160, borderRadius: 8, background: 'var(--surface2)' }} className="cmp-sk" />
-        </div>
-        {/* Score placeholder */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, marginBottom: 16 }}>
-          <div style={{ width: 60, height: 48, borderRadius: 6, background: 'var(--surface2)' }} className="cmp-sk" />
-          <div style={{ width: 50, height: 10, borderRadius: 4, background: 'var(--surface2)' }} className="cmp-sk" />
-        </div>
-        {/* Name/set/grade */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginBottom: 20 }}>
-          <div style={{ width: '60%', height: 14, borderRadius: 4, background: 'var(--surface2)' }} className="cmp-sk" />
-          <div style={{ width: '40%', height: 11, borderRadius: 4, background: 'var(--surface2)' }} className="cmp-sk" />
-          <div style={{ width: 56, height: 22, borderRadius: 11, background: 'var(--surface2)' }} className="cmp-sk" />
-        </div>
-        {/* Price */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginBottom: 20, paddingBottom: 20, borderBottom: '1px solid var(--border)' }}>
-          <div style={{ width: 80, height: 10, borderRadius: 4, background: 'var(--surface2)' }} className="cmp-sk" />
-          <div style={{ width: '50%', height: 28, borderRadius: 6, background: 'var(--surface2)' }} className="cmp-sk" />
-        </div>
-        {/* Stat rows */}
-        {[1,2,3,4].map(i => (
-          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0', borderBottom: i < 4 ? '1px solid var(--border)' : 'none' }}>
-            <div style={{ width: 70, height: 11, borderRadius: 4, background: 'var(--surface2)' }} className="cmp-sk" />
-            <div style={{ width: 55, height: 11, borderRadius: 4, background: 'var(--surface2)' }} className="cmp-sk" />
+    <div>
+
+      {/* ── Top color bar ── */}
+      <div style={rowGrid}>
+        {cards.map((c, i) => (
+          <div key={c.id + c.grade + 'cb'} style={{
+            height: 3,
+            background: colors[i] ?? 'var(--border2)',
+            border: '1px solid var(--border2)',
+            borderBottom: 'none',
+            borderRadius: '14px 14px 0 0',
+          }} />
+        ))}
+      </div>
+
+      {/* ── Image + remove button ── */}
+      <div style={rowGrid}>
+        {cards.map((c, i) => {
+          const imgSrc = c.imageUrl ? tcgImg(c.imageUrl) : null
+          return (
+            <div key={c.id + c.grade + 'img'} style={{
+              ...mid,
+              padding: '16px 16px 12px',
+              position: 'relative',
+              display: 'flex',
+              justifyContent: 'center',
+              minHeight: 192,
+            }}>
+              <button
+                onClick={() => onRemove(c.id, c.grade)}
+                aria-label="Remove"
+                style={{ position: 'absolute', top: 8, right: 8, width: 26, height: 26, borderRadius: 7, border: '1px solid var(--border2)', background: 'var(--surface)', color: 'var(--ink3)', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}
+              >×</button>
+              {c.loading
+                ? <div style={{ width: 115, height: 160, borderRadius: 8, background: 'var(--surface2)' }} className="cmp-sk" />
+                : imgSrc
+                  ? /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={imgSrc} alt={c.name} style={{ height: 160, width: 'auto', maxWidth: '100%', objectFit: 'contain', borderRadius: 8 }} />
+                  : <div style={{ height: 160, width: 115, borderRadius: 8, background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32 }}>🃏</div>
+              }
+            </div>
+          )
+        })}
+      </div>
+
+      {/* ── CI Score ── */}
+      <div style={rowGrid}>
+        {cards.map((c, i) => {
+          const d = c.data
+          return (
+            <div key={c.id + c.grade + 'sc'} style={{ ...mid, textAlign: 'center', padding: '10px 12px 6px' }}>
+              {c.loading ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                  <div style={{ width: 60, height: 48, borderRadius: 6, background: 'var(--surface2)' }} className="cmp-sk" />
+                  <div style={{ width: 50, height: 10, borderRadius: 4, background: 'var(--surface2)' }} className="cmp-sk" />
+                </div>
+              ) : d?.score != null ? (
+                <>
+                  <div className="font-num" style={{ fontSize: 48, fontWeight: 900, color: scoreColor(d.score), lineHeight: 1 }}>{d.score}</div>
+                  <div style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1.5, marginTop: 4 }}>CI SCORE</div>
+                </>
+              ) : (
+                <div style={{ fontSize: 13, color: 'var(--ink3)', padding: '14px 0' }}>—</div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* ── Card name ── */}
+      <div style={rowGrid}>
+        {cards.map((c, i) => (
+          <div key={c.id + c.grade + 'nm'} style={{ ...mid, textAlign: 'center', padding: '8px 12px 2px' }}>
+            {c.loading
+              ? <div style={{ width: '65%', height: 14, borderRadius: 4, background: 'var(--surface2)', margin: '0 auto' }} className="cmp-sk" />
+              : <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.3 }}>{c.name}</div>
+            }
           </div>
         ))}
       </div>
-    </div>
-  )
-}
 
-// ── Comparison card ───────────────────────────────────────────────────────────
-
-function ComparisonCardPanel({
-  card,
-  color,
-  onRemove,
-}: {
-  card: CompareCard
-  color: string
-  onRemove: () => void
-}) {
-  if (card.loading) return <SkeletonCard />
-
-  const d = card.data
-  const change7d  = d?.avg7d  && d.price ? ((d.price - d.avg7d)  / d.avg7d)  * 100 : null
-  const change30d = d?.avg30d && d.price ? ((d.price - d.avg30d) / d.avg30d) * 100 : null
-  const imgSrc    = card.imageUrl ? tcgImg(card.imageUrl) : null
-
-  return (
-    <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden', position: 'relative' }}>
-      {/* Color accent bar */}
-      <div style={{ height: 3, background: color }} />
-
-      {/* Remove button — top-right, above everything */}
-      <button
-        onClick={onRemove}
-        style={{ position: 'absolute', top: 10, right: 10, width: 26, height: 26, borderRadius: 7, border: '1px solid var(--border2)', background: 'var(--surface)', color: 'var(--ink3)', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}
-      >
-        ×
-      </button>
-
-      <div style={{ padding: '16px 20px 20px' }}>
-
-        {/* ── Card image — centered, tall ── */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
-          {imgSrc ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img src={imgSrc} alt={card.name}
-              style={{ height: 160, width: 'auto', maxWidth: '100%', objectFit: 'contain', borderRadius: 8, display: 'block' }} />
-          ) : (
-            <div style={{ height: 160, width: 115, borderRadius: 8, background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32 }}>🃏</div>
-          )}
-        </div>
-
-        {/* ── CI Score ── */}
-        {d?.score != null && (
-          <div style={{ textAlign: 'center', marginBottom: 16 }}>
-            <div className="font-num" style={{ fontSize: 48, fontWeight: 900, color: scoreColor(d.score), lineHeight: 1 }}>{d.score}</div>
-            <div style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1.5, marginTop: 4 }}>CI SCORE</div>
+      {/* ── Set name ── */}
+      <div style={rowGrid}>
+        {cards.map((c, i) => (
+          <div key={c.id + c.grade + 'sn'} style={{ ...mid, textAlign: 'center', padding: '2px 12px 8px' }}>
+            {c.loading
+              ? <div style={{ width: '45%', height: 11, borderRadius: 4, background: 'var(--surface2)', margin: '0 auto' }} className="cmp-sk" />
+              : <div style={{ fontSize: 11, color: 'var(--ink3)' }}>{c.setName || '—'}</div>
+            }
           </div>
-        )}
+        ))}
+      </div>
 
-        {/* ── Card name + set + grade ── */}
-        <div style={{ textAlign: 'center', marginBottom: 20 }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.3, marginBottom: 4 }}>{card.name}</div>
-          <div style={{ fontSize: 12, color: 'var(--ink3)', marginBottom: 10 }}>{card.setName}</div>
-          <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 12px', borderRadius: 99, background: 'rgba(232,197,71,0.1)', border: '1px solid rgba(232,197,71,0.25)', color: 'var(--gold)' }}>
-            {card.grade}
-          </span>
-        </div>
-
-        {card.error && (
-          <div style={{ fontSize: 12, color: 'var(--red)', padding: '8px 12px', borderRadius: 8, background: 'rgba(232,82,74,0.07)', border: '1px solid rgba(232,82,74,0.2)', marginBottom: 16 }}>
-            Failed to load price data
+      {/* ── Grade chip ── */}
+      <div style={rowGrid}>
+        {cards.map((c, i) => (
+          <div key={c.id + c.grade + 'gr'} style={{ ...mid, textAlign: 'center', padding: '0 12px 16px' }}>
+            {c.loading
+              ? <div style={{ width: 56, height: 22, borderRadius: 11, background: 'var(--surface2)', margin: '0 auto' }} className="cmp-sk" />
+              : <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 600, padding: '3px 12px', borderRadius: 99, background: 'rgba(232,197,71,0.1)', border: '1px solid rgba(232,197,71,0.25)', color: 'var(--gold)' }}>{c.grade}</span>
+            }
           </div>
-        )}
+        ))}
+      </div>
 
-        {d && (
-          <>
-            {/* ── Current price ── */}
-            <div style={{ textAlign: 'center', marginBottom: 20, paddingBottom: 20, borderBottom: '1px solid var(--border)' }}>
+      {/* ── Current price ── */}
+      <div style={rowGrid}>
+        {cards.map((c, i) => {
+          const d = c.data
+          return (
+            <div key={c.id + c.grade + 'pr'} style={{ ...mid, textAlign: 'center', padding: '14px 12px', borderTop: '1px solid var(--border)' }}>
               <div style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1, marginBottom: 6 }}>CURRENT PRICE</div>
-              <div className="font-num" style={{ fontSize: 30, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px', lineHeight: 1 }}>{fmt(d.price, d.currency)}</div>
-              {d.price_change_pct != null && (
-                <div className="font-num" style={{ fontSize: 13, fontWeight: 600, color: pctColor(d.price_change_pct), marginTop: 6 }}>
-                  {pctSign(d.price_change_pct)}{d.price_change_pct.toFixed(1)}% 24h
+              {c.loading ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                  <div style={{ width: '55%', height: 26, borderRadius: 6, background: 'var(--surface2)' }} className="cmp-sk" />
+                  <div style={{ width: '35%', height: 12, borderRadius: 4, background: 'var(--surface2)' }} className="cmp-sk" />
                 </div>
+              ) : d ? (
+                <>
+                  <div className="font-num" style={{ fontSize: 24, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px', lineHeight: 1 }}>{fmt(d.price, d.currency)}</div>
+                  {d.price_change_pct != null && (
+                    <div className="font-num" style={{ fontSize: 12, fontWeight: 600, color: pctColor(d.price_change_pct), marginTop: 6 }}>
+                      {pctSign(d.price_change_pct)}{d.price_change_pct.toFixed(1)}% 24h
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div style={{ fontSize: 12, color: 'var(--ink3)' }}>—</div>
               )}
             </div>
-
-            {/* ── Stats rows ── */}
-            <div style={{ marginBottom: 20 }}>
-              {[
-                { label: '7D Change',  value: change7d  != null ? `${pctSign(change7d)}${change7d.toFixed(1)}%`   : '—', color: pctColor(change7d) },
-                { label: '30D Change', value: change30d != null ? `${pctSign(change30d)}${change30d.toFixed(1)}%` : '—', color: pctColor(change30d) },
-                {
-                  label: 'Price Range',
-                  value: (d.price_range_low != null && d.price_range_high != null)
-                    ? `${fmt(d.price_range_low, d.currency)} – ${fmt(d.price_range_high, d.currency)}`
-                    : '—',
-                  color: 'var(--ink)',
-                },
-                { label: '30D Sales', value: d.sales_count_30d != null ? String(d.sales_count_30d) : '—', color: 'var(--ink)' },
-              ].map((row, i, arr) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 0', borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                  <span style={{ fontSize: 11, color: 'var(--ink3)' }}>{row.label}</span>
-                  <span className="font-num" style={{ fontSize: 12, fontWeight: 600, color: row.color }}>{row.value}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* ── Score breakdown ── */}
-            {d.score_breakdown && (
-              <div style={{ paddingTop: 16, borderTop: '1px solid var(--border)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                  <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)' }}>SCORE BREAKDOWN</span>
-                  <span style={{ fontSize: 10, fontWeight: 600, color: scoreColor(d.score_breakdown.total), background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: 5 }}>
-                    {d.score_breakdown.label}
-                  </span>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <ScoreBar label="TREND"       value={Math.round(d.score_breakdown.trend / 30 * 100)}       color={scoreColor(Math.round(d.score_breakdown.trend / 30 * 100))} />
-                  <ScoreBar label="LIQUIDITY"   value={Math.round(d.score_breakdown.liquidity / 25 * 100)}   color={scoreColor(Math.round(d.score_breakdown.liquidity / 25 * 100))} />
-                  <ScoreBar label="CONSISTENCY" value={Math.round(d.score_breakdown.consistency / 25 * 100)} color={scoreColor(Math.round(d.score_breakdown.consistency / 25 * 100))} />
-                  <ScoreBar label="VALUE"       value={Math.round(d.score_breakdown.value / 20 * 100)}       color={scoreColor(Math.round(d.score_breakdown.value / 20 * 100))} />
-                </div>
-                {d.score_breakdown.summary && (
-                  <p style={{ fontSize: 11, color: 'var(--ink3)', lineHeight: 1.6, marginTop: 12, marginBottom: 0 }}>{d.score_breakdown.summary}</p>
-                )}
-              </div>
-            )}
-          </>
-        )}
+          )
+        })}
       </div>
+
+      {/* ── Stat rows ── */}
+      {([
+        {
+          key: '7d', label: '7D Change',
+          fn: (c: CompareCard) => {
+            const d = c.data
+            const v = d?.avg7d && d.price ? ((d.price - d.avg7d) / d.avg7d) * 100 : null
+            return v != null ? { text: `${pctSign(v)}${v.toFixed(1)}%`, color: pctColor(v) } : null
+          },
+        },
+        {
+          key: '30d', label: '30D Change',
+          fn: (c: CompareCard) => {
+            const d = c.data
+            const v = d?.avg30d && d.price ? ((d.price - d.avg30d) / d.avg30d) * 100 : null
+            return v != null ? { text: `${pctSign(v)}${v.toFixed(1)}%`, color: pctColor(v) } : null
+          },
+        },
+        {
+          key: 'range', label: 'Price Range',
+          fn: (c: CompareCard) => {
+            const d = c.data
+            if (!d || d.price_range_low == null || d.price_range_high == null) return null
+            return { text: `${fmt(d.price_range_low, d.currency)} – ${fmt(d.price_range_high, d.currency)}`, color: 'var(--ink)' }
+          },
+        },
+        {
+          key: 'sales', label: '30D Sales',
+          fn: (c: CompareCard) => {
+            const d = c.data
+            if (!d || d.sales_count_30d == null) return null
+            return { text: String(d.sales_count_30d), color: 'var(--ink)' }
+          },
+        },
+      ] as { key: string; label: string; fn: (c: CompareCard) => { text: string; color: string } | null }[]).map(row => (
+        <div key={row.key} style={rowGrid}>
+          {cards.map((c, i) => {
+            const val = row.fn(c)
+            return (
+              <div key={c.id + c.grade + row.key} style={{ ...mid, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 14px', borderTop: '1px solid var(--border)' }}>
+                <span style={{ fontSize: 11, color: 'var(--ink3)' }}>{row.label}</span>
+                {c.loading
+                  ? <div style={{ width: 55, height: 11, borderRadius: 4, background: 'var(--surface2)' }} className="cmp-sk" />
+                  : <span className="font-num" style={{ fontSize: 12, fontWeight: 600, color: val?.color ?? 'var(--ink3)' }}>{val?.text ?? '—'}</span>
+                }
+              </div>
+            )
+          })}
+        </div>
+      ))}
+
+      {/* ── Score breakdown ── */}
+      {hasSomeBreakdown && (
+        <>
+          {/* Header */}
+          <div style={rowGrid}>
+            {cards.map((c, i) => {
+              const sb = c.data?.score_breakdown
+              return (
+                <div key={c.id + c.grade + 'bkh'} style={{ ...mid, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px 8px', borderTop: '1px solid var(--border)' }}>
+                  <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)' }}>SCORE BREAKDOWN</span>
+                  {sb && (
+                    <span style={{ fontSize: 10, fontWeight: 600, color: labelColor(sb.label), background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: 5 }}>
+                      {sb.label}
+                    </span>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Bar rows */}
+          {([
+            { key: 'trend', label: 'TREND',       fn: (sb: ScoreBreakdown) => Math.round(sb.trend / 30 * 100) },
+            { key: 'liq',   label: 'LIQUIDITY',   fn: (sb: ScoreBreakdown) => Math.round(sb.liquidity / 25 * 100) },
+            { key: 'con',   label: 'CONSISTENCY', fn: (sb: ScoreBreakdown) => Math.round(sb.consistency / 25 * 100) },
+            { key: 'val',   label: 'VALUE',        fn: (sb: ScoreBreakdown) => Math.round(sb.value / 20 * 100) },
+          ]).map(brow => (
+            <div key={brow.key} style={rowGrid}>
+              {cards.map((c, i) => {
+                const sb = c.data?.score_breakdown
+                const val = sb ? brow.fn(sb) : null
+                const color = val != null ? scoreColor(val) : 'var(--ink3)'
+                return (
+                  <div key={c.id + c.grade + brow.key} style={{ ...mid, padding: '6px 14px 8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                      <span style={{ fontSize: 10, letterSpacing: 1, color: 'var(--ink3)', fontWeight: 600 }}>{brow.label}</span>
+                      <span className="font-num" style={{ fontSize: 11, color, fontWeight: 700 }}>{val ?? '—'}</span>
+                    </div>
+                    <div style={{ height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                      {val != null && (
+                        <div style={{ height: '100%', width: `${val}%`, background: color, borderRadius: 2, transition: 'width 0.6s ease' }} />
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          ))}
+        </>
+      )}
+
+      {/* ── Bottom cap ── */}
+      <div style={rowGrid}>
+        {cards.map((c, i) => (
+          <div key={c.id + c.grade + 'bot'} style={{
+            height: 4,
+            background: 'var(--surface)',
+            borderLeft: '1px solid var(--border2)',
+            borderRight: '1px solid var(--border2)',
+            borderBottom: '1px solid var(--border2)',
+            borderRadius: '0 0 14px 14px',
+          }} />
+        ))}
+      </div>
+
     </div>
   )
 }
@@ -362,7 +471,26 @@ export default function CompareClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  const MAX_CARDS = 5
+  // ── Auth gate ────────────────────────────────────────────────────────────────
+  const [authChecked, setAuthChecked] = useState(false)
+  useEffect(() => {
+    createClient().auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        router.replace('/')
+      }
+      setAuthChecked(true)
+    })
+  }, [router])
+
+  // ── Mobile detection ─────────────────────────────────────────────────────────
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth <= 640)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+  const MAX_CARDS = isMobile ? 2 : 5
 
   const [cards, setCards] = useState<CompareCard[]>([])
   const [searchQuery, setSearchQuery] = useState('')
@@ -386,6 +514,21 @@ export default function CompareClient() {
     const qs = params.toString()
     router.replace(qs ? `/compare?${qs}` : '/compare', { scroll: false })
   }
+
+  // ── Trim to mobile MAX when switching viewport ───────────────────────────────
+
+  useEffect(() => {
+    if (!initialized || !isMobile) return
+    if (cards.length > 2) {
+      const trimmed = cards.slice(0, 2)
+      setCards(trimmed)
+      const params = new URLSearchParams()
+      for (const c of trimmed) params.append('c', encodeCardParam(c.id, c.grade, c.name))
+      const qs = params.toString()
+      router.replace(qs ? `/compare?${qs}` : '/compare', { scroll: false })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMobile, initialized])
 
   // ── Fetch live data for a card ──────────────────────────────────────────────
 
@@ -430,7 +573,7 @@ export default function CompareClient() {
     const cParams = searchParams.getAll('c')
     if (!cParams.length) return
     const initialCards: CompareCard[] = cParams
-      .slice(0, MAX_CARDS)
+      .slice(0, 5) // always load up to 5 from URL; trimming handles mobile
       .map(param => {
         const parsed = decodeCardParam(param)
         if (!parsed) return null
@@ -492,7 +635,6 @@ export default function CompareClient() {
 
   function addCard(result: SearchResult, grade: string) {
     if (cards.length >= MAX_CARDS) return
-    // Don't add duplicates (same id + grade)
     if (cards.some(c => c.id === result.id && c.grade === grade)) return
     const newCard: CompareCard = {
       id: result.id,
@@ -534,6 +676,12 @@ export default function CompareClient() {
   const cardsWithHistory = cards.filter(c => c.data?.price_history?.length)
   const showChart = cardsWithHistory.length >= 2
 
+  const atMax = cards.length >= MAX_CARDS
+
+  // ── Auth loading state ───────────────────────────────────────────────────────
+
+  if (!authChecked) return null
+
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
@@ -541,12 +689,6 @@ export default function CompareClient() {
       <style>{`
         @keyframes cmp-pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
         .cmp-sk { animation: cmp-pulse 1.6s ease-in-out infinite; }
-        @media (max-width: 640px) {
-          .cmp-grid { grid-template-columns: repeat(2, 1fr) !important; }
-        }
-        @media (max-width: 400px) {
-          .cmp-grid { grid-template-columns: 1fr !important; }
-        }
       `}</style>
 
       <Navbar />
@@ -561,8 +703,8 @@ export default function CompareClient() {
             <p style={{ fontSize: 13, color: 'var(--ink3)' }}>Side-by-side price &amp; score analysis</p>
           </div>
 
-          {/* ── Search bar ── */}
-          {cards.length < MAX_CARDS && (
+          {/* ── Search bar (hidden when at max) ── */}
+          {!atMax && (
             <div ref={searchRef} style={{ position: 'relative', marginBottom: 24 }}>
               <div style={{ display: 'flex', gap: 8 }}>
                 {/* Grade selector */}
@@ -586,7 +728,7 @@ export default function CompareClient() {
                     value={searchQuery}
                     onChange={e => { setSearchQuery(e.target.value); if (e.target.value.length >= 2) setShowDropdown(true) }}
                     onFocus={() => { if (searchResults.length) setShowDropdown(true) }}
-                    placeholder="Search for a card to compare…"
+                    placeholder={`Search for a card to compare… (${MAX_CARDS - cards.length} slot${MAX_CARDS - cards.length !== 1 ? 's' : ''} left)`}
                     style={{ width: '100%', boxSizing: 'border-box', padding: '11px 14px 11px 36px', borderRadius: showDropdown && searchResults.length > 0 ? '10px 10px 0 0' : 10, background: 'var(--surface)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 14, outline: 'none' }}
                     onKeyDown={e => { if (e.key === 'Escape') { setShowDropdown(false); setSearchQuery('') } }}
                   />
@@ -650,9 +792,7 @@ export default function CompareClient() {
                   <button
                     onClick={() => removeCard(c.id, c.grade)}
                     style={{ background: 'none', border: 'none', color: 'var(--ink3)', cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: '0 0 0 2px', display: 'flex', alignItems: 'center' }}
-                  >
-                    ×
-                  </button>
+                  >×</button>
                 </div>
               ))}
               <button
@@ -669,29 +809,20 @@ export default function CompareClient() {
             <div style={{ textAlign: 'center', padding: '80px 24px', borderRadius: 16, background: 'var(--surface)', border: '1px solid var(--border2)' }}>
               <div style={{ fontSize: 40, marginBottom: 16 }}>⚖️</div>
               <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>Add cards above to start comparing</div>
-              <div style={{ fontSize: 13, color: 'var(--ink3)' }}>Search for up to 4 cards and see them side by side</div>
+              <div style={{ fontSize: 13, color: 'var(--ink3)' }}>Search for up to {MAX_CARDS} cards and see them side by side</div>
             </div>
           )}
 
-          {/* ── Comparison grid — up to 5 cols on desktop, 2 on mobile ── */}
+          {/* ── Comparison table ── */}
           {cards.length > 0 && (
-            <div
-              className="cmp-grid"
-              style={{
-                display: 'grid',
-                gridTemplateColumns: `repeat(${Math.min(cards.length, 5)}, 1fr)`,
-                gap: 12,
-                marginBottom: 24,
-              }}
-            >
-              {cards.map((c, i) => (
-                <ComparisonCardPanel
-                  key={c.id + ':' + c.grade}
-                  card={c}
-                  color={CARD_COLORS[i] ?? 'var(--border2)'}
-                  onRemove={() => removeCard(c.id, c.grade)}
+            <div style={{ overflowX: 'auto', marginBottom: 24 }}>
+              <div style={{ minWidth: `${Math.max(cards.length * 160, 320)}px` }}>
+                <ComparisonTable
+                  cards={cards}
+                  colors={CARD_COLORS}
+                  onRemove={removeCard}
                 />
-              ))}
+              </div>
             </div>
           )}
 
@@ -718,7 +849,7 @@ export default function CompareClient() {
 
               {/* Legend */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 12 }}>
-                {cardsWithHistory.map((c, i) => {
+                {cardsWithHistory.map((c) => {
                   const colorIdx = cards.findIndex(cc => cc.id === c.id && cc.grade === c.grade)
                   return (
                     <div key={c.id + ':' + c.grade} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--ink3)' }}>

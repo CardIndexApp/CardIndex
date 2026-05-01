@@ -512,9 +512,20 @@ function normaliseCardName(name: string): string {
     .trim()
 }
 
-/** Check whether two card names are equivalent (handles EX/ex, GX/gx, V/v case variants) */
+/** Strip pokemontcg.io parenthetical variant descriptors for comparison purposes */
+function stripParens(name: string): string {
+  return name.replace(/\s*\([^)]*\)/g, '').trim()
+}
+
+/**
+ * Check whether two card names are equivalent.
+ * Handles EX/ex, GX/gx, V/v case variants, and pokemontcg.io parenthetical suffixes
+ * like "(Alternate Full Art)", "(Full Art)", "(Rainbow Rare)" which Poketrace omits.
+ */
 function namesMatch(a: string, b: string): boolean {
-  return normaliseCardName(a) === normaliseCardName(b)
+  if (normaliseCardName(a) === normaliseCardName(b)) return true
+  // Also compare with parentheticals stripped from both sides
+  return normaliseCardName(stripParens(a)) === normaliseCardName(stripParens(b))
 }
 
 /**
@@ -533,15 +544,26 @@ function namesMatch(a: string, b: string): boolean {
 /** Build name variants to try — handles "Umbreon ex" ↔ "Umbreon EX", "Charizard-EX" etc. */
 function nameVariants(name: string): string[] {
   const variants = new Set<string>([name])
-  // lowercase suffix → uppercase (pokemontcg.io uses lowercase ex/gx/v/vmax/vstar)
-  const upper = name.replace(/\s+(ex|gx|v|vmax|vstar|v-union)$/i, (_, s) => ' ' + s.toUpperCase())
-  if (upper !== name) variants.add(upper)
-  // uppercase → lowercase
-  const lower = name.replace(/\s+(EX|GX|V|VMAX|VSTAR)$/, (_, s) => ' ' + s.toLowerCase())
-  if (lower !== name) variants.add(lower)
+
+  // Strip pokemontcg.io parenthetical variant descriptors early so searches find Poketrace cards.
+  // e.g. "Latias & Latios GX (Alternate Full Art)" → "Latias & Latios GX"
+  //      "Charizard (Champion's Path)" → "Charizard"
+  const stripped = name.replace(/\s*\([^)]*\)/g, '').trim()
+  if (stripped && stripped !== name) variants.add(stripped)
+
+  // For each base form (original + stripped), add EX/GX/ex/gx casing swaps
+  for (const base of [name, stripped]) {
+    if (!base) continue
+    const upper = base.replace(/\s+(ex|gx|v|vmax|vstar|v-union)$/i, (_, s) => ' ' + s.toUpperCase())
+    if (upper !== base) variants.add(upper)
+    const lower = base.replace(/\s+(EX|GX|V|VMAX|VSTAR)$/, (_, s) => ' ' + s.toLowerCase())
+    if (lower !== base) variants.add(lower)
+  }
+
   // bare name (first word only) as last resort
   const bare = name.split(' ')[0]
   if (bare && bare !== name) variants.add(bare)
+
   return Array.from(variants)
 }
 

@@ -130,21 +130,37 @@ function buildChartData(
 
 function SkeletonCard() {
   return (
-    <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', padding: 20 }}>
-      <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
-        <div style={{ width: 56, height: 78, borderRadius: 8, background: 'var(--surface2)' }} className="cmp-sk" />
-        <div style={{ flex: 1 }}>
-          <div style={{ width: '70%', height: 14, borderRadius: 4, background: 'var(--surface2)', marginBottom: 8 }} className="cmp-sk" />
-          <div style={{ width: '50%', height: 11, borderRadius: 4, background: 'var(--surface2)', marginBottom: 6 }} className="cmp-sk" />
-          <div style={{ width: 60, height: 20, borderRadius: 6, background: 'var(--surface2)' }} className="cmp-sk" />
+    <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden' }}>
+      <div style={{ height: 3, background: 'var(--surface2)' }} />
+      <div style={{ padding: '16px 20px 20px' }}>
+        {/* Image placeholder */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+          <div style={{ width: 115, height: 160, borderRadius: 8, background: 'var(--surface2)' }} className="cmp-sk" />
         </div>
+        {/* Score placeholder */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, marginBottom: 16 }}>
+          <div style={{ width: 60, height: 48, borderRadius: 6, background: 'var(--surface2)' }} className="cmp-sk" />
+          <div style={{ width: 50, height: 10, borderRadius: 4, background: 'var(--surface2)' }} className="cmp-sk" />
+        </div>
+        {/* Name/set/grade */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginBottom: 20 }}>
+          <div style={{ width: '60%', height: 14, borderRadius: 4, background: 'var(--surface2)' }} className="cmp-sk" />
+          <div style={{ width: '40%', height: 11, borderRadius: 4, background: 'var(--surface2)' }} className="cmp-sk" />
+          <div style={{ width: 56, height: 22, borderRadius: 11, background: 'var(--surface2)' }} className="cmp-sk" />
+        </div>
+        {/* Price */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginBottom: 20, paddingBottom: 20, borderBottom: '1px solid var(--border)' }}>
+          <div style={{ width: 80, height: 10, borderRadius: 4, background: 'var(--surface2)' }} className="cmp-sk" />
+          <div style={{ width: '50%', height: 28, borderRadius: 6, background: 'var(--surface2)' }} className="cmp-sk" />
+        </div>
+        {/* Stat rows */}
+        {[1,2,3,4].map(i => (
+          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0', borderBottom: i < 4 ? '1px solid var(--border)' : 'none' }}>
+            <div style={{ width: 70, height: 11, borderRadius: 4, background: 'var(--surface2)' }} className="cmp-sk" />
+            <div style={{ width: 55, height: 11, borderRadius: 4, background: 'var(--surface2)' }} className="cmp-sk" />
+          </div>
+        ))}
       </div>
-      {[1,2,3,4].map(i => (
-        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: i < 4 ? '1px solid var(--border)' : 'none' }}>
-          <div style={{ width: 80, height: 11, borderRadius: 4, background: 'var(--surface2)' }} className="cmp-sk" />
-          <div style={{ width: 60, height: 11, borderRadius: 4, background: 'var(--surface2)' }} className="cmp-sk" />
-        </div>
-      ))}
     </div>
   )
 }
@@ -172,41 +188,42 @@ function ComparisonCardPanel({
       {/* Color accent bar */}
       <div style={{ height: 3, background: color }} />
 
-      <div style={{ padding: 20 }}>
-        {/* Remove button */}
-        <button
-          onClick={onRemove}
-          style={{ position: 'absolute', top: 14, right: 14, width: 26, height: 26, borderRadius: 7, border: '1px solid var(--border2)', background: 'var(--surface2)', color: 'var(--ink3)', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1 }}
-        >
-          ×
-        </button>
+      {/* Remove button — top-right, above everything */}
+      <button
+        onClick={onRemove}
+        style={{ position: 'absolute', top: 10, right: 10, width: 26, height: 26, borderRadius: 7, border: '1px solid var(--border2)', background: 'var(--surface)', color: 'var(--ink3)', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}
+      >
+        ×
+      </button>
 
-        {/* Card header: image + meta + score */}
-        <div style={{ display: 'flex', gap: 14, marginBottom: 20, alignItems: 'flex-start' }}>
-          {/* Image */}
+      <div style={{ padding: '16px 20px 20px' }}>
+
+        {/* ── Card image — centered, tall ── */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
           {imgSrc ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
             <img src={imgSrc} alt={card.name}
-              style={{ width: 64, height: 90, objectFit: 'contain', borderRadius: 7, flexShrink: 0, background: 'var(--surface2)' }} />
+              style={{ height: 160, width: 'auto', maxWidth: '100%', objectFit: 'contain', borderRadius: 8, display: 'block' }} />
           ) : (
-            <div style={{ width: 64, height: 90, borderRadius: 7, background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 24 }}>🃏</div>
+            <div style={{ height: 160, width: 115, borderRadius: 8, background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32 }}>🃏</div>
           )}
+        </div>
 
-          {/* Name + set + grade */}
-          <div style={{ flex: 1, minWidth: 0, paddingRight: 32 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.3, marginBottom: 4 }}>{card.name}</div>
-            <div style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 10, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{card.setName}</div>
-            <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 99, background: 'rgba(232,197,71,0.1)', border: '1px solid rgba(232,197,71,0.25)', color: 'var(--gold)' }}>
-              {card.grade}
-            </span>
+        {/* ── CI Score ── */}
+        {d?.score != null && (
+          <div style={{ textAlign: 'center', marginBottom: 16 }}>
+            <div className="font-num" style={{ fontSize: 48, fontWeight: 900, color: scoreColor(d.score), lineHeight: 1 }}>{d.score}</div>
+            <div style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1.5, marginTop: 4 }}>CI SCORE</div>
           </div>
+        )}
 
-          {/* CI Score — large, anchored right */}
-          {d?.score != null && (
-            <div style={{ flexShrink: 0, textAlign: 'center', paddingTop: 4 }}>
-              <div className="font-num" style={{ fontSize: 36, fontWeight: 900, color: scoreColor(d.score), lineHeight: 1 }}>{d.score}</div>
-              <div style={{ fontSize: 9, color: 'var(--ink3)', letterSpacing: 1, marginTop: 3 }}>CI SCORE</div>
-            </div>
-          )}
+        {/* ── Card name + set + grade ── */}
+        <div style={{ textAlign: 'center', marginBottom: 20 }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.3, marginBottom: 4 }}>{card.name}</div>
+          <div style={{ fontSize: 12, color: 'var(--ink3)', marginBottom: 10 }}>{card.setName}</div>
+          <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 12px', borderRadius: 99, background: 'rgba(232,197,71,0.1)', border: '1px solid rgba(232,197,71,0.25)', color: 'var(--gold)' }}>
+            {card.grade}
+          </span>
         </div>
 
         {card.error && (
@@ -217,24 +234,22 @@ function ComparisonCardPanel({
 
         {d && (
           <>
-            {/* Current price block */}
-            <div style={{ marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>
-              <div style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1, marginBottom: 4 }}>CURRENT PRICE</div>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-                <div className="font-num" style={{ fontSize: 28, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px' }}>{fmt(d.price)}</div>
-                {d.price_change_pct != null && (
-                  <div className="font-num" style={{ fontSize: 13, fontWeight: 600, color: pctColor(d.price_change_pct) }}>
-                    {pctSign(d.price_change_pct)}{d.price_change_pct.toFixed(1)}% 24h
-                  </div>
-                )}
-              </div>
+            {/* ── Current price ── */}
+            <div style={{ textAlign: 'center', marginBottom: 20, paddingBottom: 20, borderBottom: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1, marginBottom: 6 }}>CURRENT PRICE</div>
+              <div className="font-num" style={{ fontSize: 30, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px', lineHeight: 1 }}>{fmt(d.price)}</div>
+              {d.price_change_pct != null && (
+                <div className="font-num" style={{ fontSize: 13, fontWeight: 600, color: pctColor(d.price_change_pct), marginTop: 6 }}>
+                  {pctSign(d.price_change_pct)}{d.price_change_pct.toFixed(1)}% 24h
+                </div>
+              )}
             </div>
 
-            {/* Stats rows */}
+            {/* ── Stats rows ── */}
             <div>
               {[
-                { label: '7D Change',    value: change7d  != null ? `${pctSign(change7d)}${change7d.toFixed(1)}%`   : '—', color: pctColor(change7d) },
-                { label: '30D Change',   value: change30d != null ? `${pctSign(change30d)}${change30d.toFixed(1)}%` : '—', color: pctColor(change30d) },
+                { label: '7D Change',  value: change7d  != null ? `${pctSign(change7d)}${change7d.toFixed(1)}%`   : '—', color: pctColor(change7d) },
+                { label: '30D Change', value: change30d != null ? `${pctSign(change30d)}${change30d.toFixed(1)}%` : '—', color: pctColor(change30d) },
                 {
                   label: 'Price Range',
                   value: (d.price_range_low != null && d.price_range_high != null)
@@ -572,7 +587,7 @@ export default function CompareClient() {
               {cards.map((c, i) => (
                 <div
                   key={c.id + ':' + c.grade}
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px 5px 8px', borderRadius: 99, background: 'var(--surface)', border: `1px solid ${CARD_COLORS[i] ?? 'var(--border2)'}`, fontSize: 12, color: 'var(--ink)' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px 5px 8px', borderRadius: 8, background: 'var(--surface)', border: `1px solid ${CARD_COLORS[i] ?? 'var(--border2)'}`, fontSize: 12, color: 'var(--ink)' }}
                 >
                   <div style={{ width: 8, height: 8, borderRadius: '50%', background: CARD_COLORS[i] ?? 'var(--border2)', flexShrink: 0 }} />
                   <span style={{ fontWeight: 600 }}>{c.name}</span>
@@ -587,7 +602,7 @@ export default function CompareClient() {
               ))}
               <button
                 onClick={clearAll}
-                style={{ padding: '5px 12px', borderRadius: 99, background: 'transparent', border: '1px solid var(--border2)', color: 'var(--ink3)', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}
+                style={{ padding: '5px 12px', borderRadius: 8, background: 'transparent', border: '1px solid var(--border2)', color: 'var(--ink3)', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}
               >
                 Clear all
               </button>
@@ -603,13 +618,13 @@ export default function CompareClient() {
             </div>
           )}
 
-          {/* ── Comparison grid ── */}
+          {/* ── Comparison grid — always 2 cols, wraps to 2×2 for 4 cards ── */}
           {cards.length > 0 && (
             <div
               className="cmp-grid"
               style={{
                 display: 'grid',
-                gridTemplateColumns: `repeat(${Math.min(cards.length, 2)}, 1fr)`,
+                gridTemplateColumns: 'repeat(2, 1fr)',
                 gap: 12,
                 marginBottom: 24,
               }}

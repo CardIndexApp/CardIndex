@@ -1,6 +1,5 @@
 'use client'
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
-import NextImage from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import BetaModal from '@/components/BetaModal'
@@ -102,13 +101,12 @@ function CardThumb({ src, alt }: { src: string; alt: string }) {
     return <div style={{ width: 48, height: 67, background: 'var(--surface2)', borderRadius: 6, flexShrink: 0 }} />
   }
   return (
-    <div style={{ position: 'relative', width: 48, height: 67, flexShrink: 0, borderRadius: 6, overflow: 'hidden', background: 'var(--surface2)' }}>
-      <NextImage
+    <div style={{ width: 48, height: 67, flexShrink: 0, borderRadius: 6, overflow: 'hidden', background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
         src={src}
         alt={alt}
-        fill
-        sizes="48px"
-        style={{ objectFit: 'contain' }}
+        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
         onError={() => setFailed(true)}
       />
     </div>

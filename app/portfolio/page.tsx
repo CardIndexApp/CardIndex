@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import Navbar from '@/components/Navbar'
 import { createClient } from '@/lib/supabase/client'
@@ -448,7 +448,17 @@ interface PortfolioChartProps {
 }
 
 function PortfolioChart({ positions, fmtCurrency }: PortfolioChartProps) {
-  const [chartWindow, setChartWindow] = useState<3 | 6 | 12>(6)
+  // Auto-select the shortest window that gives ≥ 3 data points.
+  // Falls back to the next larger window, then 12M.
+  const autoWindow = useMemo((): 3 | 6 | 12 => {
+    for (const w of [3, 6, 12] as const) {
+      if (buildPortfolioHistory(positions, w).length >= 3) return w
+    }
+    return 12
+  }, [positions])
+
+  const [userWindow, setUserWindow] = useState<3 | 6 | 12 | null>(null)
+  const chartWindow = userWindow ?? autoWindow
   const data = buildPortfolioHistory(positions, chartWindow)
 
   const stillLoading = positions.some(p => p.priceLoading)
@@ -501,7 +511,7 @@ function PortfolioChart({ positions, fmtCurrency }: PortfolioChartProps) {
         </div>
         <div style={{ display: 'flex', gap: 4 }}>
           {([3, 6, 12] as const).map(w => (
-            <button key={w} onClick={() => setChartWindow(w)}
+            <button key={w} onClick={() => setUserWindow(w)}
               style={{ padding: '4px 12px', borderRadius: 8, border: '1px solid', fontSize: 11, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s',
                 borderColor: chartWindow === w ? 'var(--gold)' : 'var(--border2)',
                 background: chartWindow === w ? 'var(--gold2)' : 'transparent',

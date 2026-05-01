@@ -2842,27 +2842,25 @@ export default function CardPageClient() {
                     <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="1" x2="8" y2="15"/><line x1="1" y1="8" x2="15" y2="8"/><path d="M4 4l8 8M12 4l-8 8"/></svg>
                     Compare
                   </Link>
-                  {/* Live data badge + force refresh */}
-                  {liveData && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <button
-                        onClick={() => {
-                          setLiveData(null)
-                          const grade = urlGrade ?? (card ? `PSA ${card.grade.replace('PSA ', '')}` : 'PSA 10')
-                          fetch(`/api/cache?id=${encodeURIComponent(id)}&grade=${encodeURIComponent(grade)}`, { method: 'DELETE' })
-                            .finally(() => fetchLiveData(true))
-                        }}
-                        style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '9px 14px', borderRadius: 10, background: 'var(--surface2)', border: '1.5px solid var(--border2)', fontSize: 11, fontWeight: 600, color: 'var(--ink2)', cursor: 'pointer', transition: 'all 0.2s' }}
-                        onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.color = 'var(--gold)' }}
-                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border2)'; e.currentTarget.style.color = 'var(--ink2)' }}
-                      >
-                        <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M1 4v4h4"/><path d="M15 12v-4h-4"/>
-                          <path d="M13.5 6A6 6 0 0 0 2.5 5.5M2.5 10a6 6 0 0 0 11 .5"/>
-                        </svg>
-                        Refresh
-                      </button>
-                    </div>
+                  {/* Force refresh — always visible */}
+                  {!liveLoading && (
+                    <button
+                      onClick={() => {
+                        setLiveData(null)
+                        const grade = urlGrade ?? (card ? `PSA ${card.grade.replace('PSA ', '')}` : 'PSA 10')
+                        fetch(`/api/cache?id=${encodeURIComponent(id)}&grade=${encodeURIComponent(grade)}`, { method: 'DELETE' })
+                          .finally(() => fetchLiveData(true))
+                      }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '9px 14px', borderRadius: 10, background: 'var(--surface2)', border: '1.5px solid var(--border2)', fontSize: 11, fontWeight: 600, color: 'var(--ink2)', cursor: 'pointer', transition: 'all 0.2s' }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.color = 'var(--gold)' }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border2)'; e.currentTarget.style.color = 'var(--ink2)' }}
+                    >
+                      <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M1 4v4h4"/><path d="M15 12v-4h-4"/>
+                        <path d="M13.5 6A6 6 0 0 0 2.5 5.5M2.5 10a6 6 0 0 0 11 .5"/>
+                      </svg>
+                      Refresh
+                    </button>
                   )}
                   {liveLoading && (
                     <div style={{ fontSize: 9, color: 'var(--ink3)', letterSpacing: 1 }}>Fetching prices…</div>

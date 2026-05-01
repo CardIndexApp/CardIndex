@@ -344,6 +344,25 @@ export async function GET(
 
   const { tierPrice: rawTierPrice, resolvedTier } = result
 
+  // ── 3a. Outlier correction ────────────────────────────────────────────────
+  //
+  // When sale count is very low (< 3), a single anomalous eBay sale can
+  // massively distort the average. If the current avg deviates by more than
+  // 75% from the 30-day or 7-day moving average, substitute the longer-period
+  // average as a more reliable estimate.
+  //
+  // Example: 1 sale at $59 vs avg30d of $850 → ratio 0.07 → use $850
+  function correctOutlier(tp: typeof rawTierPrice): typeof rawTierPrice {
+    const { avg, avg7d, avg30d, saleCount } = tp
+    if ((saleCount ?? 99) >= 3) return tp // enough sales — trust the average
+    const reference = avg30d ?? avg7d
+    if (!reference || reference <= 0) return tp
+    const ratio = avg / reference
+    // Outlier if current price is < 25% or > 400% of the longer-term average
+    if (ratio >= 0.25 && ratio <= 4) return tp
+    return { ...tp, avg: reference }
+  }
+
   // ── 3b. Data quality gate: eBay sale count → warning + optional TCGPlayer fallback ──
   //
   //  saleCount >= 10  → normal, no warning
@@ -387,6 +406,9 @@ export async function GET(
       }
     }
   }
+
+  // Apply outlier correction to the resolved price
+  tierPrice = correctOutlier(tierPrice)
 
   // ── 4. Fetch price history ────────────────────────────────────────────────
   const history = await getPriceHistory(matchedCard.id, resolvedTier, '1y')

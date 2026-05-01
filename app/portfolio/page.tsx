@@ -655,7 +655,7 @@ export default function PortfolioPage() {
         }
         .pf-header { padding: 10px 20px; }
         .pf-row    { padding: 13px 20px; min-height: 64px; }
-        .pf-hide-mobile { display: flex; }
+        .pf-hide-mobile { display: block; }
         .pf-show-mobile { display: none; }
         .pf-act-btn {
           height: 28px; padding: 0 10px; border-radius: 7px;

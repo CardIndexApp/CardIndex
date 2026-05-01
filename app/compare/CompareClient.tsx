@@ -23,6 +23,16 @@ interface SearchResult {
   image?: string
 }
 
+interface ScoreBreakdown {
+  total: number
+  trend: number
+  liquidity: number
+  consistency: number
+  value: number
+  label: string
+  summary: string
+}
+
 interface LiveData {
   price: number
   price_change_pct: number
@@ -32,7 +42,9 @@ interface LiveData {
   price_range_high?: number
   price_history?: { month: string; price: number }[]
   score?: number
+  score_breakdown?: ScoreBreakdown | null
   sales_count_30d?: number
+  currency?: string | null
 }
 
 interface CompareCard {
@@ -58,8 +70,11 @@ const GRADES = [
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function fmt(n: number) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
+function fmt(n: number, currency?: string | null) {
+  if (currency && currency !== 'USD') {
+    return `${currency} ${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  }
+  return `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 function pctColor(n: number | null | undefined) {
@@ -74,6 +89,20 @@ function scoreColor(s: number | undefined) {
   if (s >= 80) return 'var(--green)'
   if (s >= 60) return 'var(--gold)'
   return 'var(--red)'
+}
+
+function ScoreBar({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+        <span style={{ fontSize: 10, letterSpacing: 1, color: 'var(--ink3)', fontWeight: 600 }}>{label}</span>
+        <span className="font-num" style={{ fontSize: 11, color, fontWeight: 700 }}>{value}</span>
+      </div>
+      <div style={{ height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+        <div style={{ height: '100%', width: `${value}%`, background: color, borderRadius: 2, transition: 'width 0.6s ease' }} />
+      </div>
+    </div>
+  )
 }
 
 function encodeCardParam(id: string, grade: string, name: string) {
@@ -237,7 +266,7 @@ function ComparisonCardPanel({
             {/* ── Current price ── */}
             <div style={{ textAlign: 'center', marginBottom: 20, paddingBottom: 20, borderBottom: '1px solid var(--border)' }}>
               <div style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1, marginBottom: 6 }}>CURRENT PRICE</div>
-              <div className="font-num" style={{ fontSize: 30, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px', lineHeight: 1 }}>{fmt(d.price)}</div>
+              <div className="font-num" style={{ fontSize: 30, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px', lineHeight: 1 }}>{fmt(d.price, d.currency)}</div>
               {d.price_change_pct != null && (
                 <div className="font-num" style={{ fontSize: 13, fontWeight: 600, color: pctColor(d.price_change_pct), marginTop: 6 }}>
                   {pctSign(d.price_change_pct)}{d.price_change_pct.toFixed(1)}% 24h
@@ -246,14 +275,14 @@ function ComparisonCardPanel({
             </div>
 
             {/* ── Stats rows ── */}
-            <div>
+            <div style={{ marginBottom: 20 }}>
               {[
                 { label: '7D Change',  value: change7d  != null ? `${pctSign(change7d)}${change7d.toFixed(1)}%`   : '—', color: pctColor(change7d) },
                 { label: '30D Change', value: change30d != null ? `${pctSign(change30d)}${change30d.toFixed(1)}%` : '—', color: pctColor(change30d) },
                 {
                   label: 'Price Range',
                   value: (d.price_range_low != null && d.price_range_high != null)
-                    ? `${fmt(d.price_range_low)} – ${fmt(d.price_range_high)}`
+                    ? `${fmt(d.price_range_low, d.currency)} – ${fmt(d.price_range_high, d.currency)}`
                     : '—',
                   color: 'var(--ink)',
                 },
@@ -265,6 +294,27 @@ function ComparisonCardPanel({
                 </div>
               ))}
             </div>
+
+            {/* ── Score breakdown ── */}
+            {d.score_breakdown && (
+              <div style={{ paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                  <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)' }}>SCORE BREAKDOWN</span>
+                  <span style={{ fontSize: 10, fontWeight: 600, color: scoreColor(d.score_breakdown.total), background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: 5 }}>
+                    {d.score_breakdown.label}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <ScoreBar label="TREND"       value={Math.round(d.score_breakdown.trend / 30 * 100)}       color={scoreColor(Math.round(d.score_breakdown.trend / 30 * 100))} />
+                  <ScoreBar label="LIQUIDITY"   value={Math.round(d.score_breakdown.liquidity / 25 * 100)}   color={scoreColor(Math.round(d.score_breakdown.liquidity / 25 * 100))} />
+                  <ScoreBar label="CONSISTENCY" value={Math.round(d.score_breakdown.consistency / 25 * 100)} color={scoreColor(Math.round(d.score_breakdown.consistency / 25 * 100))} />
+                  <ScoreBar label="VALUE"       value={Math.round(d.score_breakdown.value / 20 * 100)}       color={scoreColor(Math.round(d.score_breakdown.value / 20 * 100))} />
+                </div>
+                {d.score_breakdown.summary && (
+                  <p style={{ fontSize: 11, color: 'var(--ink3)', lineHeight: 1.6, marginTop: 12, marginBottom: 0 }}>{d.score_breakdown.summary}</p>
+                )}
+              </div>
+            )}
           </>
         )}
       </div>
@@ -298,7 +348,7 @@ function MultiTooltip({
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
             <div style={{ width: 8, height: 8, borderRadius: 2, background: colors[cards.findIndex(c => (c.id + ':' + c.grade) === key)] ?? p.color, flexShrink: 0 }} />
             <span style={{ fontSize: 11, color: 'var(--ink3)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 100 }}>{card?.name ?? key}</span>
-            <span className="font-num" style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>{fmt(p.value)}</span>
+            <span className="font-num" style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>{fmt(p.value, cards.find(c => (c.id + ':' + c.grade) === p.dataKey)?.data?.currency)}</span>
           </div>
         )
       })}
@@ -311,6 +361,8 @@ function MultiTooltip({
 export default function CompareClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
+
+  const MAX_CARDS = 5
 
   const [cards, setCards] = useState<CompareCard[]>([])
   const [searchQuery, setSearchQuery] = useState('')
@@ -378,7 +430,7 @@ export default function CompareClient() {
     const cParams = searchParams.getAll('c')
     if (!cParams.length) return
     const initialCards: CompareCard[] = cParams
-      .slice(0, 4)
+      .slice(0, MAX_CARDS)
       .map(param => {
         const parsed = decodeCardParam(param)
         if (!parsed) return null
@@ -439,7 +491,7 @@ export default function CompareClient() {
   // ── Add card ────────────────────────────────────────────────────────────────
 
   function addCard(result: SearchResult, grade: string) {
-    if (cards.length >= 4) return
+    if (cards.length >= MAX_CARDS) return
     // Don't add duplicates (same id + grade)
     if (cards.some(c => c.id === result.id && c.grade === grade)) return
     const newCard: CompareCard = {
@@ -490,6 +542,9 @@ export default function CompareClient() {
         @keyframes cmp-pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
         .cmp-sk { animation: cmp-pulse 1.6s ease-in-out infinite; }
         @media (max-width: 640px) {
+          .cmp-grid { grid-template-columns: repeat(2, 1fr) !important; }
+        }
+        @media (max-width: 400px) {
           .cmp-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
@@ -507,7 +562,7 @@ export default function CompareClient() {
           </div>
 
           {/* ── Search bar ── */}
-          {cards.length < 4 && (
+          {cards.length < MAX_CARDS && (
             <div ref={searchRef} style={{ position: 'relative', marginBottom: 24 }}>
               <div style={{ display: 'flex', gap: 8 }}>
                 {/* Grade selector */}
@@ -618,13 +673,13 @@ export default function CompareClient() {
             </div>
           )}
 
-          {/* ── Comparison grid — always 2 cols, wraps to 2×2 for 4 cards ── */}
+          {/* ── Comparison grid — up to 5 cols on desktop, 2 on mobile ── */}
           {cards.length > 0 && (
             <div
               className="cmp-grid"
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(2, 1fr)',
+                gridTemplateColumns: `repeat(${Math.min(cards.length, 5)}, 1fr)`,
                 gap: 12,
                 marginBottom: 24,
               }}

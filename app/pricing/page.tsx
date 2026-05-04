@@ -181,29 +181,31 @@ export default function Pricing() {
               Start free. Upgrade when you need more. No hidden fees.
             </p>
 
-            {/* Billing toggle */}
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12, borderRadius: 99, padding: '4px 6px', background: 'var(--surface)', border: '1px solid var(--border2)', marginBottom: 20 }}>
-              <button
-                onClick={() => setAnnual(false)}
-                style={{ padding: '6px 18px', borderRadius: 99, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500, background: !annual ? 'var(--surface2)' : 'transparent', color: !annual ? 'var(--ink)' : 'var(--ink3)', transition: 'all 0.15s' }}
-              >
-                Monthly
-              </button>
-              <button
-                onClick={() => setAnnual(true)}
-                style={{ padding: '6px 18px', borderRadius: 99, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500, background: annual ? 'var(--surface2)' : 'transparent', color: annual ? 'var(--ink)' : 'var(--ink3)', transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: 8 }}
-              >
-                Annual
-                <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--green)', background: 'rgba(61,232,138,0.12)', border: '1px solid rgba(61,232,138,0.25)', borderRadius: 99, padding: '1px 7px', letterSpacing: 0.5 }}>
-                  SAVE 22%
-                </span>
-              </button>
-            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+              {/* Promotional notice */}
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 99, background: 'rgba(232,197,71,0.08)', border: '1px solid rgba(232,197,71,0.3)' }}>
+                <span style={{ fontSize: 14 }}>🎉</span>
+                <span style={{ fontSize: 13, color: 'var(--gold)', fontWeight: 600 }}>Promotional pricing for our first 100 users — lock in this rate forever.</span>
+              </div>
 
-            {/* Promotional notice */}
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 99, background: 'rgba(232,197,71,0.08)', border: '1px solid rgba(232,197,71,0.3)' }}>
-              <span style={{ fontSize: 14 }}>🎉</span>
-              <span style={{ fontSize: 13, color: 'var(--gold)', fontWeight: 600 }}>Promotional pricing for our first 100 users — lock in this rate forever.</span>
+              {/* Billing toggle */}
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12, borderRadius: 99, padding: '4px 6px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
+                <button
+                  onClick={() => setAnnual(false)}
+                  style={{ padding: '6px 18px', borderRadius: 99, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500, background: !annual ? 'var(--surface2)' : 'transparent', color: !annual ? 'var(--ink)' : 'var(--ink3)', transition: 'all 0.15s' }}
+                >
+                  Monthly
+                </button>
+                <button
+                  onClick={() => setAnnual(true)}
+                  style={{ padding: '6px 18px', borderRadius: 99, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500, background: annual ? 'var(--surface2)' : 'transparent', color: annual ? 'var(--ink)' : 'var(--ink3)', transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: 8 }}
+                >
+                  Annual
+                  <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--green)', background: 'rgba(61,232,138,0.12)', border: '1px solid rgba(61,232,138,0.25)', borderRadius: 99, padding: '1px 7px', letterSpacing: 0.5 }}>
+                    SAVE 22%
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
 

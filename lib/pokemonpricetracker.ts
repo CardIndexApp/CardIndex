@@ -92,21 +92,41 @@ export async function getPptCard(
       includeEbay: 'true',
       limit:       '5',
     })
-    const res = await fetch(`${BASE}/api/v2/cards?${params}`, {
+    const url = `${BASE}/api/v2/cards?${params}`
+    const res = await fetch(url, {
       headers: apiHeaders(),
       cache:   'no-store',
     })
-    if (!res.ok) return null
+
+    if (!res.ok) {
+      console.error(`[ppt] HTTP ${res.status} for "${cardName}"`)
+      return null
+    }
 
     const json = await res.json()
-    // Response may be { data: [...] } or { cards: [...] } or a bare array
-    const cards: PptCard[] = Array.isArray(json) ? json : (json.data ?? json.cards ?? [])
-    if (!cards.length) return null
+    console.log('[ppt] raw response keys:', JSON.stringify(Object.keys(json)))
+
+    // Handle multiple possible response shapes:
+    //   { data: [...] }  |  { cards: [...] }  |  bare array
+    const rawList: unknown[] = Array.isArray(json) ? json : (json.data ?? json.cards ?? [])
+    console.log(`[ppt] "${cardName}" → ${rawList.length} results`)
+
+    if (!rawList.length) return null
+
+    // Normalise: ebay data may be at card.ebay or card.prices.ebay
+    const cards: PptCard[] = rawList.map((c: unknown) => {
+      const card = c as Record<string, unknown>
+      const ebay = (card.ebay ?? (card.prices as Record<string, unknown>)?.ebay) as PptEbayData | undefined
+      return { name: card.name as string, id: card.id as string | undefined, ebay }
+    })
+
+    console.log('[ppt] first card:', JSON.stringify({ name: cards[0]?.name, hasEbay: !!cards[0]?.ebay, ebayKeys: cards[0]?.ebay ? Object.keys(cards[0].ebay) : [] }))
 
     // Prefer exact name match; fall back to first result
     const nameLower = cardName.toLowerCase()
-    return cards.find(c => c.name.toLowerCase() === nameLower) ?? cards[0]
-  } catch {
+    return cards.find(c => c.name?.toLowerCase() === nameLower) ?? cards[0]
+  } catch (err) {
+    console.error('[ppt] fetch error:', err)
     return null
   }
 }

@@ -12,8 +12,6 @@ export interface TierLimits {
   savedSearches: number  // max saved searches
   priceHistory: boolean  // access to full price history charts
   trendIndicators: boolean
-  emailAlerts: boolean
-  realtimeAlerts: boolean
   advancedAnalytics: boolean
   portfolioTracking: boolean
   dataExport: boolean
@@ -25,8 +23,6 @@ export const TIER_LIMITS: Record<Tier, TierLimits> = {
     savedSearches: 0,
     priceHistory: false,
     trendIndicators: false,
-    emailAlerts: false,   // not implemented
-    realtimeAlerts: false,
     advancedAnalytics: false,
     portfolioTracking: false,
     dataExport: false,
@@ -36,8 +32,6 @@ export const TIER_LIMITS: Record<Tier, TierLimits> = {
     savedSearches: 10,
     priceHistory: true,
     trendIndicators: true,
-    emailAlerts: false,
-    realtimeAlerts: false,
     advancedAnalytics: true,
     portfolioTracking: false,
     dataExport: false,
@@ -47,8 +41,6 @@ export const TIER_LIMITS: Record<Tier, TierLimits> = {
     savedSearches: Infinity,
     priceHistory: true,
     trendIndicators: true,
-    emailAlerts: false,   // not implemented
-    realtimeAlerts: false, // not implemented
     advancedAnalytics: true,
     portfolioTracking: true,
     dataExport: true,

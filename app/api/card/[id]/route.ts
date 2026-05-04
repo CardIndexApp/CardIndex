@@ -365,7 +365,28 @@ export async function GET(
   }
 
   const tier   = gradeToTier(grade)
-  const result = getTierPrice(fullCard, tier)
+  let result = getTierPrice(fullCard, tier)
+
+  // ── US-market fallback for JP cards with only CardMarket AGGREGATED data ─────
+  // Some JP cards (e.g. Red's Pikachu) are sold on eBay globally and Poketrace
+  // may have them indexed under a separate US-market entry with eBay pricing.
+  // When we land on AGGREGATED data, try to find that US-market card by name.
+  if (result?.resolvedTier === 'AGGREGATED' && cardName) {
+    try {
+      const usMatch = await findBestMatch(cardName, setName, cardNumber || null, undefined, undefined, 'pokemon')
+      if (usMatch) {
+        const usCard = await getPokétraceCard(usMatch.card.id)
+        if (usCard) {
+          const usResult = getTierPrice(usCard, tier)
+          if (usResult && usResult.resolvedTier !== 'AGGREGATED') {
+            fullCard    = usCard
+            result      = usResult
+            matchReason = `${matchReason}+us_market:${usMatch.card.id}(${usMatch.debug.matchReason})`
+          }
+        }
+      }
+    } catch { /* best-effort — keep CardMarket data if this fails */ }
+  }
 
   if (!result) {
     if (cached) return NextResponse.json({ source: 'stale_cache', data: cached })

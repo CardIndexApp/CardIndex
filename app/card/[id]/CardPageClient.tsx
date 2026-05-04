@@ -927,6 +927,96 @@ export default function CardPageClient() {
 
     return (
       <>
+        {/* ── Report an issue modal ───────────────────────────────────── */}
+        {reportOpen && (
+          <div
+            onClick={() => setReportOpen(false)}
+            style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+          >
+            <div
+              onClick={e => e.stopPropagation()}
+              style={{ background: 'var(--surface)', border: '1px solid var(--border2)', borderRadius: 16, padding: 24, width: '100%', maxWidth: 420, boxShadow: '0 24px 60px rgba(0,0,0,0.5)' }}
+            >
+              {reportDone ? (
+                <div style={{ textAlign: 'center', padding: '12px 0' }}>
+                  <div style={{ fontSize: 32, marginBottom: 12 }}>✓</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', marginBottom: 6 }}>Report submitted</div>
+                  <div style={{ fontSize: 12, color: 'var(--ink3)', marginBottom: 20 }}>Thanks — we&apos;ll review it shortly.</div>
+                  <button onClick={() => setReportOpen(false)} style={{ padding: '8px 20px', borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border2)', fontSize: 12, color: 'var(--ink2)', cursor: 'pointer' }}>Close</button>
+                </div>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>Report an issue</div>
+                    <button onClick={() => setReportOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--ink3)', fontSize: 18, cursor: 'pointer', lineHeight: 1, padding: '0 2px' }}>×</button>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+                    {([
+                      { value: 'price_error', label: 'Price error', desc: 'The price shown seems wrong' },
+                      { value: 'wrong_card',  label: 'Wrong card',  desc: 'This is showing the wrong card' },
+                      { value: 'other',       label: 'Other',       desc: 'Something else is incorrect' },
+                    ] as const).map(opt => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setReportType(opt.value)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10, background: reportType === opt.value ? 'rgba(255,107,107,0.08)' : 'var(--bg)', border: `1.5px solid ${reportType === opt.value ? '#ff6b6b' : 'var(--border2)'}`, cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s' }}
+                      >
+                        <div style={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${reportType === opt.value ? '#ff6b6b' : 'var(--border2)'}`, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {reportType === opt.value && <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#ff6b6b' }} />}
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 2 }}>{opt.label}</div>
+                          <div style={{ fontSize: 11, color: 'var(--ink3)' }}>{opt.desc}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  <textarea
+                    placeholder="Add details (optional)…"
+                    value={reportDesc}
+                    onChange={e => setReportDesc(e.target.value)}
+                    maxLength={2000}
+                    rows={3}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, background: 'var(--bg)', border: '1.5px solid var(--border2)', color: 'var(--ink)', fontSize: 12, resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', marginBottom: 16 }}
+                  />
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      onClick={() => setReportOpen(false)}
+                      style={{ flex: 1, padding: '9px 0', borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border2)', fontSize: 12, fontWeight: 600, color: 'var(--ink3)', cursor: 'pointer' }}
+                    >Cancel</button>
+                    <button
+                      disabled={!reportType || reportSubmitting}
+                      onClick={async () => {
+                        if (!reportType) return
+                        setReportSubmitting(true)
+                        try {
+                          await fetch('/api/report', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              card_id:     id,
+                              card_name:   displayName,
+                              grade:       urlGrade ?? 'Raw',
+                              report_type: reportType,
+                              description: reportDesc.trim() || null,
+                              page_url:    window.location.href,
+                            }),
+                          })
+                          setReportDone(true)
+                        } finally {
+                          setReportSubmitting(false)
+                        }
+                      }}
+                      style={{ flex: 2, padding: '9px 0', borderRadius: 8, background: reportType ? '#ff6b6b' : 'var(--surface2)', border: 'none', fontSize: 12, fontWeight: 700, color: reportType ? '#fff' : 'var(--ink3)', cursor: reportType ? 'pointer' : 'default', opacity: reportSubmitting ? 0.6 : 1, transition: 'all 0.15s' }}
+                    >
+                      {reportSubmitting ? 'Submitting…' : 'Submit report'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
         <style>{PAGE_STYLES}</style>
         <Navbar />
         <main className="ci-main" style={{ paddingTop: 72, paddingBottom: 80, minHeight: '100vh' }}>
@@ -2792,7 +2882,7 @@ export default function CardPageClient() {
   return (
     <>
       {/* ── Report an issue modal ───────────────────────────────────── */}
-      {reportOpen && typeof document !== 'undefined' && createPortal(
+      {reportOpen && (
         <div
           onClick={() => setReportOpen(false)}
           style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
@@ -2881,8 +2971,7 @@ export default function CardPageClient() {
               </>
             )}
           </div>
-        </div>,
-        document.body
+        </div>
       )}
       <style>{PAGE_STYLES}</style>
       <Navbar />

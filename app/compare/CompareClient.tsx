@@ -96,18 +96,26 @@ function labelColor(label: string) {
   return 'var(--red)'
 }
 
-function encodeCardParam(id: string, grade: string, name: string) {
-  return `${id}:${encodeURIComponent(grade)}:${encodeURIComponent(name)}`
+function encodeCardParam(id: string, grade: string, name: string, setSlug?: string, game?: string) {
+  // Format: id:grade:name[:setSlug[:game]]
+  // grade/name/setSlug/game are encodeURIComponent'd so they never contain raw colons.
+  const base = `${id}:${encodeURIComponent(grade)}:${encodeURIComponent(name)}`
+  if (setSlug || game) {
+    return `${base}:${encodeURIComponent(setSlug ?? '')}:${encodeURIComponent(game ?? '')}`
+  }
+  return base
 }
 
-function decodeCardParam(param: string): { id: string; grade: string; name: string } | null {
+function decodeCardParam(param: string): { id: string; grade: string; name: string; setSlug?: string; game?: string } | null {
   const parts = param.split(':')
   if (parts.length < 3) return null
-  return {
-    id: parts[0],
-    grade: decodeURIComponent(parts[1]),
-    name: decodeURIComponent(parts.slice(2).join(':')),
-  }
+  // id is first; grade/name/setSlug/game are URL-encoded and never contain raw colons
+  const id      = parts[0]
+  const grade   = decodeURIComponent(parts[1])
+  const name    = decodeURIComponent(parts[2])
+  const setSlug = parts[3] ? decodeURIComponent(parts[3]) : undefined
+  const game    = parts[4] ? decodeURIComponent(parts[4]) : undefined
+  return { id, grade, name, setSlug: setSlug || undefined, game: game || undefined }
 }
 
 // ── Build combined chart data ─────────────────────────────────────────────────
@@ -582,7 +590,7 @@ export default function CompareClient() {
 
   function updateUrl(updatedCards: CompareCard[]) {
     const params = new URLSearchParams()
-    for (const c of updatedCards) params.append('c', encodeCardParam(c.id, c.grade, c.name))
+    for (const c of updatedCards) params.append('c', encodeCardParam(c.id, c.grade, c.name, c.setSlug, c.game))
     const qs = params.toString()
     router.replace(qs ? `/compare?${qs}` : '/compare', { scroll: false })
   }
@@ -595,7 +603,7 @@ export default function CompareClient() {
       const trimmed = cards.slice(0, 2)
       setCards(trimmed)
       const params = new URLSearchParams()
-      for (const c of trimmed) params.append('c', encodeCardParam(c.id, c.grade, c.name))
+      for (const c of trimmed) params.append('c', encodeCardParam(c.id, c.grade, c.name, c.setSlug, c.game))
       const qs = params.toString()
       router.replace(qs ? `/compare?${qs}` : '/compare', { scroll: false })
     }
@@ -650,7 +658,7 @@ export default function CompareClient() {
       .map(param => {
         const parsed = decodeCardParam(param)
         if (!parsed) return null
-        return { id: parsed.id, name: parsed.name, setName: '', grade: parsed.grade, data: null, loading: true, error: null }
+        return { id: parsed.id, name: parsed.name, setName: '', grade: parsed.grade, setSlug: parsed.setSlug, game: parsed.game, data: null, loading: true, error: null }
       })
       .filter(Boolean) as CompareCard[]
     if (initialCards.length) {

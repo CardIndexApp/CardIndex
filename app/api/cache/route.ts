@@ -39,10 +39,10 @@ export async function DELETE(req: NextRequest) {
 
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 
-  // Validate id format to prevent wildcard injection via LIKE pattern
-  // pokemontcg IDs look like "sv4-1" or "base1-4"; Poketrace UUIDs are hex+dashes
-  const safeId = id.replace(/[%_]/g, '')  // strip SQL LIKE wildcards before embedding in pattern
-  if (safeId !== id) {
+  // Reject obviously invalid IDs (e.g. path traversal, shell injection)
+  // Allow: alphanumeric, hyphens, underscores, dots — covers pokemontcg IDs ("sv4-1"),
+  // Poketrace UUIDs, and Poketrace market-prefixed IDs ("eu_469909").
+  if (!/^[\w.\-]+$/.test(id)) {
     return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
   }
 
@@ -52,8 +52,10 @@ export async function DELETE(req: NextRequest) {
     // Purge one specific cache_key — exact match, no pattern
     query = query.eq('cache_key', `${id}:${grade}`)
   } else {
-    // Purge all grades for this card
-    query = query.like('cache_key', `${id}:%`)
+    // Purge all grades for this card.
+    // Escape LIKE wildcards in the id portion so "eu_469909" doesn't match "eu?469909".
+    const likeId = id.replace(/[%_]/g, c => `\\${c}`)
+    query = query.like('cache_key', `${likeId}:%`)
   }
 
   const { error } = await query

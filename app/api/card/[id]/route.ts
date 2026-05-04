@@ -186,8 +186,17 @@ export async function GET(
 
   // ── Fast path: Poketrace search result (from new search page) ───────────────
   // Detected by: (a) UUID format, OR (b) set_slug param present (only passed by
-  // our search page, which gets IDs directly from Poketrace's own API).
-  const isPoketraceId = !!urlSetSlug || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+  // our search page, which gets IDs directly from Poketrace's own API),
+  // OR (c) Poketrace market-prefixed format e.g. "eu_469909", "us_12345".
+  const isPoketraceId = !!urlSetSlug
+    || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+    || /^[a-z]{2}_\d+$/i.test(id)  // Poketrace market-prefixed IDs
+
+  // Infer game/market from the ID prefix when not explicitly provided.
+  // eu_* = CardMarket (JP), us_* = eBay US (EN). urlGame takes precedence if set.
+  const inferredGame = urlGame !== 'pokemon'
+    ? urlGame
+    : /^eu_/i.test(id) ? 'pokemon-japanese' : 'pokemon'
 
   let matchedCard: PokétraceCard | null = null
   let matchReason = ''
@@ -322,7 +331,7 @@ export async function GET(
   // game-aware set+number search as the fallback. This handles JP cards correctly.
   if (!fullCard && urlSetSlug && cardNumber) {
     try {
-      const found = await findBySetAndNumber(cardName, [urlSetSlug], cardNumber, [], urlGame)
+      const found = await findBySetAndNumber(cardName, [urlSetSlug], cardNumber, [], inferredGame)
       if (found) {
         fullCard = await getPokétraceCard(found.id)
         if (fullCard) matchReason = `set_slug_fallback:${urlSetSlug}+${cardNumber}`

@@ -192,14 +192,15 @@ export async function GET(
   let poketraceSetSlugs: string[] = []
   let variants: PoketraceVariant[] = []
 
-  if (isPoketraceId && !(setName && cardNumber)) {
-    // Direct UUID with no set+number context — trust the UUID
+  if (isPoketraceId) {
+    // Poketrace UUIDs come directly from our own search page (/api/pt/cards),
+    // which queries Poketrace's database. The UUID is always the correct card —
+    // trust it unconditionally, even when set+number params are also present.
     matchedCard = { id } as PokétraceCard
     matchReason = 'direct-uuid'
   } else {
-    // Either not a Poketrace UUID, or we have set+number params that let us find
-    // the exact variant (e.g. Alternate Full Art vs regular). Prefer set+number
-    // over a potentially-wrong UUID from the search index.
+    // pokemontcg.io ID — use strategies A (TCGPlayer ID), B (set+number), C (name search)
+    // to find the matching Poketrace card.
 
     // ── 2. Fetch pokemontcg.io info + all matching Poketrace set slugs in parallel ──
     // Skip pokemontcg.io lookup when the id is a Poketrace UUID — it won't resolve there.

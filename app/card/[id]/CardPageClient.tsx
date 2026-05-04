@@ -2816,11 +2816,11 @@ export default function CardPageClient() {
                   </div>
 
                   {/* Lightbox */}
-                  {/* ── Report an issue modal ───────────────────────────── */}
-                  {reportOpen && (
+                  {/* ── Report an issue modal (portal → document.body) ── */}
+                  {reportOpen && typeof document !== 'undefined' && createPortal(
                     <div
                       onClick={() => setReportOpen(false)}
-                      style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+                      style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
                     >
                       <div
                         onClick={e => e.stopPropagation()}
@@ -2906,7 +2906,8 @@ export default function CardPageClient() {
                           </>
                         )}
                       </div>
-                    </div>
+                    </div>,
+                    document.body
                   )}
 
                   {lightbox && card.imageUrl && (

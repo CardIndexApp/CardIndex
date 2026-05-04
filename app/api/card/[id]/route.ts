@@ -183,7 +183,7 @@ export async function GET(
   }
 
   // ── Fast path: direct Poketrace UUID (from new search page) ─────────────────
-  const isPoketraceId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)
+  const isPoketraceId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
 
   let matchedCard: PokétraceCard | null = null
   let matchReason = ''

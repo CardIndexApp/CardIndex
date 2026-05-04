@@ -5,8 +5,22 @@
  * Used as a fallback for JP cards that only have CardMarket AGGREGATED data
  * from Poketrace. Provides eBay sold listing prices for PSA/BGS/CGC grades.
  *
- * Credits: 1 (base) + 1 (includeEbay) = 2 per card lookup.
+ * Credits: cards_returned × (1 + includeEbay) = 2 per call (limit=1).
  * Results are cached in Supabase for 24h so credits are only spent once per card.
+ *
+ * Response shape (includeEbay=true):
+ * {
+ *   data: {                          ← single object (tcgPlayerId) or array (search)
+ *     name, setName, prices: { market, ... },
+ *     ebay: {
+ *       salesByGrade: {
+ *         psa10: { averagePrice: 15000, marketTrend: "stable" },
+ *         psa9:  { averagePrice: 1500,  marketTrend: "rising" },
+ *         ...
+ *       }
+ *     }
+ *   }
+ * }
  */
 
 import type { TierPrice } from './poketrace'
@@ -16,49 +30,51 @@ const BASE = 'https://www.pokemonpricetracker.com'
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface PptGrade {
-  avg?: number
-  low?: number
-  high?: number
-  count?: number
+  averagePrice?: number
+  marketTrend?:  string
+}
+
+interface PptSalesByGrade {
+  psa10?:  PptGrade
+  psa9?:   PptGrade
+  psa8?:   PptGrade
+  psa7?:   PptGrade
+  psa6?:   PptGrade
+  bgs9_5?: PptGrade
+  bgs9?:   PptGrade
+  bgs8_5?: PptGrade
+  cgc10?:  PptGrade
+  cgc9_5?: PptGrade
+  cgc9?:   PptGrade
+  raw?:      PptGrade
+  ungraded?: PptGrade
 }
 
 interface PptEbayData {
-  psa10?: PptGrade
-  psa9?:  PptGrade
-  psa8?:  PptGrade
-  psa7?:  PptGrade
-  psa6?:  PptGrade
-  bgs9_5?: PptGrade
-  bgs9?:  PptGrade
-  bgs8_5?: PptGrade
-  cgc10?: PptGrade
-  cgc9_5?: PptGrade
-  cgc9?:  PptGrade
-  raw?:   PptGrade
+  salesByGrade?: PptSalesByGrade
 }
 
 export interface PptCard {
   name: string
-  id?: string
+  id?:  string
   ebay?: PptEbayData
 }
 
 // ── Grade key mapping ─────────────────────────────────────────────────────────
 
-// Maps our Poketrace tier keys → PokemonPriceTracker eBay grade keys
-const TIER_TO_PPT: Record<string, keyof PptEbayData> = {
-  PSA_10:  'psa10',
-  PSA_9:   'psa9',
-  PSA_8:   'psa8',
-  PSA_7:   'psa7',
-  PSA_6:   'psa6',
-  BGS_9_5: 'bgs9_5',
-  BGS_9:   'bgs9',
-  BGS_8_5: 'bgs8_5',
-  CGC_10:  'cgc10',
-  CGC_9_5: 'cgc9_5',
-  CGC_9:   'cgc9',
-  // Raw conditions all map to ungraded eBay sales
+// Maps our Poketrace tier keys → PokemonPriceTracker salesByGrade keys
+const TIER_TO_PPT: Record<string, keyof PptSalesByGrade> = {
+  PSA_10:           'psa10',
+  PSA_9:            'psa9',
+  PSA_8:            'psa8',
+  PSA_7:            'psa7',
+  PSA_6:            'psa6',
+  BGS_9_5:          'bgs9_5',
+  BGS_9:            'bgs9',
+  BGS_8_5:          'bgs8_5',
+  CGC_10:           'cgc10',
+  CGC_9_5:          'cgc9_5',
+  CGC_9:            'cgc9',
   NEAR_MINT:        'raw',
   MINT:             'raw',
   LIGHTLY_PLAYED:   'raw',
@@ -74,10 +90,8 @@ function apiHeaders(): HeadersInit {
 }
 
 /**
- * Search PokemonPriceTracker for a card by name, returning the best name match
- * with eBay graded pricing included.
- *
- * language: 'japanese' searches JP sets. Costs 2 credits (base + ebay).
+ * Search PokemonPriceTracker for a JP card by name with eBay graded pricing.
+ * Costs 2 credits per call (1 card × (1 base + 1 ebay)).
  */
 export async function getPptCard(
   cardName: string,
@@ -90,10 +104,9 @@ export async function getPptCard(
       search:      cardName,
       language,
       includeEbay: 'true',
-      limit:       '1',   // credits = cards_returned × (1 + includeEbay) → 2 credits/call
+      limit:       '1',
     })
-    const url = `${BASE}/api/v2/cards?${params}`
-    const res = await fetch(url, {
+    const res = await fetch(`${BASE}/api/v2/cards?${params}`, {
       headers: apiHeaders(),
       cache:   'no-store',
     })
@@ -104,25 +117,24 @@ export async function getPptCard(
     }
 
     const json = await res.json()
-    console.log('[ppt] raw response keys:', JSON.stringify(Object.keys(json)))
 
-    // Handle multiple possible response shapes:
-    //   { data: [...] }  |  { cards: [...] }  |  bare array
-    const rawList: unknown[] = Array.isArray(json) ? json : (json.data ?? json.cards ?? [])
-    console.log(`[ppt] "${cardName}" → ${rawList.length} results`)
+    // data may be a single object (tcgPlayerId lookup) or an array (search)
+    const raw = json.data ?? json.cards ?? json
+    const items: unknown[] = Array.isArray(raw) ? raw : [raw]
 
-    if (!rawList.length) return null
+    if (!items.length) return null
 
-    // Normalise: ebay data may be at card.ebay or card.prices.ebay
-    const cards: PptCard[] = rawList.map((c: unknown) => {
+    const cards: PptCard[] = items.map((c: unknown) => {
       const card = c as Record<string, unknown>
-      const ebay = (card.ebay ?? (card.prices as Record<string, unknown>)?.ebay) as PptEbayData | undefined
-      return { name: card.name as string, id: card.id as string | undefined, ebay }
+      return {
+        name: card.name as string,
+        id:   card.id   as string | undefined,
+        ebay: card.ebay as PptEbayData | undefined,
+      }
     })
 
-    console.log('[ppt] first card:', JSON.stringify({ name: cards[0]?.name, hasEbay: !!cards[0]?.ebay, ebayKeys: cards[0]?.ebay ? Object.keys(cards[0].ebay) : [] }))
+    console.log(`[ppt] "${cardName}" → ${cards.length} result(s), first: ${cards[0]?.name}, hasSalesByGrade: ${!!(cards[0]?.ebay?.salesByGrade)}`)
 
-    // Prefer exact name match; fall back to first result
     const nameLower = cardName.toLowerCase()
     return cards.find(c => c.name?.toLowerCase() === nameLower) ?? cards[0]
   } catch (err) {
@@ -132,21 +144,21 @@ export async function getPptCard(
 }
 
 /**
- * Convert a PokemonPriceTracker eBay grade entry into our TierPrice shape.
+ * Convert a PokemonPriceTracker eBay entry into our TierPrice shape.
  * Returns null if no data exists for that tier.
  */
 export function pptToTierPrice(ebay: PptEbayData, tier: string): TierPrice | null {
+  const salesByGrade = ebay.salesByGrade
+  if (!salesByGrade) return null
+
   const key = TIER_TO_PPT[tier]
   if (!key) return null
 
-  const data = ebay[key]
-  if (!data?.avg) return null
+  const data = salesByGrade[key]
+  if (!data?.averagePrice) return null
 
   return {
-    avg:        data.avg,
-    low:        data.low,
-    high:       data.high,
-    saleCount:  data.count,
-    confidence: data.count && data.count >= 5 ? 'high' : 'medium',
+    avg:        data.averagePrice,
+    confidence: 'medium',
   }
 }

@@ -548,6 +548,7 @@ export default function CardPageClient() {
   const urlSet     = searchParams.get('set')      ?? null
   const urlNumber  = searchParams.get('number')   ?? null
   const urlSetSlug = searchParams.get('set_slug') ?? null
+  const urlGame    = searchParams.get('game')     ?? null
   const card = getCard(id)
 
   // Currency conversion
@@ -629,9 +630,11 @@ export default function CardPageClient() {
     setLiveError(null)
     setLiveDebug(null)
     const params = new URLSearchParams({ grade, name: cardName })
-    if (urlSet)    params.set('set', urlSet)
-    if (urlNumber) params.set('number', urlNumber)
-    if (bustCache) params.set('bust_cache', '1')
+    if (urlSet)     params.set('set', urlSet)
+    if (urlNumber)  params.set('number', urlNumber)
+    if (urlSetSlug) params.set('set_slug', urlSetSlug)
+    if (urlGame)    params.set('game', urlGame)
+    if (bustCache)  params.set('bust_cache', '1')
     fetch(`/api/card/${id}?${params.toString()}`)
       .then(async r => {
         const json = await r.json().catch(() => null)
@@ -653,11 +656,14 @@ export default function CardPageClient() {
       .catch(() => setLiveError('Network error — please try again'))
       .finally(() => setLiveLoading(false))
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, urlGrade, urlName, urlSet, urlNumber, card])
+  }, [id, urlGrade, urlName, urlSet, urlNumber, urlSetSlug, urlGame, card])
 
   // Fetch live price data — userId intentionally excluded to avoid double-fetch
+  // Bust cache on first load when navigating from Poketrace search (set_slug present),
+  // so stale wrong-match data is never served for JP or alt-art cards.
   useEffect(() => {
-    fetchLiveData()
+    fetchLiveData(!!urlSetSlug)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchLiveData])
 
   // CI Index comparison data (non-blocking)

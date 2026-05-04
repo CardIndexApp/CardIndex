@@ -54,6 +54,7 @@ interface CompareCard {
   name: string
   setName: string
   setSlug?: string
+  cardNumber?: string
   game?: string
   grade: string
   imageUrl?: string
@@ -609,9 +610,12 @@ export default function CompareClient() {
     ))
     try {
       const params = new URLSearchParams({ grade: card.grade, name: card.name })
-      if (card.setName) params.set('set', card.setName)
-      if (card.setSlug) params.set('set_slug', card.setSlug)
-      if (card.game)    params.set('game', card.game)
+      if (card.setName)    params.set('set', card.setName)
+      if (card.setSlug)    params.set('set_slug', card.setSlug)
+      if (card.cardNumber) params.set('number', card.cardNumber)
+      if (card.game)       params.set('game', card.game)
+      // Always bust cache for Poketrace-sourced cards so stale wrong-match data is never served
+      if (card.setSlug)    params.set('bust_cache', '1')
       const r = await fetch(`/api/card/${card.id}?${params}`)
       const json = await r.json().catch(() => null)
       if (!r.ok || !json?.data) {
@@ -700,6 +704,7 @@ export default function CompareClient() {
     const newCard: CompareCard = {
       id: result.id, name: result.name, setName: result.set.name,
       setSlug: result.set.slug,
+      cardNumber: result.number,
       game: lang === 'jp' ? 'pokemon-japanese' : 'pokemon',
       grade, imageUrl: result.image, data: null, loading: true, error: null,
     }

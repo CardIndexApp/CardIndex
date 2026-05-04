@@ -133,10 +133,12 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const grade      = req.nextUrl.searchParams.get('grade')  ?? 'Raw'
-  const cardName   = req.nextUrl.searchParams.get('name')   ?? ''
-  const setName    = req.nextUrl.searchParams.get('set')    ?? ''
-  const cardNumber = req.nextUrl.searchParams.get('number') ?? ''
+  const grade      = req.nextUrl.searchParams.get('grade')    ?? 'Raw'
+  const cardName   = req.nextUrl.searchParams.get('name')     ?? ''
+  const setName    = req.nextUrl.searchParams.get('set')      ?? ''
+  const cardNumber = req.nextUrl.searchParams.get('number')   ?? ''
+  const urlSetSlug = req.nextUrl.searchParams.get('set_slug') ?? ''
+  const urlGame    = req.nextUrl.searchParams.get('game')     ?? 'pokemon'
   const bustCache  = req.nextUrl.searchParams.get('bust_cache') === '1'
 
   if (!cardName) {
@@ -182,8 +184,10 @@ export async function GET(
     return NextResponse.json({ error: 'POKETRACE_API_KEY not configured' }, { status: 503 })
   }
 
-  // ── Fast path: direct Poketrace UUID (from new search page) ─────────────────
-  const isPoketraceId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+  // ── Fast path: Poketrace search result (from new search page) ───────────────
+  // Detected by: (a) UUID format, OR (b) set_slug param present (only passed by
+  // our search page, which gets IDs directly from Poketrace's own API).
+  const isPoketraceId = !!urlSetSlug || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
 
   let matchedCard: PokétraceCard | null = null
   let matchReason = ''
@@ -193,9 +197,7 @@ export async function GET(
   let variants: PoketraceVariant[] = []
 
   if (isPoketraceId) {
-    // Poketrace UUIDs come directly from our own search page (/api/pt/cards),
-    // which queries Poketrace's database. The UUID is always the correct card —
-    // trust it unconditionally, even when set+number params are also present.
+    // ID came from our search page (Poketrace's own API) — trust it directly.
     matchedCard = { id } as PokétraceCard
     matchReason = 'direct-uuid'
   } else {
@@ -314,6 +316,20 @@ export async function GET(
     }
     fullCard = null
   }
+
+  // If direct ID lookup failed (e.g. Poketrace search returned a non-UUID slug ID),
+  // and we have an exact set slug + card number from the search page, try a
+  // game-aware set+number search as the fallback. This handles JP cards correctly.
+  if (!fullCard && urlSetSlug && cardNumber) {
+    try {
+      const found = await findBySetAndNumber(cardName, [urlSetSlug], cardNumber, [], urlGame)
+      if (found) {
+        fullCard = await getPokétraceCard(found.id)
+        if (fullCard) matchReason = `set_slug_fallback:${urlSetSlug}+${cardNumber}`
+      }
+    } catch { /* best-effort fallback */ }
+  }
+
   if (!fullCard) {
     if (cached) return NextResponse.json({ source: 'stale_cache', data: cached })
     return NextResponse.json({

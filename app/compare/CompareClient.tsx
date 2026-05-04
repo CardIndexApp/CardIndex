@@ -53,6 +53,8 @@ interface CompareCard {
   id: string
   name: string
   setName: string
+  setSlug?: string
+  game?: string
   grade: string
   imageUrl?: string
   data: LiveData | null
@@ -608,6 +610,8 @@ export default function CompareClient() {
     try {
       const params = new URLSearchParams({ grade: card.grade, name: card.name })
       if (card.setName) params.set('set', card.setName)
+      if (card.setSlug) params.set('set_slug', card.setSlug)
+      if (card.game)    params.set('game', card.game)
       const r = await fetch(`/api/card/${card.id}?${params}`)
       const json = await r.json().catch(() => null)
       if (!r.ok || !json?.data) {
@@ -695,6 +699,8 @@ export default function CompareClient() {
     if (cards.some(c => c.id === result.id && c.grade === grade)) return
     const newCard: CompareCard = {
       id: result.id, name: result.name, setName: result.set.name,
+      setSlug: result.set.slug,
+      game: lang === 'jp' ? 'pokemon-japanese' : 'pokemon',
       grade, imageUrl: result.image, data: null, loading: true, error: null,
     }
     const updated = [...cards, newCard]

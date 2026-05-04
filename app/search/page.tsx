@@ -295,6 +295,7 @@ function SearchPageInner() {
       grade, name: card.name, set: card.set.name,
       number: card.cardNumber, set_slug: card.set.slug,
     })
+    if (lang === 'jp') params.set('game', 'pokemon-japanese')
     router.push(`/card/${card.id}?${params}`)
   }
 

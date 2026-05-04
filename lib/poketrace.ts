@@ -360,17 +360,19 @@ export async function findBySetAndNumber(
   _cardName: string,
   setSlugs: string | string[],
   cardNumber: string,
-  variants?: PoketraceVariant[]
+  variants?: PoketraceVariant[],
+  game: string = 'pokemon'
 ): Promise<PokétraceCard | null> {
-  const slugList   = Array.isArray(setSlugs) ? setSlugs : [setSlugs]
+  const slugList      = Array.isArray(setSlugs) ? setSlugs : [setSlugs]
   const variantsToTry = variants?.length ? variants : [...POKETRACE_VARIANTS]
+  const market        = game === 'pokemon-japanese' ? 'EU' : 'US'
 
   for (const setSlug of slugList) {
     try {
       // Try without variant filter first — fewest requests, catches unexpected variants
       const noVariantParams = new URLSearchParams({
         set: setSlug, card_number: cardNumber,
-        market: 'US', game: 'pokemon', limit: '20',
+        market, game, limit: '20',
       })
       const noVariantRes = await fetch(`${BASE}/cards?${noVariantParams}`, { headers: apiHeaders(), cache: 'no-store' })
       assertOkOrNotFound(noVariantRes)
@@ -384,7 +386,7 @@ export async function findBySetAndNumber(
       for (const variant of variantsToTry) {
         const params = new URLSearchParams({
           set: setSlug, card_number: cardNumber, variant,
-          market: 'US', game: 'pokemon', limit: '20',
+          market, game, limit: '20',
         })
         const res = await fetch(`${BASE}/cards?${params}`, { headers: apiHeaders(), cache: 'no-store' })
         assertOkOrNotFound(res)

@@ -28,6 +28,7 @@ import {
   type PokétraceCard,
   type PriceHistoryPoint,
 } from '@/lib/poketrace'
+import { getPptCard, pptToTierPrice } from '@/lib/pokemonpricetracker'
 import { computeScore } from '@/lib/score'
 
 /**
@@ -364,8 +365,25 @@ export async function GET(
     }, { status: 502 })
   }
 
-  const tier   = gradeToTier(grade)
-  const result = getTierPrice(fullCard, tier)
+  const tier = gradeToTier(grade)
+  let result = getTierPrice(fullCard, tier)
+
+  // ── PokemonPriceTracker fallback for JP cards with only CardMarket AGGREGATED ──
+  // Only burns a credit when: (a) key is set, (b) result is AGGREGATED (no eBay/TCG data),
+  // (c) the Supabase cache is being bypassed (bust_cache=1 or no cached entry above).
+  // Results are cached for 24h so each JP card costs at most 2 credits per day.
+  if (result?.resolvedTier === 'AGGREGATED' && process.env.POKEMON_PRICE_TRACKER_API_KEY) {
+    try {
+      const pptCard = await getPptCard(cardName, 'japanese')
+      if (pptCard?.ebay) {
+        const pptTier = pptToTierPrice(pptCard.ebay, tier)
+        if (pptTier && pptTier.avg > 0) {
+          result      = { tierPrice: pptTier, resolvedTier: tier }
+          matchReason = `${matchReason}+ppt_ebay:${pptCard.name}`
+        }
+      }
+    } catch { /* keep CardMarket AGGREGATED if PPT fails */ }
+  }
 
   if (!result) {
     if (cached) return NextResponse.json({ source: 'stale_cache', data: cached })
@@ -478,9 +496,11 @@ export async function GET(
 
   // CardMarket AGGREGATED = Japanese card priced via EU market (no eBay/TCGPlayer data)
   const isCardMarket   = resolvedTier === 'AGGREGATED'
+  // PokemonPriceTracker eBay data was used when matchReason contains +ppt_ebay
+  const isPpt          = matchReason.includes('+ppt_ebay')
 
   let tierPrice   = rawTierPrice
-  let dataSource  = isCardMarket ? 'cardmarket' : ebayTierData ? 'ebay' : 'tcgplayer'
+  let dataSource  = isPpt ? 'ebay' : isCardMarket ? 'cardmarket' : ebayTierData ? 'ebay' : 'tcgplayer'
   let dataWarning: string | null = null
 
   if (ebayTierData) {

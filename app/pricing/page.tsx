@@ -177,9 +177,15 @@ export default function Pricing() {
             <h1 style={{ fontSize: 'clamp(32px, 5vw, 52px)', fontWeight: 800, color: 'var(--ink)', letterSpacing: '-1.5px', marginBottom: 14, lineHeight: 1.05 }}>
               Simple, transparent pricing
             </h1>
-            <p style={{ fontSize: 15, color: 'var(--ink2)', maxWidth: 440, margin: '0 auto 32px', lineHeight: 1.7 }}>
+            <p style={{ fontSize: 15, color: 'var(--ink2)', maxWidth: 440, margin: '0 auto 20px', lineHeight: 1.7 }}>
               Start free. Upgrade when you need more. No hidden fees.
             </p>
+
+            {/* Promotional notice */}
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 99, background: 'rgba(232,197,71,0.08)', border: '1px solid rgba(232,197,71,0.3)', marginBottom: 32 }}>
+              <span style={{ fontSize: 14 }}>🎉</span>
+              <span style={{ fontSize: 13, color: 'var(--gold)', fontWeight: 600 }}>Promotional pricing for our first 100 users — lock in this rate forever.</span>
+            </div>
 
             {/* Billing toggle */}
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12, borderRadius: 99, padding: '4px 6px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>

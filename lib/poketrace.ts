@@ -128,7 +128,24 @@ export function getTierPrice(
 ): { tierPrice: TierPrice; resolvedTier: string } | null {
   const isRaw = RAW_TIERS.includes(tier)
 
+  // EU market cards (Japanese) — prefer eBay data if Poketrace has it,
+  // since high-value JP cards like Red's Pikachu are sold on eBay globally.
+  // Only fall back to CardMarket AGGREGATED when no eBay/TCGPlayer data exists.
   if (card.market === 'EU') {
+    // Check eBay data first
+    const ebayExact = card.prices.ebay?.[tier]
+    if (ebayExact) return { tierPrice: ebayExact, resolvedTier: tier }
+
+    // Try other eBay tiers
+    const ebayGraded = getBestGradedTier(card)
+    if (ebayGraded) return ebayGraded
+
+    for (const fallback of RAW_TIERS) {
+      const fb = card.prices.ebay?.[fallback] ?? card.prices.tcgplayer?.[fallback]
+      if (fb) return { tierPrice: fb, resolvedTier: fallback }
+    }
+
+    // Last resort: CardMarket AGGREGATED
     const tp = card.prices.cardmarket?.AGGREGATED
     return tp ? { tierPrice: tp, resolvedTier: 'AGGREGATED' } : null
   }

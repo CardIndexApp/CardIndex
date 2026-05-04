@@ -90,7 +90,7 @@ export async function getPptCard(
       search:      cardName,
       language,
       includeEbay: 'true',
-      limit:       '5',
+      limit:       '1',   // credits = cards_returned × (1 + includeEbay) → 2 credits/call
     })
     const url = `${BASE}/api/v2/cards?${params}`
     const res = await fetch(url, {

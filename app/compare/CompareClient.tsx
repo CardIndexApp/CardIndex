@@ -540,11 +540,14 @@ export default function CompareClient() {
     return fmtCurrency(amount)
   }, [fmtCurrency, rates])
 
-  // ── Auth gate ────────────────────────────────────────────────────────────────
+  // ── Auth + tier gate ─────────────────────────────────────────────────────────
   const [authChecked, setAuthChecked] = useState(false)
   useEffect(() => {
-    createClient().auth.getSession().then(({ data: { session } }) => {
-      if (!session) router.replace('/')
+    const client = createClient()
+    client.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session) { router.replace('/'); return }
+      const { data: prof } = await client.from('profiles').select('tier').eq('id', session.user.id).single()
+      if (prof?.tier !== 'pro') { router.replace('/pricing'); return }
       setAuthChecked(true)
     })
   }, [router])

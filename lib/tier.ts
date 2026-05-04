@@ -12,7 +12,9 @@ export interface TierLimits {
   savedSearches: number  // max saved searches
   priceHistory: boolean  // access to full price history charts
   trendIndicators: boolean
+  priceCheck: boolean    // enter a custom price for analysis
   advancedAnalytics: boolean
+  compare: boolean       // card comparison tool
   portfolioTracking: boolean
   dataExport: boolean
 }
@@ -23,7 +25,9 @@ export const TIER_LIMITS: Record<Tier, TierLimits> = {
     savedSearches: 0,
     priceHistory: false,
     trendIndicators: false,
+    priceCheck: false,
     advancedAnalytics: false,
+    compare: false,
     portfolioTracking: false,
     dataExport: false,
   },
@@ -32,7 +36,9 @@ export const TIER_LIMITS: Record<Tier, TierLimits> = {
     savedSearches: 10,
     priceHistory: true,
     trendIndicators: true,
+    priceCheck: true,
     advancedAnalytics: true,
+    compare: false,
     portfolioTracking: false,
     dataExport: false,
   },
@@ -41,7 +47,9 @@ export const TIER_LIMITS: Record<Tier, TierLimits> = {
     savedSearches: Infinity,
     priceHistory: true,
     trendIndicators: true,
+    priceCheck: true,
     advancedAnalytics: true,
+    compare: true,
     portfolioTracking: true,
     dataExport: true,
   },

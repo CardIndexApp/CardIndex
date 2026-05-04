@@ -19,13 +19,13 @@ const NAV_LINKS_GUEST = [
   { label: 'Pricing', href: '/pricing' },
 ]
 
-async function fetchProfile(userId: string): Promise<{ username: string | null; is_admin: boolean }> {
+async function fetchProfile(userId: string): Promise<{ username: string | null; is_admin: boolean; tier: string }> {
   const { data } = await createClient()
     .from('profiles')
-    .select('username, is_admin')
+    .select('username, is_admin, tier')
     .eq('id', userId)
     .single()
-  return { username: data?.username ?? null, is_admin: data?.is_admin ?? false }
+  return { username: data?.username ?? null, is_admin: data?.is_admin ?? false, tier: data?.tier ?? 'free' }
 }
 
 export default function Navbar() {
@@ -36,6 +36,7 @@ export default function Navbar() {
   const [username, setUsername] = useState<string | null>(null)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [userTier, setUserTier] = useState<string>('free')
   const [keyboardOpen, setKeyboardOpen] = useState(false)
   const [showPwResetBanner, setShowPwResetBanner] = useState(false)
 
@@ -46,7 +47,7 @@ export default function Navbar() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       const u = session?.user ?? null
       setUser(u)
-      if (u) fetchProfile(u.id).then(p => { setUsername(p.username); setIsAdmin(p.is_admin) })
+      if (u) fetchProfile(u.id).then(p => { setUsername(p.username); setIsAdmin(p.is_admin); setUserTier(p.tier) })
     })
 
     // Keep in sync when auth state changes (sign in / sign out in another tab, etc.)
@@ -60,9 +61,9 @@ export default function Navbar() {
       } else if (event === 'PASSWORD_RECOVERY') {
         // User clicked a password reset link — prompt them to change their password
         setShowPwResetBanner(true)
-        fetchProfile(u.id).then(p => { setUsername(p.username); setIsAdmin(p.is_admin) })
+        fetchProfile(u.id).then(p => { setUsername(p.username); setIsAdmin(p.is_admin); setUserTier(p.tier) })
       } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        fetchProfile(u.id).then(p => { setUsername(p.username); setIsAdmin(p.is_admin) })
+        fetchProfile(u.id).then(p => { setUsername(p.username); setIsAdmin(p.is_admin); setUserTier(p.tier) })
       }
     })
 
@@ -137,7 +138,7 @@ export default function Navbar() {
                 <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="6.5" cy="6.5" r="4.5"/><path d="M14 14l-3-3"/></svg>
                 Search
               </Link>
-              {NAV_LINKS_AUTHED.map(l => (
+              {NAV_LINKS_AUTHED.filter(l => l.href !== '/compare' || userTier === 'pro').map(l => (
                 <Link key={l.href} href={l.href} style={{ fontSize: 14, padding: '6px 12px', borderRadius: 8, color: 'var(--ink2)', textDecoration: 'none' }}>{l.label}</Link>
               ))}
             </div>
@@ -241,7 +242,7 @@ export default function Navbar() {
           {user ? (
             <>
               <Link href="/search" onClick={() => setOpen(false)} style={{ fontSize: 22, fontWeight: 700, color: 'var(--gold)', textDecoration: 'none', padding: '10px 0', borderBottom: '1px solid var(--border)', letterSpacing: '-0.5px' }}>Search</Link>
-              {NAV_LINKS_AUTHED.map(l => (
+              {NAV_LINKS_AUTHED.filter(l => l.href !== '/compare' || userTier === 'pro').map(l => (
                 <Link key={l.href} href={l.href} onClick={() => setOpen(false)} style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)', textDecoration: 'none', padding: '10px 0', borderBottom: '1px solid var(--border)', letterSpacing: '-0.5px' }}>{l.label}</Link>
               ))}
             </>

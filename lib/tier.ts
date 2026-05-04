@@ -9,7 +9,6 @@ export type Tier = 'free' | 'standard' | 'pro'
 
 export interface TierLimits {
   watchlist: number      // max watchlist entries
-  savedSearches: number  // max saved searches
   priceHistory: boolean  // access to full price history charts
   trendIndicators: boolean
   priceCheck: boolean    // enter a custom price for analysis
@@ -22,7 +21,6 @@ export interface TierLimits {
 export const TIER_LIMITS: Record<Tier, TierLimits> = {
   free: {
     watchlist: 5,
-    savedSearches: 0,
     priceHistory: false,
     trendIndicators: false,
     priceCheck: false,
@@ -33,7 +31,6 @@ export const TIER_LIMITS: Record<Tier, TierLimits> = {
   },
   standard: {
     watchlist: 30,
-    savedSearches: 10,
     priceHistory: true,
     trendIndicators: true,
     priceCheck: true,
@@ -44,7 +41,6 @@ export const TIER_LIMITS: Record<Tier, TierLimits> = {
   },
   pro: {
     watchlist: 100,
-    savedSearches: Infinity,
     priceHistory: true,
     trendIndicators: true,
     priceCheck: true,

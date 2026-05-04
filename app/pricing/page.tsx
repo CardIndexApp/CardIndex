@@ -37,7 +37,6 @@ const tiers = [
     features: [
       { text: 'Everything in Free', included: true },
       { text: 'Watchlist (up to 30 cards)', included: true },
-      { text: 'Saved searches (up to 10)', included: true },
       { text: 'Price Check — analyse any price against the market', included: true },
       { text: 'Price history chart (30 / 90 day windows)', included: true },
       { text: '30d price change % & trend badge', included: true },
@@ -61,7 +60,6 @@ const tiers = [
     features: [
       { text: 'Everything in Standard', included: true },
       { text: 'Watchlist (up to 100 cards)', included: true },
-      { text: 'Unlimited saved searches', included: true },
       { text: 'Compare up to 5 cards side-by-side', included: true },
       { text: 'Full price analysis suite:', included: true },
       { text: '  vs-market comparison & price position gauge', included: true },

@@ -368,11 +368,13 @@ export async function GET(
   const tier = gradeToTier(grade)
   let result = getTierPrice(fullCard, tier)
 
-  // ── PokemonPriceTracker fallback for JP cards with only CardMarket AGGREGATED ──
-  // Only burns a credit when: (a) key is set, (b) result is AGGREGATED (no eBay/TCG data),
-  // (c) the Supabase cache is being bypassed (bust_cache=1 or no cached entry above).
-  // Results are cached for 24h so each JP card costs at most 2 credits per day.
-  if (result?.resolvedTier === 'AGGREGATED' && process.env.POKEMON_PRICE_TRACKER_API_KEY) {
+  // ── PokemonPriceTracker fallback for JP graded cards with only CardMarket AGGREGATED ──
+  // PPT tracks eBay graded sales (PSA/BGS/CGC) for JP cards.
+  // Raw grades are NOT attempted — PPT doesn't track raw eBay sales for JP cards,
+  // so CardMarket AGGREGATED remains the best available price for ungraded JP cards.
+  // Credits: 2 per call (limit=1, includeEbay). Cached 24h in Supabase.
+  const isRawTier = ['NEAR_MINT','MINT','LIGHTLY_PLAYED','MODERATELY_PLAYED','HEAVILY_PLAYED','DAMAGED'].includes(tier)
+  if (result?.resolvedTier === 'AGGREGATED' && !isRawTier && process.env.POKEMON_PRICE_TRACKER_API_KEY) {
     try {
       const pptCard = await getPptCard(cardName, 'japanese')
       if (pptCard?.ebay) {

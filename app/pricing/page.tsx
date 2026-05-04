@@ -181,14 +181,8 @@ export default function Pricing() {
               Start free. Upgrade when you need more. No hidden fees.
             </p>
 
-            {/* Promotional notice */}
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 99, background: 'rgba(232,197,71,0.08)', border: '1px solid rgba(232,197,71,0.3)', marginBottom: 32 }}>
-              <span style={{ fontSize: 14 }}>🎉</span>
-              <span style={{ fontSize: 13, color: 'var(--gold)', fontWeight: 600 }}>Promotional pricing for our first 100 users — lock in this rate forever.</span>
-            </div>
-
             {/* Billing toggle */}
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12, borderRadius: 99, padding: '4px 6px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12, borderRadius: 99, padding: '4px 6px', background: 'var(--surface)', border: '1px solid var(--border2)', marginBottom: 20 }}>
               <button
                 onClick={() => setAnnual(false)}
                 style={{ padding: '6px 18px', borderRadius: 99, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500, background: !annual ? 'var(--surface2)' : 'transparent', color: !annual ? 'var(--ink)' : 'var(--ink3)', transition: 'all 0.15s' }}
@@ -204,6 +198,12 @@ export default function Pricing() {
                   SAVE 22%
                 </span>
               </button>
+            </div>
+
+            {/* Promotional notice */}
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 99, background: 'rgba(232,197,71,0.08)', border: '1px solid rgba(232,197,71,0.3)' }}>
+              <span style={{ fontSize: 14 }}>🎉</span>
+              <span style={{ fontSize: 13, color: 'var(--gold)', fontWeight: 600 }}>Promotional pricing for our first 100 users — lock in this rate forever.</span>
             </div>
           </div>
 

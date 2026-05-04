@@ -306,12 +306,19 @@ function SearchResultsInner() {
           )}
         </div>
 
-        {/* Loading */}
+        {/* Loading — skeleton cards */}
         {loading && (
-          <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 64 }}>
-            <svg width="24" height="24" viewBox="0 0 16 16" fill="none" stroke="var(--ink3)" strokeWidth="2" strokeLinecap="round" style={{ animation: 'res-spin 0.7s linear infinite' }}>
-              <path d="M8 1a7 7 0 1 0 7 7"/>
-            </svg>
+          <div className="res-grid">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <div key={i} className="res-skeleton-card">
+                <div className="res-skeleton res-skeleton-img" />
+                <div style={{ padding: '4px 2px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div className="res-skeleton" style={{ height: 11, borderRadius: 4, width: '80%' }} />
+                  <div className="res-skeleton" style={{ height: 9, borderRadius: 4, width: '60%' }} />
+                  <div className="res-skeleton" style={{ height: 9, borderRadius: 4, width: '35%' }} />
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
@@ -411,7 +418,39 @@ function SearchResultsInner() {
 
       <style>{`
 
-        @keyframes res-spin { to { transform: rotate(360deg); } }
+        @keyframes res-spin    { to { transform: rotate(360deg); } }
+        @keyframes res-shimmer {
+          0%   { background-position: -400px 0; }
+          100% { background-position:  400px 0; }
+        }
+
+        .res-skeleton {
+          background: linear-gradient(90deg,
+            var(--surface2) 25%,
+            var(--surface)  50%,
+            var(--surface2) 75%
+          );
+          background-size: 800px 100%;
+          animation: res-shimmer 1.4s ease-in-out infinite;
+        }
+
+        .res-skeleton-card {
+          background: var(--surface);
+          border: 1.5px solid var(--border);
+          border-radius: 12px;
+          padding: 10px;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .res-skeleton-img {
+          width: 100%;
+          padding-bottom: 133.33%;
+          border-radius: 8px;
+          position: relative;
+          flex-shrink: 0;
+        }
 
         /* ── Page — prevent horizontal overflow on mobile ─── */
         .res-page-root { overflow-x: hidden; }
@@ -553,11 +592,31 @@ function SearchResultsInner() {
 export default function SearchResultsPage() {
   return (
     <Suspense fallback={
-      <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 120 }}>
-        <svg width="24" height="24" viewBox="0 0 16 16" fill="none" stroke="var(--ink3)" strokeWidth="2" strokeLinecap="round" style={{ animation: 'res-spin 0.7s linear infinite' }}>
-          <path d="M8 1a7 7 0 1 0 7 7"/>
-        </svg>
-        <style>{`@keyframes res-spin { to { transform: rotate(360deg); } }`}</style>
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '72px 20px 120px' }}>
+        <style>{`
+          @keyframes res-shimmer {
+            0%   { background-position: -400px 0; }
+            100% { background-position:  400px 0; }
+          }
+          .res-fb-skeleton {
+            background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
+            background-size: 800px 100%;
+            animation: res-shimmer 1.4s ease-in-out infinite;
+          }
+          .res-fb-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 18px; }
+          @media (max-width: 640px) { .res-fb-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; } }
+        `}</style>
+        <div style={{ height: 16, width: 120, borderRadius: 4, marginBottom: 24 }} className="res-fb-skeleton" />
+        <div style={{ height: 28, width: 260, borderRadius: 6, marginBottom: 28 }} className="res-fb-skeleton" />
+        <div className="res-fb-grid">
+          {Array.from({ length: 10 }).map((_, i) => (
+            <div key={i} style={{ background: 'rgba(255,255,255,0.03)', border: '1.5px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div className="res-fb-skeleton" style={{ width: '100%', paddingBottom: '133.33%', borderRadius: 8 }} />
+              <div className="res-fb-skeleton" style={{ height: 11, borderRadius: 4, width: '80%' }} />
+              <div className="res-fb-skeleton" style={{ height: 9,  borderRadius: 4, width: '55%' }} />
+            </div>
+          ))}
+        </div>
       </div>
     }>
       <SearchResultsInner />

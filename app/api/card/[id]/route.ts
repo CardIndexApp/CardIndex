@@ -326,15 +326,32 @@ export async function GET(
     fullCard = null
   }
 
-  // If direct ID lookup failed (e.g. Poketrace search returned a non-UUID slug ID),
-  // and we have an exact set slug + card number from the search page, try a
-  // game-aware set+number search as the fallback. This handles JP cards correctly.
+  // If direct ID lookup failed (e.g. Poketrace returned a short market-prefixed ID
+  // like "eu_469909" that its own /cards/{id} endpoint doesn't accept), try two
+  // progressively broader recovery strategies:
+  //
+  //   A. Exact: set_slug + card number (most precise — only runs when both are present)
+  //   B. Name search with correct market/game (broader, for URL-restored cards without set_slug)
+  //
+  // Both strategies use inferredGame so JP cards are always searched on the EU market.
   if (!fullCard && urlSetSlug && cardNumber) {
     try {
       const found = await findBySetAndNumber(cardName, [urlSetSlug], cardNumber, [], inferredGame)
       if (found) {
         fullCard = await getPokétraceCard(found.id)
         if (fullCard) matchReason = `set_slug_fallback:${urlSetSlug}+${cardNumber}`
+      }
+    } catch { /* best-effort fallback */ }
+  }
+
+  // Strategy B: name search with correct market (handles old URLs without set_slug/number)
+  if (!fullCard && cardName && inferredGame !== 'pokemon') {
+    try {
+      const matchResult = await findBestMatch(cardName, setName, cardNumber || null, undefined, urlSetSlug || undefined, inferredGame)
+
+      if (matchResult) {
+        fullCard = await getPokétraceCard(matchResult.card.id)
+        if (fullCard) matchReason = `name_search_fallback:${inferredGame}:${matchResult.debug.matchReason}`
       }
     } catch { /* best-effort fallback */ }
   }

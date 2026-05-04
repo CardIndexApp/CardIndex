@@ -318,19 +318,22 @@ export function toPoketraceVariants(subtypes: string[] = [], supertypes: string[
 
 /**
  * Search cards by name. Returns lightweight card list (no full pricing).
- * API max limit is 20. Always targets US market.
+ * API max limit is 20.
  * Pass setSlug to narrow results when searching for a card from a known set.
+ * Pass game='pokemon-japanese' to search EU/CardMarket (JP) cards instead of US.
  */
 export async function searchPokétraceCards(
   name: string,
-  options: { setSlug?: string; hasGraded?: boolean } = {}
+  options: { setSlug?: string; hasGraded?: boolean; game?: string } = {}
 ): Promise<PokétraceCard[]> {
+  const game   = options.game ?? 'pokemon'
+  const market = game === 'pokemon-japanese' ? 'EU' : 'US'
   try {
     const params = new URLSearchParams({
       search: name,
       limit: '20',   // API hard max is 20
-      market: 'US',
-      game: 'pokemon',
+      market,
+      game,
     })
     if (options.setSlug)   params.set('set', options.setSlug)
     if (options.hasGraded) params.set('has_graded', 'true')
@@ -490,7 +493,7 @@ export interface MatchDebug {
  * When we have multiple candidates from the same set, pick the right one by card number.
  * cardNumber: bare number from URL params e.g. "125"
  */
-function pickByNumber(candidates: PokétraceCard[], cardNumber?: string): PokétraceCard {
+function pickByNumber(candidates: PokétraceCard[], cardNumber?: string | null): PokétraceCard {
   if (!cardNumber || candidates.length === 1) return candidates[0]
 
   // Strip leading zeros and totals for comparison: "125/094" → "125", "013/094" → "13"
@@ -572,9 +575,10 @@ function nameVariants(name: string): string[] {
 export async function findBestMatch(
   cardName: string,
   setName: string,
-  cardNumber?: string,
+  cardNumber?: string | null,
   tcgplayerId?: string,
   poketraceSetSlug?: string,  // pass this to narrow the search when set slug is known
+  game = 'pokemon',           // 'pokemon-japanese' for JP/EU market cards
 ): Promise<{ card: PokétraceCard; debug: MatchDebug } | null> {
   const nameVars = nameVariants(cardName)
   let results: PokétraceCard[] = []
@@ -584,7 +588,7 @@ export async function findBestMatch(
   // This is critical for common card names like "Charizard" that return many results
   if (poketraceSetSlug) {
     for (const variant of nameVars) {
-      const r = await searchPokétraceCards(variant, { setSlug: poketraceSetSlug })
+      const r = await searchPokétraceCards(variant, { setSlug: poketraceSetSlug, game })
       if (r.length) { results = r; searchedWith = variant; break }
     }
   }
@@ -592,7 +596,7 @@ export async function findBestMatch(
   // Second attempt: search without set slug (set slug might be wrong or missing)
   if (!results.length) {
     for (const variant of nameVars) {
-      const r = await searchPokétraceCards(variant)
+      const r = await searchPokétraceCards(variant, { game })
       if (r.length) { results = r; searchedWith = variant; break }
     }
   }

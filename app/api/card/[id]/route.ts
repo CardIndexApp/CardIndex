@@ -476,8 +476,11 @@ export async function GET(
   const ebaySaleCount  = ebayTierData?.saleCount ?? rawTierPrice.saleCount ?? 0
   const ebayAvgUSD     = ebayTierData?.avg ?? rawTierPrice.avg
 
+  // CardMarket AGGREGATED = Japanese card priced via EU market (no eBay/TCGPlayer data)
+  const isCardMarket   = resolvedTier === 'AGGREGATED'
+
   let tierPrice   = rawTierPrice
-  let dataSource  = ebayTierData ? 'ebay' : 'tcgplayer'
+  let dataSource  = isCardMarket ? 'cardmarket' : ebayTierData ? 'ebay' : 'tcgplayer'
   let dataWarning: string | null = null
 
   if (ebayTierData) {

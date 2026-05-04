@@ -1096,7 +1096,10 @@ export default function CardPageClient() {
                 {/* Tier notice — shown when we fell back to a different tier */}
                 {liveData.resolved_tier && liveData.resolved_tier !== gradeToPoketraceTier(urlGrade ?? 'Raw') && (
                   <div style={{ borderRadius: 10, padding: '10px 14px', background: 'rgba(232,197,71,0.06)', border: '1px solid rgba(232,197,71,0.2)', fontSize: 12, color: 'var(--gold)', marginBottom: 10 }}>
-                    ⚠ No {urlGrade} data found — showing <strong>{liveData.resolved_tier.replace(/_/g, ' ')}</strong> prices instead
+                    {liveData.resolved_tier === 'AGGREGATED'
+                      ? '🇯🇵 Japanese card — price sourced from CardMarket (EU market, ungraded). All grades show the same price.'
+                      : `⚠ No ${urlGrade} data found — showing ${TIER_LABELS[liveData.resolved_tier as keyof typeof TIER_LABELS] ?? liveData.resolved_tier.replace(/_/g, ' ')} prices instead`
+                    }
                   </div>
                 )}
 
@@ -2444,22 +2447,23 @@ export default function CardPageClient() {
                           low_volume_tcg_fallback: 'Insufficient eBay data — price sourced from TCGPlayer instead.',
                           low_volume_no_fallback: 'Very few sales and no TCGPlayer fallback — price has low confidence.',
                         }
-                        const srcColor = src === 'ebay' ? '#3de88a' : 'var(--gold)'
-                        const srcBg = src === 'ebay' ? 'rgba(61,232,138,0.08)' : 'rgba(232,197,71,0.08)'
-                        const srcBorder = src === 'ebay' ? 'rgba(61,232,138,0.2)' : 'rgba(232,197,71,0.2)'
+                        const srcColor = src === 'ebay' ? '#3de88a' : src === 'cardmarket' ? '#60a5fa' : 'var(--gold)'
+                        const srcBg = src === 'ebay' ? 'rgba(61,232,138,0.08)' : src === 'cardmarket' ? 'rgba(96,165,250,0.08)' : 'rgba(232,197,71,0.08)'
+                        const srcBorder = src === 'ebay' ? 'rgba(61,232,138,0.2)' : src === 'cardmarket' ? 'rgba(96,165,250,0.2)' : 'rgba(232,197,71,0.2)'
+                        const srcLabel = src === 'ebay' ? 'eBay' : src === 'cardmarket' ? 'CardMarket' : 'TCGPlayer'
                         return (
                           <div style={{ ...aC }} className="ci-card-surface">
                             <div style={{ ...aP }}>
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                   <span style={{ ...aL, marginBottom: 0 }}>DATA SOURCE BREAKDOWN</span>
-                                  <TileInfo id="adv-17" text="Explains where the price data comes from and how trustworthy it is. eBay sold listings are the primary source. TCGPlayer is used as a fallback when eBay data is too sparse. Always check the data age before making a decision." activeTip={activeTip} setActiveTip={setActiveTip} inline />
+                                  <TileInfo id="adv-17" text="Explains where the price data comes from and how trustworthy it is. eBay sold listings are the primary source for English cards. Japanese cards are priced from CardMarket (EU market). TCGPlayer is used as a fallback when eBay data is too sparse. Always check the data age before making a decision." activeTip={activeTip} setActiveTip={setActiveTip} inline />
                                 </div>
-                                <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 99, background: srcBg, border: `1px solid ${srcBorder}`, color: srcColor, textTransform: 'uppercase' }}>{src === 'ebay' ? 'eBay' : 'TCGPlayer'}</span>
+                                <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 99, background: srcBg, border: `1px solid ${srcBorder}`, color: srcColor, textTransform: 'uppercase' }}>{srcLabel}</span>
                               </div>
                               <div className="ci-adv-3col" style={{ marginBottom: warning ? 14 : 0 }}>
                                 {[
-                                  { label: 'PRIMARY SOURCE', value: src === 'ebay' ? 'eBay Sales' : 'TCGPlayer', color: srcColor },
+                                  { label: 'PRIMARY SOURCE', value: src === 'ebay' ? 'eBay Sales' : src === 'cardmarket' ? 'CardMarket (EU)' : 'TCGPlayer', color: srcColor },
                                   { label: 'EBAY SALES (30D)', value: ebayCount > 0 ? ebayCount.toLocaleString() : 'N/A', color: ebayCount >= 10 ? 'var(--green)' : ebayCount >= 5 ? 'var(--gold)' : '#ff6b6b' },
                                   { label: 'DATA AGE', value: daysSince === null ? 'Unknown' : daysSince === 0 ? 'Today' : `${daysSince}d ago`, color: daysSince === null ? 'var(--ink3)' : daysSince <= 1 ? 'var(--green)' : daysSince <= 3 ? 'var(--gold)' : '#ff6b6b' },
                                 ].map((m, i) => (

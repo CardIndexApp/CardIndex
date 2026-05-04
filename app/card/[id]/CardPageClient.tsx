@@ -1097,7 +1097,7 @@ export default function CardPageClient() {
                 {liveData.resolved_tier && liveData.resolved_tier !== gradeToPoketraceTier(urlGrade ?? 'Raw') && (
                   <div style={{ borderRadius: 10, padding: '10px 14px', background: 'rgba(232,197,71,0.06)', border: '1px solid rgba(232,197,71,0.2)', fontSize: 12, color: 'var(--gold)', marginBottom: 10 }}>
                     {liveData.resolved_tier === 'AGGREGATED'
-                      ? '🇯🇵 Japanese card — price sourced from CardMarket (EU market, ungraded). All grades show the same price.'
+                      ? '⚠ Limited data — Japanese card priced from CardMarket (EU market, ungraded average). Grade-specific pricing unavailable. Results may not be accurate.'
                       : `⚠ No ${urlGrade} data found — showing ${TIER_LABELS[liveData.resolved_tier as keyof typeof TIER_LABELS] ?? liveData.resolved_tier.replace(/_/g, ' ')} prices instead`
                     }
                   </div>

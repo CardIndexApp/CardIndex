@@ -28,7 +28,6 @@ import {
   type PokétraceCard,
   type PriceHistoryPoint,
 } from '@/lib/poketrace'
-import { getPptCard, pptToTierPrice } from '@/lib/pokemonpricetracker'
 import { computeScore } from '@/lib/score'
 
 /**
@@ -368,25 +367,6 @@ export async function GET(
   const tier = gradeToTier(grade)
   let result = getTierPrice(fullCard, tier)
 
-  // ── PokemonPriceTracker fallback for JP graded cards with only CardMarket AGGREGATED ──
-  // PPT tracks eBay graded sales (PSA/BGS/CGC) for JP cards.
-  // Raw grades are NOT attempted — PPT doesn't track raw eBay sales for JP cards,
-  // so CardMarket AGGREGATED remains the best available price for ungraded JP cards.
-  // Credits: 2 per call (limit=1, includeEbay). Cached 24h in Supabase.
-  const isRawTier = ['NEAR_MINT','MINT','LIGHTLY_PLAYED','MODERATELY_PLAYED','HEAVILY_PLAYED','DAMAGED'].includes(tier)
-  if (result?.resolvedTier === 'AGGREGATED' && !isRawTier && process.env.POKEMON_PRICE_TRACKER_API_KEY) {
-    try {
-      const pptCard = await getPptCard(cardName, 'japanese')
-      if (pptCard?.ebay) {
-        const pptTier = pptToTierPrice(pptCard.ebay, tier)
-        if (pptTier && pptTier.avg > 0) {
-          result      = { tierPrice: pptTier, resolvedTier: tier }
-          matchReason = `${matchReason}+ppt_ebay:${pptCard.name}`
-        }
-      }
-    } catch { /* keep CardMarket AGGREGATED if PPT fails */ }
-  }
-
   if (!result) {
     if (cached) return NextResponse.json({ source: 'stale_cache', data: cached })
     return NextResponse.json({
@@ -497,12 +477,10 @@ export async function GET(
   const ebayAvgUSD     = ebayTierData?.avg ?? rawTierPrice.avg
 
   // CardMarket AGGREGATED = Japanese card priced via EU market (no eBay/TCGPlayer data)
-  const isCardMarket   = resolvedTier === 'AGGREGATED'
-  // PokemonPriceTracker eBay data was used when matchReason contains +ppt_ebay
-  const isPpt          = matchReason.includes('+ppt_ebay')
+  const isCardMarket = resolvedTier === 'AGGREGATED'
 
-  let tierPrice   = rawTierPrice
-  let dataSource  = isPpt ? 'ebay' : isCardMarket ? 'cardmarket' : ebayTierData ? 'ebay' : 'tcgplayer'
+  let tierPrice  = rawTierPrice
+  let dataSource = isCardMarket ? 'cardmarket' : ebayTierData ? 'ebay' : 'tcgplayer'
   let dataWarning: string | null = null
 
   if (ebayTierData) {

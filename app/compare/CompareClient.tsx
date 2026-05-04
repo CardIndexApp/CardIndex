@@ -568,6 +568,7 @@ export default function CompareClient() {
   const [searchLoading, setSearchLoading] = useState(false)
   const [showDropdown, setShowDropdown] = useState(false)
   const [pendingGrade, setPendingGrade] = useState('Raw')
+  const [lang, setLang] = useState<'en' | 'jp'>('en')
   const [chartWindow, setChartWindow] = useState<3 | 6 | 12>(6)
   const [initialized, setInitialized] = useState(false)
 
@@ -662,7 +663,9 @@ export default function CompareClient() {
     debounceRef.current = setTimeout(async () => {
       setSearchLoading(true)
       try {
-        const r = await fetch(`/api/pt/cards?search=${encodeURIComponent(searchQuery)}&limit=12`)
+        const params = new URLSearchParams({ search: searchQuery, limit: '12' })
+        if (lang === 'jp') params.set('game', 'pokemon-japanese')
+        const r = await fetch(`/api/pt/cards?${params}`)
         const json = await r.json()
         setSearchResults((json.data ?? []).slice(0, 12))
         setShowDropdown(true)
@@ -673,7 +676,7 @@ export default function CompareClient() {
       }
     }, 350)
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
-  }, [searchQuery])
+  }, [searchQuery, lang])
 
   // ── Click-outside ────────────────────────────────────────────────────────────
 
@@ -765,6 +768,24 @@ export default function CompareClient() {
                 >
                   {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
                 </select>
+                <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                  {(['en', 'jp'] as const).map(l => (
+                    <button
+                      key={l}
+                      type="button"
+                      onClick={() => { setLang(l); setSearchResults([]); setShowDropdown(false) }}
+                      style={{
+                        padding: '6px 10px', borderRadius: 8, fontSize: 11, fontWeight: 700,
+                        border: `1px solid ${lang === l ? 'var(--gold)' : 'var(--border2)'}`,
+                        background: lang === l ? 'rgba(232,197,71,0.1)' : 'transparent',
+                        color: lang === l ? 'var(--gold)' : 'var(--ink3)',
+                        cursor: 'pointer', letterSpacing: 0.5, transition: 'all 0.15s',
+                      }}
+                    >
+                      {l === 'en' ? '🇺🇸' : '🇯🇵'}
+                    </button>
+                  ))}
+                </div>
                 <div style={{ position: 'relative', flex: 1 }}>
                   <div style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
                     {searchLoading
@@ -805,7 +826,10 @@ export default function CompareClient() {
                           {r.image && <img src={tcgImg(r.image)} alt="" style={{ width: 32, height: 44, objectFit: 'contain', borderRadius: 3, flexShrink: 0 }} />}
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</div>
-                            <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 2 }}>{r.set.name}{r.number ? ` · #${r.number}` : ''}</div>
+                            <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.set.name}{r.number ? ` · #${r.number}` : ''}</span>
+                              {lang === 'jp' && <span style={{ fontSize: 9, letterSpacing: 1, padding: '1px 5px', borderRadius: 4, background: 'rgba(255,50,50,0.1)', border: '1px solid rgba(255,50,50,0.2)', color: '#ff6060', flexShrink: 0 }}>JP</span>}
+                            </div>
                           </div>
                           {alreadyAdded
                             ? <span style={{ fontSize: 10, color: 'var(--ink3)', flexShrink: 0 }}>Added</span>

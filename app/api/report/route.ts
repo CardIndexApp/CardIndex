@@ -25,6 +25,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createUserClient } from '@/lib/supabase/server'
+import { notifyReport } from '@/lib/slack'
 
 function adminClient() {
   return createClient(
@@ -75,6 +76,9 @@ export async function POST(req: NextRequest) {
       console.error('[report] insert failed:', error.message)
       return NextResponse.json({ error: 'Failed to save report' }, { status: 500 })
     }
+
+    // Notify Slack (awaited so the serverless function doesn't exit early)
+    await notifyReport({ card_id, card_name, grade, report_type, description, page_url })
 
     return NextResponse.json({ ok: true })
   } catch {

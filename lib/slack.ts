@@ -26,8 +26,12 @@ export async function notifyNewUser(user: {
   provider?: string
   createdAt?: string
 }): Promise<void> {
-  const url = process.env.SLACK_WEBHOOK_URL
-  if (!url) return
+  const url = process.env.SLACK_WEBHOOK_URL ?? process.env.SLACK_WEBHOOK_REPORTS_URL
+  if (!url) {
+    console.warn('[slack] notifyNewUser: no webhook URL set (SLACK_WEBHOOK_URL or SLACK_WEBHOOK_REPORTS_URL)')
+    return
+  }
+  console.log('[slack] notifyNewUser: sending for', user.email)
 
   await post(url, {
     text: '🎉 New user signed up',

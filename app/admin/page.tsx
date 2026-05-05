@@ -403,11 +403,11 @@ export default function AdminPage() {
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
       >
-        {/* Pull-to-refresh indicator */}
+        {/* Pull-to-refresh indicator — starts hidden above viewport, slides in below navbar */}
         <div style={{
-          position: 'fixed', top: 56, left: 0, right: 0, zIndex: 200,
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 49,
           display: 'flex', justifyContent: 'center',
-          transform: `translateY(${ptrState === 'refreshing' ? 16 : pullY > 0 ? pullY - 8 : -40}px)`,
+          transform: `translateY(${ptrState === 'refreshing' ? 72 : pullY > 0 ? 56 + pullY - 8 : -50}px)`,
           transition: pullY === 0 ? 'transform 0.3s ease' : 'none',
           pointerEvents: 'none',
         }}>

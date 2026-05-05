@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, TouchEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Navbar from '@/components/Navbar'
@@ -112,6 +112,41 @@ export default function AdminPage() {
   const [refreshDelay, setRefreshDelay] = useState(500) // ms between card fetches
   const [seeding, setSeeding] = useState(false)
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // ── Pull-to-refresh ───────────────────────────────────────────────────────
+  const PTR_THRESHOLD = 80 // px of pull needed to trigger
+  const touchStartY   = useRef(0)
+  const [pullY, setPullY]           = useState(0)   // current drag distance (capped)
+  const [ptrState, setPtrState]     = useState<'idle' | 'pulling' | 'ready' | 'refreshing'>('idle')
+
+  function onTouchStart(e: TouchEvent<HTMLElement>) {
+    if (window.scrollY === 0) touchStartY.current = e.touches[0].clientY
+    else touchStartY.current = 0
+  }
+
+  function onTouchMove(e: TouchEvent<HTMLElement>) {
+    if (!touchStartY.current) return
+    const delta = e.touches[0].clientY - touchStartY.current
+    if (delta <= 0) { setPullY(0); setPtrState('idle'); return }
+    // Cap visual travel at 120px
+    const capped = Math.min(delta * 0.5, 120)
+    setPullY(capped)
+    setPtrState(capped >= PTR_THRESHOLD * 0.5 ? 'ready' : 'pulling')
+  }
+
+  async function onTouchEnd() {
+    if (pullY >= PTR_THRESHOLD * 0.5) {
+      setPtrState('refreshing')
+      setPullY(0)
+      touchStartY.current = 0
+      await load()
+      setPtrState('idle')
+    } else {
+      setPullY(0)
+      setPtrState('idle')
+      touchStartY.current = 0
+    }
+  }
 
   const flash = (type: 'ok' | 'err', text: string) => {
     setMsg({ type, text })
@@ -362,7 +397,40 @@ export default function AdminPage() {
   return (
     <>
       <Navbar />
-      <main style={{ paddingTop: 88, paddingBottom: 88, minHeight: '100vh' }}>
+      <main
+        style={{ paddingTop: 88, paddingBottom: 88, minHeight: '100vh' }}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+      >
+        {/* Pull-to-refresh indicator */}
+        <div style={{
+          position: 'fixed', top: 56, left: 0, right: 0, zIndex: 200,
+          display: 'flex', justifyContent: 'center',
+          transform: `translateY(${ptrState === 'refreshing' ? 16 : pullY > 0 ? pullY - 8 : -40}px)`,
+          transition: pullY === 0 ? 'transform 0.3s ease' : 'none',
+          pointerEvents: 'none',
+        }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: '50%',
+            background: 'var(--surface)', border: '1px solid var(--border2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+          }}>
+            {ptrState === 'refreshing' ? (
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--gold)" strokeWidth="2" strokeLinecap="round" style={{ animation: 'ptr-spin 0.7s linear infinite' }}>
+                <path d="M8 1a7 7 0 1 0 7 7"/>
+              </svg>
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke={ptrState === 'ready' ? 'var(--gold)' : 'var(--ink3)'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                style={{ transform: ptrState === 'ready' ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s, stroke 0.2s' }}>
+                <path d="M8 3v10M3 11l5 5 5-5"/>
+              </svg>
+            )}
+          </div>
+        </div>
+        <style>{`@keyframes ptr-spin { to { transform: rotate(360deg); } }`}</style>
+
         <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 16px' }}>
 
           {/* Header */}

@@ -63,6 +63,17 @@ function FeaturedCardItem({ card, priority }: { card: FeaturedCard; priority?: b
   const [imgErr, setImgErr] = useState(false)
   const up = card.change >= 0
   const url = `/card/${card.id}?grade=${encodeURIComponent(card.grade)}&name=${encodeURIComponent(card.name)}&set=${encodeURIComponent(card.set)}`
+
+  // Urgency tag logic
+  let urgencyTag: { text: string; color: string } | null = null
+  if (card.change >= 10) {
+    urgencyTag = { text: 'High demand', color: 'var(--green)' }
+  } else if (card.change >= 3) {
+    urgencyTag = { text: 'Momentum building', color: 'var(--gold)' }
+  } else if (card.change < 0 && card.score >= 65) {
+    urgencyTag = { text: 'Undervalued', color: '#4a9eff' }
+  }
+
   return (
     <a href={url} className="card-hover" style={{ display: 'flex', flexDirection: 'column', borderRadius: 16, padding: 16, background: 'var(--surface)', border: '1px solid var(--border)', textDecoration: 'none' }}>
       {/* Image */}
@@ -94,6 +105,14 @@ function FeaturedCardItem({ card, priority }: { card: FeaturedCard; priority?: b
           </div>
         </div>
       </div>
+      {/* Urgency tag */}
+      {urgencyTag && (
+        <div style={{ marginTop: 10 }}>
+          <span style={{ fontSize: 9, padding: '2px 8px', borderRadius: 99, background: `${urgencyTag.color}1a`, border: `1px solid ${urgencyTag.color}4d`, color: urgencyTag.color, fontWeight: 600 }}>
+            {urgencyTag.text}
+          </span>
+        </div>
+      )}
       {/* Score bar */}
       <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -195,34 +214,86 @@ export default function Home() {
         <section className="grid-bg" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '88px 24px 0', position: 'relative', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 80% 50% at 50% 40%, rgba(232,197,71,0.06) 0%, transparent 70%)', pointerEvents: 'none' }} />
           <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', maxWidth: 720, width: '100%' }}>
-            <div className="anim d1" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, borderRadius: 99, padding: '4px 12px', marginBottom: 32, background: 'var(--gold2)', border: '1px solid rgba(232,197,71,0.2)' }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--gold)', display: 'inline-block' }} />
-              <span style={{ fontSize: 10, color: 'var(--gold)', letterSpacing: 2 }}>LIVE MARKET DATA</span>
+            <div className="anim d1" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, borderRadius: 99, padding: '4px 12px', marginBottom: 32, background: 'rgba(232,197,71,0.15)', border: '1px solid rgba(232,197,71,0.4)' }}>
+              <span style={{ fontSize: 12 }}>🚀</span>
+              <span style={{ fontSize: 10, color: 'var(--gold)', letterSpacing: 1.5, fontWeight: 600 }}>50% off early access — limited spots</span>
             </div>
             <h1 className="anim d2" style={{ fontSize: 'clamp(40px,7vw,76px)', fontWeight: 800, lineHeight: 1, letterSpacing: '-2px', color: 'var(--ink)', marginBottom: 20 }}>
-              The market index<br /><span style={{ color: 'var(--gold)' }}>for trading cards</span>
+              Stop guessing. Start investing in <span style={{ color: 'var(--gold)' }}>trading cards.</span>
             </h1>
-            <p className="anim d3" style={{ fontSize: 11, color: 'var(--ink3)', letterSpacing: 3, margin: '0 auto 36px', textTransform: 'uppercase' }}>
-              Card Market Intelligence
+            <p className="anim d3" style={{ fontSize: 17, color: 'var(--ink2)', maxWidth: 560, margin: '0 auto', lineHeight: 1.7, marginBottom: 36 }}>
+              Instantly see if a card is a good buy, hold, or sell — powered by real market data.
             </p>
-            <div className="anim d4" style={{ marginBottom: 28 }}>
+            <div className="anim d4" style={{ marginBottom: 16 }}>
               <button
                 onClick={() => router.push('/search')}
-                style={{ padding: '14px 40px', borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 15, fontWeight: 500, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 10, transition: 'border-color 0.2s' }}
-                onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--gold)')}
-                onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border2)')}
+                style={{ padding: '14px 40px', borderRadius: 14, background: 'var(--gold)', border: 'none', color: '#080810', fontSize: 15, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 10 }}
               >
-                <span>Search cards</span>
-                <span style={{ color: 'var(--ink3)', fontSize: 13 }}>→</span>
+                👉 Get your first verdict free
               </button>
             </div>
             <div className="anim d5" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-              <a href="/market" style={{ padding: '11px 24px', borderRadius: 12, background: 'var(--surface2)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 14, fontWeight: 500, textDecoration: 'none' }}>Explore Market</a>
-              <button onClick={() => router.push('/search')} style={{ padding: '11px 24px', borderRadius: 12, background: 'var(--gold)', color: '#080810', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}>Get started free →</button>
+              <a href="/market" style={{ padding: '11px 24px', borderRadius: 12, background: 'transparent', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 14, fontWeight: 500, textDecoration: 'none' }}>Explore live market</a>
             </div>
           </div>
 
         </section>
+
+        {/* Verdict Example */}
+        <section style={{ padding: '0 24px 64px', display: 'flex', justifyContent: 'center' }}>
+          <div style={{ width: '100%', maxWidth: 520, borderRadius: 20, padding: 28, background: 'var(--surface)', border: '1px solid var(--border2)', boxShadow: '0 8px 40px rgba(0,0,0,0.3)' }}>
+            {/* Header label */}
+            <div style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 2, marginBottom: 16, textTransform: 'uppercase' }}>Example verdict</div>
+
+            {/* Card identity row */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', marginBottom: 3 }}>Charizard Base Set</div>
+                <div style={{ fontSize: 11, color: 'var(--ink3)' }}>PSA 9 · Base Set · #4/102</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1, marginBottom: 4 }}>SCORE</div>
+                <div className="font-num" style={{ fontSize: 28, fontWeight: 800, color: 'var(--green)', lineHeight: 1 }}>87</div>
+              </div>
+            </div>
+
+            {/* Verdict badge */}
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 99, background: 'rgba(61,232,138,0.12)', border: '1px solid rgba(61,232,138,0.3)', marginBottom: 18 }}>
+              <span style={{ fontSize: 14 }}>✅</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--green)' }}>Good time to buy</span>
+            </div>
+
+            {/* Bullet points */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {['Price up 12% over the last 30 days', 'PSA 9 supply tightening — fewer listings than usual', 'Strong collector demand, not yet overvalued'].map((pt, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontSize: 13, color: 'var(--ink2)', lineHeight: 1.55 }}>
+                  <span style={{ color: 'var(--green)', flexShrink: 0, fontWeight: 700 }}>•</span>
+                  {pt}
+                </div>
+              ))}
+            </div>
+
+            {/* Footer */}
+            <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 0.5 }}>Based on 47 eBay sales · Updated today</span>
+              <a href="/search" style={{ fontSize: 12, fontWeight: 600, color: 'var(--gold)', textDecoration: 'none' }}>Get yours →</a>
+            </div>
+          </div>
+        </section>
+
+        {/* Urgency chips */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap', padding: '0 24px 40px' }}>
+          {[
+            { icon: '🚀', text: '50% off early access — limited spots' },
+            { icon: '⚡', text: 'High demand cards trending now' },
+            { icon: '📉', text: 'Recently dropped — potential buys available' },
+          ].map(({ icon, text }) => (
+            <div key={text} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 99, background: 'var(--surface)', border: '1px solid var(--border2)', fontSize: 11, color: 'var(--ink2)', fontWeight: 500, whiteSpace: 'nowrap' }}>
+              <span>{icon}</span>
+              <span>{text}</span>
+            </div>
+          ))}
+        </div>
 
         <Ticker />
 
@@ -230,10 +301,10 @@ export default function Home() {
         <section id="featured" style={{ padding: '80px 24px', maxWidth: 1100, margin: '0 auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 40 }}>
             <div>
-              <p style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' }}>Featured Cards</p>
-              <h2 style={{ fontSize: 32, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-1px' }}>Market highlights</h2>
+              <p style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' }}>Trending Opportunities</p>
+              <h2 style={{ fontSize: 32, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-1px' }}>🔥 Trending Opportunities</h2>
             </div>
-            <a href="/market" style={{ fontSize: 13, color: 'var(--ink3)', textDecoration: 'none' }}>View all →</a>
+            <a href="/market" style={{ fontSize: 13, color: 'var(--ink3)', textDecoration: 'none' }}>View market →</a>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16 }}>
             {featuredLoading
@@ -288,7 +359,7 @@ export default function Home() {
               <p style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' }}>Recently Searched</p>
               <h2 style={{ fontSize: 28, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.5px' }}>Popular right now</h2>
             </div>
-            <a href="/search" style={{ fontSize: 13, color: 'var(--ink3)', textDecoration: 'none' }}>Search cards →</a>
+            <a href="/search" style={{ fontSize: 13, color: 'var(--ink3)', textDecoration: 'none' }}>Get your verdict →</a>
           </div>
           <div style={{ borderRadius: 16, overflow: 'hidden', background: 'var(--surface)', border: '1px solid var(--border)' }}>
             {trendingLoading
@@ -341,9 +412,9 @@ export default function Home() {
         <section style={{ padding: '0 24px 96px', maxWidth: 1100, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 64 }}>
             <p style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10, textTransform: 'uppercase' }}>How it works</p>
-            <h2 style={{ fontSize: 36, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-1px', marginBottom: 14 }}>Three steps to smarter collecting</h2>
+            <h2 style={{ fontSize: 36, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-1px', marginBottom: 14 }}>Three steps. Clear decisions.</h2>
             <p style={{ fontSize: 14, color: 'var(--ink2)', maxWidth: 480, margin: '0 auto', lineHeight: 1.7 }}>
-              No finance experience needed. CardIndex does the hard analysis — you make the call.
+              No finance experience needed. Real market data, plain English.
             </p>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 2, borderRadius: 20, overflow: 'hidden', background: 'var(--border)' }}>
@@ -351,19 +422,19 @@ export default function Home() {
               {
                 n: '01',
                 title: 'Search any card',
-                body: 'Type a card name, set, or number. We cover thousands of Pokémon and trading cards across every major set.',
-                detail: 'Supports Pokémon TCG · More coming soon',
+                body: 'Find any Pokémon card instantly.',
+                detail: 'Pokémon TCG · More games coming soon',
               },
               {
                 n: '02',
-                title: 'See the full picture',
-                body: 'Get price history, recent eBay sales, market trends, and a 0–100 score — all on one page, no spreadsheets needed.',
+                title: 'Get the full picture',
+                body: 'See price trends, demand, and market signals in seconds.',
                 detail: 'Up to 12 months of price data',
               },
               {
                 n: '03',
                 title: 'Know what to do',
-                body: 'Our plain-English verdict tells you whether now is a good time to buy, hold, or sell — backed by real data.',
+                body: 'Get a clear verdict: Buy, Hold, or Sell.',
                 detail: 'Buy · Hold · Sell verdicts',
               },
             ].map((step, i) => (
@@ -386,7 +457,7 @@ export default function Home() {
               <p style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10, textTransform: 'uppercase' }}>Market Verdicts</p>
               <h2 style={{ fontSize: 36, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-1px', marginBottom: 16, lineHeight: 1.1 }}>Plain English.<br />No guesswork.</h2>
               <p style={{ fontSize: 14, color: 'var(--ink2)', lineHeight: 1.8, marginBottom: 28 }}>
-                Every card gets a verdict backed by real transaction data. We translate market signals so you always know what to do — whether you've been collecting for 20 years or 20 minutes.
+                We translate complex market data into clear decisions — so you always know what to do, whether you've been collecting for 20 years or 20 minutes.
               </p>
               <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 14 }}>
                 {[
@@ -556,9 +627,9 @@ export default function Home() {
         <section style={{ padding: '0 24px 96px' }}>
           <div style={{ maxWidth: 600, margin: '0 auto', textAlign: 'center', borderRadius: 24, padding: 56, background: 'var(--surface)', border: '1px solid var(--border2)' }}>
             <p style={{ fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 16, textTransform: 'uppercase' }}>Free to start</p>
-            <h2 style={{ fontSize: 30, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-1px', marginBottom: 12 }}>Start tracking the market</h2>
-            <p style={{ fontSize: 13, color: 'var(--ink2)', marginBottom: 28 }}>CardIndex is free to use. No credit card required.</p>
-            <button onClick={() => router.push('/search')} style={{ padding: '12px 32px', borderRadius: 12, background: 'var(--gold)', color: '#080810', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}>Get started free →</button>
+            <h2 style={{ fontSize: 30, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-1px', marginBottom: 12 }}>Know exactly what to do with your cards.</h2>
+            <p style={{ fontSize: 13, color: 'var(--ink2)', marginBottom: 28 }}>Get your first verdict free. No credit card required.</p>
+            <button onClick={() => router.push('/search')} style={{ padding: '12px 32px', borderRadius: 12, background: 'var(--gold)', color: '#080810', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}>Get your verdict →</button>
           </div>
         </section>
 

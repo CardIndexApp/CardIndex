@@ -69,6 +69,8 @@ export default function AuthModal({ onClose, defaultTab = 'signup' }: Props) {
     if (tab === 'signup') {
       if (!username.trim()) { setError('Please choose a username.'); setLoading(false); return }
       if (username.trim().length < 3) { setError('Username must be at least 3 characters.'); setLoading(false); return }
+      if (usernameStatus === 'taken') { setError('That username is already taken. Please choose another.'); setLoading(false); return }
+      if (usernameStatus === 'checking') { setError('Still checking username availability — please wait a moment.'); setLoading(false); return }
       const { error } = await supabase.auth.signUp({
         email,
         password,
@@ -173,7 +175,14 @@ export default function AuthModal({ onClose, defaultTab = 'signup' }: Props) {
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {tab === 'signup' && (
               <div>
-                <label style={{ display: 'block', fontSize: 10, color: 'var(--ink3)', letterSpacing: 1.5, marginBottom: 7 }}>USERNAME</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 7 }}>
+                  <label style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1.5 }}>USERNAME</label>
+                  {username.trim().length >= 3 && (
+                    <span style={{ fontSize: 11, color: usernameStatus === 'available' ? '#3de88a' : usernameStatus === 'taken' ? 'var(--red)' : 'var(--ink3)' }}>
+                      {usernameStatus === 'checking' ? '…checking' : usernameStatus === 'available' ? '✓ Available' : usernameStatus === 'taken' ? '✗ Already taken' : ''}
+                    </span>
+                  )}
+                </div>
                 <input type="text" required value={username} placeholder="e.g. charizard_collector"
                   minLength={3}
                   onChange={e => setUsername(e.target.value.replace(/\s/g, ''))}

@@ -1,8 +1,9 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 type Tab = 'signin' | 'signup' | 'forgot'
+type UsernameStatus = 'idle' | 'checking' | 'available' | 'taken' | 'short'
 interface Props { onClose: () => void; defaultTab?: Tab }
 
 export default function AuthModal({ onClose, defaultTab = 'signup' }: Props) {
@@ -10,9 +11,31 @@ export default function AuthModal({ onClose, defaultTab = 'signup' }: Props) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [username, setUsername] = useState('')
+  const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>('idle')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const usernameTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Check username availability as user types
+  useEffect(() => {
+    if (tab !== 'signup') return
+    if (usernameTimer.current) clearTimeout(usernameTimer.current)
+    const val = username.trim()
+    if (!val) { setUsernameStatus('idle'); return }
+    if (val.length < 3) { setUsernameStatus('short'); return }
+    setUsernameStatus('checking')
+    usernameTimer.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/auth/check-username?username=${encodeURIComponent(val)}`)
+        const { available } = await res.json()
+        setUsernameStatus(available ? 'available' : 'taken')
+      } catch {
+        setUsernameStatus('idle')
+      }
+    }, 400)
+    return () => { if (usernameTimer.current) clearTimeout(usernameTimer.current) }
+  }, [username, tab])
 
   const supabase = createClient()
 

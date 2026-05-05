@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
+import Script from 'next/script'
 import './globals.css'
 import { CurrencyProvider } from '@/lib/currency'
 import { ThemeProvider } from '@/lib/theme'
@@ -47,13 +48,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             __html: `(function(){try{var t=localStorage.getItem('ci_theme');document.documentElement.setAttribute('data-theme',t==='light'?'light':'dark')}catch(e){}})()`,
           }}
         />
-        {/* Google Analytics 4 */}
-        <script async src="https://www.googletagmanager.com/gtag/js?id=G-BRGK35HQFB" />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-BRGK35HQFB')`,
-          }}
-        />
+        {/* Google Analytics 4 — loaded via next/script for reliable firing */}
       </head>
       <body>
         <ThemeProvider>
@@ -62,6 +57,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <InstallPrompt />
           </CurrencyProvider>
         </ThemeProvider>
+        {/* Google Analytics 4 */}
+        <Script src="https://www.googletagmanager.com/gtag/js?id=G-BRGK35HQFB" strategy="afterInteractive" />
+        <Script id="ga4-init" strategy="afterInteractive">{`
+          window.dataLayer=window.dataLayer||[];
+          function gtag(){dataLayer.push(arguments)}
+          gtag('js',new Date());
+          gtag('config','G-BRGK35HQFB');
+        `}</Script>
       </body>
     </html>
   )

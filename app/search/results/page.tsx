@@ -227,12 +227,23 @@ function SearchResultsInner() {
   // ── Fetch page ───────────────────────────────────────────────────────────────
   const fetchPage = useCallback(async (searchCursor?: string) => {
     const params = new URLSearchParams({ search: name, limit: '50' })
-    if (number) params.set('card_number', number)
+    // Do NOT pass card_number to Poketrace — it expects an exact match like "276/165"
+    // but users type bare numbers like "276". We filter client-side instead.
     if (searchCursor) params.set('cursor', searchCursor)
 
     const res  = await fetch(`/api/pt/cards?${params}`)
     const json = await res.json()
-    const newCards = (json.data ?? []) as PtCard[]
+    let newCards = (json.data ?? []) as PtCard[]
+
+    // Client-side card number filter — matches bare number against the leading
+    // portion of the full number, e.g. "276" matches "276/165" or "276/091"
+    if (number) {
+      const searchNum = number.replace(/^0+/, '')
+      newCards = newCards.filter(c => {
+        const cardNum = (c.cardNumber ?? '').split('/')[0].replace(/^0+/, '')
+        return cardNum === searchNum
+      })
+    }
 
     setResults(prev => {
       const combined = searchCursor ? [...prev, ...newCards] : newCards

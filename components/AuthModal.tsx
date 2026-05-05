@@ -55,7 +55,15 @@ export default function AuthModal({ onClose, defaultTab = 'signup' }: Props) {
         },
       })
       if (error) setError(error.message)
-      else setSuccess('Check your email to confirm your account, then sign in.')
+      else {
+        setSuccess('Check your email to confirm your account, then sign in.')
+        // Notify Slack of new signup (fire and forget)
+        fetch('/api/auth/signup-notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, provider: 'email' }),
+        }).catch(() => {})
+      }
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) setError(error.message)

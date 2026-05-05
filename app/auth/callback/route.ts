@@ -11,12 +11,16 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient()
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
-      // Notify Slack if this is a brand-new account (created within last 60s)
+      // Notify Slack for new Google/OAuth signups.
+      // A new user has created_at === last_sign_in_at (first ever sign-in).
       const user = data?.user
-      if (user?.created_at) {
-        const ageMs = Date.now() - new Date(user.created_at).getTime()
-        if (ageMs < 60_000) {
-          const provider = user.app_metadata?.provider ?? 'email'
+      if (user?.created_at && user?.last_sign_in_at) {
+        const createdAt     = new Date(user.created_at).getTime()
+        const lastSignIn    = new Date(user.last_sign_in_at).getTime()
+        const isNewUser     = Math.abs(createdAt - lastSignIn) < 5_000 // within 5s → first login
+        const provider      = user.app_metadata?.provider ?? 'unknown'
+        const isOAuth       = provider !== 'email'
+        if (isNewUser && isOAuth) {
           notifyNewUser({ email: user.email ?? 'unknown', provider, createdAt: user.created_at })
         }
       }

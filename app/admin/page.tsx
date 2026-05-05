@@ -487,43 +487,34 @@ export default function AdminPage() {
 
           {activeTab === 'users' && <>
 
-          {/* ── Section helper ─────────────────────────────────────────────── */}
-          {/* inline helper so we don't need a separate component */}
-
-          {/* ── USERS ────────────────────────────────────────────────────── */}
+          {/* ── USERS ──────────────────────────────────────────────────────── */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-            <span style={{ fontSize: 15 }}>👥</span>
-            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink2)', letterSpacing: 0.3 }}>Users</span>
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: 'var(--ink3)', textTransform: 'uppercase' }}>Users</span>
             <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 24 }}>
             {(['free', 'standard', 'pro'] as Tier[]).map(t => (
-              <div key={t} style={{ borderRadius: 14, padding: '14px 18px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)', marginBottom: 6, textTransform: 'capitalize' }}>{t}</div>
+              <div key={t} style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)', marginBottom: 8, textTransform: 'capitalize' }}>{t}</div>
                 <div className="font-num" style={{ fontSize: 30, fontWeight: 800, color: TIER_COLORS[t], lineHeight: 1 }}>
                   {users.filter(u => u.tier === t).length}
                 </div>
               </div>
             ))}
-            <div style={{ borderRadius: 14, padding: '14px 18px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)', marginBottom: 6 }}>Total</div>
+            <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)', marginBottom: 8 }}>Total</div>
               <div className="font-num" style={{ fontSize: 30, fontWeight: 800, color: 'var(--ink)', lineHeight: 1 }}>{users.length}</div>
             </div>
           </div>
 
           {/* ── PORTFOLIO ──────────────────────────────────────────────────── */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-            <span style={{ fontSize: 15 }}>💼</span>
-            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink2)', letterSpacing: 0.3 }}>Portfolio</span>
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: 'var(--ink3)', textTransform: 'uppercase' }}>Portfolio</span>
             <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 10, marginBottom: 24 }}>
-            {/* Market value hero */}
-            <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid rgba(232,197,71,0.3)', gridColumn: 'span 1' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)' }}>Market Value</span>
-                <span style={{ fontSize: 13 }}>📈</span>
-              </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 24 }}>
+            <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid rgba(232,197,71,0.3)' }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)', marginBottom: 8 }}>Market Value</div>
               <div className="font-num" style={{ fontSize: 26, fontWeight: 800, color: 'var(--gold)', lineHeight: 1 }}>
                 {portfolioStats ? `$${portfolioStats.totalMarketValue.toLocaleString('en-US', { maximumFractionDigits: 0 })}` : '—'}
               </div>
@@ -531,13 +522,8 @@ export default function AdminPage() {
                 {portfolioStats ? `${portfolioStats.pricedPositions}/${portfolioStats.totalPositions} priced` : '—'}
               </div>
             </div>
-
-            {/* Cost basis */}
             <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)' }}>Cost Basis</span>
-                <span style={{ fontSize: 13 }}>🏷️</span>
-              </div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)', marginBottom: 8 }}>Cost Basis</div>
               <div className="font-num" style={{ fontSize: 26, fontWeight: 800, color: 'var(--ink)', lineHeight: 1 }}>
                 {portfolioStats ? `$${portfolioStats.totalCostBasis.toLocaleString('en-US', { maximumFractionDigits: 0 })}` : '—'}
               </div>
@@ -548,49 +534,29 @@ export default function AdminPage() {
                 </div>
               )}
             </div>
-
-            {/* Cards tracked */}
             <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)' }}>Cards Tracked</span>
-                <span style={{ fontSize: 13 }}>🃏</span>
-              </div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)', marginBottom: 8 }}>Cards Tracked</div>
               <div className="font-num" style={{ fontSize: 26, fontWeight: 800, color: 'var(--ink)', lineHeight: 1 }}>
                 {portfolioStats ? portfolioStats.totalPositions.toLocaleString() : '—'}
               </div>
               <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 5 }}>Across all portfolios</div>
             </div>
-
-            {/* Active portfolio users */}
             <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)' }}>Active Portfolios</span>
-                <span style={{ fontSize: 13 }}>👤</span>
-              </div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)', marginBottom: 8 }}>Active Portfolios</div>
               <div className="font-num" style={{ fontSize: 26, fontWeight: 800, color: 'var(--ink)', lineHeight: 1 }}>
                 {portfolioStats ? portfolioStats.usersWithPortfolio : '—'}
               </div>
               <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 5 }}>Users with ≥1 position</div>
             </div>
-
-            {/* Avg cards */}
             <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)' }}>Avg Cards</span>
-                <span style={{ fontSize: 13 }}>📦</span>
-              </div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)', marginBottom: 8 }}>Avg Cards</div>
               <div className="font-num" style={{ fontSize: 26, fontWeight: 800, color: 'var(--ink)', lineHeight: 1 }}>
                 {portfolioStats ? portfolioStats.avgCardsPerPortfolio.toFixed(1) : '—'}
               </div>
               <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 5 }}>Per active user</div>
             </div>
-
-            {/* Avg value */}
             <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)' }}>Avg Value</span>
-                <span style={{ fontSize: 13 }}>💰</span>
-              </div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)', marginBottom: 8 }}>Avg Value</div>
               <div className="font-num" style={{ fontSize: 26, fontWeight: 800, color: 'var(--ink)', lineHeight: 1 }}>
                 {portfolioStats ? `$${portfolioStats.avgPortfolioValue.toLocaleString('en-US', { maximumFractionDigits: 0 })}` : '—'}
               </div>
@@ -600,35 +566,24 @@ export default function AdminPage() {
 
           {/* ── GROWTH ─────────────────────────────────────────────────────── */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-            <span style={{ fontSize: 15 }}>📈</span>
-            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink2)', letterSpacing: 0.3 }}>Growth</span>
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: 'var(--ink3)', textTransform: 'uppercase' }}>Growth</span>
             <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10, marginBottom: 24 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 24 }}>
             {[
-              { label: 'New this week',  value: growthStats?.newThisWeek,        sub: 'Signups · 7 days',      icon: '✨' },
-              { label: 'New this month', value: growthStats?.newThisMonth,       sub: 'Signups · 30 days',     icon: '🗓️' },
-              { label: 'Active (7d)',    value: growthStats?.recentlyActive7d,   sub: 'Signed in · 7 days',    icon: '🔥' },
-              { label: 'Active (30d)',   value: growthStats?.recentlyActive30d,  sub: 'Signed in · 30 days',   icon: '📊' },
-            ].map(({ label, value, sub, icon }) => (
+              { label: 'New this week',  value: growthStats?.newThisWeek,       sub: 'Signups · 7 days'   },
+              { label: 'New this month', value: growthStats?.newThisMonth,      sub: 'Signups · 30 days'  },
+              { label: 'Active (7d)',    value: growthStats?.recentlyActive7d,  sub: 'Signed in · 7 days' },
+              { label: 'Active (30d)',   value: growthStats?.recentlyActive30d, sub: 'Signed in · 30 days'},
+            ].map(({ label, value, sub }) => (
               <div key={label} style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)' }}>{label}</span>
-                  <span style={{ fontSize: 13 }}>{icon}</span>
-                </div>
-                <div className="font-num" style={{ fontSize: 26, fontWeight: 800, color: 'var(--ink)', lineHeight: 1 }}>
-                  {value ?? '—'}
-                </div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)', marginBottom: 8 }}>{label}</div>
+                <div className="font-num" style={{ fontSize: 26, fontWeight: 800, color: 'var(--ink)', lineHeight: 1 }}>{value ?? '—'}</div>
                 <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 5 }}>{sub}</div>
               </div>
             ))}
-
-            {/* Conversion — highlighted */}
             <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid rgba(61,232,138,0.2)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)' }}>Conversion</span>
-                <span style={{ fontSize: 13 }}>💳</span>
-              </div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)', marginBottom: 8 }}>Conversion</div>
               <div className="font-num" style={{ fontSize: 26, fontWeight: 800, color: 'var(--green)', lineHeight: 1 }}>
                 {growthStats ? `${growthStats.conversionRate.toFixed(1)}%` : '—'}
               </div>
@@ -636,51 +591,35 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* ── HEALTH ─────────────────────────────────────────────────────── */}
+          {/* ── HEALTH & USAGE ─────────────────────────────────────────────── */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-            <span style={{ fontSize: 15 }}>🔧</span>
-            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink2)', letterSpacing: 0.3 }}>Health &amp; Usage</span>
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: 'var(--ink3)', textTransform: 'uppercase' }}>Health &amp; Usage</span>
             <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10, marginBottom: 24 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 24 }}>
             <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)' }}>Total Searches</span>
-                <span style={{ fontSize: 13 }}>🔍</span>
-              </div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)', marginBottom: 8 }}>Total Searches</div>
               <div className="font-num" style={{ fontSize: 26, fontWeight: 800, color: 'var(--ink)', lineHeight: 1 }}>
                 {usageStats ? usageStats.totalSearches.toLocaleString() : '—'}
               </div>
               <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 5 }}>All-time log entries</div>
             </div>
-
             <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)' }}>Cached Cards</span>
-                <span style={{ fontSize: 13 }}>💾</span>
-              </div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)', marginBottom: 8 }}>Cached Cards</div>
               <div className="font-num" style={{ fontSize: 26, fontWeight: 800, color: 'var(--ink)', lineHeight: 1 }}>
                 {usageStats ? usageStats.cachedCards.toLocaleString() : '—'}
               </div>
               <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 5 }}>Unique card/grade combos</div>
             </div>
-
             <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: `1px solid ${usageStats && usageStats.staleCacheCount > 0 ? 'rgba(232,197,71,0.35)' : 'var(--border2)'}` }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)' }}>Stale Cache</span>
-                <span style={{ fontSize: 13 }}>⏰</span>
-              </div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)', marginBottom: 8 }}>Stale Cache</div>
               <div className="font-num" style={{ fontSize: 26, fontWeight: 800, lineHeight: 1, color: usageStats && usageStats.staleCacheCount > 0 ? 'var(--gold)' : 'var(--ink)' }}>
                 {usageStats ? usageStats.staleCacheCount.toLocaleString() : '—'}
               </div>
               <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 5 }}>Not refreshed in &gt;24h</div>
             </div>
-
             <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: `1px solid ${usageStats && usageStats.openReports > 0 ? 'rgba(232,82,74,0.3)' : 'var(--border2)'}` }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)' }}>Issue Reports</span>
-                <span style={{ fontSize: 13 }}>🚨</span>
-              </div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)', marginBottom: 8 }}>Issue Reports</div>
               <div className="font-num" style={{ fontSize: 26, fontWeight: 800, lineHeight: 1, color: usageStats && usageStats.openReports > 0 ? 'var(--red)' : 'var(--ink)' }}>
                 {usageStats ? usageStats.openReports.toLocaleString() : '—'}
               </div>
@@ -692,10 +631,7 @@ export default function AdminPage() {
           {usageStats && usageStats.topTrackedCards.length > 0 && (
             <div style={S.card}>
               <div style={S.head}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 15 }}>🏆</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Most Tracked Cards</span>
-                </div>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Most Tracked Cards</span>
                 <span style={{ fontSize: 11, color: 'var(--ink3)' }}>By portfolio positions</span>
               </div>
               <div style={S.body}>
@@ -703,9 +639,7 @@ export default function AdminPage() {
                   {usageStats.topTrackedCards.map((card, i) => (
                     <div key={card.card_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--border)' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <span className="font-num" style={{ fontSize: 13, fontWeight: 800, color: i === 0 ? 'var(--gold)' : 'var(--ink3)', minWidth: 20 }}>
-                          {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`}
-                        </span>
+                        <span className="font-num" style={{ fontSize: 12, fontWeight: 800, color: 'var(--ink3)', minWidth: 24 }}>#{i + 1}</span>
                         <div>
                           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{card.card_name}</div>
                           <div style={{ fontSize: 11, color: 'var(--ink3)' }}>{card.card_id}</div>

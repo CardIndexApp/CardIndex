@@ -35,6 +35,24 @@ interface PortfolioStats {
   totalPositions: number
   pricedPositions: number
   usersWithPortfolio: number
+  avgCardsPerPortfolio: number
+  avgPortfolioValue: number
+}
+
+interface GrowthStats {
+  newThisWeek: number
+  newThisMonth: number
+  recentlyActive7d: number
+  recentlyActive30d: number
+  conversionRate: number
+}
+
+interface UsageStats {
+  totalSearches: number
+  cachedCards: number
+  staleCacheCount: number
+  openReports: number
+  topTrackedCards: { card_id: string; card_name: string; count: number }[]
 }
 
 interface Constituent {
@@ -92,6 +110,8 @@ export default function AdminPage() {
   const [users, setUsers] = useState<UserRow[]>([])
   const [requests, setRequests] = useState<UpgradeRequest[]>([])
   const [portfolioStats, setPortfolioStats] = useState<PortfolioStats | null>(null)
+  const [growthStats, setGrowthStats] = useState<GrowthStats | null>(null)
+  const [usageStats, setUsageStats] = useState<UsageStats | null>(null)
   const [search, setSearch] = useState('')
   const [savingId, setSavingId] = useState<string | null>(null)
   const [actingId, setActingId] = useState<string | null>(null)
@@ -164,6 +184,8 @@ export default function AdminPage() {
     setUsers(json.users ?? [])
     setRequests(json.requests ?? [])
     if (json.portfolioStats) setPortfolioStats(json.portfolioStats)
+    if (json.growthStats)    setGrowthStats(json.growthStats)
+    if (json.usageStats)     setUsageStats(json.usageStats)
     setLoading(false)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -542,7 +564,137 @@ export default function AdminPage() {
               </div>
               <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 4 }}>Users with ≥1 position</div>
             </div>
+
+            {/* Avg cards per portfolio */}
+            <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
+              <div style={{ fontSize: 10, letterSpacing: 1.5, color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 6 }}>
+                Avg Cards / Portfolio
+              </div>
+              <div className="font-num" style={{ fontSize: 28, fontWeight: 800, color: 'var(--ink)' }}>
+                {portfolioStats ? portfolioStats.avgCardsPerPortfolio.toFixed(1) : '—'}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 4 }}>Positions per active user</div>
+            </div>
+
+            {/* Avg portfolio value */}
+            <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
+              <div style={{ fontSize: 10, letterSpacing: 1.5, color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 6 }}>
+                Avg Portfolio Value
+              </div>
+              <div className="font-num" style={{ fontSize: 28, fontWeight: 800, color: 'var(--ink)' }}>
+                {portfolioStats
+                  ? `$${portfolioStats.avgPortfolioValue.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+                  : '—'}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 4 }}>Market value per active user</div>
+            </div>
           </div>
+
+          {/* Growth stats row */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 12 }}>
+            <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
+              <div style={{ fontSize: 10, letterSpacing: 1.5, color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 6 }}>New This Week</div>
+              <div className="font-num" style={{ fontSize: 28, fontWeight: 800, color: 'var(--ink)' }}>
+                {growthStats ? growthStats.newThisWeek : '—'}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 4 }}>Signups in last 7 days</div>
+            </div>
+
+            <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
+              <div style={{ fontSize: 10, letterSpacing: 1.5, color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 6 }}>New This Month</div>
+              <div className="font-num" style={{ fontSize: 28, fontWeight: 800, color: 'var(--ink)' }}>
+                {growthStats ? growthStats.newThisMonth : '—'}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 4 }}>Signups in last 30 days</div>
+            </div>
+
+            <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
+              <div style={{ fontSize: 10, letterSpacing: 1.5, color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 6 }}>Active (7d)</div>
+              <div className="font-num" style={{ fontSize: 28, fontWeight: 800, color: 'var(--ink)' }}>
+                {growthStats ? growthStats.recentlyActive7d : '—'}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 4 }}>Signed in last 7 days</div>
+            </div>
+
+            <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
+              <div style={{ fontSize: 10, letterSpacing: 1.5, color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 6 }}>Active (30d)</div>
+              <div className="font-num" style={{ fontSize: 28, fontWeight: 800, color: 'var(--ink)' }}>
+                {growthStats ? growthStats.recentlyActive30d : '—'}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 4 }}>Signed in last 30 days</div>
+            </div>
+
+            <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
+              <div style={{ fontSize: 10, letterSpacing: 1.5, color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 6 }}>Conversion Rate</div>
+              <div className="font-num" style={{ fontSize: 28, fontWeight: 800, color: growthStats && growthStats.conversionRate > 0 ? 'var(--green)' : 'var(--ink)' }}>
+                {growthStats ? `${growthStats.conversionRate.toFixed(1)}%` : '—'}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 4 }}>Free → paid</div>
+            </div>
+          </div>
+
+          {/* Usage / health row */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 24 }}>
+            <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
+              <div style={{ fontSize: 10, letterSpacing: 1.5, color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 6 }}>Total Searches</div>
+              <div className="font-num" style={{ fontSize: 28, fontWeight: 800, color: 'var(--ink)' }}>
+                {usageStats ? usageStats.totalSearches.toLocaleString() : '—'}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 4 }}>All-time search log entries</div>
+            </div>
+
+            <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
+              <div style={{ fontSize: 10, letterSpacing: 1.5, color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 6 }}>Cached Cards</div>
+              <div className="font-num" style={{ fontSize: 28, fontWeight: 800, color: 'var(--ink)' }}>
+                {usageStats ? usageStats.cachedCards.toLocaleString() : '—'}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 4 }}>Unique card/grade combos</div>
+            </div>
+
+            <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: `1px solid ${usageStats && usageStats.staleCacheCount > 0 ? 'rgba(232,197,71,0.3)' : 'var(--border2)'}` }}>
+              <div style={{ fontSize: 10, letterSpacing: 1.5, color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 6 }}>Stale Cache</div>
+              <div className="font-num" style={{ fontSize: 28, fontWeight: 800, color: usageStats && usageStats.staleCacheCount > 0 ? 'var(--gold)' : 'var(--ink)' }}>
+                {usageStats ? usageStats.staleCacheCount.toLocaleString() : '—'}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 4 }}>Not refreshed in &gt;24h</div>
+            </div>
+
+            <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: `1px solid ${usageStats && usageStats.openReports > 0 ? 'rgba(232,82,74,0.25)' : 'var(--border2)'}` }}>
+              <div style={{ fontSize: 10, letterSpacing: 1.5, color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 6 }}>Issue Reports</div>
+              <div className="font-num" style={{ fontSize: 28, fontWeight: 800, color: usageStats && usageStats.openReports > 0 ? 'var(--red)' : 'var(--ink)' }}>
+                {usageStats ? usageStats.openReports.toLocaleString() : '—'}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 4 }}>Total card reports submitted</div>
+            </div>
+          </div>
+
+          {/* Top tracked cards */}
+          {usageStats && usageStats.topTrackedCards.length > 0 && (
+            <div style={S.card}>
+              <div style={S.head}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Most Tracked Cards</span>
+                <span style={{ fontSize: 11, color: 'var(--ink3)' }}>By number of portfolio positions</span>
+              </div>
+              <div style={S.body}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {usageStats.topTrackedCards.map((card, i) => (
+                    <div key={card.card_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink3)', minWidth: 18 }}>#{i + 1}</span>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{card.card_name}</div>
+                          <div style={{ fontSize: 11, color: 'var(--ink3)' }}>{card.card_id}</div>
+                        </div>
+                      </div>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--gold)', background: 'rgba(232,197,71,0.1)', border: '1px solid rgba(232,197,71,0.25)', padding: '3px 10px', borderRadius: 99 }}>
+                        {card.count} {card.count === 1 ? 'position' : 'positions'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Pending upgrade requests */}
           {pendingRequests.length > 0 && (

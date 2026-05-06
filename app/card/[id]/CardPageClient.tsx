@@ -1024,20 +1024,20 @@ export default function CardPageClient() {
           <ShareCardModal
             onClose={() => setShowShare(false)}
             data={{
-              cardName:    urlName ?? liveData.card_name ?? '',
-              setName:     urlSet  ?? liveData.set_name ?? '',
-              grade:       urlGrade ?? 'Raw',
-              score:       liveData.score ?? 0,
-              scoreLabel:  liveData.score_breakdown?.label ?? '',
-              price:       liveData.price ?? 0,
-              change:      liveData.price_change_pct ?? 0,
-              imageUrl:    tcgImg(liveData.image_url ?? ''),
-              currency,
+              cardName:     urlName ?? liveData.card_name ?? '',
+              setName:      urlSet  ?? liveData.set_name ?? '',
+              grade:        urlGrade ?? 'Raw',
+              score:        liveData.score ?? 0,
+              scoreLabel:   liveData.score_breakdown?.label ?? '',
+              price:        liveData.price ?? 0,
+              priceDisplay: fmtCurrency(liveData.price ?? 0),
+              change:       liveData.price_change_pct ?? 0,
+              imageUrl:     tcgImg(liveData.image_url ?? ''),
               // Normalize breakdown components to 0-100 to match ScoreBar display
-              trend:       liveData.score_breakdown ? Math.round(liveData.score_breakdown.trend       / 30 * 100) : undefined,
-              liquidity:   liveData.score_breakdown ? Math.round(liveData.score_breakdown.liquidity   / 25 * 100) : undefined,
-              consistency: liveData.score_breakdown ? Math.round(liveData.score_breakdown.consistency / 25 * 100) : undefined,
-              value:       liveData.score_breakdown ? Math.round(liveData.score_breakdown.value       / 20 * 100) : undefined,
+              trend:        liveData.score_breakdown ? Math.round(liveData.score_breakdown.trend       / 30 * 100) : undefined,
+              liquidity:    liveData.score_breakdown ? Math.round(liveData.score_breakdown.liquidity   / 25 * 100) : undefined,
+              consistency:  liveData.score_breakdown ? Math.round(liveData.score_breakdown.consistency / 25 * 100) : undefined,
+              value:        liveData.score_breakdown ? Math.round(liveData.score_breakdown.value       / 20 * 100) : undefined,
             }}
           />
         )}
@@ -3025,20 +3025,20 @@ export default function CardPageClient() {
         <ShareCardModal
           onClose={() => setShowShare(false)}
           data={{
-            cardName:    urlName ?? card?.name ?? liveData.card_name ?? '',
-            setName:     urlSet  ?? liveData.set_name ?? '',
-            grade:       urlGrade ?? 'Raw',
-            score:       liveData.score ?? 0,
-            scoreLabel:  liveData.score_breakdown?.label ?? '',
-            price:       liveData.price ?? 0,
-            change:      liveData.price_change_pct ?? 0,
-            imageUrl:    tcgImg(liveData.image_url ?? card?.imageUrl ?? ''),
-            currency,
+            cardName:     urlName ?? card?.name ?? liveData.card_name ?? '',
+            setName:      urlSet  ?? liveData.set_name ?? '',
+            grade:        urlGrade ?? 'Raw',
+            score:        liveData.score ?? 0,
+            scoreLabel:   liveData.score_breakdown?.label ?? '',
+            price:        liveData.price ?? 0,
+            priceDisplay: fmtCurrency(liveData.price ?? 0),
+            change:       liveData.price_change_pct ?? 0,
+            imageUrl:     tcgImg(liveData.image_url ?? card?.imageUrl ?? ''),
             // Normalize breakdown components to 0-100 to match ScoreBar display
-            trend:       liveData.score_breakdown ? Math.round(liveData.score_breakdown.trend       / 30 * 100) : undefined,
-            liquidity:   liveData.score_breakdown ? Math.round(liveData.score_breakdown.liquidity   / 25 * 100) : undefined,
-            consistency: liveData.score_breakdown ? Math.round(liveData.score_breakdown.consistency / 25 * 100) : undefined,
-            value:       liveData.score_breakdown ? Math.round(liveData.score_breakdown.value       / 20 * 100) : undefined,
+            trend:        liveData.score_breakdown ? Math.round(liveData.score_breakdown.trend       / 30 * 100) : undefined,
+            liquidity:    liveData.score_breakdown ? Math.round(liveData.score_breakdown.liquidity   / 25 * 100) : undefined,
+            consistency:  liveData.score_breakdown ? Math.round(liveData.score_breakdown.consistency / 25 * 100) : undefined,
+            value:        liveData.score_breakdown ? Math.round(liveData.score_breakdown.value       / 20 * 100) : undefined,
           }}
         />
       )}

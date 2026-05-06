@@ -234,13 +234,22 @@ async function drawCard(
   ]
 
   const statLabelFont = `600 ${labelFz}px "Helvetica Neue", Helvetica, Arial, sans-serif`
-  const statValueFont = `800 ${valueFz}px "Helvetica Neue", Helvetica, Arial, sans-serif`
 
   stats.forEach(({ label, value, color }, i) => {
-    const cx = pad + colW * i + colW / 2
+    const cx   = pad + colW * i + colW / 2
+    const maxW = colW - 12   // leave a small gutter between columns
+
+    // Shrink font until the value fits its column
+    let fz = valueFz
+    ctx.font = `800 ${fz}px "Helvetica Neue", Helvetica, Arial, sans-serif`
+    while (ctx.measureText(value).width > maxW && fz > 28) {
+      fz -= 2
+      ctx.font = `800 ${fz}px "Helvetica Neue", Helvetica, Arial, sans-serif`
+    }
+
     ctx.font = statLabelFont; ctx.fillStyle = '#55556a'; ctx.textAlign = 'center'
     ctx.fillText(label, cx, y)
-    ctx.font = statValueFont; ctx.fillStyle = color
+    ctx.fillStyle = color
     ctx.fillText(value, cx, y + valueShift)
   })
   y += valueShift + (is916 ? 54 : 48)

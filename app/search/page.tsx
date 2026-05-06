@@ -93,6 +93,21 @@ function sortByRelevance(cards: PtCard[], q: string): PtCard[] {
   })
 }
 
+// ── Number filter ─────────────────────────────────────────────────────────────
+// When a card number is provided (e.g. "pikachu ex 267"), filter results to
+// only show cards whose number matches. Handles formats like "267", "267/300",
+// "267/SV-P". Falls back to unfiltered if nothing matches (safety net).
+
+function filterByNumber(cards: PtCard[], number: string): PtCard[] {
+  const n = number.replace(/^0+/, '') // strip leading zeros for comparison
+  const matches = cards.filter(c => {
+    const cn = (c.cardNumber ?? '').replace(/^0+/, '')
+    // Exact match, or matches the part before a "/"
+    return cn === n || cn.split('/')[0] === n
+  })
+  return matches.length > 0 ? matches : cards
+}
+
 // ── Card thumbnail ─────────────────────────────────────────────────────────────
 
 function CardThumb({ src, alt }: { src: string; alt: string }) {
@@ -208,9 +223,11 @@ function SearchPageInner() {
     if (cached) {
       if (controller.signal.aborted) return
       const filtered = cached.filter(isCardResult)
+      const sorted   = sortByRelevance(filtered, name)
+      const refined  = number ? filterByNumber(sorted, number) : sorted
       setBlocked(false)
-      setResults(filtered)
-      if (filtered.length > 0) setStaleResults(filtered)
+      setResults(refined)
+      if (refined.length > 0) setStaleResults(refined)
       setCommittedQuery(raw.trim())
       setLoading(false)
       return
@@ -221,10 +238,11 @@ function SearchPageInner() {
       if (controller.signal.aborted) return
       const json = await res.json()
       const data: PtCard[] = json.data ?? []
-      const sorted = sortByRelevance(data, name)
-      setResults(sorted)
-      if (sorted.length > 0) {
-        setStaleResults(sorted)
+      const sorted  = sortByRelevance(data, name)
+      const refined = number ? filterByNumber(sorted, number) : sorted
+      setResults(refined)
+      if (refined.length > 0) {
+        setStaleResults(refined)
         cacheSet(key, data)
       }
       setCommittedQuery(raw.trim())

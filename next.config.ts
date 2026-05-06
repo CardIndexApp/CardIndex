@@ -2,12 +2,15 @@ import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
   images: {
-    // Allow next/image to optimise images served through our /api/img proxy
+    // Allow next/image to optimise images served through our /api/img proxy.
+    // Omitting `search` skips the query-string check (allows any ?url=... param).
+    // search: '**' was incorrect — Next.js 16 does exact string comparison, not glob.
     localPatterns: [
-      { pathname: '/api/img', search: '**' },
+      { pathname: '/api/img' },
     ],
     remotePatterns: [
       { protocol: 'https', hostname: 'images.pokemontcg.io' },
+      { protocol: 'https', hostname: 'images.scrydex.com' },
     ],
     formats: ['image/avif', 'image/webp'],
     // Keep optimised images in Next.js cache for 30 days

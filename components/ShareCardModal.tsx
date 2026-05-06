@@ -2,21 +2,23 @@
 
 /**
  * ShareCardModal — admin-only
- * Renders a 4:5 or 9:16 shareable PNG of a card's key stats using Canvas 2D.
+ * Renders a 4:5 or 9:16 shareable PNG using Canvas 2D.
+ * Breakdown values (trend/liquidity/consistency/value) must be passed as 0-100.
  */
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 
 export interface ShareCardData {
-  cardName:   string
-  setName:    string
-  grade:      string
-  score:      number
-  scoreLabel: string   // e.g. "Good Buy" | "Hold" | "Undervalued"
-  price:      number
-  change:     number
-  imageUrl:   string
-  currency?:  string
+  cardName:     string
+  setName:      string
+  grade:        string
+  score:        number
+  scoreLabel:   string
+  price:        number        // raw USD value (used for color decisions)
+  priceDisplay: string        // pre-formatted with user's currency + symbol
+  change:       number
+  imageUrl:     string
+  // 0-100 normalized (caller normalises from raw breakdown values)
   trend?:       number
   liquidity?:   number
   consistency?: number
@@ -30,6 +32,7 @@ const RATIO_DIMS: Record<Ratio, { w: number; h: number }> = {
   '9:16': { w: 1080, h: 1920 },
 }
 
+// Exact thresholds from lib/data.ts → scoreColor
 function scoreCol(s: number) {
   return s >= 80 ? '#3de88a' : s >= 60 ? '#e8c547' : '#e8524a'
 }
@@ -73,143 +76,155 @@ async function drawCard(
   canvas.width  = w
   canvas.height = h
 
-  const ctx = canvas.getContext('2d')!
-  const pad  = 64
-  const is916 = ratio === '9:16'
+  const ctx    = canvas.getContext('2d')!
+  const pad    = 60
+  const is916  = ratio === '9:16'
+  const accent = scoreCol(data.score)
 
-  // ── Background ──────────────────────────────────────────────────────────────
-  const bg = ctx.createLinearGradient(0, 0, 0, h)
-  bg.addColorStop(0,   '#0e0e1c')
-  bg.addColorStop(0.6, '#080810')
-  bg.addColorStop(1,   '#050510')
-  ctx.fillStyle = bg
+  // ─── Background ──────────────────────────────────────────────────────────────
+  ctx.fillStyle = '#080810'
   ctx.fillRect(0, 0, w, h)
 
-  // Subtle gold radial glow near top
-  const glow = ctx.createRadialGradient(w / 2, h * 0.28, 0, w / 2, h * 0.28, w * 0.7)
-  glow.addColorStop(0, 'rgba(232,197,71,0.07)')
-  glow.addColorStop(1, 'transparent')
+  // Faint score-coloured radial glow centred on where the card will be
+  const glowCY = h * (is916 ? 0.30 : 0.32)
+  const glow   = ctx.createRadialGradient(w / 2, glowCY, 0, w / 2, glowCY, w * 0.65)
+  glow.addColorStop(0,   accent + '22')  // ~13 % opacity
+  glow.addColorStop(0.5, accent + '08')  // ~3 %
+  glow.addColorStop(1,   'transparent')
   ctx.fillStyle = glow
   ctx.fillRect(0, 0, w, h)
 
-  // ── Wordmark ─────────────────────────────────────────────────────────────────
+  // ─── Logo bar ────────────────────────────────────────────────────────────────
+  const logoSz = is916 ? 32 : 28
+  const logoY  = 52
   ctx.textBaseline = 'middle'
-  const logoSize = is916 ? 34 : 30
-  const logoY    = pad - 4
-  ctx.font      = `700 ${logoSize}px "Helvetica Neue", Helvetica, Arial, sans-serif`
+  ctx.textAlign    = 'left'
+  ctx.font      = `700 ${logoSz}px "Helvetica Neue", Helvetica, Arial, sans-serif`
   ctx.fillStyle = '#f0f0f8'
-  ctx.textAlign = 'left'
   ctx.fillText('Card', pad, logoY)
   const cardW = ctx.measureText('Card').width
   ctx.fillStyle = '#e8c547'
   ctx.fillText('Index', pad + cardW, logoY)
 
-  // URL — right-aligned
-  const urlFont = `400 ${is916 ? 20 : 18}px "Helvetica Neue", Helvetica, Arial, sans-serif`
-  ctx.font      = urlFont
+  ctx.font      = `400 ${is916 ? 17 : 15}px "Helvetica Neue", Helvetica, Arial, sans-serif`
   ctx.fillStyle = 'rgba(255,255,255,0.22)'
   ctx.textAlign = 'right'
   ctx.fillText('card-index.app', w - pad, logoY)
   ctx.textAlign = 'left'
 
-  // ── Card image ───────────────────────────────────────────────────────────────
-  const imgAreaTop = logoY + logoSize / 2 + 44
-  const imgW = is916 ? Math.round(w * 0.52) : Math.round(w * 0.50)
-  const imgH = Math.round(imgW * (3.5 / 2.5))
-  const imgX = Math.round((w - imgW) / 2)
-  const imgY = imgAreaTop
+  // Thin separator below logo
+  const sepY = logoY + logoSz / 2 + 20
+  ctx.strokeStyle = 'rgba(255,255,255,0.07)'
+  ctx.lineWidth   = 1
+  ctx.beginPath(); ctx.moveTo(pad, sepY); ctx.lineTo(w - pad, sepY); ctx.stroke()
 
-  // Draw card image — no clip so the PNG's own natural rounded corners show
-  // through, matching how the card results page displays them (objectFit:contain).
+  // ─── Card image ──────────────────────────────────────────────────────────────
+  const imgTop = sepY + 28
+  // 4:5 → 50% width · 9:16 → 54% width
+  const imgW   = is916 ? Math.round(w * 0.54) : Math.round(w * 0.50)
+  const imgH   = Math.round(imgW * (3.5 / 2.5))
+  const imgX   = Math.round((w - imgW) / 2)
+  const imgY   = imgTop
+  // Proportionally match the lightbox `borderRadius:16` at max-width 420 px
+  const imgR   = Math.round(16 / 420 * imgW)
+
   try {
     const img = await loadImage(data.imageUrl)
 
-    // Drop-shadow pass: draw a semi-transparent rect behind the image
+    // Accent glow behind card
     ctx.save()
-    ctx.shadowColor   = 'rgba(0,0,0,0.85)'
-    ctx.shadowBlur    = 56
-    ctx.shadowOffsetY = 20
+    ctx.shadowColor   = accent + '55'
+    ctx.shadowBlur    = 72
+    ctx.shadowOffsetY = 8
     ctx.fillStyle     = 'rgba(0,0,0,0.01)'
-    roundRect(ctx, imgX + 8, imgY + 8, imgW - 16, imgH - 16, 16)
+    roundRect(ctx, imgX, imgY, imgW, imgH, imgR)
     ctx.fill()
     ctx.restore()
 
-    // Draw the image directly — the PNG's own corners are already transparent
-    ctx.drawImage(img, imgX, imgY, imgW, imgH)
-  } catch {
-    // Fallback rounded rect placeholder
+    // Drop shadow
     ctx.save()
-    ctx.fillStyle = '#1a1a2e'
-    roundRect(ctx, imgX, imgY, imgW, imgH, 16)
+    ctx.shadowColor   = 'rgba(0,0,0,0.90)'
+    ctx.shadowBlur    = 44
+    ctx.shadowOffsetY = 18
+    ctx.fillStyle     = 'rgba(0,0,0,0.01)'
+    roundRect(ctx, imgX + 10, imgY + 10, imgW - 20, imgH - 20, imgR)
     ctx.fill()
     ctx.restore()
-    ctx.font      = '400 40px Helvetica, Arial, sans-serif'
+
+    // Clip to the same radius the lightbox uses, then draw
+    ctx.save()
+    roundRect(ctx, imgX, imgY, imgW, imgH, imgR)
+    ctx.clip()
+    ctx.drawImage(img, imgX, imgY, imgW, imgH)
+    ctx.restore()
+
+  } catch {
+    ctx.save()
+    ctx.fillStyle = '#1a1a2e'
+    roundRect(ctx, imgX, imgY, imgW, imgH, imgR)
+    ctx.fill()
+    ctx.restore()
+    ctx.font      = '400 52px Helvetica, Arial, sans-serif'
     ctx.fillStyle = '#55556a'
     ctx.textAlign = 'center'
     ctx.fillText('🃏', w / 2, imgY + imgH / 2)
     ctx.textAlign = 'left'
   }
 
-  // ── Card name ────────────────────────────────────────────────────────────────
-  let y = imgY + imgH + (is916 ? 52 : 44)
+  // ─── Card name + set/grade ───────────────────────────────────────────────────
+  let y = imgY + imgH + (is916 ? 44 : 36)
 
-  const nameFontSize = is916 ? 52 : 44
-  ctx.font      = `800 ${nameFontSize}px "Helvetica Neue", Helvetica, Arial, sans-serif`
+  const nameFz = is916 ? 46 : 44
+  ctx.font      = `800 ${nameFz}px "Helvetica Neue", Helvetica, Arial, sans-serif`
   ctx.fillStyle = '#f0f0f8'
   ctx.textAlign = 'center'
 
-  // Simple word-wrap into max 2 lines
-  const maxW = w - pad * 2
-  const words = data.cardName.split(' ')
+  // Word-wrap into at most 2 lines
+  const maxTW = w - pad * 2
+  const words  = data.cardName.split(' ')
   const lines: string[] = []
   let cur = ''
   for (const word of words) {
     const test = cur ? `${cur} ${word}` : word
-    if (ctx.measureText(test).width > maxW && cur) {
-      lines.push(cur); cur = word
-    } else {
-      cur = test
-    }
+    if (ctx.measureText(test).width > maxTW && cur) { lines.push(cur); cur = word }
+    else cur = test
   }
   if (cur) lines.push(cur)
-
   for (const line of lines.slice(0, 2)) {
     ctx.fillText(line, w / 2, y)
-    y += nameFontSize + 10
+    y += nameFz + 8
   }
-  y += 6
+  y += 2
 
-  // Set · Grade
-  ctx.font      = `400 ${is916 ? 28 : 25}px "Helvetica Neue", Helvetica, Arial, sans-serif`
+  ctx.font      = `400 ${is916 ? 25 : 23}px "Helvetica Neue", Helvetica, Arial, sans-serif`
   ctx.fillStyle = '#9898b8'
   ctx.fillText(`${data.setName}  ·  ${data.grade}`, w / 2, y)
-  y += is916 ? 60 : 52
+  y += (is916 ? 25 : 23) + (is916 ? 46 : 42)
 
-  // ── Divider ──────────────────────────────────────────────────────────────────
-  ctx.strokeStyle = 'rgba(255,255,255,0.09)'
-  ctx.lineWidth   = 1
-  ctx.beginPath()
-  ctx.moveTo(pad, y)
-  ctx.lineTo(w - pad, y)
-  ctx.stroke()
-  y += is916 ? 52 : 46
+  // ─── Divider ─────────────────────────────────────────────────────────────────
+  const drawRule = (cy: number) => {
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)'
+    ctx.lineWidth   = 1
+    ctx.beginPath(); ctx.moveTo(pad, cy); ctx.lineTo(w - pad, cy); ctx.stroke()
+  }
+  drawRule(y); y += is916 ? 48 : 42
 
-  // ── Stats row: Price | CI Score | 30D Change ─────────────────────────────────
-  const colW       = (w - pad * 2) / 3
-  const labelFont  = `400 ${is916 ? 22 : 20}px "Helvetica Neue", Helvetica, Arial, sans-serif`
-  const valueFont  = `800 ${is916 ? 58 : 52}px "Helvetica Neue", Helvetica, Arial, sans-serif`
-  const valueShift = is916 ? 72 : 64
+  // ─── Stats row: PRICE | CI SCORE | 30D CHANGE ────────────────────────────────
+  const colW      = (w - pad * 2) / 3
+  const labelFz   = is916 ? 18 : 16
+  const valueFz   = is916 ? 54 : 50
+  const valueShift = is916 ? 66 : 60
 
   const stats = [
     {
       label: 'PRICE',
-      value: `$${data.price.toLocaleString('en-US', { maximumFractionDigits: 0 })}`,
+      value: data.priceDisplay,
       color: '#f0f0f8',
     },
     {
       label: 'CI SCORE',
       value: String(Math.round(data.score)),
-      color: scoreCol(data.score),
+      color: accent,
     },
     {
       label: '30D CHANGE',
@@ -218,30 +233,25 @@ async function drawCard(
     },
   ]
 
+  const statLabelFont = `600 ${labelFz}px "Helvetica Neue", Helvetica, Arial, sans-serif`
+  const statValueFont = `800 ${valueFz}px "Helvetica Neue", Helvetica, Arial, sans-serif`
+
   stats.forEach(({ label, value, color }, i) => {
     const cx = pad + colW * i + colW / 2
-    ctx.font      = labelFont
-    ctx.fillStyle = '#55556a'
-    ctx.textAlign = 'center'
+    ctx.font = statLabelFont; ctx.fillStyle = '#55556a'; ctx.textAlign = 'center'
     ctx.fillText(label, cx, y)
-    ctx.font      = valueFont
-    ctx.fillStyle = color
+    ctx.font = statValueFont; ctx.fillStyle = color
     ctx.fillText(value, cx, y + valueShift)
   })
-  y += valueShift + (is916 ? 60 : 52)
+  y += valueShift + (is916 ? 54 : 48)
 
-  // Second divider
-  ctx.strokeStyle = 'rgba(255,255,255,0.09)'
-  ctx.lineWidth   = 1
-  ctx.beginPath()
-  ctx.moveTo(pad, y)
-  ctx.lineTo(w - pad, y)
-  ctx.stroke()
-  y += is916 ? 52 : 44
+  drawRule(y); y += is916 ? 48 : 40
 
-  // ── Score breakdown bars (9:16 only) ─────────────────────────────────────────
+  // ─── Score breakdown bars (9:16 only) ────────────────────────────────────────
   if (is916) {
-    const hasBars = [data.trend, data.liquidity, data.consistency, data.value].some(v => v != null)
+    const hasBars = [data.trend, data.liquidity, data.consistency, data.value]
+      .some(v => v != null)
+
     if (hasBars) {
       const bars = [
         { label: 'Trend',       val: data.trend       ?? 0 },
@@ -250,83 +260,80 @@ async function drawCard(
         { label: 'Value',       val: data.value       ?? 0 },
       ]
 
-      ctx.font      = '600 20px "Helvetica Neue", Helvetica, Arial, sans-serif'
+      ctx.font      = `600 17px "Helvetica Neue", Helvetica, Arial, sans-serif`
       ctx.fillStyle = '#55556a'
       ctx.textAlign = 'center'
       ctx.fillText('SCORE BREAKDOWN', w / 2, y)
       y += 44
 
       const barW = w - pad * 2
-      const barH = 12
-      const gap  = 50
+      const barH = 10
+      const gap  = 46
 
       for (const { label, val } of bars) {
-        ctx.font      = '500 24px "Helvetica Neue", Helvetica, Arial, sans-serif'
-        ctx.fillStyle = '#9898b8'
-        ctx.textAlign = 'left'
+        const barCol = scoreCol(val)
+        ctx.font      = `500 22px "Helvetica Neue", Helvetica, Arial, sans-serif`
+        ctx.fillStyle = '#9898b8'; ctx.textAlign = 'left'
         ctx.fillText(label, pad, y)
-
-        ctx.font      = '700 24px "Helvetica Neue", Helvetica, Arial, sans-serif'
-        ctx.fillStyle = scoreCol(val)
-        ctx.textAlign = 'right'
+        ctx.font      = `700 22px "Helvetica Neue", Helvetica, Arial, sans-serif`
+        ctx.fillStyle = barCol; ctx.textAlign = 'right'
         ctx.fillText(String(Math.round(val)), w - pad, y)
+        y += 18
 
-        y += 20
-        // track
+        // Track
         ctx.fillStyle = 'rgba(255,255,255,0.07)'
-        roundRect(ctx, pad, y, barW, barH, 6)
-        ctx.fill()
-        // fill
+        roundRect(ctx, pad, y, barW, barH, 5); ctx.fill()
+        // Fill — with a subtle gradient along the bar
         const fw = Math.max(0, Math.round(barW * val / 100))
         if (fw > 0) {
-          ctx.fillStyle = scoreCol(val)
-          roundRect(ctx, pad, y, fw, barH, 6)
-          ctx.fill()
+          const barGrad = ctx.createLinearGradient(pad, 0, pad + fw, 0)
+          barGrad.addColorStop(0, barCol + 'cc')  // slightly dimmer at start
+          barGrad.addColorStop(1, barCol)
+          ctx.fillStyle = barGrad
+          roundRect(ctx, pad, y, fw, barH, 5); ctx.fill()
         }
         y += barH + gap
       }
 
-      y += 8
+      y += 4
+      drawRule(y); y += 48
     }
   }
 
-  // ── Verdict badge ─────────────────────────────────────────────────────────────
+  // ─── Verdict badge ───────────────────────────────────────────────────────────
   if (data.scoreLabel) {
-    const col  = scoreCol(data.score)
-    const text = data.scoreLabel.toUpperCase()
-    const bFs  = is916 ? 30 : 26
-    ctx.font   = `700 ${bFs}px "Helvetica Neue", Helvetica, Arial, sans-serif`
-    const tw   = ctx.measureText(text).width
-    const bPad = 30
-    const bH   = is916 ? 60 : 54
-    const bX   = (w - tw - bPad * 2) / 2
+    const text  = data.scoreLabel.toUpperCase()
+    const bFz   = is916 ? 28 : 25
+    const bH    = is916 ? 58 : 52
+    const bPadX = 32
+    ctx.font    = `700 ${bFz}px "Helvetica Neue", Helvetica, Arial, sans-serif`
+    const tw    = ctx.measureText(text).width
+    const bX    = (w - tw - bPadX * 2) / 2
 
-    ctx.fillStyle = `${col}20`
-    roundRect(ctx, bX, y, tw + bPad * 2, bH, 30)
-    ctx.fill()
-
-    ctx.strokeStyle = `${col}55`
-    ctx.lineWidth   = 1.5
-    roundRect(ctx, bX, y, tw + bPad * 2, bH, 30)
-    ctx.stroke()
-
-    ctx.fillStyle = col
-    ctx.textAlign = 'center'
+    // Badge fill
+    ctx.fillStyle = accent + '1a'
+    roundRect(ctx, bX, y, tw + bPadX * 2, bH, 30); ctx.fill()
+    // Badge border
+    ctx.strokeStyle = accent + '55'; ctx.lineWidth = 1.5
+    roundRect(ctx, bX, y, tw + bPadX * 2, bH, 30); ctx.stroke()
+    // Badge text
+    ctx.fillStyle = accent; ctx.textAlign = 'center'
     ctx.fillText(text, w / 2, y + bH / 2)
-    y += bH + 32
+    y += bH + 28
   }
 
-  // ── Bottom branding ───────────────────────────────────────────────────────────
-  ctx.font      = `400 ${is916 ? 24 : 21}px "Helvetica Neue", Helvetica, Arial, sans-serif`
+  // ─── Bottom branding ─────────────────────────────────────────────────────────
+  ctx.font      = `400 ${is916 ? 21 : 19}px "Helvetica Neue", Helvetica, Arial, sans-serif`
   ctx.fillStyle = 'rgba(255,255,255,0.15)'
   ctx.textAlign = 'center'
-  ctx.fillText('CardIndex · Real market data for TCG collectors', w / 2, h - pad + 4)
+  ctx.fillText('CardIndex · Real market data for TCG collectors', w / 2, h - 38)
 
+  // Reset
   ctx.textAlign    = 'left'
   ctx.textBaseline = 'alphabetic'
 }
 
-// ── Modal ─────────────────────────────────────────────────────────────────────
+// ─── Modal ────────────────────────────────────────────────────────────────────
 
 export default function ShareCardModal({
   data,
@@ -367,43 +374,64 @@ export default function ShareCardModal({
       {/* Backdrop */}
       <div
         onClick={onClose}
-        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', zIndex: 1000, backdropFilter: 'blur(4px)' }}
+        style={{
+          position: 'fixed', inset: 0, zIndex: 1000,
+          background: 'rgba(0,0,0,0.80)', backdropFilter: 'blur(6px)',
+        }}
       />
 
-      {/* Modal */}
-      <div style={{ position: 'fixed', inset: 0, zIndex: 1001, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, pointerEvents: 'none' }}>
+      {/* Panel */}
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 1001,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 16, pointerEvents: 'none',
+      }}>
         <div style={{
           pointerEvents: 'auto',
-          background: '#111120', border: '1px solid rgba(255,255,255,0.1)',
-          borderRadius: 20, padding: 24, width: '100%', maxWidth: 540,
+          background: '#0e0e1c',
+          border: '1px solid rgba(255,255,255,0.08)',
+          borderRadius: 20, padding: 24,
+          width: '100%', maxWidth: 520,
           maxHeight: '92vh', overflowY: 'auto',
           display: 'flex', flexDirection: 'column', gap: 16,
+          boxShadow: '0 32px 80px rgba(0,0,0,0.7)',
         }}>
 
           {/* Header */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <div style={{ fontSize: 11, color: '#e8c547', letterSpacing: 2, marginBottom: 2, fontWeight: 600 }}>ADMIN — EXPORT</div>
+              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: 2, color: '#e8c547', marginBottom: 3 }}>
+                ADMIN — EXPORT
+              </div>
               <div style={{ fontSize: 18, fontWeight: 700, color: '#f0f0f8' }}>Share Card</div>
+              <div style={{ fontSize: 11, color: '#55556a', marginTop: 3 }}>{data.cardName}</div>
             </div>
-            <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#55556a', fontSize: 24, cursor: 'pointer', padding: '0 4px', lineHeight: 1 }}>×</button>
+            <button
+              onClick={onClose}
+              style={{
+                background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: 8, color: '#9898b8', fontSize: 18, cursor: 'pointer',
+                width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >×</button>
           </div>
 
           {/* Ratio toggle */}
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             {(['4:5', '9:16'] as Ratio[]).map(r => (
               <button
                 key={r}
                 onClick={() => setRatio(r)}
                 style={{
-                  flex: 1, padding: '10px 0', borderRadius: 10, cursor: 'pointer',
-                  border: `1.5px solid ${ratio === r ? '#e8c547' : 'rgba(255,255,255,0.1)'}`,
-                  background: ratio === r ? 'rgba(232,197,71,0.1)' : 'transparent',
-                  color: ratio === r ? '#e8c547' : '#9898b8',
+                  padding: '10px 0', borderRadius: 10, cursor: 'pointer',
+                  border: `1.5px solid ${ratio === r ? '#e8c547' : 'rgba(255,255,255,0.08)'}`,
+                  background: ratio === r ? 'rgba(232,197,71,0.08)' : 'rgba(255,255,255,0.02)',
+                  color: ratio === r ? '#e8c547' : '#55556a',
                   transition: 'all 0.15s',
                 }}
               >
-                <div style={{ fontSize: 14, fontWeight: 700 }}>{r}</div>
+                <div style={{ fontSize: 15, fontWeight: 700 }}>{r}</div>
                 <div style={{ fontSize: 10, opacity: 0.65, marginTop: 2 }}>
                   {r === '4:5' ? '1080 × 1350 · Post' : '1080 × 1920 · Story'}
                 </div>
@@ -414,7 +442,7 @@ export default function ShareCardModal({
           {/* Preview */}
           <div style={{
             borderRadius: 12, overflow: 'hidden',
-            background: '#080810', border: '1px solid rgba(255,255,255,0.07)',
+            background: '#060610', border: '1px solid rgba(255,255,255,0.06)',
             minHeight: 220, display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
             {generating && (
@@ -426,22 +454,24 @@ export default function ShareCardModal({
                 alt="Card share preview"
                 style={{
                   width: '100%', height: 'auto', display: 'block',
-                  maxHeight: ratio === '9:16' ? 460 : 340,
+                  maxHeight: ratio === '9:16' ? 480 : 360,
                   objectFit: 'contain',
                 }}
               />
             )}
           </div>
 
-          {/* Download */}
+          {/* Download button */}
           <button
             onClick={download}
             disabled={generating || !previewUrl}
             style={{
-              padding: '14px 0', borderRadius: 12, fontSize: 14, fontWeight: 700,
-              background: generating || !previewUrl ? 'rgba(232,197,71,0.3)' : '#e8c547',
-              border: 'none', color: '#080810',
+              padding: '14px 0', borderRadius: 12,
+              background: generating || !previewUrl ? 'rgba(232,197,71,0.25)' : '#e8c547',
+              border: 'none', color: '#08080f',
+              fontSize: 14, fontWeight: 800, letterSpacing: 0.5,
               cursor: generating || !previewUrl ? 'default' : 'pointer',
+              transition: 'opacity 0.15s',
             }}
           >
             {generating ? 'Generating…' : `Download ${ratio} PNG`}

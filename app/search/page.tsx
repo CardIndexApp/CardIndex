@@ -213,8 +213,11 @@ function SearchPageInner() {
     setSelectedCard(null)
     setSelectedGrade(null)
 
-    const params = new URLSearchParams({ search: name })
-    if (number) params.set('card_number', number)
+    // Fetch more results when a number is given so the client-side filter has
+    // enough cards to work with (there may be many variants across different sets).
+    const params = new URLSearchParams({ search: name, limit: number ? '100' : '20' })
+    // Do NOT send card_number to Poketrace — it's not supported in name-search
+    // context and causes 0 results. We filter by number client-side instead.
     if (langRef.current === 'jp') params.set('game', 'pokemon-japanese')
 
     // ── Cache check first (never counts toward the rate limit) ───────────────

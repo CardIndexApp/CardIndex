@@ -5,6 +5,7 @@ import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { ComposedChart, LineChart, Line, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ReferenceArea } from 'recharts'
 import Navbar from '@/components/Navbar'
+import ShareCardModal from '@/components/ShareCardModal'
 import { getCard, fmt, scoreColor } from '@/lib/data'
 import { tcgImg } from '@/lib/img'
 import { createClient } from '@/lib/supabase/client'
@@ -586,7 +587,8 @@ export default function CardPageClient() {
   // Check auth
   const [userId, setUserId] = useState<string | null>(null)
   const [userTier, setUserTier] = useState<string>('free')
-  const [isAdmin, setIsAdmin] = useState(false)
+  const [isAdmin, setIsAdmin]   = useState(false)
+  const [showShare, setShowShare] = useState(false)
   useEffect(() => {
     const client = createClient()
     // Use getSession (localStorage, instant) matching Navbar pattern
@@ -1017,6 +1019,27 @@ export default function CardPageClient() {
             </div>
           </div>
         )}
+        {/* ── Share card modal ────────────────────────────────────────── */}
+        {showShare && liveData && (
+          <ShareCardModal
+            onClose={() => setShowShare(false)}
+            data={{
+              cardName:    urlName ?? liveData.card_name ?? '',
+              setName:     urlSet  ?? liveData.set_name ?? '',
+              grade:       urlGrade ?? 'Raw',
+              score:       liveData.score ?? 0,
+              scoreLabel:  liveData.score_breakdown?.label ?? '',
+              price:       liveData.price ?? 0,
+              change:      liveData.price_change_pct ?? 0,
+              imageUrl:    tcgImg(liveData.image_url ?? ''),
+              currency,
+              trend:       liveData.score_breakdown?.trend,
+              liquidity:   liveData.score_breakdown?.liquidity,
+              consistency: liveData.score_breakdown?.consistency,
+              value:       liveData.score_breakdown?.value,
+            }}
+          />
+        )}
         <style>{PAGE_STYLES}</style>
         <Navbar />
         <main className="ci-main" style={{ paddingTop: 72, paddingBottom: 80, minHeight: '100vh' }}>
@@ -1103,6 +1126,17 @@ export default function CardPageClient() {
                         <Link href="/pricing" style={{ padding: '8px 14px', borderRadius: 10, background: 'var(--surface2)', border: '1.5px solid var(--border2)', fontSize: 11, fontWeight: 600, color: 'var(--ink3)', width: '100%', textDecoration: 'none', display: 'block', textAlign: 'center', boxSizing: 'border-box' }}>
                           🔒 Compare — Pro
                         </Link>
+                      )}
+                      {/* Share — admin only */}
+                      {isAdmin && liveData && (
+                        <button
+                          onClick={() => setShowShare(true)}
+                          style={{ padding: '8px 14px', borderRadius: 10, background: 'rgba(232,197,71,0.08)', border: '1.5px solid rgba(232,197,71,0.3)', fontSize: 11, fontWeight: 600, color: '#e8c547', cursor: 'pointer', width: '100%' }}
+                          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(232,197,71,0.15)' }}
+                          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(232,197,71,0.08)' }}
+                        >
+                          ↗ Share
+                        </button>
                       )}
                       {/* Force refresh — desktop only */}
                       <button
@@ -2985,6 +3019,27 @@ export default function CardPageClient() {
           </div>
         </div>
       )}
+      {/* ── Share card modal ────────────────────────────────────────── */}
+      {showShare && liveData && (
+        <ShareCardModal
+          onClose={() => setShowShare(false)}
+          data={{
+            cardName:    urlName ?? card?.name ?? liveData.card_name ?? '',
+            setName:     urlSet  ?? liveData.set_name ?? '',
+            grade:       urlGrade ?? 'Raw',
+            score:       liveData.score ?? 0,
+            scoreLabel:  liveData.score_breakdown?.label ?? '',
+            price:       liveData.price ?? 0,
+            change:      liveData.price_change_pct ?? 0,
+            imageUrl:    tcgImg(liveData.image_url ?? card?.imageUrl ?? ''),
+            currency,
+            trend:       liveData.score_breakdown?.trend,
+            liquidity:   liveData.score_breakdown?.liquidity,
+            consistency: liveData.score_breakdown?.consistency,
+            value:       liveData.score_breakdown?.value,
+          }}
+        />
+      )}
       <style>{PAGE_STYLES}</style>
       <Navbar />
       <main className="ci-main" style={{ paddingTop: 72, paddingBottom: 100, minHeight: '100vh' }}>
@@ -3121,6 +3176,19 @@ export default function CardPageClient() {
                       🔒 Compare — Pro
                     </Link>
                   ) : null}
+                  {/* Share — admin only */}
+                  {isAdmin && liveData && (
+                    <button
+                      className="ci-no-print"
+                      onClick={() => setShowShare(true)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(232,197,71,0.08)', border: '1.5px solid rgba(232,197,71,0.3)', borderRadius: 10, padding: '9px 14px', fontSize: 11, fontWeight: 600, color: '#e8c547', cursor: 'pointer', transition: 'all 0.2s' }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(232,197,71,0.15)' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(232,197,71,0.08)' }}
+                    >
+                      <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12l8-8M12 4H7M12 4v5"/></svg>
+                      Share
+                    </button>
+                  )}
                   {/* Force refresh — logged-in users, desktop only */}
                   {isLoggedIn && (
                     <button

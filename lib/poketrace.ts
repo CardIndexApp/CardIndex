@@ -233,10 +233,12 @@ function setNameToSlug(name: string): string {
  * "prismatic-evolutions", "sv-prismatic-evolutions", "prismatic-evolutions-additionals").
  * Callers should try each slug until they find a card match.
  * Results are ordered: exact name match first, then slug/partial matches.
+ *
+ * Pass game='pokemon-japanese' for JP sets (searches EU/CardMarket market).
  */
-export async function getPoketraceSetSlugs(setName: string): Promise<string[]> {
+export async function getPoketraceSetSlugs(setName: string, game = 'pokemon'): Promise<string[]> {
   try {
-    const params = new URLSearchParams({ search: setName, limit: '20', game: 'pokemon' })
+    const params = new URLSearchParams({ search: setName, limit: '20', game })
     const res = await fetch(`${BASE}/sets?${params}`, {
       headers: apiHeaders(),
       cache: 'no-store',
@@ -279,8 +281,8 @@ export async function getPoketraceSetSlugs(setName: string): Promise<string[]> {
 }
 
 /** @deprecated Use getPoketraceSetSlugs (returns all matches). Kept for compatibility. */
-export async function getPoketraceSetSlug(setName: string): Promise<string | null> {
-  const slugs = await getPoketraceSetSlugs(setName)
+export async function getPoketraceSetSlug(setName: string, game = 'pokemon'): Promise<string | null> {
+  const slugs = await getPoketraceSetSlugs(setName, game)
   return slugs[0] ?? null
 }
 

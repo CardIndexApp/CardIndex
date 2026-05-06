@@ -11,7 +11,7 @@
  *   4. Mega Gengar ex       — ME: Ascended Heroes       (JP)
  *   5. Blastoise ex         — SV: Scarlet & Violet 151  (EN)
  *
- * Cached for 12 hours at the route level. Each card also cached individually in search_cache.
+ * Each card is cached individually in search_cache (24h TTL) so repeat requests are instant.
  */
 
 import { NextResponse } from 'next/server'
@@ -33,7 +33,9 @@ import {
 } from '@/lib/poketrace'
 import { computeScore } from '@/lib/score'
 
-export const revalidate = 43200 // 12 hours
+// No route-level revalidate — each card is cached individually in search_cache (24h TTL).
+// The Cache-Control header on the response handles CDN/browser caching.
+export const revalidate = 0
 
 export interface FeaturedCard {
   id: string
@@ -169,14 +171,22 @@ async function fetchPinnedCard(
   if (!process.env.POKETRACE_API_KEY) return null
 
   try {
-    // Fetch pokemontcg.io info in parallel with Poketrace set slug lookup
+    // Fetch pokemontcg.io info in parallel with Poketrace set slug lookup.
+    // Pass pin.game so JP sets are searched on the EU market (game='pokemon-japanese').
     const [ptcgInfo, setSlugResult] = await Promise.allSettled([
       getPtcgInfo(pin.id),
-      getPoketraceSetSlugs(pin.set),
+      getPoketraceSetSlugs(pin.set, pin.game),
     ])
 
     const info     = ptcgInfo.status     === 'fulfilled' ? ptcgInfo.value     : { tcgplayerId: null, fullNumber: null, bareNumber: null, subtypes: [], supertypes: [], imageUrl: null }
-    const setSlugs = setSlugResult.status === 'fulfilled' ? setSlugResult.value : []
+    let setSlugs   = setSlugResult.status === 'fulfilled' ? setSlugResult.value : []
+
+    // If game-specific search found nothing, retry with the default game as fallback
+    // (some JP sets appear in Poketrace under game='pokemon' with EU market data)
+    if (!setSlugs.length && pin.game !== 'pokemon') {
+      try { setSlugs = await getPoketraceSetSlugs(pin.set, 'pokemon') } catch { /* ok */ }
+    }
+
     const variants = toPoketraceVariants(info.subtypes, info.supertypes) as PoketraceVariant[]
 
     let matchedCard: PokétraceCard | null = null
@@ -325,35 +335,48 @@ export async function GET() {
     const results = await Promise.all(PINNED.map(pin => fetchPinnedCard(pin, supabase)))
     const cards   = results.filter((c): c is FeaturedCard => c !== null)
 
-    // If we got less than 3 pinned cards (API key missing / cold start issue),
-    // fall back to top-scored cards from search_cache so the section isn't empty
-    if (cards.length < 3 && process.env.POKETRACE_API_KEY) {
-      const existingIds = new Set(cards.map(c => `${c.id}:${c.grade}`))
+    // If we got less than 3 pinned cards (API key missing / new set not yet in Poketrace),
+    // fall back to market_constituents + search_cache so the section is never empty
+    if (cards.length < 3) {
+      const existingKeys = new Set(cards.map(c => `${c.id}:${c.grade}`))
       const need = 5 - cards.length
 
-      const { data: topRows } = await supabase
-        .from('search_cache')
-        .select('cache_key, card_id, card_name, set_name, grade, price, price_change_pct, score, image_url')
-        .gt('price', 0)
-        .not('score', 'is', null)
-        .order('score', { ascending: false })
-        .limit(50)
+      // Try market_constituents joined with search_cache (has images)
+      const { data: constituents } = await supabase
+        .from('market_constituents')
+        .select('card_id, grade, card_name, set_name, image_url')
+        .limit(80)
 
-      const extras = (topRows ?? [])
-        .filter(r => !existingIds.has(`${r.card_id}:${r.grade}`) && r.price > 0)
-        .slice(0, need)
-        .map(r => ({
-          id:     r.card_id,
-          name:   (r.card_name || '').trim(),
-          set:    r.set_name || '',
-          grade:  r.grade,
-          price:  r.price,
-          change: r.price_change_pct ?? 0,
-          score:  r.score ?? 0,
-          img:    r.image_url || '',
-        }))
-
-      cards.push(...extras)
+      if (constituents && constituents.length > 0) {
+        const keys = constituents
+          .filter(c => !existingKeys.has(`${c.card_id}:${c.grade}`))
+          .map(c => `${c.card_id}:${c.grade}`)
+        const { data: cacheRows } = await supabase
+          .from('search_cache')
+          .select('cache_key, price, price_change_pct, score, image_url, card_name, set_name')
+          .in('cache_key', keys)
+          .gt('price', 0)
+        const cacheMap = new Map((cacheRows ?? []).map(r => [r.cache_key, r]))
+        const extras = constituents
+          .map(c => {
+            const cache = cacheMap.get(`${c.card_id}:${c.grade}`)
+            if (!cache?.price) return null
+            return {
+              id:     c.card_id,
+              name:   (cache.card_name || c.card_name || '').trim(),
+              set:    cache.set_name || c.set_name || '',
+              grade:  c.grade,
+              price:  cache.price,
+              change: cache.price_change_pct ?? 0,
+              score:  cache.score ?? 0,
+              img:    cache.image_url || c.image_url || '',
+            }
+          })
+          .filter((c): c is FeaturedCard => c !== null && !existingKeys.has(`${c.id}:${c.grade}`))
+          .sort((a, b) => b.score - a.score)
+          .slice(0, need)
+        cards.push(...extras)
+      }
     }
 
     return NextResponse.json({ cards }, {

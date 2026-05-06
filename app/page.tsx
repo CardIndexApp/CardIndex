@@ -229,7 +229,7 @@ export default function Home() {
                 onClick={() => router.push('/search')}
                 style={{ padding: '14px 40px', borderRadius: 14, background: 'var(--gold)', border: 'none', color: '#080810', fontSize: 15, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 10 }}
               >
-                👉 Get your first verdict free
+                Get your first verdict free
               </button>
             </div>
             <div className="anim d5" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>

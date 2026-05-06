@@ -318,7 +318,10 @@ export default function Home() {
                 ))
               : featured.length > 0
                 ? featured.map((card, i) => (
-                    <div key={card.id + card.grade} className={i === 4 ? 'featured-card-5th' : undefined}>
+                    // display:contents makes this div invisible to layout so <a>
+                    // is the direct grid item and stretches to equal row height.
+                    // display:none on .featured-card-5th still hides it + children.
+                    <div key={card.id + card.grade} className={i === 4 ? 'featured-card-5th' : undefined} style={{ display: 'contents' }}>
                       <FeaturedCardItem card={card} priority={i < 2} />
                     </div>
                   ))

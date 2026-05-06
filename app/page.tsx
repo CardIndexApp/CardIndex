@@ -308,8 +308,8 @@ export default function Home() {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16 }}>
             {featuredLoading
-              ? Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} style={{ borderRadius: 16, padding: 16, background: 'var(--surface)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+              ? Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className={i === 4 ? 'featured-card-5th' : undefined} style={{ borderRadius: 16, padding: 16, background: 'var(--surface)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 12 }}>
                     <div style={{ width: '100%', height: 180, borderRadius: 10, background: 'var(--surface2)' }} />
                     <div style={{ height: 14, width: '70%', borderRadius: 4, background: 'var(--surface2)' }} />
                     <div style={{ height: 10, width: '50%', borderRadius: 4, background: 'var(--surface2)' }} />
@@ -317,7 +317,11 @@ export default function Home() {
                   </div>
                 ))
               : featured.length > 0
-                ? featured.map((card, i) => <FeaturedCardItem key={card.id + card.grade} card={card} priority={i < 2} />)
+                ? featured.map((card, i) => (
+                    <div key={card.id + card.grade} className={i === 4 ? 'featured-card-5th' : undefined}>
+                      <FeaturedCardItem card={card} priority={i < 2} />
+                    </div>
+                  ))
                 : null
             }
           </div>
@@ -637,6 +641,11 @@ export default function Home() {
       </main>
 
       <style>{`
+        /* Hide 5th featured card on mobile so the grid stays a clean 2×2 */
+        @media (max-width: 640px) {
+          .featured-card-5th { display: none !important; }
+        }
+
         /* ── Mobile: Samsung S24+ and similar narrow viewports ── */
         @media (max-width: 640px) {
 

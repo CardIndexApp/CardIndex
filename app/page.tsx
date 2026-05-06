@@ -49,8 +49,8 @@ function timeAgo(iso: string): string {
 }
 
 const TRENDING_CACHE_KEY  = 'ci_trending_v1'
-const FEATURED_CACHE_KEY  = 'ci_featured_v2' // v2 = pinned cards
-const FEATURED_TTL_MS     = 43_200_000 // 12 hours
+const FEATURED_CACHE_KEY  = 'ci_featured_v3' // v3 = pinned cards, no-cache server response
+const FEATURED_TTL_MS     = 3_600_000  // 1 hour (shorter so pinned cards update faster)
 const TRENDING_TTL_MS     = 43_200_000 // 12 hours
 
 // ── FeaturedCardItem ──────────────────────────────────────────────────────────

@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 
 // Allowlist of image CDN hostnames we proxy.
 // cdn.poketrace.com images require the X-API-Key header — added server-side below.
+// images.scrydex.com hosts JP card art for cards not yet on images.pokemontcg.io.
 const ALLOWED_HOSTS: Record<string, boolean> = {
   'images.pokemontcg.io': true,
   'cdn.poketrace.com':    true,
+  'images.scrydex.com':   true,
 }
 
 export async function GET(req: NextRequest) {

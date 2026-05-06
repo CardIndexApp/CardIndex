@@ -93,7 +93,7 @@ async function fromCache(
     // Cards searched via the search page are stored under their Poketrace ID.
     // Match by card_name (partial, case-insensitive) then pick the row whose
     // set_name contains the set keyword.
-    const { data: rows } = await db
+    const { data: rows, error } = await db
       .from('search_cache')
       .select('price, price_change_pct, score, set_name, grade, last_fetched')
       .ilike('card_name', `%${pin.name}%`)
@@ -101,12 +101,21 @@ async function fromCache(
       .order('last_fetched', { ascending: false })
       .limit(20)
 
-    if (!rows?.length) return null
+    if (error) {
+      console.error('[featured] fromCache query error for', pin.name, error)
+      return null
+    }
+
+    if (!rows?.length) {
+      console.log('[featured] fromCache: no rows found for', pin.name)
+      return null
+    }
 
     const kw = pin.setKeyword.toLowerCase()
     const row = rows.find(r => (r.set_name ?? '').toLowerCase().includes(kw)) ?? rows[0]
     if (!row?.price) return null
 
+    console.log('[featured] fromCache hit:', pin.name, '→', row.set_name, row.grade, row.price)
     return {
       id:     pin.id,
       name:   pin.name,
@@ -117,7 +126,8 @@ async function fromCache(
       score:  (row.score as number) ?? 0,
       img:    pin.img,
     }
-  } catch {
+  } catch (err) {
+    console.error('[featured] fromCache exception for', pin.name, err)
     return null
   }
 }
@@ -231,6 +241,8 @@ export async function GET(_req: NextRequest) {
     const cards: FeaturedCard[] = cached
       .map(c => c ?? (fetched[mi++] ?? null))
       .filter((c): c is FeaturedCard => c !== null)
+
+    console.log(`[featured] returning ${cards.length}/5 cards:`, cards.map(c => c.name))
 
     return NextResponse.json({ cards }, {
       headers: { 'Cache-Control': 'no-cache' },

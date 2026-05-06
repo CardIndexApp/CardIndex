@@ -91,73 +91,41 @@ function removeOutliers(pts: PriceHistoryPoint[]): PriceHistoryPoint[] {
   return pts.filter(p => p.avg >= median / 3 && p.avg <= median * 3)
 }
 
-// ── Read from search_cache ────────────────────────────────────────────────────
-// Tries two strategies so it finds cards regardless of whether they were cached
-// via a pokemontcg.io ID or a Poketrace UUID (eu_XXXXX / UUID).
-
-const SET_KEYWORDS: Record<string, string> = {
-  'me2-130':    'Phantasmal',
-  'me2pt5-277': 'Ascended',
-  'sv10-190':   'Destined',
-  'me2pt5-284': 'Ascended',
-  'sv3pt5-200': '151',
-}
+// ── Read from search_cache by card name → use stored Poketrace ID ─────────────
 
 async function readCache(
   pin: PinnedCard,
   db: ReturnType<typeof createAdminClient>,
 ): Promise<FeaturedCard | null> {
-  const toFeatured = (data: Record<string, unknown>): FeaturedCard => ({
-    id:     pin.id,
-    name:   pin.name,
-    set:    pin.set,
-    grade:  pin.grade,
-    price:  data.price as number,
-    change: (data.price_change_pct as number) ?? 0,
-    score:  (data.score as number) ?? 0,
-    img:    pin.img,
-  })
-
   try {
-    // Strategy 1: exact cache_key (written by liveLookup or direct card page visit via pokemontcg.io ID)
-    const { data: exact } = await db
+    const { data: rows } = await db
       .from('search_cache')
-      .select('card_id, price, price_change_pct, score, last_fetched')
-      .eq('cache_key', `${pin.id}:${pin.grade}`)
-      .gt('price', 0)
-      .single()
-
-    if (exact && Date.now() - new Date(exact.last_fetched as string).getTime() < CACHE_TTL_MS) {
-      return toFeatured(exact)
-    }
-  } catch { /* no exact match — try by name */ }
-
-  try {
-    // Strategy 2: card visited via search (Poketrace UUID as cache_key).
-    // Match on card_name + set_name keyword + grade.
-    const keyword = SET_KEYWORDS[pin.id] ?? ''
-    const query = db
-      .from('search_cache')
-      .select('price, price_change_pct, score, last_fetched')
-      .ilike('card_name', `%${pin.name}%`)
-      .eq('grade', pin.grade)
+      .select('price, price_change_pct, score, last_fetched, set_name, grade, poketrace_id')
+      .ilike('card_name', pin.name)   // exact name match (case-insensitive)
       .gt('price', 0)
       .order('last_fetched', { ascending: false })
-      .limit(10)
+      .limit(20)
 
-    const { data: rows } = await query
+    if (!rows?.length) return null
 
-    // Pick the row whose set_name best matches our set keyword
-    const row = (rows ?? []).find(r =>
-      !keyword || ((r as Record<string, unknown>).set_name as string ?? '').toLowerCase().includes(keyword.toLowerCase())
-    ) ?? rows?.[0]
+    // Prefer the row whose set_name contains a distinctive keyword from pin.set
+    const keyword = pin.set.split(' ').find(w => w.length > 3) ?? pin.set
+    const row = rows.find(r => (r.set_name ?? '').toLowerCase().includes(keyword.toLowerCase()))
+      ?? rows[0]
 
-    if (row && Date.now() - new Date((row as Record<string, unknown>).last_fetched as string).getTime() < CACHE_TTL_MS) {
-      return toFeatured(row as Record<string, unknown>)
+    return {
+      id:     pin.id,
+      name:   pin.name,
+      set:    pin.set,
+      grade:  (row.grade as string) || pin.grade,
+      price:  row.price as number,
+      change: (row.price_change_pct as number) ?? 0,
+      score:  (row.score as number) ?? 0,
+      img:    pin.img,
     }
-  } catch { /* cache miss */ }
-
-  return null
+  } catch {
+    return null
+  }
 }
 
 // ── Live lookup: name search → first result → full pricing ────────────────────

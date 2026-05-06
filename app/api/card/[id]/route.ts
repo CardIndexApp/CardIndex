@@ -217,7 +217,7 @@ export async function GET(
     // Skip pokemontcg.io lookup when the id is a Poketrace UUID — it won't resolve there.
     const [ptcgInfoResult, slugResult] = await Promise.allSettled([
       isPoketraceId ? Promise.resolve({ tcgplayerId: null, fullNumber: null, bareNumber: null, subtypes: [], supertypes: [], imageUrl: null } as PokemonTcgCardInfo) : getPokemonTcgCardInfo(id),
-      setName ? getPoketraceSetSlugs(setName) : Promise.resolve([] as string[]),
+      setName ? getPoketraceSetSlugs(setName, inferredGame) : Promise.resolve([] as string[]),
     ])
 
     if (slugResult.status === 'rejected') {
@@ -261,7 +261,7 @@ export async function GET(
         tried.push(`set_slugs:[${poketraceSetSlugs.join(',')}]+number:${num}`)
         try {
           // findBySetAndNumber tries each slug in poketraceSetSlugs sequentially
-          const found = await findBySetAndNumber(cardName, poketraceSetSlugs, num, variants)
+          const found = await findBySetAndNumber(cardName, poketraceSetSlugs, num, variants, inferredGame)
           if (found) { matchedCard = found; matchReason = `set_slug:${found.set.slug}+number:${num}`; break }
         } catch (err) {
           if (err instanceof PoketraceApiError) {
@@ -283,6 +283,7 @@ export async function GET(
           ptcgInfo.fullNumber ?? cardNumber,
           ptcgInfo.tcgplayerId ?? undefined,
           poketraceSetSlugs[0] ?? undefined,
+          inferredGame,
         )
         if (matchResult) { matchedCard = matchResult.card; matchReason = matchResult.debug.matchReason }
       } catch (err) {

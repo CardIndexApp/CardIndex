@@ -3,7 +3,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { ComposedChart, LineChart, Line, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ReferenceArea } from 'recharts'
+import { ComposedChart, LineChart, Line, Area, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ReferenceArea } from 'recharts'
 import Navbar from '@/components/Navbar'
 import ShareCardModal from '@/components/ShareCardModal'
 import { getCard, fmt, scoreColor } from '@/lib/data'
@@ -832,6 +832,7 @@ export default function CardPageClient() {
   const [priceCheckOpen, setPriceCheckOpen]   = useState(false)
   const [priceCheckInput, setPriceCheckInput] = useState('')
   const [priceCheckPrice, setPriceCheckPrice] = useState<number | null>(null)
+  const [histWindow, setHistWindow] = useState<'3M' | '6M' | '12M' | 'ALL'>('ALL')
 
   // ── Report an issue ──────────────────────────────────────────────────────────
   const [reportOpen, setReportOpen]           = useState(false)
@@ -3339,6 +3340,140 @@ export default function CardPageClient() {
               </div>
             </div>
           </div>
+
+          {/* ── Price History Chart ── */}
+          {liveHistory.length >= 2 && (() => {
+            const CHART_WINDOWS: Array<{ key: '3M' | '6M' | '12M' | 'ALL'; pts: number }> = [
+              { key: '3M',  pts: 3  },
+              { key: '6M',  pts: 6  },
+              { key: '12M', pts: 12 },
+              { key: 'ALL', pts: Infinity },
+            ]
+
+            const chartPts = histWindow === 'ALL'
+              ? liveHistory
+              : liveHistory.slice(-(CHART_WINDOWS.find(w => w.key === histWindow)?.pts ?? liveHistory.length))
+
+            const firstPrice = chartPts[0]?.price ?? 0
+            const lastPrice  = chartPts[chartPts.length - 1]?.price ?? 0
+            const periodChg  = firstPrice > 0 ? ((lastPrice - firstPrice) / firstPrice * 100) : 0
+            const periodHigh = Math.max(...chartPts.map(p => p.price))
+            const periodLow  = Math.min(...chartPts.map(p => p.price))
+            const lineColor  = periodChg >= 0 ? 'var(--green)' : 'var(--red)'
+            const lineHex    = periodChg >= 0 ? '#3de88a' : '#e8524a'
+
+            const fmtMonth = (m: string) => {
+              const [y, mo] = m.split('-')
+              const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+              return `${names[+mo - 1]} '${y.slice(2)}`
+            }
+
+            return (
+              <div style={{ ...C }} className="ci-card-surface">
+                <div style={{ ...P }}>
+                  {/* Header */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+                    <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', fontWeight: 600 }}>PRICE HISTORY</span>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      {CHART_WINDOWS.map(w => {
+                        const available = w.pts === Infinity ? liveHistory.length : Math.min(w.pts, liveHistory.length)
+                        if (available < 2 && w.key !== 'ALL') return null
+                        const active = histWindow === w.key
+                        return (
+                          <button
+                            key={w.key}
+                            onClick={() => setHistWindow(w.key)}
+                            style={{
+                              padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                              border: `1px solid ${active ? 'rgba(232,197,71,0.4)' : 'var(--border)'}`,
+                              background: active ? 'var(--gold2)' : 'transparent',
+                              color: active ? 'var(--gold)' : 'var(--ink3)',
+                              transition: 'all 0.15s',
+                            }}
+                          >{w.key}</button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Summary stats */}
+                  <div style={{ display: 'flex', gap: 20, marginBottom: 16, flexWrap: 'wrap' }}>
+                    <div>
+                      <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 3 }}>PERIOD CHANGE</div>
+                      <div className="font-num" style={{ fontSize: 20, fontWeight: 800, color: lineColor, letterSpacing: '-0.5px' }}>
+                        {periodChg >= 0 ? '▲' : '▼'} {Math.abs(periodChg).toFixed(1)}%
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 3 }}>PERIOD HIGH</div>
+                      <div className="font-num" style={{ fontSize: 20, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px' }}>{fmtCurrency(periodHigh)}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 3 }}>PERIOD LOW</div>
+                      <div className="font-num" style={{ fontSize: 20, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px' }}>{fmtCurrency(periodLow)}</div>
+                    </div>
+                    <div style={{ marginLeft: 'auto' }}>
+                      <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 3 }}>DATA POINTS</div>
+                      <div className="font-num" style={{ fontSize: 20, fontWeight: 800, color: 'var(--ink2)', letterSpacing: '-0.5px' }}>{chartPts.length}mo</div>
+                    </div>
+                  </div>
+
+                  {/* Chart */}
+                  <ResponsiveContainer width="100%" height={180}>
+                    <ComposedChart data={chartPts} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="priceAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%"   stopColor={lineHex} stopOpacity={0.18} />
+                          <stop offset="100%" stopColor={lineHex} stopOpacity={0}    />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 0" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                      <XAxis
+                        dataKey="month"
+                        tickFormatter={fmtMonth}
+                        tick={{ fontSize: 10, fill: '#55556a', fontFamily: 'Helvetica' }}
+                        axisLine={false}
+                        tickLine={false}
+                        interval="preserveStartEnd"
+                      />
+                      <YAxis
+                        tickFormatter={v => fmtCurrency(v)}
+                        tick={{ fontSize: 10, fill: '#55556a', fontFamily: 'Helvetica' }}
+                        axisLine={false}
+                        tickLine={false}
+                        width={72}
+                        domain={['auto', 'auto']}
+                      />
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (!active || !payload?.length) return null
+                          const d = payload[0].payload as { month: string; price: number; volume?: number }
+                          return (
+                            <div style={{ background: 'var(--surface)', border: '1px solid var(--border2)', borderRadius: 8, padding: '8px 12px', fontSize: 12, boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}>
+                              <div style={{ fontSize: 10, color: 'var(--ink3)', marginBottom: 4 }}>{fmtMonth(d.month)}</div>
+                              <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 15 }}>{fmtCurrency(d.price)}</div>
+                              {d.volume != null && d.volume > 0 && (
+                                <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 3 }}>{d.volume} sales</div>
+                              )}
+                            </div>
+                          )
+                        }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="price"
+                        stroke={lineHex}
+                        strokeWidth={2}
+                        fill="url(#priceAreaGrad)"
+                        dot={false}
+                        activeDot={{ r: 4, fill: lineHex, strokeWidth: 0 }}
+                      />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )
+          })()}
 
           {/* ── Price Verdict ── */}
           <div style={{ borderRadius: 14, background: verdict.bg, border: `1px solid ${verdict.border}`, padding: '22px 24px', marginBottom: 10 }}>

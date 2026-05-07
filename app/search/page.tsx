@@ -7,7 +7,7 @@ import { ptImg } from '@/lib/img'
 import { cacheGet, cacheSet, cacheKey } from '@/lib/searchCache'
 import { anonLimitReached, incrementAnonSearchCount, anonWindowRemainingMs, clearAnonSearchCount } from '@/lib/anonSearchLimit'
 import { createClient } from '@/lib/supabase/client'
-import { isCardResult, isValidSealedProduct } from '@/lib/cardFilter'
+import { isCardResult } from '@/lib/cardFilter'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -225,8 +225,7 @@ function SearchPageInner() {
     const cached = cacheGet<PtCard[]>(key)
     if (cached) {
       if (controller.signal.aborted) return
-      // Keep only real cards and recognisable sealed products — drop junk entries
-      const filtered = cached.filter(c => isCardResult(c) || isValidSealedProduct(c))
+      const filtered = cached.filter(isCardResult)
       const sorted   = sortByRelevance(filtered, name)
       const refined  = number ? filterByNumber(sorted, number) : sorted
       setBlocked(false)
@@ -242,8 +241,7 @@ function SearchPageInner() {
       if (controller.signal.aborted) return
       const json = await res.json()
       const data: PtCard[] = json.data ?? []
-      // Keep only real cards and recognisable sealed products — drop junk entries
-      const filtered = data.filter(c => isCardResult(c) || isValidSealedProduct(c))
+      const filtered = data.filter(isCardResult)
       const sorted  = sortByRelevance(filtered, name)
       const refined = number ? filterByNumber(sorted, number) : sorted
       setResults(refined)
@@ -329,23 +327,6 @@ function SearchPageInner() {
     setBlocked(false)
   }
 
-  function handleSealedClick(card: PtCard) {
-    // Gate non-logged-in users the same way as graded cards
-    if (isLoggedInRef.current === false && anonLimitReached()) {
-      setCooldownMins(Math.ceil(anonWindowRemainingMs() / 60_000))
-      setBlocked(true)
-      setSelectedCard(card)
-      return
-    }
-    if (isLoggedInRef.current === false) incrementAnonSearchCount()
-
-    const params = new URLSearchParams({
-      grade: 'Sealed', name: card.name, set: card.set.name,
-      number: card.cardNumber ?? '', set_slug: card.set.slug,
-    })
-    if (lang === 'jp') params.set('game', 'pokemon-japanese')
-    router.push(`/card/${card.id}?${params}`)
-  }
 
 function clearSearch() {
     setQuery(''); setResults([]); setStaleResults([]); setCommittedQuery('')
@@ -498,7 +479,6 @@ function clearSearch() {
 
             {displayResults.map(card => {
               const isSelected = selectedCard?.id === card.id
-              const isSealed = isValidSealedProduct(card)
               const variant = card.variant && card.variant !== 'Normal'
                 ? VARIANT_LABELS[card.variant] ?? card.variant
                 : null
@@ -508,29 +488,26 @@ function clearSearch() {
 
                   {/* Result row */}
                   <button
-                    onClick={() => isSealed ? handleSealedClick(card) : handleCardClick(card)}
+                    onClick={() => handleCardClick(card)}
                     style={{
                       width: '100%', display: 'flex', alignItems: 'center', gap: 14,
                       padding: '12px 14px',
-                      borderRadius: isSelected && !isSealed ? '12px 12px 0 0' : 12,
-                      background: 'var(--surface)',
-                      border: `1.5px solid ${isSelected && !isSealed ? 'var(--gold)' : 'var(--border)'}`,
-                      borderBottom: isSelected && !isSealed ? '1.5px solid transparent' : `1.5px solid ${isSelected && !isSealed ? 'var(--gold)' : 'var(--border)'}`,
+                      borderRadius: isSelected ? '12px 12px 0 0' : 12,
+                      background: isSelected ? 'var(--surface)' : 'var(--surface)',
+                      border: `1.5px solid ${isSelected ? 'var(--gold)' : 'var(--border)'}`,
+                      borderBottom: isSelected ? '1.5px solid transparent' : `1.5px solid ${isSelected ? 'var(--gold)' : 'var(--border)'}`,
                       cursor: 'pointer', textAlign: 'left',
                       transition: 'border-color 0.15s',
                       minHeight: 72,   // comfortable tap target
                     }}
-                    onMouseEnter={e => { if (!isSelected || isSealed) e.currentTarget.style.borderColor = 'rgba(232,197,71,0.4)' }}
-                    onMouseLeave={e => { if (!isSelected || isSealed) e.currentTarget.style.borderColor = 'var(--border)' }}
+                    onMouseEnter={e => { if (!isSelected) e.currentTarget.style.borderColor = 'rgba(232,197,71,0.4)' }}
+                    onMouseLeave={e => { if (!isSelected) e.currentTarget.style.borderColor = 'var(--border)' }}
                   >
                     <CardThumb src={ptImg(card.image)} alt={card.name} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
                         <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.3 }}>{card.name}</span>
-                        {isSealed
-                          ? <span style={{ fontSize: 9, letterSpacing: 1, padding: '1px 5px', borderRadius: 4, background: 'rgba(232,197,71,0.1)', border: '1px solid rgba(232,197,71,0.25)', color: 'var(--gold)', fontWeight: 700 }}>SEALED</span>
-                          : card.cardNumber && <span style={{ fontSize: 11, color: 'var(--ink3)', flexShrink: 0 }}>#{card.cardNumber}</span>
-                        }
+                        {card.cardNumber && <span style={{ fontSize: 11, color: 'var(--ink3)', flexShrink: 0 }}>#{card.cardNumber}</span>}
                       </div>
                       <div style={{ fontSize: 12, color: 'var(--ink3)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {card.set.name}{variant ? ` · ${variant}` : ''}{lang === 'jp' && <span style={{ marginLeft: 6, fontSize: 9, letterSpacing: 1, padding: '1px 5px', borderRadius: 4, background: 'rgba(255,50,50,0.1)', border: '1px solid rgba(255,50,50,0.2)', color: '#ff6060' }}>JP</span>}
@@ -540,14 +517,14 @@ function clearSearch() {
                       )}
                     </div>
                     <span style={{
-                      fontSize: 20, color: isSelected && !isSealed ? 'var(--gold)' : 'var(--ink3)',
+                      fontSize: 20, color: isSelected ? 'var(--gold)' : 'var(--ink3)',
                       flexShrink: 0, lineHeight: 1,
                       transition: 'transform 0.2s, color 0.15s',
-                      transform: isSelected && !isSealed ? 'rotate(90deg)' : 'none',
+                      transform: isSelected ? 'rotate(90deg)' : 'none',
                     }}>›</span>
                   </button>
 
-                  {!isSealed && isSelected && (
+                  {isSelected && (
                     <div style={{
                       border: '1.5px solid var(--gold)', borderTop: 'none',
                       borderRadius: '0 0 12px 12px',

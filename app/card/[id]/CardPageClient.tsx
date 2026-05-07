@@ -1344,6 +1344,10 @@ export default function CardPageClient() {
                   )})()}
 
                   {/* ── Price History Chart ── */}
+                  {/* DEBUG — remove after confirming */}
+                  <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 8, padding: '4px 0' }}>
+                    history pts: {(liveData.price_history ?? []).length} | sample: {JSON.stringify((liveData.price_history ?? []).slice(0,1))}
+                  </div>
                   {(() => {
                     const histData = liveData.price_history ?? []
                     if (histData.length < 2) return null

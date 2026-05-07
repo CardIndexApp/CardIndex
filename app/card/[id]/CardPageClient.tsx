@@ -3,7 +3,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { ComposedChart, LineChart, Line, Area, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ReferenceArea } from 'recharts'
+import { ComposedChart, LineChart, Line, Area, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ReferenceArea, ReferenceLine } from 'recharts'
 import Navbar from '@/components/Navbar'
 import ShareCardModal from '@/components/ShareCardModal'
 import { getCard, fmt, scoreColor } from '@/lib/data'
@@ -1344,8 +1344,9 @@ export default function CardPageClient() {
                   )})()}
 
                   {/* ── Price History Chart ── */}
-                  {liveData.price_history && liveData.price_history.length >= 2 && (() => {
-                    const histData = liveData.price_history
+                  {(() => {
+                    const histData = liveData.price_history ?? []
+                    if (histData.length < 2) return null
                     const HIST_WINDOWS: Array<{ key: '3M' | '6M' | '12M' | 'ALL'; pts: number }> = [
                       { key: '3M',  pts: 3  },
                       { key: '6M',  pts: 6  },
@@ -1360,70 +1361,43 @@ export default function CardPageClient() {
                     const periodChg  = firstPrice > 0 ? ((lastPrice - firstPrice) / firstPrice * 100) : 0
                     const periodHigh = Math.max(...chartPts.map(p => p.price))
                     const periodLow  = Math.min(...chartPts.map(p => p.price))
-                    const lineColor  = periodChg >= 0 ? 'var(--green)' : 'var(--red)'
-                    const lineHex    = periodChg >= 0 ? '#3de88a' : '#e8524a'
+                    const chgColor   = periodChg >= 0 ? '#3de88a' : '#e8524a'
                     const fmtM = (m: string) => {
                       const parts = m.split(' ')
-                      return parts.length === 2 ? `${parts[0]} '${(parts[1] ?? '').slice(2)}` : m
+                      return parts[0] ?? m
                     }
+                    const pad = (periodHigh - periodLow) * 0.08
                     return (
                       <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
-                        {/* Period toggle + stats row */}
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
-                          <div style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
-                            <span className="font-num" style={{ fontSize: 16, fontWeight: 800, color: lineColor }}>
-                              {periodChg >= 0 ? '▲' : '▼'} {Math.abs(periodChg).toFixed(1)}%
-                            </span>
-                            <span style={{ fontSize: 10, color: 'var(--ink3)' }}>
-                              {fmtCurrency(periodLow)} – {fmtCurrency(periodHigh)}
-                            </span>
-                          </div>
-                          <div style={{ display: 'flex', gap: 4 }}>
-                            {HIST_WINDOWS.map(w => {
-                              const avail = w.pts === Infinity ? histData.length : Math.min(w.pts, histData.length)
-                              if (avail < 2 && w.key !== 'ALL') return null
-                              const active = histWindow === w.key
-                              return (
-                                <button
-                                  key={w.key}
-                                  onClick={() => setHistWindow(w.key)}
-                                  style={{
-                                    padding: '3px 8px', borderRadius: 5, fontSize: 10, fontWeight: 600, cursor: 'pointer',
-                                    border: `1px solid ${active ? 'rgba(232,197,71,0.4)' : 'var(--border)'}`,
-                                    background: active ? 'var(--gold2)' : 'transparent',
-                                    color: active ? 'var(--gold)' : 'var(--ink3)',
-                                    transition: 'all 0.15s',
-                                  }}
-                                >{w.key}</button>
-                              )
-                            })}
-                          </div>
-                        </div>
                         {/* Chart */}
-                        <ResponsiveContainer width="100%" height={140}>
-                          <ComposedChart data={chartPts} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                        <ResponsiveContainer width="100%" height={200}>
+                          <ComposedChart data={chartPts} margin={{ top: 24, right: 0, left: 0, bottom: 0 }}>
                             <defs>
-                              <linearGradient id="histAreaGradInline" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%"   stopColor={lineHex} stopOpacity={0.18} />
-                                <stop offset="100%" stopColor={lineHex} stopOpacity={0}    />
+                              <linearGradient id="histGoldGrad" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%"   stopColor="#e8c547" stopOpacity={0.55} />
+                                <stop offset="100%" stopColor="#e8c547" stopOpacity={0.02} />
                               </linearGradient>
                             </defs>
-                            <CartesianGrid strokeDasharray="3 0" stroke="rgba(255,255,255,0.04)" vertical={false} />
                             <XAxis
                               dataKey="month"
                               tickFormatter={fmtM}
-                              tick={{ fontSize: 9, fill: '#55556a', fontFamily: 'Helvetica' }}
-                              axisLine={false}
+                              tick={{ fontSize: 10, fill: '#55556a', fontFamily: 'Helvetica' }}
+                              axisLine={{ stroke: 'rgba(255,255,255,0.08)' }}
                               tickLine={false}
                               interval="preserveStartEnd"
                             />
-                            <YAxis
-                              tickFormatter={v => fmtCurrency(v)}
-                              tick={{ fontSize: 9, fill: '#55556a', fontFamily: 'Helvetica' }}
-                              axisLine={false}
-                              tickLine={false}
-                              width={68}
-                              domain={['auto', 'auto']}
+                            <YAxis hide domain={[periodLow - pad, periodHigh + pad]} />
+                            <ReferenceLine
+                              y={periodHigh}
+                              stroke="#55556a"
+                              strokeDasharray="4 4"
+                              label={{ value: fmtCurrency(periodHigh), position: 'insideTopLeft', fill: '#9898b8', fontSize: 10, fontFamily: 'Helvetica' }}
+                            />
+                            <ReferenceLine
+                              y={periodLow}
+                              stroke="#55556a"
+                              strokeDasharray="4 4"
+                              label={{ value: fmtCurrency(periodLow), position: 'insideBottomLeft', fill: '#9898b8', fontSize: 10, fontFamily: 'Helvetica' }}
                             />
                             <Tooltip
                               content={({ active, payload }) => {
@@ -1431,7 +1405,7 @@ export default function CardPageClient() {
                                 const d = payload[0].payload as { month: string; price: number; volume?: number }
                                 return (
                                   <div style={{ background: 'var(--surface)', border: '1px solid var(--border2)', borderRadius: 8, padding: '8px 12px', fontSize: 12, boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}>
-                                    <div style={{ fontSize: 10, color: 'var(--ink3)', marginBottom: 4 }}>{fmtM(d.month)}</div>
+                                    <div style={{ fontSize: 10, color: 'var(--ink3)', marginBottom: 4 }}>{d.month}</div>
                                     <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 14 }}>{fmtCurrency(d.price)}</div>
                                     {d.volume != null && d.volume > 0 && (
                                       <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>{d.volume} sales</div>
@@ -1443,14 +1417,39 @@ export default function CardPageClient() {
                             <Area
                               type="monotone"
                               dataKey="price"
-                              stroke={lineHex}
+                              stroke="#e8c547"
                               strokeWidth={2}
-                              fill="url(#histAreaGradInline)"
+                              fill="url(#histGoldGrad)"
                               dot={false}
-                              activeDot={{ r: 4, fill: lineHex, strokeWidth: 0 }}
+                              activeDot={{ r: 4, fill: '#e8c547', strokeWidth: 0 }}
                             />
                           </ComposedChart>
                         </ResponsiveContainer>
+                        {/* Period buttons */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', marginTop: 12 }}>
+                          {HIST_WINDOWS.map(w => {
+                            const avail = w.pts === Infinity ? histData.length : Math.min(w.pts, histData.length)
+                            if (avail < 2 && w.key !== 'ALL') return null
+                            const active = histWindow === w.key
+                            return (
+                              <button
+                                key={w.key}
+                                onClick={() => setHistWindow(w.key)}
+                                style={{
+                                  width: 40, height: 40, borderRadius: '50%', fontSize: 11, fontWeight: 700,
+                                  cursor: 'pointer', border: 'none',
+                                  background: active ? 'var(--ink)' : 'transparent',
+                                  color: active ? 'var(--bg)' : 'var(--ink3)',
+                                  transition: 'all 0.15s',
+                                }}
+                              >{w.key}</button>
+                            )
+                          })}
+                          {/* change badge */}
+                          <span className="font-num" style={{ fontSize: 12, fontWeight: 700, color: chgColor, minWidth: 60, textAlign: 'right' }}>
+                            {periodChg >= 0 ? '+' : ''}{periodChg.toFixed(1)}%
+                          </span>
+                        </div>
                       </div>
                     )
                   })()}

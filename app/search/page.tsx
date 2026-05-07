@@ -5,7 +5,7 @@ import Navbar from '@/components/Navbar'
 import BetaModal from '@/components/BetaModal'
 import { ptImg } from '@/lib/img'
 import { cacheGet, cacheSet, cacheKey } from '@/lib/searchCache'
-import { isCardResult } from '@/lib/cardFilter'
+import { isCardResult, isSealedResult } from '@/lib/cardFilter'
 import { anonLimitReached, incrementAnonSearchCount, anonWindowRemainingMs, clearAnonSearchCount } from '@/lib/anonSearchLimit'
 import { createClient } from '@/lib/supabase/client'
 
@@ -157,6 +157,8 @@ function SearchPageInner() {
   const isLoggedInRef                     = useRef<boolean | null>(null)
   const [lang, setLang]   = useState<'en' | 'jp'>('en')
   const langRef           = useRef<'en' | 'jp'>('en')
+  const [mode, setMode]   = useState<'cards' | 'sealed'>('cards')
+  const modeRef           = useRef<'cards' | 'sealed'>('cards')
   const [blocked, setBlocked]             = useState(false)   // anon limit reached
   const [showSignup, setShowSignup]       = useState(false)   // auth modal open
   const [cooldownMins, setCooldownMins]   = useState(0)
@@ -225,7 +227,8 @@ function SearchPageInner() {
     const cached = cacheGet<PtCard[]>(key)
     if (cached) {
       if (controller.signal.aborted) return
-      const filtered = cached.filter(isCardResult)
+      const filterFn = modeRef.current === 'sealed' ? isSealedResult : isCardResult
+      const filtered = cached.filter(filterFn)
       const sorted   = sortByRelevance(filtered, name)
       const refined  = number ? filterByNumber(sorted, number) : sorted
       setBlocked(false)
@@ -241,7 +244,9 @@ function SearchPageInner() {
       if (controller.signal.aborted) return
       const json = await res.json()
       const data: PtCard[] = json.data ?? []
-      const sorted  = sortByRelevance(data, name)
+      const filterFn = modeRef.current === 'sealed' ? isSealedResult : isCardResult
+      const filtered = data.filter(filterFn)
+      const sorted  = sortByRelevance(filtered, name)
       const refined = number ? filterByNumber(sorted, number) : sorted
       setResults(refined)
       if (refined.length > 0) {
@@ -289,6 +294,19 @@ function SearchPageInner() {
     }
   }, [lang, query, runSearch])
 
+  // Keep modeRef in sync + clear results when mode changes
+  useEffect(() => {
+    modeRef.current = mode
+    setResults([])
+    setStaleResults([])
+    setCommittedQuery('')
+    if (query.trim()) {
+      setLoading(true)
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      debounceRef.current = setTimeout(() => runSearch(query), DEBOUNCE_MS)
+    }
+  }, [mode, query, runSearch])
+
   // Scroll selected card + grade picker into view on mobile
   useEffect(() => {
     if (selectedCard && selectedRef.current) {
@@ -324,6 +342,13 @@ function SearchPageInner() {
     setSelectedCard(prev => prev?.id === card.id ? null : card)
     setSelectedGrade(null)
     setBlocked(false)
+  }
+
+  function handleSealedClick(card: PtCard) {
+    const params = new URLSearchParams({
+      grade: 'Sealed', name: card.name, set: card.set.name,
+    })
+    router.push(`/card/${card.id}?${params}`)
   }
 
   function clearSearch() {
@@ -409,7 +434,7 @@ function SearchPageInner() {
         )}
 
         {/* EN / JP language toggle */}
-        <div style={{ display: 'flex', gap: 6, marginBottom: 16, marginTop: showHint ? 8 : 4 }}>
+        <div style={{ display: 'flex', gap: 6, marginBottom: 8, marginTop: showHint ? 8 : 4 }}>
           {(['en', 'jp'] as const).map(l => (
             <button
               key={l}
@@ -423,6 +448,25 @@ function SearchPageInner() {
               }}
             >
               {l === 'en' ? '🇺🇸 English' : '🇯🇵 Japanese'}
+            </button>
+          ))}
+        </div>
+
+        {/* Cards / Sealed mode toggle */}
+        <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+          {(['cards', 'sealed'] as const).map(m => (
+            <button
+              key={m}
+              onClick={() => setMode(m)}
+              style={{
+                padding: '5px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                border: `1px solid ${mode === m ? 'var(--gold)' : 'var(--border2)'}`,
+                background: mode === m ? 'rgba(232,197,71,0.1)' : 'transparent',
+                color: mode === m ? 'var(--gold)' : 'var(--ink3)',
+                cursor: 'pointer', letterSpacing: 0.5, transition: 'all 0.15s',
+              }}
+            >
+              {m === 'cards' ? 'Cards' : 'Sealed'}
             </button>
           ))}
         </div>
@@ -476,6 +520,7 @@ function SearchPageInner() {
 
             {displayResults.map(card => {
               const isSelected = selectedCard?.id === card.id
+              const isSealed = mode === 'sealed'
               const variant = card.variant && card.variant !== 'Normal'
                 ? VARIANT_LABELS[card.variant] ?? card.variant
                 : null
@@ -485,7 +530,7 @@ function SearchPageInner() {
 
                   {/* Result row */}
                   <button
-                    onClick={() => handleCardClick(card)}
+                    onClick={() => isSealed ? handleSealedClick(card) : handleCardClick(card)}
                     style={{
                       width: '100%', display: 'flex', alignItems: 'center', gap: 14,
                       padding: '12px 14px',
@@ -504,7 +549,10 @@ function SearchPageInner() {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
                         <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.3 }}>{card.name}</span>
-                        <span style={{ fontSize: 11, color: 'var(--ink3)', flexShrink: 0 }}>#{card.cardNumber}</span>
+                        {!isSealed && <span style={{ fontSize: 11, color: 'var(--ink3)', flexShrink: 0 }}>#{card.cardNumber}</span>}
+                        {isSealed && (
+                          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.5, padding: '1px 7px', borderRadius: 5, background: 'rgba(232,197,71,0.12)', border: '1px solid rgba(232,197,71,0.35)', color: 'var(--gold)', flexShrink: 0 }}>Sealed</span>
+                        )}
                       </div>
                       <div style={{ fontSize: 12, color: 'var(--ink3)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {card.set.name}{variant ? ` · ${variant}` : ''}{lang === 'jp' && <span style={{ marginLeft: 6, fontSize: 9, letterSpacing: 1, padding: '1px 5px', borderRadius: 4, background: 'rgba(255,50,50,0.1)', border: '1px solid rgba(255,50,50,0.2)', color: '#ff6060' }}>JP</span>}
@@ -521,8 +569,8 @@ function SearchPageInner() {
                     }}>›</span>
                   </button>
 
-                  {/* Inline grade picker */}
-                  {isSelected && (
+                  {/* Inline grade picker — only for card mode */}
+                  {!isSealed && isSelected && (
                     <div style={{
                       border: '1.5px solid var(--gold)', borderTop: 'none',
                       borderRadius: '0 0 12px 12px',

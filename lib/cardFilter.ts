@@ -24,3 +24,14 @@ export function isCardResult(card: {
   if (card.name && SEALED_RE.test(card.name)) return false
   return true
 }
+
+export function isSealedResult(card: {
+  cardNumber?: string | null
+  name?: string | null
+}): boolean {
+  // Sealed products have no card number
+  if (!card.cardNumber || !/\d/.test(card.cardNumber)) return true
+  // Or their name matches sealed product patterns
+  if (card.name && SEALED_RE.test(card.name)) return true
+  return false
+}

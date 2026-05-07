@@ -157,7 +157,9 @@ export async function GET(
 
   if (cached && !bustCache) {
     const age = Date.now() - new Date(cached.last_fetched).getTime()
-    if (age < CACHE_TTL_MS) {
+    // Treat rows with missing price_history as stale so they pick up the field on next fetch
+    const missingHistory = !cached.price_history || (cached.price_history as unknown[]).length === 0
+    if (age < CACHE_TTL_MS && !missingHistory) {
       await supabase.from('search_log').insert({ card_id: id, card_name: cardName, grade })
       // Recompute warning from stored fields if not already present (pre-migration rows)
       const recomputed = cached.data_warning !== undefined ? cached : {

@@ -3,8 +3,6 @@
  * Proxy for Poketrace /cards — keeps API key server-side.
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { isCardResult } from '@/lib/cardFilter'
-
 export async function GET(req: NextRequest) {
   if (!process.env.POKETRACE_API_KEY) {
     return NextResponse.json({ data: [], pagination: { hasMore: false, count: 0 } })
@@ -37,9 +35,8 @@ export async function GET(req: NextRequest) {
     })
     if (!res.ok) return NextResponse.json({ data: [], pagination: { hasMore: false, count: 0 } })
     const json = await res.json()
-    const filtered = (json.data ?? []).filter(isCardResult)
     return NextResponse.json(
-      { ...json, data: filtered, pagination: { ...json.pagination, count: filtered.length } },
+      json,
       { headers: { 'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=3600' } }
     )
   } catch {

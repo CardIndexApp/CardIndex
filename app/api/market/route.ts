@@ -26,9 +26,9 @@ interface CacheRow {
 }
 
 export interface IndexStats {
-  level: number          // median price of cards in this category
-  change30d: number      // median 30d % change
-  change7d: number       // derived: (price - avg7d) / avg7d * 100
+  level: number              // median price of cards in this category
+  change30d: number | null   // median 30d % change (null = no data)
+  change7d: number | null    // derived: (price - avg7d) / avg7d * 100 (null = no avg7d data)
   cardCount: number
   risingCount: number
   fallingCount: number
@@ -113,13 +113,13 @@ function computeIndexStats(rows: CacheRow[]): IndexStats | null {
   const withChange = priced.filter(r => r.price_change_pct != null)
   const change30d = withChange.length > 0
     ? round2(median(withChange.map(r => r.price_change_pct!)))
-    : 0
+    : null
 
-  // 7d change: derive from avg7d vs current price
+  // 7d change: derive from avg7d vs current price (null when avg7d not yet populated)
   const with7d = priced.filter(r => r.avg7d != null && r.avg7d > 0)
   const change7d = with7d.length > 0
     ? round2(median(with7d.map(r => ((r.price! - r.avg7d!) / r.avg7d!) * 100)))
-    : 0
+    : null
 
   const changes = withChange.map(r => r.price_change_pct!)
   const risingCount = changes.filter(c => c > 0).length
@@ -166,13 +166,13 @@ function computeIndexHistory(rows: CacheRow[]): { month: string; value: number }
 }
 
 export interface IndexMetrics {
-  level:           number   // current normalized index value (base 100)
-  change7d:        number   // % change over last 7 days
-  change30d:       number   // % change over last 30 days
-  change90d:       number   // % change over last 90 days
-  trendExtension:  number   // 7d momentum projected forward 30 days
-  week52High:      number   // highest index value in last 52 weeks
-  week52Low:       number   // lowest index value in last 52 weeks
+  level:           number        // current normalized index value (base 100)
+  change7d:        number | null // % change over last 7 days (null if < 2 months history)
+  change30d:       number | null // % change over last 30 days
+  change90d:       number | null // % change over last 90 days
+  trendExtension:  number | null // 30d momentum projected forward
+  week52High:      number | null // highest index value in last 52 weeks
+  week52Low:       number | null // lowest index value in last 52 weeks
 }
 
 /**
@@ -194,25 +194,28 @@ function computeIndexMetrics(
   const len = history.length
   const current = history[len - 1].value
 
-  // 30d — one monthly step back
-  const val30 = history[Math.max(0, len - 2)].value
-  const change30d = round2(len >= 2 ? ((current - val30) / val30) * 100 : 0)
+  // 30d — one monthly step back (null if only 1 data point)
+  const change30d = len >= 2
+    ? round2(((current - history[len - 2].value) / history[len - 2].value) * 100)
+    : null
 
-  // 7d — scale the most-recent monthly change by 7/30
-  const val7base = history[Math.max(0, len - 2)].value
-  const change7d  = round2(len >= 2 ? ((current - val7base) / val7base) * 100 * (7 / 30) : 0)
+  // 7d — scale the most-recent monthly change by 7/30 (null if only 1 point)
+  const change7d = len >= 2
+    ? round2(((current - history[len - 2].value) / history[len - 2].value) * 100 * (7 / 30))
+    : null
 
-  // 90d — three monthly steps back
-  const val90 = history[Math.max(0, len - 4)].value
-  const change90d = round2(len >= 2 ? ((current - val90) / val90) * 100 : 0)
+  // 90d — three monthly steps back (null if not enough history)
+  const change90d = len >= 4
+    ? round2(((current - history[len - 4].value) / history[len - 4].value) * 100)
+    : null
 
-  // 52-week window — last 12 monthly entries
+  // 52-week window — last 12 monthly entries (null if < 2 points)
   const window52 = history.slice(-12).map(h => h.value)
-  const week52High = round2(Math.max(...window52))
-  const week52Low  = round2(Math.min(...window52))
+  const week52High = window52.length >= 2 ? round2(Math.max(...window52)) : null
+  const week52Low  = window52.length >= 2 ? round2(Math.min(...window52)) : null
 
-  // Trend extension: if this month's momentum continues for a month
-  const trendExtension = round2(change30d)
+  // Trend extension: mirrors 30d momentum
+  const trendExtension = change30d
 
   return {
     level: round2(current),

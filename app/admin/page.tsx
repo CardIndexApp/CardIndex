@@ -241,7 +241,10 @@ export default function AdminPage() {
   }
 
   // ── Market index helpers ──────────────────────────────────────────────────
+  const constitLoadingRef = useRef(false)
   const loadConstituents = useCallback(async () => {
+    if (constitLoadingRef.current) return
+    constitLoadingRef.current = true
     setConstitLoading(true)
     try {
       const r = await fetch('/api/admin/market/constituents')
@@ -250,15 +253,14 @@ export default function AdminPage() {
         setConstituents(json.constituents ?? [])
       }
     } finally {
+      constitLoadingRef.current = false
       setConstitLoading(false)
     }
   }, [])
 
   useEffect(() => {
-    if (activeTab === 'market' && constituents.length === 0 && !constitLoading) {
-      loadConstituents()
-    }
-  }, [activeTab]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (activeTab === 'market') loadConstituents()
+  }, [activeTab, loadConstituents])
 
   function handleCardSearchInput(val: string) {
     setCardSearch(val)

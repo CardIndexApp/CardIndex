@@ -53,21 +53,26 @@ function SignalBadge({ signal }: { signal: keyof typeof SIGNAL_LABELS }) {
 
 // ── Index Metrics panel ───────────────────────────────────────────────────────
 function IndexMetricsPanel({ metrics, loading }: { metrics: IndexMetrics | null | undefined; loading: boolean }) {
-  const items: { label: string; value: number | null; isChange?: boolean; highlight?: boolean }[] = metrics ? [
-    { label: 'Index Level',       value: metrics.level,          highlight: true },
-    { label: '7d Change',         value: metrics.change7d,       isChange: true },
-    { label: '30d Change',        value: metrics.change30d,      isChange: true },
-    { label: '90d Change',        value: metrics.change90d,      isChange: true },
-    { label: 'Trend (30d proj.)', value: metrics.trendExtension, isChange: true },
-    { label: '52w High',          value: metrics.week52High },
-    { label: '52w Low',           value: metrics.week52Low },
-  ] : Array(7).fill({ label: '—', value: null })
+  const items: { label: string; value: number | null; isChange?: boolean; highlight?: boolean }[] = [
+    { label: 'Index Level',       value: metrics?.level          ?? null, highlight: true },
+    { label: '7d Change',         value: metrics?.change7d       ?? null, isChange: true },
+    { label: '30d Change',        value: metrics?.change30d      ?? null, isChange: true },
+    { label: '90d Change',        value: metrics?.change90d      ?? null, isChange: true },
+    { label: 'Trend (30d proj.)', value: metrics?.trendExtension ?? null, isChange: true },
+    { label: '52w High',          value: metrics?.week52High     ?? null },
+    { label: '52w Low',           value: metrics?.week52Low      ?? null },
+  ]
 
   return (
     <div style={{ borderRadius: 16, background: 'var(--surface)', border: '1px solid var(--border2)', padding: '18px 24px', marginBottom: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)' }}>CI Index Metrics</div>
         <div style={{ fontSize: 10, color: 'var(--ink3)' }}>Normalized equal-weighted index (base = 100 at first tracked price)</div>
+        {!loading && !metrics && (
+          <div style={{ fontSize: 10, color: 'var(--gold)', background: 'rgba(232,197,71,0.08)', border: '1px solid rgba(232,197,71,0.2)', borderRadius: 6, padding: '2px 8px' }}>
+            Not enough price history yet — refresh index cards to build data
+          </div>
+        )}
       </div>
       <div className="mkt-metrics-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '12px 8px' }}>
         {items.map(({ label, value, isChange, highlight }, i) => (
@@ -75,8 +80,10 @@ function IndexMetricsPanel({ metrics, loading }: { metrics: IndexMetrics | null 
             <div style={{ fontSize: 9, color: 'var(--ink3)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {label}
             </div>
-            {loading || value == null ? (
+            {loading ? (
               <div style={{ height: 22, borderRadius: 4, background: 'var(--surface2)', animation: 'sk-pulse 1.6s ease-in-out infinite' }} />
+            ) : value == null ? (
+              <span style={{ fontSize: 13, color: 'var(--ink3)' }}>—</span>
             ) : isChange ? (
               <Chg v={value} size={14} />
             ) : (
@@ -120,9 +127,13 @@ function IndexCard({ title, subtitle, data, highlight }: {
             ].map(({ label, val }) => (
               <div key={label}>
                 <div style={{ fontSize: 9, color: 'var(--ink3)', letterSpacing: 1, marginBottom: 2 }}>{label}</div>
-                <span className="font-num" style={{ fontSize: 13, fontWeight: 700, color: changeColor(val) }}>
-                  {val >= 0 ? '+' : ''}{val.toFixed(2)}%
-                </span>
+                {val == null ? (
+                  <span style={{ fontSize: 13, color: 'var(--ink3)' }}>—</span>
+                ) : (
+                  <span className="font-num" style={{ fontSize: 13, fontWeight: 700, color: changeColor(val) }}>
+                    {val >= 0 ? '+' : ''}{val.toFixed(2)}%
+                  </span>
+                )}
               </div>
             ))}
           </div>
@@ -323,8 +334,8 @@ export default function Market() {
                 {/* Change grid */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 24px', paddingTop: 4 }}>
                   {[
-                    { label: '7d change',  val: data?.overall?.change7d },
-                    { label: '30d change', val: data?.overall?.change30d },
+                    { label: '7d change',  val: data?.overall?.change7d  ?? null },
+                    { label: '30d change', val: data?.overall?.change30d ?? null },
                   ].map(({ label, val }) => (
                     <div key={label}>
                       <div style={{ fontSize: 9, color: 'var(--ink3)', letterSpacing: 1, marginBottom: 4 }}>{label.toUpperCase()}</div>

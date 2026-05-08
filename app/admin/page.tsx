@@ -142,6 +142,7 @@ export default function AdminPage() {
   const [refreshProgress, setRefreshProgress] = useState<{ done: number; total: number } | null>(null)
   const [refreshDelay, setRefreshDelay] = useState(500) // ms between card fetches
   const [seeding, setSeeding] = useState(false)
+  const [migrationSql, setMigrationSql] = useState<string | null>(null)
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // ── Pull-to-refresh ───────────────────────────────────────────────────────
@@ -337,13 +338,12 @@ export default function AdminPage() {
       const r = await fetch('/api/admin/market/migrate-cache', { method: 'POST' })
       const json = await r.json()
       if (json.sql) {
-        // exec_sql not available — show the SQL to run manually
-        flash('err', 'Run SQL manually (copied to console)')
-        console.log('=== Run this SQL in your Supabase SQL editor ===\n', json.sql)
+        // exec_sql not available — show the SQL in a visible panel so user can copy it
+        setMigrationSql(json.sql)
         return
       }
       if (!r.ok) { flash('err', json.error ?? 'Migration failed'); return }
-      flash('ok', `Migration complete — ${json.ok} columns added/verified`)
+      flash('ok', 'Migration applied — DB columns are up to date')
     } catch {
       flash('err', 'Migration request failed')
     }
@@ -357,7 +357,7 @@ export default function AdminPage() {
     let firstErrMsg = ''
     for (const c of cards) {
       try {
-        const params = new URLSearchParams({ grade: c.grade, name: c.card_name, bust_cache: '1' })
+        const params = new URLSearchParams({ grade: c.grade, name: c.card_name, bust_cache: '1', all_tiers: '1' })
         if (c.set_name) params.set('set', c.set_name)
         const r = await fetch(`/api/card/${c.card_id}?${params.toString()}`)
         if (r.ok) {
@@ -388,7 +388,7 @@ export default function AdminPage() {
     if (failed === 0 && cacheWarnings === 0) {
       flash('ok', `${label}: refreshed ${ok} cards`)
     } else if (failed === 0 && cacheWarnings > 0) {
-      flash('err', `${ok} fetched but ${cacheWarnings} cache writes failed — run DB Migration to fix`)
+      flash('err', `${ok} fetched, ${cacheWarnings} cache writes failed — click DB Migration to get the SQL to run in Supabase`)
     } else if (ok === 0) {
       flash('err', `All ${failed} failed. First: ${firstErrMsg}`)
     } else {
@@ -1087,6 +1087,46 @@ export default function AdminPage() {
 
         </div>
       </main>
+
+      {/* ── Migration SQL modal ── */}
+      {migrationSql && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+          onClick={() => setMigrationSql(null)}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border2)', borderRadius: 16, padding: 28, maxWidth: 700, width: '100%', maxHeight: '80vh', overflow: 'auto' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>Run this SQL in Supabase</div>
+                <div style={{ fontSize: 12, color: 'var(--ink3)' }}>
+                  Go to <strong>Supabase Dashboard → SQL Editor → New query</strong>, paste and run:
+                </div>
+              </div>
+              <button onClick={() => setMigrationSql(null)}
+                style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--ink3)', cursor: 'pointer', fontSize: 13 }}>
+                ✕
+              </button>
+            </div>
+            <pre style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, padding: 16, fontSize: 11, color: 'var(--ink2)', overflowX: 'auto', whiteSpace: 'pre-wrap', lineHeight: 1.6, marginBottom: 16 }}>
+              {migrationSql}
+            </pre>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => { navigator.clipboard.writeText(migrationSql); flash('ok', 'SQL copied to clipboard') }}
+                style={{ flex: 1, padding: '9px 16px', borderRadius: 8, border: '1px solid rgba(74,158,255,0.4)', background: 'rgba(74,158,255,0.1)', color: '#4a9eff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+              >
+                📋 Copy SQL
+              </button>
+              <button onClick={() => setMigrationSql(null)}
+                style={{ padding: '9px 16px', borderRadius: 8, border: '1px solid var(--border2)', background: 'transparent', color: 'var(--ink3)', fontSize: 12, cursor: 'pointer' }}>
+                Close
+              </button>
+            </div>
+            <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 8, background: 'rgba(232,197,71,0.07)', border: '1px solid rgba(232,197,71,0.2)', fontSize: 11, color: 'var(--gold)', lineHeight: 1.6 }}>
+              After running the SQL, click <strong>Force All</strong> to repopulate price data into the new columns.
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

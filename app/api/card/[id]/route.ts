@@ -22,6 +22,7 @@ import {
   getPoketraceSetSlugs,
   gradeToTier,
   getTierPrice,
+  tierToGrade,
   toPoketraceVariants,
   PoketraceApiError,
   type PoketraceVariant,
@@ -140,6 +141,7 @@ export async function GET(
   const urlSetSlug = req.nextUrl.searchParams.get('set_slug') ?? ''
   const urlGame    = req.nextUrl.searchParams.get('game')     ?? 'pokemon'
   const bustCache  = req.nextUrl.searchParams.get('bust_cache') === '1'
+  const allTiers   = req.nextUrl.searchParams.get('all_tiers')  === '1'
 
   if (!cardName) {
     return NextResponse.json({ error: 'name param required' }, { status: 400 })
@@ -632,6 +634,63 @@ export async function GET(
       data: record,
       warning: `Cache write failed: ${upsertErr.message}`,
     })
+  }
+
+  // ── 10. Store ALL tiers (when requested by admin refresh) ─────────────────
+  // For each eBay tier returned by Poketrace (other than the one already stored),
+  // upsert a lightweight cache row with price + avg7d/avg30d data.
+  // No separate history API call is made — price_history is left empty for secondary tiers.
+  if (allTiers && fullCard.prices.ebay) {
+    const secondaryRows = []
+    const now = new Date().toISOString()
+    for (const [tier, tp] of Object.entries(fullCard.prices.ebay)) {
+      if (tier === resolvedTier) continue   // primary tier already stored above
+      if (!tp.avg || tp.avg <= 0) continue  // skip tiers with no price data
+      const displayGrade = tierToGrade(tier)
+      const tierCacheKey = `${id}:${displayGrade}`
+      const tierPriceChangePct = tp.avg30d && tp.avg30d > 0
+        ? Math.round(((tp.avg - tp.avg30d) / tp.avg30d) * 1000) / 100
+        : null
+      secondaryRows.push({
+        cache_key:        tierCacheKey,
+        card_id:          id,
+        card_name:        cardName,
+        set_name:         setName || fullCard.set.name,
+        grade:            displayGrade,
+        image_url:        ptcgInfo.imageUrl ?? fullCard.image,
+        price:            tp.avg,
+        price_change_pct: tierPriceChangePct,
+        price_range_low:  tp.low  ?? tp.avg,
+        price_range_high: tp.high ?? tp.avg,
+        price_history:    [],
+        ebay_listings:    [],
+        score:            null,
+        score_breakdown:  null,
+        sales_count_30d:  tp.saleCount ?? 0,
+        last_fetched:     now,
+        poketrace_id:     fullCard.id,
+        match_reason:     matchReason,
+        currency:         fullCard.currency,
+        market:           fullCard.market,
+        resolved_tier:    tier,
+        avg1d:            tp.avg1d  ?? null,
+        avg7d:            tp.avg7d  ?? null,
+        avg30d:           tp.avg30d ?? null,
+        trend:            tp.trend  ?? null,
+        confidence:       tp.confidence ?? null,
+        all_tier_prices:  allTierPrices,
+        total_sale_count: fullCard.totalSaleCount ?? null,
+        last_updated_pt:  fullCard.lastUpdated ?? null,
+        data_warning:     null,
+        data_source:      'ebay',
+        ebay_sale_count:  tp.saleCount ?? 0,
+        ebay_avg_usd:     tp.avg,
+      })
+    }
+    if (secondaryRows.length > 0) {
+      const { error: tierErr } = await supabase.from('search_cache').upsert(secondaryRows)
+      if (tierErr) console.error('[card] secondary tier upsert failed:', tierErr.message, '— card:', cardName)
+    }
   }
 
   return NextResponse.json({ source: 'live', data: record })

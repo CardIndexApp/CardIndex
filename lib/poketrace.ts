@@ -115,6 +115,24 @@ export function gradeToTier(grade: string): string {
   return grade.trim().replace(/\s+/g, '_').replace(/\./g, '_')
 }
 
+/**
+ * Convert a Poketrace tier key back to a human-readable display grade.
+ * "NEAR_MINT" → "Raw", "PSA_10" → "PSA 10", "BGS_9_5" → "BGS 9.5"
+ */
+export function tierToGrade(tier: string): string {
+  if (tier === 'NEAR_MINT')         return 'Raw'
+  if (tier === 'MINT')              return 'Mint'
+  if (tier === 'LIGHTLY_PLAYED')    return 'Lightly Played'
+  if (tier === 'MODERATELY_PLAYED') return 'Moderately Played'
+  if (tier === 'HEAVILY_PLAYED')    return 'Heavily Played'
+  if (tier === 'DAMAGED')           return 'Damaged'
+  if (tier === 'AGGREGATED')        return 'Raw' // CardMarket EU aggregate
+  // Graded tiers: PSA_10 → PSA 10, BGS_9_5 → BGS 9.5
+  return tier
+    .replace(/_(\d+)_(\d+)$/, ' $1.$2')  // trailing decimal: _9_5 → 9.5
+    .replace(/_/g, ' ')
+}
+
 const RAW_TIERS = ['NEAR_MINT', 'MINT', 'LIGHTLY_PLAYED', 'MODERATELY_PLAYED', 'HEAVILY_PLAYED', 'DAMAGED']
 
 /**

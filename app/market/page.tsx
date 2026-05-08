@@ -25,10 +25,11 @@ function IndexTooltip({ active, payload, label }: { active?: boolean; payload?: 
 // ── Change pill ────────────────────────────────────────────────────────────────
 function Chg({ v, size = 12 }: { v: number | null | undefined; size?: number }) {
   if (v == null) return <span style={{ fontSize: size, color: 'var(--ink3)' }}>—</span>
-  const pos = v >= 0
+  const isZero = Math.abs(v) < 0.05   // treat anything < 0.05% as flat
+  const color = isZero ? 'var(--ink3)' : v > 0 ? 'var(--green)' : 'var(--red)'
   return (
-    <span className="font-num" style={{ fontSize: size, fontWeight: 600, color: pos ? 'var(--green)' : 'var(--red)' }}>
-      {pos ? '+' : ''}{v.toFixed(2)}%
+    <span className="font-num" style={{ fontSize: size, fontWeight: 600, color }}>
+      {isZero ? '±0.00%' : `${v > 0 ? '+' : ''}${v.toFixed(2)}%`}
     </span>
   )
 }
@@ -103,7 +104,7 @@ function IndexCard({ title, subtitle, data, highlight }: {
   title: string; subtitle: string; data: IndexStats | null; highlight?: boolean
 }) {
   const level = data?.level
-  const changeColor = (v: number) => v >= 0 ? 'var(--green)' : 'var(--red)'
+  const changeColor = (v: number) => Math.abs(v) < 0.05 ? 'var(--ink3)' : v > 0 ? 'var(--green)' : 'var(--red)'
 
   return (
     <div style={{
@@ -131,7 +132,7 @@ function IndexCard({ title, subtitle, data, highlight }: {
                   <span style={{ fontSize: 13, color: 'var(--ink3)' }}>—</span>
                 ) : (
                   <span className="font-num" style={{ fontSize: 13, fontWeight: 700, color: changeColor(val) }}>
-                    {val >= 0 ? '+' : ''}{val.toFixed(2)}%
+                    {Math.abs(val) < 0.05 ? '±0.00%' : `${val > 0 ? '+' : ''}${val.toFixed(2)}%`}
                   </span>
                 )}
               </div>
@@ -385,12 +386,9 @@ export default function Market() {
           {/* ── CI Index Metrics ── */}
           <IndexMetricsPanel metrics={data?.indexMetrics} loading={loading} />
 
-          {/* ── 4 Index cards ── */}
-          <div className="mkt-indices" style={{ marginBottom: 16 }}>
-            <IndexCard title="CI Index"         subtitle="All constituents"   data={loading ? null : data?.overall ?? null} highlight />
-            <IndexCard title="Raw Index"        subtitle="Ungraded cards"     data={loading ? null : data?.raw ?? null} />
-            <IndexCard title="Graded Index"     subtitle="PSA / BGS / CGC"    data={loading ? null : data?.graded ?? null} />
-            <IndexCard title="PSA 10 Index"     subtitle="PSA 10 only"        data={loading ? null : data?.psa10 ?? null} />
+          {/* ── CI Index card ── */}
+          <div style={{ marginBottom: 16 }}>
+            <IndexCard title="CI Index" subtitle="All constituents — all grades" data={loading ? null : data?.overall ?? null} highlight />
           </div>
 
           {/* ── Index performance chart ── */}

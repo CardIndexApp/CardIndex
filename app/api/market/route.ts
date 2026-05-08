@@ -257,13 +257,15 @@ export async function GET(req: Request) {
     let usingConstituents = false
 
     if (constituents && constituents.length > 0) {
-      // Fetch ONLY constituent cards from search_cache
+      // Fetch ALL cached price tiers for constituent cards (Raw, PSA 10, PSA 9, etc.)
+      // This gives the index a complete picture across all grades for each card.
       usingConstituents = true
-      const cacheKeys = constituents.map((c: { card_id: string; grade: string }) => `${c.card_id}:${c.grade}`)
+      const cardIds = [...new Set(constituents.map((c: { card_id: string }) => c.card_id))]
       const { data: cached, error } = await admin
         .from('search_cache')
         .select('cache_key,card_id,card_name,set_name,grade,image_url,price,price_change_pct,price_history,avg7d,avg30d,sales_count_30d,score,last_fetched')
-        .in('cache_key', cacheKeys)
+        .in('card_id', cardIds)
+        .not('price', 'is', null)
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
       rows = (cached ?? []) as CacheRow[]
     } else {

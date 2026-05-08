@@ -222,12 +222,16 @@ export default function Market() {
   const [chartWindow, setChartWindow] = useState<Window>('All')
   const { fmtCurrency } = useCurrency()
 
-  useEffect(() => {
-    fetch('/api/market')
+  function loadMarket(bust = false) {
+    setLoading(true)
+    const url = bust ? '/api/market?bust=1' : '/api/market'
+    fetch(url, bust ? { cache: 'no-store' } : undefined)
       .then(r => r.json())
       .then(d => { setData(d); setLoading(false) })
       .catch(() => setLoading(false))
-  }, [])
+  }
+
+  useEffect(() => { loadMarket() }, [])
 
   const { theme } = useTheme()
   const isLight = theme === 'light'
@@ -275,11 +279,20 @@ export default function Market() {
                 ? `Equal-weighted index tracking ${(data as { constituentCount?: number }).constituentCount} curated cards — ${(data as { pricedCount?: number }).pricedCount ?? 0} currently priced.`
                 : 'Aggregate index across all tracked cards — price trends, movers, and market breadth.'}
             </p>
-            {data?.lastUpdated && (
-              <p style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 6, opacity: 0.6 }}>
-                Last updated {new Date(data.lastUpdated).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-              </p>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 6, flexWrap: 'wrap' }}>
+              {data?.lastUpdated && (
+                <p style={{ fontSize: 11, color: 'var(--ink3)', opacity: 0.6, margin: 0 }}>
+                  Last updated {new Date(data.lastUpdated).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </p>
+              )}
+              <button
+                onClick={() => loadMarket(true)}
+                disabled={loading}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, border: '1px solid var(--border2)', background: 'var(--surface2)', color: 'var(--ink3)', fontSize: 10, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.5 : 1, letterSpacing: 0.5 }}
+              >
+                ↻ Refresh
+              </button>
+            </div>
           </div>
 
           {/* ── Hero: Signal + Overall Index ── */}

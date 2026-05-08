@@ -527,13 +527,16 @@ export async function GET(
 
   // ── 6. Build price change % ───────────────────────────────────────────────
   // Use cleaned history — outlier months no longer skew the trend %
-  let priceChangePct = 0
+  // Store null (not 0) when there is genuinely no 30d reference to compare against.
+  // The market index median will then exclude these cards from its change calculation,
+  // producing "—" instead of a misleading "+0.00%".
+  let priceChangePct: number | null = null
   if (tierPrice.avg30d && tierPrice.avg30d > 0) {
     priceChangePct = ((tierPrice.avg - tierPrice.avg30d) / tierPrice.avg30d) * 100
   } else if (history.length >= 2) {
     const oldest = history[0].avg
     const newest = history[history.length - 1].avg
-    priceChangePct = oldest > 0 ? ((newest - oldest) / oldest) * 100 : 0
+    priceChangePct = oldest > 0 ? ((newest - oldest) / oldest) * 100 : null
   }
 
   // ── 7. Format history for sparkline / chart ──────────────────────────────
@@ -581,7 +584,7 @@ export async function GET(
     grade,
     image_url:           ptcgInfo.imageUrl ?? fullCard.image,
     price:               tierPrice.avg,
-    price_change_pct:    Math.round(priceChangePct * 10) / 10,
+    price_change_pct:    priceChangePct != null ? Math.round(priceChangePct * 10) / 10 : null,
     price_range_low:     tierPrice.low  ?? tierPrice.avg,
     price_range_high:    tierPrice.high ?? tierPrice.avg,
     price_history:       priceHistory,

@@ -243,7 +243,8 @@ function toMover(r: CacheRow, sales = false): MoverCard {
 
 // ── Route handler ──────────────────────────────────────────────────────────────
 
-export async function GET() {
+export async function GET(req: Request) {
+  const bust = new URL(req.url).searchParams.get('bust') === '1'
   try {
     const admin = createAdminClient()
 
@@ -280,7 +281,7 @@ export async function GET() {
         constituentCount: constituents?.length ?? 0,
         pricedCount: 0,
       } as MarketResponse & { constituentCount: number; pricedCount: number }, {
-        headers: { 'Cache-Control': 'public, max-age=300, stale-while-revalidate=60' },
+        headers: { 'Cache-Control': bust ? 'no-store' : 'public, max-age=300, stale-while-revalidate=60' },
       })
     }
 
@@ -349,7 +350,11 @@ export async function GET() {
     } satisfies MarketResponse & { constituentCount: number; pricedCount: number }
 
     return NextResponse.json(response, {
-      headers: { 'Cache-Control': 'public, max-age=1800, stale-while-revalidate=300' },
+      headers: {
+        'Cache-Control': bust
+          ? 'no-store'
+          : 'public, max-age=1800, stale-while-revalidate=300',
+      },
     })
   } catch (err) {
     console.error('[market] error:', err)

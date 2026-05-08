@@ -143,13 +143,15 @@ export async function GET() {
   const paidCount      = profileList.filter(u => u.tier !== 'free').length
   const conversionRate = profileList.length > 0 ? (paidCount / profileList.length) * 100 : 0
 
-  // Recently active users via auth.admin
+  // Recently active users via auth.admin + per-user last_sign_in_at
   let recentlyActive7d  = 0
   let recentlyActive30d = 0
+  const lastSignInMap: Record<string, string | null> = {}
   try {
     const { data: { users: authUsers } } = await admin.auth.admin.listUsers({ perPage: 1000 })
     recentlyActive7d  = authUsers.filter(u => u.last_sign_in_at && new Date(u.last_sign_in_at) >= sevenDaysAgo).length
     recentlyActive30d = authUsers.filter(u => u.last_sign_in_at && new Date(u.last_sign_in_at) >= thirtyDaysAgo).length
+    for (const u of authUsers) lastSignInMap[u.id] = u.last_sign_in_at ?? null
   } catch { /* non-fatal */ }
 
   // ── Usage / health metrics ────────────────────────────────────────────────
@@ -167,8 +169,14 @@ export async function GET() {
     admin.from('card_reports').select('*', { count: 'exact', head: true }),
   ])
 
+  // Merge last_sign_in_at into each user row
+  const usersWithLastSeen = (users ?? []).map(u => ({
+    ...u,
+    last_sign_in_at: lastSignInMap[u.id] ?? null,
+  }))
+
   return NextResponse.json({
-    users: users ?? [],
+    users: usersWithLastSeen,
     requests,
     portfolioStats: {
       totalCostBasis:       portfolioStats.totalCostBasis,

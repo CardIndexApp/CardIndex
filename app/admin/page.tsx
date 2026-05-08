@@ -16,7 +16,18 @@ interface UserRow {
   subscription_status: string | null
   stripe_customer_id: string | null
   created_at: string
+  last_sign_in_at: string | null
   is_admin: boolean
+}
+
+function timeAgo(iso: string | null): string {
+  if (!iso) return 'Never'
+  const secs = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
+  if (secs < 60)        return 'Just now'
+  if (secs < 3600)      return `${Math.floor(secs / 60)}m ago`
+  if (secs < 86400)     return `${Math.floor(secs / 3600)}h ago`
+  if (secs < 86400 * 7) return `${Math.floor(secs / 86400)}d ago`
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 interface UpgradeRequest {
@@ -451,9 +462,46 @@ export default function AdminPage() {
             )}
           </div>
         </div>
-        <style>{`@keyframes ptr-spin { to { transform: rotate(360deg); } }`}</style>
+        <style>{`
+          @keyframes ptr-spin { to { transform: rotate(360deg); } }
 
-        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 16px' }}>
+          /* ── Responsive stat grids ── */
+          .adm-grid { display: grid; }
+          .adm-grid-4 { grid-template-columns: repeat(4, 1fr); }
+          .adm-grid-5 { grid-template-columns: repeat(5, 1fr); }
+          .adm-grid-3 { grid-template-columns: repeat(3, 1fr); }
+
+          @media (max-width: 640px) {
+            /* Page padding */
+            .adm-outer { padding: 0 12px !important; }
+
+            /* Tabs: full width */
+            .adm-tabs { width: 100% !important; }
+            .adm-tabs button { flex: 1; padding: 8px 12px !important; }
+
+            /* Stat grids: 2-col on mobile */
+            .adm-grid-4 { grid-template-columns: repeat(2, 1fr) !important; }
+            .adm-grid-5 { grid-template-columns: repeat(2, 1fr) !important; }
+            .adm-grid-3 { grid-template-columns: repeat(2, 1fr) !important; }
+
+            /* Hide non-essential table columns */
+            .adm-hide-mob { display: none !important; }
+
+            /* Tier buttons: wrap tightly */
+            .adm-tier-btns { flex-wrap: wrap; gap: 4px !important; }
+            .adm-tier-btns button { padding: 4px 7px !important; font-size: 10px !important; min-height: 28px !important; }
+
+            /* Market: refresh buttons stack below heading */
+            .adm-market-head { flex-direction: column !important; align-items: flex-start !important; gap: 10px !important; }
+            .adm-refresh-btns { width: 100%; overflow-x: auto; padding-bottom: 2px; }
+
+            /* Market add-card result rows: tighten up */
+            .adm-card-row { gap: 8px !important; padding: 8px 10px !important; }
+            .adm-card-row select { max-width: 90px; font-size: 11px !important; }
+          }
+        `}</style>
+
+        <div className="adm-outer" style={{ maxWidth: 1100, margin: '0 auto', padding: '0 16px' }}>
 
           {/* Header */}
           <div style={{ marginTop: 24, marginBottom: 32 }}>
@@ -467,7 +515,7 @@ export default function AdminPage() {
           </div>
 
           {/* Tab switcher */}
-          <div style={{ display: 'flex', gap: 4, marginBottom: 24, borderRadius: 10, padding: 4, background: 'var(--surface)', border: '1px solid var(--border2)', width: 'fit-content' }}>
+          <div className="adm-tabs" style={{ display: 'flex', gap: 4, marginBottom: 24, borderRadius: 10, padding: 4, background: 'var(--surface)', border: '1px solid var(--border2)', width: 'fit-content' }}>
             {([['users', 'Users'], ['market', 'Market Index']] as [AdminTab, string][]).map(([tab, label]) => (
               <button key={tab} onClick={() => setActiveTab(tab)} style={{
                 padding: '7px 20px', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600,
@@ -492,7 +540,7 @@ export default function AdminPage() {
             <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: 'var(--ink3)', textTransform: 'uppercase' }}>Users</span>
             <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 24 }}>
+          <div className="adm-grid adm-grid-4" style={{ gap: 10, marginBottom: 24 }}>
             {(['free', 'standard', 'pro'] as Tier[]).map(t => (
               <div key={t} style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
                 <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)', marginBottom: 8, textTransform: 'capitalize' }}>{t}</div>
@@ -512,7 +560,7 @@ export default function AdminPage() {
             <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: 'var(--ink3)', textTransform: 'uppercase' }}>Portfolio</span>
             <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 24 }}>
+          <div className="adm-grid adm-grid-3" style={{ gap: 10, marginBottom: 24 }}>
             <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid rgba(232,197,71,0.3)' }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)', marginBottom: 8 }}>Market Value</div>
               <div className="font-num" style={{ fontSize: 26, fontWeight: 800, color: 'var(--gold)', lineHeight: 1 }}>
@@ -569,7 +617,7 @@ export default function AdminPage() {
             <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: 'var(--ink3)', textTransform: 'uppercase' }}>Growth</span>
             <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 24 }}>
+          <div className="adm-grid adm-grid-5" style={{ gap: 10, marginBottom: 24 }}>
             {[
               { label: 'New this week',  value: growthStats?.newThisWeek,       sub: 'Signups · 7 days'   },
               { label: 'New this month', value: growthStats?.newThisMonth,      sub: 'Signups · 30 days'  },
@@ -596,7 +644,7 @@ export default function AdminPage() {
             <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: 'var(--ink3)', textTransform: 'uppercase' }}>Health &amp; Usage</span>
             <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 24 }}>
+          <div className="adm-grid adm-grid-4" style={{ gap: 10, marginBottom: 24 }}>
             <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)', marginBottom: 8 }}>Total Searches</div>
               <div className="font-num" style={{ fontSize: 26, fontWeight: 800, color: 'var(--ink)', lineHeight: 1 }}>
@@ -716,30 +764,41 @@ export default function AdminPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                    {['Email', 'Username', 'Tier', 'Status', 'Joined', 'Change Tier'].map(h => (
-                      <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 10, letterSpacing: 1, color: 'var(--ink3)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h.toUpperCase()}</th>
+                    {[
+                      { label: 'Email',       cls: '' },
+                      { label: 'Username',    cls: 'adm-hide-mob' },
+                      { label: 'Tier',        cls: '' },
+                      { label: 'Status',      cls: 'adm-hide-mob' },
+                      { label: 'Last seen',   cls: '' },
+                      { label: 'Joined',      cls: 'adm-hide-mob' },
+                      { label: 'Change Tier', cls: '' },
+                    ].map(({ label, cls }) => (
+                      <th key={label} className={cls} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 10, letterSpacing: 1, color: 'var(--ink3)', fontWeight: 600, whiteSpace: 'nowrap' }}>{label.toUpperCase()}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {filteredUsers.map((u, i) => (
                     <tr key={u.id} style={{ borderBottom: i < filteredUsers.length - 1 ? '1px solid var(--border)' : 'none', background: 'transparent' }}>
-                      <td style={{ padding: '12px 16px', color: 'var(--ink)', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <td style={{ padding: '12px 16px', color: 'var(--ink)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {u.email}
                         {u.is_admin && <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 700, color: 'var(--red)', letterSpacing: 0.5 }}>ADMIN</span>}
                       </td>
-                      <td style={{ padding: '12px 16px', color: 'var(--ink2)' }}>{u.username ?? '—'}</td>
+                      <td className="adm-hide-mob" style={{ padding: '12px 16px', color: 'var(--ink2)' }}>{u.username ?? '—'}</td>
                       <td style={{ padding: '12px 16px' }}>
                         <span style={S.pill(u.tier)}>{u.tier.toUpperCase()}</span>
                       </td>
-                      <td style={{ padding: '12px 16px', color: u.subscription_status === 'active' ? 'var(--green)' : 'var(--ink3)', fontSize: 12 }}>
+                      <td className="adm-hide-mob" style={{ padding: '12px 16px', color: u.subscription_status === 'active' ? 'var(--green)' : 'var(--ink3)', fontSize: 12 }}>
                         {u.subscription_status ?? '—'}
                       </td>
-                      <td style={{ padding: '12px 16px', color: 'var(--ink3)', fontSize: 12, whiteSpace: 'nowrap' }}>
+                      <td style={{ padding: '12px 16px', fontSize: 12, whiteSpace: 'nowrap', color: !u.last_sign_in_at ? 'var(--ink3)' : Date.now() - new Date(u.last_sign_in_at).getTime() < 86400000 ? 'var(--green)' : 'var(--ink2)' }}>
+                        {timeAgo(u.last_sign_in_at)}
+                      </td>
+                      <td className="adm-hide-mob" style={{ padding: '12px 16px', color: 'var(--ink3)', fontSize: 12, whiteSpace: 'nowrap' }}>
                         {new Date(u.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                       </td>
                       <td style={{ padding: '12px 16px' }}>
-                        <div style={{ display: 'flex', gap: 6 }}>
+                        <div className="adm-tier-btns" style={{ display: 'flex', gap: 6 }}>
                           {(['free', 'standard', 'pro'] as Tier[]).map(t => (
                             <button
                               key={t}
@@ -804,9 +863,9 @@ export default function AdminPage() {
 
                 {/* Add cards panel */}
                 <div style={{ ...S.card, marginBottom: 16 }}>
-                  <div style={S.head}>
+                  <div className="adm-market-head" style={S.head}>
                     <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Add cards to index</span>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <div className="adm-refresh-btns" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                       <button
                         onClick={seedIndex}
                         disabled={seeding}
@@ -887,7 +946,7 @@ export default function AdminPage() {
                         {cardResults.map((card, i) => {
                           const alreadyAdded = constituents.some(c => c.card_id === card.id && c.grade === (addingGrade[card.id] || 'PSA 10'))
                           return (
-                            <div key={card.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: i < cardResults.length - 1 ? '1px solid var(--border)' : 'none', background: alreadyAdded ? 'rgba(61,232,138,0.03)' : 'transparent' }}>
+                            <div key={card.id} className="adm-card-row" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: i < cardResults.length - 1 ? '1px solid var(--border)' : 'none', background: alreadyAdded ? 'rgba(61,232,138,0.03)' : 'transparent' }}>
                               <div style={{ width: 32, height: 32, borderRadius: 6, overflow: 'hidden', flexShrink: 0, background: 'var(--surface2)' }}>
                                 <img src={tcgImg(card.images.small)} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                               </div>
@@ -949,8 +1008,15 @@ export default function AdminPage() {
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                         <thead>
                           <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                            {['Card', 'Grade', 'Price', '30d Chg', 'Last updated', ''].map(h => (
-                              <th key={h} style={{ padding: '8px 14px', textAlign: 'left', fontSize: 9, letterSpacing: 1, color: 'var(--ink3)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h.toUpperCase()}</th>
+                            {[
+                              { label: 'Card',         cls: '' },
+                              { label: 'Grade',        cls: 'adm-hide-mob' },
+                              { label: 'Price',        cls: '' },
+                              { label: '30d Chg',      cls: 'adm-hide-mob' },
+                              { label: 'Last updated', cls: 'adm-hide-mob' },
+                              { label: '',             cls: '' },
+                            ].map(({ label, cls }) => (
+                              <th key={label} className={cls} style={{ padding: '8px 14px', textAlign: 'left', fontSize: 9, letterSpacing: 1, color: 'var(--ink3)', fontWeight: 600, whiteSpace: 'nowrap' }}>{label.toUpperCase()}</th>
                             ))}
                           </tr>
                         </thead>
@@ -972,20 +1038,20 @@ export default function AdminPage() {
                                     </div>
                                   </div>
                                 </td>
-                                <td style={{ padding: '10px 14px', color: 'var(--ink2)', whiteSpace: 'nowrap' }}>{c.grade}</td>
+                                <td className="adm-hide-mob" style={{ padding: '10px 14px', color: 'var(--ink2)', whiteSpace: 'nowrap' }}>{c.grade}</td>
                                 <td style={{ padding: '10px 14px' }}>
                                   <span className="font-num" style={{ fontWeight: 700, color: c.price != null ? 'var(--ink)' : 'var(--ink3)' }}>
                                     {c.price != null ? `$${c.price.toFixed(2)}` : '—'}
                                   </span>
                                 </td>
-                                <td style={{ padding: '10px 14px' }}>
+                                <td className="adm-hide-mob" style={{ padding: '10px 14px' }}>
                                   {c.price_change_pct != null ? (
                                     <span className="font-num" style={{ color: c.price_change_pct >= 0 ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>
                                       {c.price_change_pct >= 0 ? '+' : ''}{c.price_change_pct.toFixed(1)}%
                                     </span>
                                   ) : <span style={{ color: 'var(--ink3)' }}>—</span>}
                                 </td>
-                                <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
+                                <td className="adm-hide-mob" style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
                                   {c.last_fetched ? (
                                     <span style={{ fontSize: 11, color: isStale ? 'var(--gold)' : 'var(--ink3)' }}>
                                       {isStale ? '⚠ ' : ''}{new Date(c.last_fetched).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}

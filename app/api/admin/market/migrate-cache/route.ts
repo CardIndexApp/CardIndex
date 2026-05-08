@@ -41,6 +41,7 @@ ALTER TABLE search_cache ADD COLUMN IF NOT EXISTS market text;
 ALTER TABLE search_cache ADD COLUMN IF NOT EXISTS score_breakdown jsonb;
 ALTER TABLE search_cache ADD COLUMN IF NOT EXISTS price_range_low numeric;
 ALTER TABLE search_cache ADD COLUMN IF NOT EXISTS price_range_high numeric;
+ALTER TABLE search_cache ADD COLUMN IF NOT EXISTS price_history jsonb DEFAULT '[]'::jsonb;
 `.trim()
 
 export async function POST() {

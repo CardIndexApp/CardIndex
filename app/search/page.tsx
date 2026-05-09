@@ -71,13 +71,40 @@ const MIN_CHARS = 2
 const DEBOUNCE_MS = 320
 
 // ── Query parser ──────────────────────────────────────────────────────────────
+//
+// Supported formats (number can appear before OR after the card name):
+//   "Charizard 4"          → name: Charizard,   number: 4
+//   "Charizard 4/102"      → name: Charizard,   number: 4
+//   "Charizard #4"         → name: Charizard,   number: 4
+//   "4 Charizard"          → name: Charizard,   number: 4
+//   "4/102 Charizard"      → name: Charizard,   number: 4
+//   "#4 Charizard"         → name: Charizard,   number: 4
+//   "199 Charizard ex"     → name: Charizard ex, number: 199
+//   "Charizard ex 199/165" → name: Charizard ex, number: 199
 
 function parseQuery(q: string): { name: string; number: string | null } {
   const t = q.trim()
-  const hashMatch = t.match(/^(.*?)\s*#(\d+)(?:\/\d+)?\s*$/)
-  if (hashMatch && hashMatch[1].trim()) return { name: hashMatch[1].trim(), number: hashMatch[2] }
-  const trailMatch = t.match(/^(.*?)\s+(\d+(?:\/\d+)?)$/)
-  if (trailMatch && trailMatch[1].trim()) return { name: trailMatch[1].trim(), number: trailMatch[2].split('/')[0] }
+
+  // ── Number BEFORE name ────────────────────────────────────────────────────
+  // "#4 Charizard" or "#4/102 Charizard"
+  const hashFirst = t.match(/^#(\d+)(?:\/\S+)?\s+(.+)$/)
+  if (hashFirst && hashFirst[2].trim()) return { name: hashFirst[2].trim(), number: hashFirst[1] }
+
+  // "4 Charizard" or "4/102 Charizard"
+  // Guard: require the name part to contain at least one non-digit letter so
+  // "PSA 10" doesn't accidentally strip "10" (PSA comes first, but just in case).
+  const numFirst = t.match(/^(\d+(?:\/\S+)?)\s+([A-Za-z].+)$/)
+  if (numFirst && numFirst[2].trim()) return { name: numFirst[2].trim(), number: numFirst[1].split('/')[0] }
+
+  // ── Number AFTER name ─────────────────────────────────────────────────────
+  // "Charizard #4" or "Charizard #4/102"
+  const hashLast = t.match(/^(.*?)\s*#(\d+)(?:\/\S+)?\s*$/)
+  if (hashLast && hashLast[1].trim()) return { name: hashLast[1].trim(), number: hashLast[2] }
+
+  // "Charizard 4" or "Charizard 4/102" or "Charizard ex 199/165"
+  const numLast = t.match(/^(.*?)\s+(\d+(?:\/\S+)?)$/)
+  if (numLast && numLast[1].trim()) return { name: numLast[1].trim(), number: numLast[2].split('/')[0] }
+
   return { name: t, number: null }
 }
 
@@ -376,7 +403,7 @@ function clearSearch() {
             spellCheck={false}
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Pikachu · Charizard ex 6 · Umbreon #17"
+            placeholder="Pikachu · Charizard 4 · 199 Charizard ex · #17 Umbreon"
             autoFocus={!isMobile}
             style={{
               width: '100%', padding: '15px 48px 15px 42px',

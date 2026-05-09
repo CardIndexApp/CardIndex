@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { usePathname } from 'next/navigation'
 import AuthModal from './AuthModal'
+import UsernameSetupModal from './UsernameSetupModal'
 import { createClient } from '@/lib/supabase/client'
 import type { User } from '@supabase/supabase-js'
 
@@ -39,6 +40,7 @@ export default function Navbar() {
   const [userTier, setUserTier] = useState<string>('free')
   const [keyboardOpen, setKeyboardOpen] = useState(false)
   const [showPwResetBanner, setShowPwResetBanner] = useState(false)
+  const [needsUsername, setNeedsUsername] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
@@ -47,7 +49,12 @@ export default function Navbar() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       const u = session?.user ?? null
       setUser(u)
-      if (u) fetchProfile(u.id).then(p => { setUsername(p.username); setIsAdmin(p.is_admin); setUserTier(p.tier) })
+      if (u) fetchProfile(u.id).then(p => {
+        setUsername(p.username)
+        setIsAdmin(p.is_admin)
+        setUserTier(p.tier)
+        if (!p.username) setNeedsUsername(true)
+      })
     })
 
     // Keep in sync when auth state changes (sign in / sign out in another tab, etc.)
@@ -57,13 +64,19 @@ export default function Navbar() {
       if (!u) {
         setUsername(null)
         setIsAdmin(false)
+        setNeedsUsername(false)
         setShowPwResetBanner(false)
       } else if (event === 'PASSWORD_RECOVERY') {
         // User clicked a password reset link — prompt them to change their password
         setShowPwResetBanner(true)
         fetchProfile(u.id).then(p => { setUsername(p.username); setIsAdmin(p.is_admin); setUserTier(p.tier) })
       } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        fetchProfile(u.id).then(p => { setUsername(p.username); setIsAdmin(p.is_admin); setUserTier(p.tier) })
+        fetchProfile(u.id).then(p => {
+          setUsername(p.username)
+          setIsAdmin(p.is_admin)
+          setUserTier(p.tier)
+          if (!p.username) setNeedsUsername(true)
+        })
       }
     })
 
@@ -348,6 +361,14 @@ export default function Navbar() {
       )}
 
       {authModal && <AuthModal defaultTab={authModal} onClose={() => setAuthModal(null)} />}
+
+      {/* Blocking modal for users who signed up via Google without a username */}
+      {needsUsername && user && (
+        <UsernameSetupModal
+          userId={user.id}
+          onComplete={(un) => { setUsername(un); setNeedsUsername(false) }}
+        />
+      )}
     </>
   )
 }

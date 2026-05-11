@@ -115,12 +115,13 @@ interface ModalProps {
   editPosition?: Position
   onClose: () => void
   onRemove?: () => void
+  onMarkSold?: () => void
   onSave: (payload: Partial<DbPosition>) => Promise<void>
   currency: CurrencyCode
   rates: Record<string, number>
 }
 
-function PositionModal({ mode, editPosition, onClose, onSave, onRemove, currency, rates }: ModalProps) {
+function PositionModal({ mode, editPosition, onClose, onSave, onRemove, onMarkSold, currency, rates }: ModalProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
@@ -364,6 +365,18 @@ function PositionModal({ mode, editPosition, onClose, onSave, onRemove, currency
           >
             {saving ? 'Saving…' : mode === 'add' ? 'Add to Portfolio' : 'Save Changes'}
           </button>
+
+          {mode === 'edit' && onMarkSold && (
+            <button
+              type="button"
+              onClick={() => { onClose(); onMarkSold() }}
+              style={{ width: '100%', padding: '11px 0', borderRadius: 12, border: '1px solid rgba(232,197,71,0.3)', background: 'rgba(232,197,71,0.06)', color: 'var(--gold)', fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s' }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(232,197,71,0.12)'; e.currentTarget.style.borderColor = 'rgba(232,197,71,0.5)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(232,197,71,0.06)'; e.currentTarget.style.borderColor = 'rgba(232,197,71,0.3)' }}
+            >
+              Mark as Sold →
+            </button>
+          )}
 
           {mode === 'edit' && onRemove && (
             <button
@@ -1002,7 +1015,7 @@ export default function PortfolioPage() {
         .sk-pulse { animation: sk-pulse 1.6s ease-in-out infinite; }
         .pf-row, .pf-header {
           display: grid;
-          grid-template-columns: minmax(180px,1fr) 110px 110px 70px 110px 72px 72px 72px 110px;
+          grid-template-columns: minmax(180px,1fr) 110px 110px 70px 110px 72px 72px 72px 80px;
           align-items: center;
           padding: 0 20px;
           gap: 8px;
@@ -1016,6 +1029,7 @@ export default function PortfolioPage() {
           border: 1px solid var(--border); background: transparent;
           color: var(--ink3); font-size: 11px; font-weight: 600;
           cursor: pointer; white-space: nowrap; transition: all 0.15s;
+          display: inline-flex; align-items: center; justify-content: center;
         }
         .pf-act-btn:hover { border-color: var(--gold); color: var(--gold); }
         .pf-act-btn.del:hover { border-color: var(--red); color: var(--red); }
@@ -1323,11 +1337,6 @@ export default function PortfolioPage() {
 
                   {/* Actions */}
                   <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end', alignItems: 'center' }}>
-                    <button className="pf-act-btn pf-hide-mobile" onClick={e => { e.stopPropagation(); setSellPos(pos) }} title="Mark as sold"
-                      style={{ color: 'var(--gold)', borderColor: 'rgba(232,197,71,0.3)' }}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.background = 'rgba(232,197,71,0.08)' }}
-                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(232,197,71,0.3)'; e.currentTarget.style.background = 'transparent' }}
-                    >Sell</button>
                     <button className="pf-act-btn" onClick={() => setEditPos(pos)} title="Edit position">Edit</button>
                     <button className="pf-act-btn del pf-del-btn" onClick={e => handleRemove(e, pos.id)} title="Remove position">✕</button>
                   </div>
@@ -1471,6 +1480,7 @@ export default function PortfolioPage() {
           onClose={() => setEditPos(null)}
           onSave={handleEdit}
           onRemove={() => { setPositions(prev => prev.filter(p => p.id !== editPos.id)); setEditPos(null) }}
+          onMarkSold={() => { setSellPos(editPos); setEditPos(null) }}
           currency={currency}
           rates={rates}
         />

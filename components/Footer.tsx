@@ -71,7 +71,7 @@ export default function Footer() {
 
         {/* Bottom bar */}
         <div style={{ borderTop: '1px solid var(--border)', paddingTop: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-          <p style={{ fontSize: 11, color: 'var(--ink3)' }}>© 2026 CardIndex. All rights reserved.</p>
+          <p style={{ fontSize: 11, color: 'var(--ink3)' }}>© 2026 Creos Labs. All rights reserved.</p>
           <p style={{ fontSize: 11, color: 'var(--ink3)', opacity: 0.5 }}>
             Not affiliated with Pokémon, Nintendo, PSA, BGS or eBay.
           </p>

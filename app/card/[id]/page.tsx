@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
+import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import CardPageClient from './CardPageClient'
+import Navbar from '@/components/Navbar'
 
 const SITE_URL = 'https://card-index.app'
 
@@ -168,7 +170,9 @@ export default async function CardPage({ params, searchParams }: Props) {
   return (
     <>
       <CardJsonLd id={id} searchParams={raw} />
-      <CardPageClient />
+      <Suspense fallback={<><Navbar /></>}>
+        <CardPageClient />
+      </Suspense>
     </>
   )
 }

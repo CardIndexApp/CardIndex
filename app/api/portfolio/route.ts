@@ -134,6 +134,21 @@ export async function PATCH(req: NextRequest) {
   }
   if (body.purchased_at != null) updates.purchased_at = body.purchased_at
 
+  // Sold-position fields — use 'in' check so null can be passed explicitly (reopen)
+  if ('sold' in body) {
+    if (typeof body.sold !== 'boolean')
+      return NextResponse.json({ error: 'sold must be a boolean' }, { status: 400 })
+    updates.sold = body.sold
+  }
+  if ('sale_price' in body) {
+    if (body.sale_price !== null) {
+      if (typeof body.sale_price !== 'number' || body.sale_price <= 0 || body.sale_price > 10_000_000)
+        return NextResponse.json({ error: 'sale_price must be a positive number ≤10,000,000' }, { status: 400 })
+    }
+    updates.sale_price = body.sale_price
+  }
+  if ('sold_at' in body) updates.sold_at = body.sold_at
+
   const { data, error } = await supabase
     .from('portfolios')
     .update(updates)

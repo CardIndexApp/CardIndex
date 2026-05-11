@@ -25,6 +25,9 @@ interface DbPosition {
   purchased_at: string | null
   added_at: string
   notes: string | null
+  sold: boolean
+  sale_price: number | null  // USD
+  sold_at: string | null
 }
 
 interface PriceData {
@@ -379,6 +382,146 @@ function PositionModal({ mode, editPosition, onClose, onSave, onRemove, currency
   )
 }
 
+// ── Sell Modal ────────────────────────────────────────────────────────────────
+
+interface SellModalProps {
+  position: Position
+  onClose: () => void
+  onSell: (salePrice: number, soldAt: string | null) => Promise<void>
+  currency: CurrencyCode
+  rates: Record<string, number>
+  fmtCurrency: (n: number) => string
+}
+
+function SellModal({ position, onClose, onSell, currency, rates, fmtCurrency }: SellModalProps) {
+  const [priceInput, setPriceInput]   = useState('')
+  const [dateInput,  setDateInput]    = useState(new Date().toISOString().slice(0, 10))
+  const [saving,     setSaving]       = useState(false)
+  const [error,      setError]        = useState('')
+  const sym = CURRENCIES[currency]?.symbol ?? '$'
+
+  const purchaseLocal = position.purchase_price * (rates[currency] ?? 1)
+  const marketLocal   = position.priceData ? position.priceData.price * (rates[currency] ?? 1) : null
+
+  const priceLocalVal = parseFloat(priceInput)
+  const priceUSDVal   = !isNaN(priceLocalVal) ? priceLocalVal / (rates[currency] ?? 1) : null
+  const plUSD         = priceUSDVal != null ? (priceUSDVal - position.purchase_price) * position.quantity : null
+  const plPct         = priceUSDVal != null && position.purchase_price > 0
+    ? ((priceUSDVal - position.purchase_price) / position.purchase_price) * 100
+    : null
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (isNaN(priceLocalVal) || priceLocalVal <= 0) { setError('Enter a valid sale price.'); return }
+    setSaving(true)
+    try {
+      await onSell(priceLocalVal / (rates[currency] ?? 1), dateInput || null)
+      onClose()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong.')
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div style={{ width: '100%', maxWidth: 400, borderRadius: 20, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden' }}>
+
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Mark as Sold</span>
+          <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid var(--border2)', background: 'transparent', color: 'var(--ink3)', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+        </div>
+
+        <form onSubmit={handleSubmit} style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 18 }}>
+
+          {/* Card summary */}
+          <div style={{ padding: '10px 14px', borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{position.card_name}</div>
+            <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 2 }}>
+              {position.set_name ? `${position.set_name} · ` : ''}{position.grade}
+              {position.quantity > 1 ? ` · Qty ${position.quantity}` : ''}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 4, display: 'flex', gap: 12 }}>
+              <span>Cost: <span className="font-num" style={{ color: 'var(--ink2)' }}>{sym}{purchaseLocal.toFixed(2)}</span></span>
+              {marketLocal != null && (
+                <span>Market: <span className="font-num" style={{ color: 'var(--ink2)' }}>{sym}{marketLocal.toFixed(2)}</span></span>
+              )}
+            </div>
+          </div>
+
+          {/* Sale price */}
+          <div>
+            <label style={{ display: 'block', fontSize: 10, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>
+              SALE PRICE PER CARD ({currency})
+            </label>
+            <div style={{ position: 'relative' }}>
+              <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: 'var(--ink3)', pointerEvents: 'none' }}>{sym}</span>
+              <input
+                type="number" min="0.01" step="0.01" autoFocus required
+                value={priceInput}
+                onChange={e => { setPriceInput(e.target.value); setError('') }}
+                placeholder="0.00"
+                style={{ width: '100%', boxSizing: 'border-box', padding: `11px 14px 11px ${sym.length > 1 ? '30px' : '24px'}`, borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 14, outline: 'none' }}
+                onFocus={e => (e.currentTarget.style.borderColor = 'var(--gold)')}
+                onBlur={e => (e.currentTarget.style.borderColor = 'var(--border2)')}
+              />
+            </div>
+          </div>
+
+          {/* Sale date */}
+          <div>
+            <label style={{ display: 'block', fontSize: 10, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>
+              SALE DATE <span style={{ opacity: 0.5 }}>(optional)</span>
+            </label>
+            <input
+              type="date" value={dateInput}
+              onChange={e => setDateInput(e.target.value)}
+              max={new Date().toISOString().slice(0, 10)}
+              style={{ width: '100%', boxSizing: 'border-box', padding: '11px 14px', borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 14, outline: 'none', colorScheme: 'dark' }}
+              onFocus={e => (e.currentTarget.style.borderColor = 'var(--gold)')}
+              onBlur={e => (e.currentTarget.style.borderColor = 'var(--border2)')}
+            />
+          </div>
+
+          {/* Live P&L preview */}
+          {plUSD != null && !isNaN(plUSD) && (
+            <div style={{ borderRadius: 10, padding: '12px 14px', background: plUSD >= 0 ? 'rgba(61,232,138,0.06)' : 'rgba(232,82,74,0.06)', border: `1px solid ${plUSD >= 0 ? 'rgba(61,232,138,0.2)' : 'rgba(232,82,74,0.2)'}` }}>
+              <div style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1, marginBottom: 6 }}>REALIZED P&amp;L</div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+                <span className="font-num" style={{ fontSize: 18, fontWeight: 700, color: plUSD >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                  {plUSD >= 0 ? '+' : '−'}{fmtCurrency(Math.abs(plUSD))}
+                </span>
+                {plPct != null && (
+                  <span className="font-num" style={{ fontSize: 13, color: plUSD >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                    {plPct >= 0 ? '+' : ''}{plPct.toFixed(1)}%
+                  </span>
+                )}
+              </div>
+              {position.quantity > 1 && priceUSDVal != null && (
+                <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 4 }}>
+                  {sym}{(priceLocalVal - purchaseLocal).toFixed(2)}/ea × {position.quantity}
+                </div>
+              )}
+            </div>
+          )}
+
+          {error && (
+            <div style={{ borderRadius: 8, padding: '10px 14px', background: 'rgba(232,82,74,0.08)', border: '1px solid rgba(232,82,74,0.25)', fontSize: 13, color: 'var(--red)' }}>
+              {error}
+            </div>
+          )}
+
+          <button type="submit" disabled={saving}
+            style={{ width: '100%', padding: '13px 0', borderRadius: 12, border: 'none', background: 'var(--gold)', color: '#080810', fontSize: 14, fontWeight: 700, cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+            {saving ? 'Saving…' : 'Confirm Sale →'}
+          </button>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 // ── Change pill ───────────────────────────────────────────────────────────────
 
 function ChangePill({ value }: { value: number | null }) {
@@ -565,6 +708,8 @@ export default function PortfolioPage() {
   const [listLoading, setListLoading] = useState(false)
   const [showAdd, setShowAdd] = useState(false)
   const [editPos, setEditPos] = useState<Position | null>(null)
+  const [sellPos, setSellPos] = useState<Position | null>(null)
+  const [showSold, setShowSold] = useState(true)
   const [sort, setSort] = useState<SortKey>('pl')
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
   const [filter, setFilter] = useState<'all' | 'winning' | 'losing'>('all')
@@ -692,6 +837,34 @@ export default function PortfolioPage() {
     flash('ok', 'Position removed.')
   }
 
+  // ── Sell position ─────────────────────────────────────────────────────────
+  async function handleSell(pos: Position, salePrice: number, soldAt: string | null) {
+    const r = await fetch(`/api/portfolio?id=${pos.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sold: true, sale_price: salePrice, sold_at: soldAt }),
+    })
+    const json = await r.json()
+    if (!r.ok) throw new Error(json.error ?? 'Failed to mark as sold')
+    setPositions(prev => prev.map(p => p.id === pos.id
+      ? { ...p, sold: true, sale_price: salePrice, sold_at: soldAt } : p))
+    flash('ok', 'Position marked as sold.')
+  }
+
+  // ── Reopen sold position ──────────────────────────────────────────────────
+  async function handleReopen(pos: Position) {
+    const r = await fetch(`/api/portfolio?id=${pos.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sold: false, sale_price: null, sold_at: null }),
+    })
+    const json = await r.json()
+    if (!r.ok) { flash('err', json.error ?? 'Failed to reopen position.'); return }
+    setPositions(prev => prev.map(p => p.id === pos.id
+      ? { ...p, sold: false, sale_price: null, sold_at: null } : p))
+    flash('ok', 'Position reopened.')
+  }
+
   // ── Sort toggle ───────────────────────────────────────────────────────────
   function handleSort(key: SortKey) {
     if (sort === key) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
@@ -699,13 +872,15 @@ export default function PortfolioPage() {
   }
 
   // ── Derived ───────────────────────────────────────────────────────────────
-  const withData = positions.filter(p => p.priceData)
+  const openPositions    = positions.filter(p => !p.sold)
+  const soldPositions    = positions.filter(p => p.sold)
+  const withData         = openPositions.filter(p => p.priceData)
 
-  const totalCostUSD     = positions.reduce((s, p) => s + p.purchase_price * p.quantity, 0)
+  const totalCostUSD     = openPositions.reduce((s, p) => s + p.purchase_price * p.quantity, 0)
   // Only include positions that have loaded market prices — no fallback to purchase price
   const pricedCostUSD    = withData.reduce((s, p) => s + p.purchase_price * p.quantity, 0)
   const totalValueUSD    = withData.reduce((s, p) => s + p.priceData!.price * p.quantity, 0)
-  const allPriced        = withData.length === positions.length && positions.length > 0
+  const allPriced        = withData.length === openPositions.length && openPositions.length > 0
   const totalPLUSD       = totalValueUSD - pricedCostUSD
   const totalPLPct       = pricedCostUSD > 0 ? (totalPLUSD / pricedCostUSD) * 100 : 0
   const dayGainUSD       = withData.reduce((s, p) => {
@@ -713,8 +888,10 @@ export default function PortfolioPage() {
     const prev = pd.price / (1 + pd.price_change_pct / 100)
     return s + (pd.price - prev) * p.quantity
   }, 0)
+  const realizedPLUSD    = soldPositions.reduce((s, p) =>
+    p.sale_price != null ? s + (p.sale_price - p.purchase_price) * p.quantity : s, 0)
 
-  const filtered = positions
+  const filtered = openPositions
     .filter(p => {
       if (filter === 'all') return true
       if (!p.priceData) return false
@@ -825,7 +1002,7 @@ export default function PortfolioPage() {
         .sk-pulse { animation: sk-pulse 1.6s ease-in-out infinite; }
         .pf-row, .pf-header {
           display: grid;
-          grid-template-columns: minmax(180px,1fr) 110px 110px 70px 110px 72px 72px 72px 80px;
+          grid-template-columns: minmax(180px,1fr) 110px 110px 70px 110px 72px 72px 72px 110px;
           align-items: center;
           padding: 0 20px;
           gap: 8px;
@@ -923,27 +1100,27 @@ export default function PortfolioPage() {
           )}
 
           {/* ── Stats bar ── */}
-          <div className="pf-stats-bar" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 24 }}>
+          <div className="pf-stats-bar" style={{ display: 'grid', gridTemplateColumns: `repeat(${soldPositions.length > 0 ? 5 : 4}, 1fr)`, gap: 10, marginBottom: 24 }}>
             {[
               {
                 label: 'Market Value',
                 value: withData.length > 0 ? fmtCurrency(totalValueUSD) : '—',
                 sub: withData.length > 0
-                  ? `${positions.length} position${positions.length !== 1 ? 's' : ''}${!allPriced ? ` · ${withData.length}/${positions.length} priced` : ''}`
-                  : 'loading prices…',
+                  ? `${openPositions.length} open${!allPriced ? ` · ${withData.length}/${openPositions.length} priced` : ''}`
+                  : openPositions.length === 0 ? 'no open positions' : 'loading prices…',
                 color: withData.length > 0 ? 'var(--ink)' : 'var(--ink3)',
               },
               {
                 label: 'Cost Basis',
                 value: fmtCurrency(totalCostUSD),
-                sub: 'total invested',
+                sub: 'open positions',
                 color: 'var(--ink)',
               },
               {
-                label: 'Total P&L',
+                label: 'Unrealized P&L',
                 value: withData.length > 0 ? fmtSigned(fmtCurrency, totalPLUSD) : '—',
                 sub: withData.length > 0
-                  ? `${pctSign(totalPLPct)}${totalPLPct.toFixed(1)}%${allPriced ? ' overall' : ` on ${withData.length}/${positions.length}`}`
+                  ? `${pctSign(totalPLPct)}${totalPLPct.toFixed(1)}%${allPriced ? ' overall' : ` on ${withData.length}/${openPositions.length}`}`
                   : 'loading prices…',
                 color: withData.length > 0 ? (totalPLUSD >= 0 ? 'var(--green)' : 'var(--red)') : 'var(--ink3)',
               },
@@ -953,6 +1130,12 @@ export default function PortfolioPage() {
                 sub: '24h change',
                 color: withData.length > 0 ? (dayGainUSD >= 0 ? 'var(--green)' : 'var(--red)') : 'var(--ink3)',
               },
+              ...(soldPositions.length > 0 ? [{
+                label: 'Realized P&L',
+                value: fmtSigned(fmtCurrency, realizedPLUSD),
+                sub: `${soldPositions.length} sold position${soldPositions.length !== 1 ? 's' : ''}`,
+                color: realizedPLUSD >= 0 ? 'var(--green)' : 'var(--red)',
+              }] : []),
             ].map((s, i) => (
               <div key={i} style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
                 <div style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1, marginBottom: 8, textTransform: 'uppercase' }}>{s.label}</div>
@@ -963,7 +1146,7 @@ export default function PortfolioPage() {
           </div>
 
           {/* ── Performance Chart ── */}
-          {positions.length > 0 && (
+          {openPositions.length > 0 && (
             <div style={{ marginBottom: 16 }}>
               <button
                 onClick={() => setShowChart(v => !v)}
@@ -976,7 +1159,7 @@ export default function PortfolioPage() {
 
               {showChart && (
                 <div style={{ borderRadius: 14, padding: '20px 20px 8px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
-                  <PortfolioChart positions={positions} fmtCurrency={fmtCurrency} />
+                  <PortfolioChart positions={openPositions} fmtCurrency={fmtCurrency} />
                 </div>
               )}
             </div>
@@ -992,7 +1175,7 @@ export default function PortfolioPage() {
               ))}
             </div>
             <div style={{ fontSize: 11, color: 'var(--ink3)' }}>
-              {positions.filter(p => p.priceData).length}/{positions.length} prices loaded
+              {openPositions.filter(p => p.priceData).length}/{openPositions.length} prices loaded
             </div>
           </div>
 
@@ -1021,7 +1204,7 @@ export default function PortfolioPage() {
             {listLoading && [0, 1, 2].map(i => <SkeletonRow key={i} last={i === 2} />)}
 
             {/* Empty state */}
-            {!listLoading && positions.length === 0 && (
+            {!listLoading && openPositions.length === 0 && (
               <div style={{ padding: '64px 24px', textAlign: 'center' }}>
                 <div style={{ fontSize: 40, marginBottom: 16 }}>📊</div>
                 <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>No positions yet</div>
@@ -1033,7 +1216,7 @@ export default function PortfolioPage() {
             )}
 
             {/* Filter empty */}
-            {!listLoading && positions.length > 0 && filtered.length === 0 && (
+            {!listLoading && openPositions.length > 0 && filtered.length === 0 && (
               <div style={{ padding: '40px 24px', textAlign: 'center' }}>
                 <div style={{ fontSize: 13, color: 'var(--ink3)', marginBottom: 12 }}>No positions match this filter.</div>
                 <button onClick={() => setFilter('all')} style={{ fontSize: 12, color: 'var(--gold)', background: 'none', border: 'none', cursor: 'pointer' }}>Show all</button>
@@ -1140,6 +1323,11 @@ export default function PortfolioPage() {
 
                   {/* Actions */}
                   <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end', alignItems: 'center' }}>
+                    <button className="pf-act-btn pf-hide-mobile" onClick={e => { e.stopPropagation(); setSellPos(pos) }} title="Mark as sold"
+                      style={{ color: 'var(--gold)', borderColor: 'rgba(232,197,71,0.3)' }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.background = 'rgba(232,197,71,0.08)' }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(232,197,71,0.3)'; e.currentTarget.style.background = 'transparent' }}
+                    >Sell</button>
                     <button className="pf-act-btn" onClick={() => setEditPos(pos)} title="Edit position">Edit</button>
                     <button className="pf-act-btn del pf-del-btn" onClick={e => handleRemove(e, pos.id)} title="Remove position">✕</button>
                   </div>
@@ -1147,6 +1335,117 @@ export default function PortfolioPage() {
               )
             })}
           </div>
+
+          {/* ── Sold Positions ── */}
+          {soldPositions.length > 0 && (
+            <div style={{ marginTop: 32 }}>
+              <button
+                onClick={() => setShowSold(v => !v)}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 10, border: '1px solid var(--border2)', background: showSold ? 'var(--surface2)' : 'transparent', color: showSold ? 'var(--ink)' : 'var(--ink3)', fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s', marginBottom: showSold ? 12 : 0 }}
+              >
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="2 5 8 11 14 5"/></svg>
+                Sold Positions
+                <span style={{ marginLeft: 4, padding: '1px 7px', borderRadius: 99, background: 'rgba(255,255,255,0.08)', fontSize: 10 }}>{soldPositions.length}</span>
+                <span style={{ marginLeft: 2, fontSize: 10, color: realizedPLUSD >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                  {realizedPLUSD >= 0 ? '+' : '−'}{fmtCurrency(Math.abs(realizedPLUSD))} realized
+                </span>
+                <span style={{ marginLeft: 2, fontSize: 10 }}>{showSold ? '▲' : '▼'}</span>
+              </button>
+
+              {showSold && (
+                <div style={{ borderRadius: 16, overflow: 'hidden', background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                  {/* Sold table header */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'minmax(160px,1fr) 50px 100px 100px 110px 90px 80px', alignItems: 'center', padding: '10px 20px', borderBottom: '1px solid var(--border)', gap: 8 }}>
+                    <div style={{ fontSize: 10, letterSpacing: 1, color: 'var(--ink3)' }}>CARD</div>
+                    <div style={{ fontSize: 10, letterSpacing: 1, color: 'var(--ink3)', textAlign: 'right' }}>QTY</div>
+                    <div style={{ fontSize: 10, letterSpacing: 1, color: 'var(--ink3)', textAlign: 'right' }}>AVG COST</div>
+                    <div style={{ fontSize: 10, letterSpacing: 1, color: 'var(--ink3)', textAlign: 'right' }}>SOLD AT</div>
+                    <div style={{ fontSize: 10, letterSpacing: 1, color: 'var(--ink3)', textAlign: 'right' }}>REALIZED P&amp;L</div>
+                    <div style={{ fontSize: 10, letterSpacing: 1, color: 'var(--ink3)', textAlign: 'right' }}>DATE SOLD</div>
+                    <div />
+                  </div>
+
+                  {soldPositions.map((pos, i) => {
+                    const saleLocal = pos.sale_price != null ? pos.sale_price * (rates[currency] ?? 1) : null
+                    const costLocal = pos.purchase_price * (rates[currency] ?? 1)
+                    const plUSD     = pos.sale_price != null ? (pos.sale_price - pos.purchase_price) * pos.quantity : null
+                    const plPct     = pos.sale_price != null && pos.purchase_price > 0
+                      ? ((pos.sale_price - pos.purchase_price) / pos.purchase_price) * 100 : null
+                    const isUp      = (plPct ?? 0) >= 0
+                    const cardParams = new URLSearchParams({ name: pos.card_name, grade: pos.grade })
+                    if (pos.set_name) cardParams.set('set', pos.set_name)
+
+                    return (
+                      <div key={pos.id}
+                        style={{ display: 'grid', gridTemplateColumns: 'minmax(160px,1fr) 50px 100px 100px 110px 90px 80px', alignItems: 'center', padding: '12px 20px', borderBottom: i < soldPositions.length - 1 ? '1px solid var(--border)' : 'none', gap: 8, opacity: 0.85 }}>
+
+                        {/* Card info */}
+                        <Link href={`/card/${pos.card_id}?${cardParams}`} style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, textDecoration: 'none' }}>
+                          <div style={{ width: 36, height: 36, borderRadius: 7, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0 }}>
+                            {pos.image_url && <img src={tcgImg(pos.image_url)} alt={pos.card_name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 3 }} />}
+                          </div>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pos.card_name}</div>
+                            <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 1 }}>{pos.set_name ? `${pos.set_name} · ` : ''}{pos.grade}</div>
+                          </div>
+                        </Link>
+
+                        {/* Qty */}
+                        <div style={{ textAlign: 'right' }}>
+                          <span className="font-num" style={{ fontSize: 12, color: 'var(--ink2)' }}>{pos.quantity}</span>
+                        </div>
+
+                        {/* Avg cost */}
+                        <div style={{ textAlign: 'right' }}>
+                          <span className="font-num" style={{ fontSize: 12, color: 'var(--ink3)' }}>{fmtCurrency(costLocal)}</span>
+                        </div>
+
+                        {/* Sold at */}
+                        <div style={{ textAlign: 'right' }}>
+                          {saleLocal != null
+                            ? <span className="font-num" style={{ fontSize: 12, color: 'var(--ink)' }}>{fmtCurrency(saleLocal)}</span>
+                            : <span style={{ fontSize: 12, color: 'var(--ink3)' }}>—</span>}
+                        </div>
+
+                        {/* Realized P&L */}
+                        <div style={{ textAlign: 'right' }}>
+                          {plUSD != null ? (
+                            <>
+                              <div className="font-num" style={{ fontSize: 12, fontWeight: 700, color: isUp ? 'var(--green)' : 'var(--red)' }}>
+                                {fmtSigned(fmtCurrency, plUSD)}
+                              </div>
+                              <div className="font-num" style={{ fontSize: 10, color: isUp ? 'var(--green)' : 'var(--red)', opacity: 0.8, marginTop: 1 }}>
+                                {fmtPct(plPct)}
+                              </div>
+                            </>
+                          ) : <span style={{ fontSize: 12, color: 'var(--ink3)' }}>—</span>}
+                        </div>
+
+                        {/* Date sold */}
+                        <div style={{ textAlign: 'right' }}>
+                          <span style={{ fontSize: 11, color: 'var(--ink3)' }}>
+                            {pos.sold_at
+                              ? new Date(pos.sold_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })
+                              : '—'}
+                          </span>
+                        </div>
+
+                        {/* Reopen */}
+                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                          <button
+                            className="pf-act-btn"
+                            onClick={() => handleReopen(pos)}
+                            title="Reopen position"
+                            style={{ fontSize: 10 }}
+                          >Reopen</button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
           <p style={{ fontSize: 11, color: 'var(--ink3)', textAlign: 'center', marginTop: 24 }}>
             Prices sourced via Poketrace · P&L based on purchase price vs current market · All values in {currency}
@@ -1174,6 +1473,16 @@ export default function PortfolioPage() {
           onRemove={() => { setPositions(prev => prev.filter(p => p.id !== editPos.id)); setEditPos(null) }}
           currency={currency}
           rates={rates}
+        />
+      )}
+      {sellPos && (
+        <SellModal
+          position={sellPos}
+          onClose={() => setSellPos(null)}
+          onSell={(salePrice, soldAt) => handleSell(sellPos, salePrice, soldAt)}
+          currency={currency}
+          rates={rates}
+          fmtCurrency={fmtCurrency}
         />
       )}
     </>

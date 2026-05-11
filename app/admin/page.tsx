@@ -882,6 +882,15 @@ export default function AdminPage() {
                       >
                         🔧 DB Migration
                       </button>
+                      <button
+                        onClick={() => setMigrationSql(
+                          `-- Portfolio: add sold-position columns\nALTER TABLE portfolios ADD COLUMN IF NOT EXISTS sold boolean DEFAULT false;\nALTER TABLE portfolios ADD COLUMN IF NOT EXISTS sale_price numeric;\nALTER TABLE portfolios ADD COLUMN IF NOT EXISTS sold_at timestamptz;`
+                        )}
+                        style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid rgba(74,158,255,0.3)', background: 'rgba(74,158,255,0.07)', color: '#4a9eff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                        title="Add sold/sale_price/sold_at columns to portfolios table"
+                      >
+                        🔧 Portfolio Migration
+                      </button>
                       {refreshProgress ? (
                         <span style={{ fontSize: 12, color: 'var(--ink3)', padding: '7px 0' }}>
                           Refreshing {refreshProgress.done}/{refreshProgress.total}…
@@ -1121,9 +1130,11 @@ export default function AdminPage() {
                 Close
               </button>
             </div>
-            <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 8, background: 'rgba(232,197,71,0.07)', border: '1px solid rgba(232,197,71,0.2)', fontSize: 11, color: 'var(--gold)', lineHeight: 1.6 }}>
-              After running the SQL, click <strong>Force All</strong> to repopulate price data into the new columns.
-            </div>
+            {migrationSql && !migrationSql.includes('portfolios') && (
+              <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 8, background: 'rgba(232,197,71,0.07)', border: '1px solid rgba(232,197,71,0.2)', fontSize: 11, color: 'var(--gold)', lineHeight: 1.6 }}>
+                After running the SQL, click <strong>Force All</strong> to repopulate price data into the new columns.
+              </div>
+            )}
           </div>
         </div>
       )}

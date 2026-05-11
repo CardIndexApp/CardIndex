@@ -556,21 +556,22 @@ function parseMonthKey(m: string): number {
 
 function buildPortfolioHistory(
   positions: Position[],
-  windowMonths: number
+  windowDays: number   // 7 | 30 | 90
 ): { month: string; value: number; cost: number }[] {
   const posWithHistory = positions.filter(p => p.priceData?.price_history?.length)
   const totalCost = positions.reduce((s, p) => s + p.purchase_price * p.quantity, 0)
 
   // ── Full monthly history path ─────────────────────────────────────────────
   if (posWithHistory.length > 0) {
-    // Collect all unique months across all histories
     const allMonthsSet = new Set<string>()
     for (const pos of posWithHistory) {
       for (const h of pos.priceData!.price_history!) allMonthsSet.add(h.month)
     }
     const sortedMonths = Array.from(allMonthsSet)
       .sort((a, b) => parseMonthKey(a) - parseMonthKey(b))
-    const sliced = windowMonths > 0 ? sortedMonths.slice(-windowMonths) : sortedMonths
+    // Convert days → months (7d → 1mo, 30d → 1mo, 90d → 3mo)
+    const windowMonths = Math.max(1, Math.ceil(windowDays / 30))
+    const sliced = sortedMonths.slice(-windowMonths)
 
     return sliced.map(month => {
       let value = 0
@@ -586,7 +587,6 @@ function buildPortfolioHistory(
         }
         value += price * pos.quantity
       }
-      // Positions without history: use current price for all months
       for (const pos of positions.filter(p => !p.priceData?.price_history?.length && p.priceData)) {
         value += pos.priceData!.price * pos.quantity
       }
@@ -595,7 +595,6 @@ function buildPortfolioHistory(
   }
 
   // ── Synthetic fallback: back-calculate from avg30d / avg7d / price ────────
-  // Requires at least one position to have a historical average
   const posWithData = positions.filter(p => p.priceData)
   if (!posWithData.length) return []
   const hasAvg = posWithData.some(p => p.priceData!.avg30d != null || p.priceData!.avg7d != null)
@@ -605,25 +604,23 @@ function buildPortfolioHistory(
   const fmtDate = (ts: number) =>
     new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 
-  // Three synthetic anchor points; all fit within any windowMonths (3/6/12M)
-  const syntheticPoints = [
+  // Anchor points filtered by the selected window
+  const allAnchors = [
     { label: fmtDate(now - 30 * 86_400_000), daysAgo: 30 },
     { label: fmtDate(now - 7  * 86_400_000), daysAgo: 7  },
     { label: 'Today',                         daysAgo: 0  },
   ]
+  const anchors = allAnchors.filter(a => a.daysAgo <= windowDays)
+  if (anchors.length < 2) return []
 
-  return syntheticPoints.map(({ label, daysAgo }) => {
+  return anchors.map(({ label, daysAgo }) => {
     let value = 0
     for (const pos of posWithData) {
       const pd = pos.priceData!
       let price: number
-      if (daysAgo === 0) {
-        price = pd.price
-      } else if (daysAgo <= 7) {
-        price = pd.avg7d ?? pd.price
-      } else {
-        price = pd.avg30d ?? pd.avg7d ?? pd.price
-      }
+      if (daysAgo === 0)       price = pd.price
+      else if (daysAgo <= 7)   price = pd.avg7d  ?? pd.price
+      else                     price = pd.avg30d  ?? pd.avg7d ?? pd.price
       value += price * pos.quantity
     }
     return { month: label, value, cost: totalCost }
@@ -636,16 +633,15 @@ interface PortfolioChartProps {
 }
 
 function PortfolioChart({ positions, fmtCurrency }: PortfolioChartProps) {
-  // Auto-select the shortest window that gives ≥ 3 data points.
-  // Falls back to the next larger window, then 12M.
-  const autoWindow = useMemo((): 3 | 6 | 12 => {
-    for (const w of [3, 6, 12] as const) {
-      if (buildPortfolioHistory(positions, w).length >= 3) return w
+  // Auto-select shortest window with ≥ 2 data points
+  const autoWindow = useMemo((): 7 | 30 | 90 => {
+    for (const w of [7, 30, 90] as const) {
+      if (buildPortfolioHistory(positions, w).length >= 2) return w
     }
-    return 12
+    return 90
   }, [positions])
 
-  const [userWindow, setUserWindow] = useState<3 | 6 | 12 | null>(null)
+  const [userWindow, setUserWindow] = useState<7 | 30 | 90 | null>(null)
   const chartWindow = userWindow ?? autoWindow
   const data = buildPortfolioHistory(positions, chartWindow)
 
@@ -662,8 +658,23 @@ function PortfolioChart({ positions, fmtCurrency }: PortfolioChartProps) {
     )
   }
 
-  const chartMin = Math.min(...data.map(d => Math.min(d.value, d.cost))) * 0.97
-  const chartMax = Math.max(...data.map(d => d.value)) * 1.03
+  // Exclude zero/near-zero cost (bad data guard) so the line isn't pushed to the floor
+  const positiveCosts = data.map(d => d.cost).filter(c => c > 1)
+  const costFloor     = positiveCosts.length ? Math.min(...positiveCosts) : Math.min(...data.map(d => d.value))
+  const valueFloor    = Math.min(...data.map(d => d.value))
+  const chartMin      = Math.min(costFloor, valueFloor) * 0.97
+  const chartMax      = Math.max(...data.map(d => d.value)) * 1.03
+
+  // Compact Y-axis label derived from fmtCurrency (so it respects the user's currency)
+  const yFmt = (v: number) => {
+    const full  = fmtCurrency(v)                       // e.g. "A$1,063.79" or "$683.44"
+    const sym   = full.match(/^[^\d]*/)?.[0] ?? '$'    // leading non-digits = currency symbol
+    const num   = parseFloat(full.replace(/[^\d.]/g, ''))
+    if (!isFinite(num)) return full
+    if (num >= 10_000) return `${sym}${(num / 1_000).toFixed(0)}k`
+    if (num >= 1_000)  return `${sym}${(num / 1_000).toFixed(1)}k`
+    return `${sym}${Math.round(num)}`
+  }
 
   const latestValue = data[data.length - 1]?.value ?? 0
   const firstValue  = data[0]?.value ?? 0
@@ -698,13 +709,13 @@ function PortfolioChart({ positions, fmtCurrency }: PortfolioChartProps) {
           </span>
         </div>
         <div style={{ display: 'flex', gap: 4 }}>
-          {([3, 6, 12] as const).map(w => (
+          {([7, 30, 90] as const).map(w => (
             <button key={w} onClick={() => setUserWindow(w)}
               style={{ padding: '4px 12px', borderRadius: 8, border: '1px solid', fontSize: 11, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s',
                 borderColor: chartWindow === w ? 'var(--gold)' : 'var(--border2)',
                 background: chartWindow === w ? 'var(--gold2)' : 'transparent',
                 color: chartWindow === w ? 'var(--gold)' : 'var(--ink3)' }}>
-              {w}M
+              {w}D
             </button>
           ))}
         </div>
@@ -730,10 +741,10 @@ function PortfolioChart({ positions, fmtCurrency }: PortfolioChartProps) {
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
           <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'var(--ink3)' }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
-          <YAxis domain={[chartMin, chartMax]} tick={{ fontSize: 10, fill: 'var(--ink3)' }} tickLine={false} axisLine={false} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} width={44} />
+          <YAxis domain={[chartMin, chartMax]} tick={{ fontSize: 10, fill: 'var(--ink3)' }} tickLine={false} axisLine={false} tickFormatter={yFmt} width={56} />
           <Tooltip content={<CustomTooltip />} />
           <Area type="monotone" dataKey="value" stroke="#e8c547" strokeWidth={2} fill="url(#portfolioGrad)" dot={false} activeDot={{ r: 4, fill: '#e8c547' }} />
-          <Line type="monotone" dataKey="cost"  stroke="rgba(255,255,255,0.25)" strokeWidth={1.5} strokeDasharray="4 3" dot={false} activeDot={false} />
+          <Line type="monotone" dataKey="cost"  stroke="rgba(255,255,255,0.45)" strokeWidth={2} strokeDasharray="5 4" dot={false} activeDot={false} />
         </ComposedChart>
       </ResponsiveContainer>
     </div>

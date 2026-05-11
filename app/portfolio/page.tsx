@@ -559,42 +559,74 @@ function buildPortfolioHistory(
   windowMonths: number
 ): { month: string; value: number; cost: number }[] {
   const posWithHistory = positions.filter(p => p.priceData?.price_history?.length)
-  if (!posWithHistory.length) return []
-
-  // Collect all unique months across all histories
-  const allMonthsSet = new Set<string>()
-  for (const pos of posWithHistory) {
-    for (const h of pos.priceData!.price_history!) allMonthsSet.add(h.month)
-  }
-
-  // Sort chronologically and trim to window
-  const sortedMonths = Array.from(allMonthsSet)
-    .sort((a, b) => parseMonthKey(a) - parseMonthKey(b))
-  const sliced = windowMonths > 0 ? sortedMonths.slice(-windowMonths) : sortedMonths
-
   const totalCost = positions.reduce((s, p) => s + p.purchase_price * p.quantity, 0)
 
-  return sliced.map(month => {
-    let value = 0
+  // ── Full monthly history path ─────────────────────────────────────────────
+  if (posWithHistory.length > 0) {
+    // Collect all unique months across all histories
+    const allMonthsSet = new Set<string>()
     for (const pos of posWithHistory) {
-      const histMap = new Map(pos.priceData!.price_history!.map(h => [h.month, h.price]))
-      // Use this month's price, or the most recent available price before this month
-      const monthTs = parseMonthKey(month)
-      let price = histMap.get(month)
-      if (price == null) {
-        // find nearest past price
-        const candidates = pos.priceData!.price_history!
-          .filter(h => parseMonthKey(h.month) <= monthTs)
-          .sort((a, b) => parseMonthKey(b.month) - parseMonthKey(a.month))
-        price = candidates[0]?.price ?? pos.priceData!.price
+      for (const h of pos.priceData!.price_history!) allMonthsSet.add(h.month)
+    }
+    const sortedMonths = Array.from(allMonthsSet)
+      .sort((a, b) => parseMonthKey(a) - parseMonthKey(b))
+    const sliced = windowMonths > 0 ? sortedMonths.slice(-windowMonths) : sortedMonths
+
+    return sliced.map(month => {
+      let value = 0
+      for (const pos of posWithHistory) {
+        const histMap = new Map(pos.priceData!.price_history!.map(h => [h.month, h.price]))
+        const monthTs = parseMonthKey(month)
+        let price = histMap.get(month)
+        if (price == null) {
+          const candidates = pos.priceData!.price_history!
+            .filter(h => parseMonthKey(h.month) <= monthTs)
+            .sort((a, b) => parseMonthKey(b.month) - parseMonthKey(a.month))
+          price = candidates[0]?.price ?? pos.priceData!.price
+        }
+        value += price * pos.quantity
+      }
+      // Positions without history: use current price for all months
+      for (const pos of positions.filter(p => !p.priceData?.price_history?.length && p.priceData)) {
+        value += pos.priceData!.price * pos.quantity
+      }
+      return { month, value, cost: totalCost }
+    })
+  }
+
+  // ── Synthetic fallback: back-calculate from avg30d / avg7d / price ────────
+  // Requires at least one position to have a historical average
+  const posWithData = positions.filter(p => p.priceData)
+  if (!posWithData.length) return []
+  const hasAvg = posWithData.some(p => p.priceData!.avg30d != null || p.priceData!.avg7d != null)
+  if (!hasAvg) return []
+
+  const now = Date.now()
+  const fmtDate = (ts: number) =>
+    new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+
+  // Three synthetic anchor points; all fit within any windowMonths (3/6/12M)
+  const syntheticPoints = [
+    { label: fmtDate(now - 30 * 86_400_000), daysAgo: 30 },
+    { label: fmtDate(now - 7  * 86_400_000), daysAgo: 7  },
+    { label: 'Today',                         daysAgo: 0  },
+  ]
+
+  return syntheticPoints.map(({ label, daysAgo }) => {
+    let value = 0
+    for (const pos of posWithData) {
+      const pd = pos.priceData!
+      let price: number
+      if (daysAgo === 0) {
+        price = pd.price
+      } else if (daysAgo <= 7) {
+        price = pd.avg7d ?? pd.price
+      } else {
+        price = pd.avg30d ?? pd.avg7d ?? pd.price
       }
       value += price * pos.quantity
     }
-    // Positions without history: always use current price
-    for (const pos of positions.filter(p => !p.priceData?.price_history?.length && p.priceData)) {
-      value += pos.priceData!.price * pos.quantity
-    }
-    return { month, value, cost: totalCost }
+    return { month: label, value, cost: totalCost }
   })
 }
 
@@ -625,7 +657,7 @@ function PortfolioChart({ positions, fmtCurrency }: PortfolioChartProps) {
       <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--ink3)', fontSize: 13 }}>
         {stillLoading || !anyPriced
           ? 'Loading price history…'
-          : 'Price history will appear once more price data has been collected.'}
+          : 'Extended price history will appear once more monthly data has been collected.'}
       </div>
     )
   }

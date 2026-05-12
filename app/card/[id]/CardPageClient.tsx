@@ -260,15 +260,25 @@ const PAGE_STYLES = `
 
   @media (min-width: 701px) {
     .ci-hide-desktop { display: none !important; }
-    /* Outer row stretches both columns to action-buttons height */
-    .ci-card-header-outer { align-items: stretch !important; }
-    /* Inner row stretches image and info to the same height */
-    .ci-card-header-inner { align-items: stretch !important; }
-    /* Image fills full height of inner row */
-    .ci-card-img-wrap { width: 160px !important; height: unset !important; align-self: stretch !important; }
-    /* Card info becomes a flex column so ← Change card pins to bottom */
+    /* Desktop: grid layout so image fills full row height naturally */
+    .ci-card-header-outer {
+      display: grid !important;
+      grid-template-columns: 160px 1fr auto;
+      gap: 20px;
+      align-items: stretch;
+    }
+    /* Image fills its grid cell completely */
+    .ci-card-img-wrap {
+      width: 100% !important;
+      height: 100% !important;
+      min-height: 200px;
+      flex-shrink: unset;
+    }
+    /* Card info is a flex column so ← Change card pins to bottom */
     .ci-card-info { display: flex !important; flex-direction: column !important; }
-    .ci-change-card-link { margin-top: auto !important; padding-top: 12px; }
+    .ci-change-card-link { margin-top: auto !important; padding-top: 16px; }
+    /* Actions align to top */
+    .ci-card-actions { align-self: start !important; }
   }
   @media (max-width: 700px) {
     .ci-hide-mobile { display: none !important; }
@@ -3178,55 +3188,58 @@ export default function CardPageClient() {
           <div style={{ ...C, marginTop: 24 }} className="ci-card-surface">
             <div style={{ ...P }}>
               <div className="ci-card-header-outer" style={{ display: 'flex', gap: 16, alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap' }}>
-                <div className="ci-card-header-inner" style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flex: 1, minWidth: 0 }}>
-                  <div
-                    className="ci-card-img-wrap"
-                    onClick={() => card.imageUrl && !imgError && setLightbox(true)}
-                    title={card.imageUrl && !imgError ? 'Click to enlarge' : undefined}
-                    style={{ borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden', cursor: card.imageUrl && !imgError ? 'zoom-in' : 'default', position: 'relative', transition: 'border-color 0.15s' }}
-                    onMouseEnter={e => { if (card.imageUrl && !imgError) e.currentTarget.style.borderColor = 'var(--gold)' }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border2)' }}
-                  >
-                    {card.imageUrl && !imgError ? (
-                      <img src={tcgImg(card.imageUrl)} alt={card.name} onError={() => setImgError(true)} style={{ height: '100%', width: '100%', objectFit: 'contain' }} />
-                    ) : (
-                      <span style={{ fontSize: 40 }}>{card.emoji}</span>
-                    )}
-                  </div>
 
-                  {/* Lightbox */}
-                  {lightbox && card.imageUrl && (
-                    <div
-                      onClick={() => setLightbox(false)}
-                      style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, cursor: 'zoom-out' }}
-                    >
-                      <div style={{ position: 'relative', maxWidth: 420, width: '100%' }}>
-                        <img
-                          src={tcgImg(card.imageUrl)}
-                          alt={card.name}
-                          style={{ width: '100%', borderRadius: 16, boxShadow: '0 32px 80px rgba(0,0,0,0.8)', display: 'block' }}
-                          onClick={e => e.stopPropagation()}
-                        />
-                        <button
-                          onClick={() => setLightbox(false)}
-                          style={{ position: 'absolute', top: -14, right: -14, width: 32, height: 32, borderRadius: '50%', background: 'var(--surface2)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                        >×</button>
-                        <p style={{ textAlign: 'center', fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 12 }}>Click anywhere to close</p>
-                      </div>
-                    </div>
+                {/* Image */}
+                <div
+                  className="ci-card-img-wrap"
+                  onClick={() => card.imageUrl && !imgError && setLightbox(true)}
+                  title={card.imageUrl && !imgError ? 'Click to enlarge' : undefined}
+                  style={{ borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border2)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', cursor: card.imageUrl && !imgError ? 'zoom-in' : 'default', position: 'relative', transition: 'border-color 0.15s' }}
+                  onMouseEnter={e => { if (card.imageUrl && !imgError) e.currentTarget.style.borderColor = 'var(--gold)' }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border2)' }}
+                >
+                  {card.imageUrl && !imgError ? (
+                    <img src={tcgImg(card.imageUrl)} alt={card.name} onError={() => setImgError(true)} style={{ height: '100%', width: '100%', objectFit: 'contain' }} />
+                  ) : (
+                    <span style={{ fontSize: 40 }}>{card.emoji}</span>
                   )}
-                  <div className="ci-card-info" style={{ flex: 1, minWidth: 0 }}>
-                    <p className="font-mono-custom" style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', marginBottom: 6 }}>CARDINDEX — CARD MARKET INTELLIGENCE</p>
-                    <h1 className="font-display" style={{ fontSize: 'clamp(20px, 4vw, 28px)', fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px', marginBottom: 4, lineHeight: 1.1 }}>{card.name}</h1>
-                    <p style={{ fontSize: 13, color: 'var(--ink2)', marginBottom: 12 }}>{card.set} · #{card.cardNumber}</p>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                      {card.tags.map(tag => (
-                        <span key={tag} style={{ fontSize: 10, padding: '3px 10px', borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border2)', color: 'var(--ink2)', letterSpacing: 0.3 }}>{tag}</span>
-                      ))}
-                    </div>
-                    <Link href={urlSetSlug ? `/search?return_to_set=${encodeURIComponent(urlSetSlug)}` : '/search'} className="ci-change-card-link" style={{ fontSize: 12, color: 'var(--ink3)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 14 }}>← Change card</Link>
-                  </div>
                 </div>
+
+                {/* Lightbox */}
+                {lightbox && card.imageUrl && (
+                  <div
+                    onClick={() => setLightbox(false)}
+                    style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, cursor: 'zoom-out' }}
+                  >
+                    <div style={{ position: 'relative', maxWidth: 420, width: '100%' }}>
+                      <img
+                        src={tcgImg(card.imageUrl)}
+                        alt={card.name}
+                        style={{ width: '100%', borderRadius: 16, boxShadow: '0 32px 80px rgba(0,0,0,0.8)', display: 'block' }}
+                        onClick={e => e.stopPropagation()}
+                      />
+                      <button
+                        onClick={() => setLightbox(false)}
+                        style={{ position: 'absolute', top: -14, right: -14, width: 32, height: 32, borderRadius: '50%', background: 'var(--surface2)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      >×</button>
+                      <p style={{ textAlign: 'center', fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 12 }}>Click anywhere to close</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Card info */}
+                <div className="ci-card-info" style={{ flex: 1, minWidth: 0 }}>
+                  <p className="font-mono-custom" style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', marginBottom: 6 }}>CARDINDEX — CARD MARKET INTELLIGENCE</p>
+                  <h1 className="font-display" style={{ fontSize: 'clamp(20px, 4vw, 28px)', fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px', marginBottom: 4, lineHeight: 1.1 }}>{card.name}</h1>
+                  <p style={{ fontSize: 13, color: 'var(--ink2)', marginBottom: 12 }}>{card.set} · #{card.cardNumber}</p>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {card.tags.map(tag => (
+                      <span key={tag} style={{ fontSize: 10, padding: '3px 10px', borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border2)', color: 'var(--ink2)', letterSpacing: 0.3 }}>{tag}</span>
+                    ))}
+                  </div>
+                  <Link href={urlSetSlug ? `/search?return_to_set=${encodeURIComponent(urlSetSlug)}` : '/search'} className="ci-change-card-link" style={{ fontSize: 12, color: 'var(--ink3)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 14 }}>← Change card</Link>
+                </div>
+
                 {/* Action buttons */}
                 <div className="ci-card-actions" style={{ display: 'flex', flexDirection: 'column', gap: 8, alignSelf: 'flex-start', flexShrink: 0 }}>
                   {/* Watchlist button */}

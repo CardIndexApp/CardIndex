@@ -45,6 +45,15 @@ interface EnrichedItem extends WatchlistItem {
 type SortKey = 'price' | 'change' | 'score' | 'name'
 type Filter = 'all' | 'up' | 'down'
 
+// ── Verdict ───────────────────────────────────────────────────────────────────
+
+function getVerdict(score: number, change: number): { label: string; color: string; bg: string; border: string } {
+  if (score >= 70 && change >= -2)  return { label: 'BUY',        color: '#3de88a', bg: 'rgba(61,232,138,0.12)',  border: 'rgba(61,232,138,0.35)' }
+  if (score >= 55 && change >= -5)  return { label: 'ACCUMULATE', color: '#a8e88a', bg: 'rgba(168,232,138,0.08)', border: 'rgba(168,232,138,0.25)' }
+  if (score >= 40 && change > -15)  return { label: 'HOLD',       color: '#8c8cb4', bg: 'rgba(140,140,180,0.08)', border: 'rgba(140,140,180,0.2)'  }
+  return                                     { label: 'SELL',       color: '#e8524a', bg: 'rgba(232,82,74,0.10)',  border: 'rgba(232,82,74,0.3)'   }
+}
+
 // ── Sparkline ─────────────────────────────────────────────────────────────────
 
 function Sparkline({ data, up }: { data: number[]; up: boolean }) {
@@ -96,6 +105,10 @@ function SkeletonRow({ last }: { last: boolean }) {
       <div className="wl-hide-mobile" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
         <div style={{ width: 30, height: 15, borderRadius: 4, background: 'var(--surface2)' }} className="sk-pulse" />
         <div style={{ width: 40, height: 3, borderRadius: 2, background: 'var(--surface2)' }} className="sk-pulse" />
+      </div>
+      {/* Verdict (desktop) */}
+      <div className="wl-hide-mobile" style={{ display: 'flex', justifyContent: 'center' }}>
+        <div style={{ width: 70, height: 22, borderRadius: 99, background: 'var(--surface2)' }} className="sk-pulse" />
       </div>
       {/* Remove button placeholder */}
       <div className="wl-cell-remove" style={{ display: 'flex', justifyContent: 'flex-end' }}>
@@ -494,6 +507,7 @@ export default function Watchlist() {
                   <span style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1, textTransform: 'uppercase', textAlign: 'right' }}>24h Change</span>
                   <span className="wl-hide-mobile" style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center' }}>30d Trend</span>
                   <span className="wl-hide-mobile" style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center' }}>Score</span>
+                  <span className="wl-hide-mobile" style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center' }}>Verdict</span>
                   <span />
                 </div>
 
@@ -633,6 +647,24 @@ export default function Watchlist() {
                             </div>
                           </>
                         ) : (
+                          <span style={{ fontSize: 11, color: 'var(--ink3)' }}>—</span>
+                        )}
+                      </div>
+
+                      {/* Verdict — Standard+ */}
+                      <div className="wl-hide-mobile" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                        {!getTierLimits(userTier).trendIndicators ? (
+                          <Link href="/pricing" onClick={e => e.stopPropagation()} style={{ fontSize: 9, color: 'var(--ink3)', textDecoration: 'none', opacity: 0.6 }}>🔒</Link>
+                        ) : item.priceLoading ? (
+                          <div style={{ width: 70, height: 22, borderRadius: 99, background: 'var(--surface2)' }} className="sk-pulse" />
+                        ) : pd ? (() => {
+                          const v = getVerdict(score, change)
+                          return (
+                            <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: 0.8, padding: '4px 10px', borderRadius: 99, background: v.bg, border: `1px solid ${v.border}`, color: v.color, whiteSpace: 'nowrap' }}>
+                              {v.label}
+                            </span>
+                          )
+                        })() : (
                           <span style={{ fontSize: 11, color: 'var(--ink3)' }}>—</span>
                         )}
                       </div>

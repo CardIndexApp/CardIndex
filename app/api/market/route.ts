@@ -130,39 +130,72 @@ function computeIndexStats(rows: CacheRow[]): IndexStats | null {
 
 /**
  * Build a normalized index history.
- * For each card, normalize price_history so the card's first point = 100.
- * Average the normalized values by month to get an equal-weighted index.
- * Require a month to have at least minCoverage% of cards to be included.
+ *
+ * Primary path: cards with >= 2 monthly price_history points.
+ * Synthetic fallback: when fewer than 2 cards have real history, synthesize
+ * 3-point history (30d ago, 7d ago, today) from avg30d/avg7d/price so the
+ * index is useful even on a new platform without months of stored data.
  */
 function computeIndexHistory(rows: CacheRow[]): { month: string; value: number }[] {
+  const now = Date.now()
+  function fmtDate(ts: number) {
+    return new Date(ts).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+  }
+
+  // ── Primary: real monthly history ─────────────────────────────────────────
   const withHistory = rows.filter(
     r => r.price_history && r.price_history.length >= 2 && r.price != null && r.price > 0
   )
-  if (withHistory.length < 3) return []
 
-  const monthMap = new Map<string, number[]>()
+  if (withHistory.length >= 2) {
+    const monthMap = new Map<string, number[]>()
 
-  for (const row of withHistory) {
-    const hist = (row.price_history!).filter(p => p.price > 0)
-    if (hist.length < 2) continue
-    const basePrice = hist[0].price
+    for (const row of withHistory) {
+      const hist = (row.price_history!).filter(p => p.price > 0)
+      if (hist.length < 2) continue
+      const basePrice = hist[0].price
 
-    for (const pt of hist) {
-      const normalized = (pt.price / basePrice) * 100
-      if (!monthMap.has(pt.month)) monthMap.set(pt.month, [])
-      monthMap.get(pt.month)!.push(normalized)
+      for (const pt of hist) {
+        const normalized = (pt.price / basePrice) * 100
+        if (!monthMap.has(pt.month)) monthMap.set(pt.month, [])
+        monthMap.get(pt.month)!.push(normalized)
+      }
+    }
+
+    const minSamples = Math.max(1, Math.floor(withHistory.length * 0.15))
+    const months = [...monthMap.keys()]
+      .filter(m => (monthMap.get(m)?.length ?? 0) >= minSamples)
+      .sort((a, b) => parseMonth(a) - parseMonth(b))
+
+    if (months.length >= 2) {
+      return months.map(m => ({
+        month: m,
+        value: round2(median(monthMap.get(m)!)),
+      }))
     }
   }
 
-  const minSamples = Math.max(2, Math.floor(withHistory.length * 0.15))
-  const months = [...monthMap.keys()]
-    .filter(m => (monthMap.get(m)?.length ?? 0) >= minSamples)
-    .sort((a, b) => parseMonth(a) - parseMonth(b))
+  // ── Synthetic fallback: use avg30d / avg7d / price ─────────────────────────
+  // Require at least 2 priced cards with avg30d to make a meaningful index.
+  const priced = rows.filter(r => r.price != null && r.price > 0)
+  const with30d = priced.filter(r => r.avg30d != null && r.avg30d > 0)
+  if (with30d.length < 2) return []
 
-  return months.map(m => ({
-    month: m,
-    value: round2(median(monthMap.get(m)!)),
-  }))
+  const anchors = [
+    { label: fmtDate(now - 30 * 86_400_000), getPrice: (r: CacheRow) => r.avg30d ?? r.avg7d ?? r.price! },
+    { label: fmtDate(now - 7  * 86_400_000), getPrice: (r: CacheRow) => r.avg7d  ?? r.price! },
+    { label: fmtDate(now),                    getPrice: (r: CacheRow) => r.price! },
+  ]
+
+  return anchors.map(({ label, getPrice }) => {
+    // Normalize each card to its 30d-ago price = 100
+    const values = with30d.map(r => {
+      const base = r.avg30d!
+      const p    = getPrice(r)
+      return (p / base) * 100
+    })
+    return { month: label, value: round2(median(values)) }
+  })
 }
 
 export interface IndexMetrics {

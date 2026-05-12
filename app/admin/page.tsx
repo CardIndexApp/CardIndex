@@ -395,6 +395,8 @@ export default function AdminPage() {
       flash('ok', `${ok} refreshed, ${failed} failed. First: ${firstErrMsg}`)
     }
     loadConstituents()
+    // Bust the market API cache so the updated index is visible immediately
+    fetch('/api/market?bust=1').catch(() => {})
   }
 
   async function refreshAllPrices() {

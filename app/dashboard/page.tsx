@@ -294,15 +294,22 @@ export default function Dashboard() {
           {/* ── Portfolio Snapshot ── */}
           {portfolioStats && (portfolioStats.posCount > 0 || portfolioStats.realizedPL !== 0) && (() => {
             // fmtCurrency handles USD→local conversion internally — do NOT pre-multiply by rate
-            const costUSD       = portfolioStats.costBasis
-            const hasPrices     = portfolioStats.cachedCount > 0
-            const valueUSD      = portfolioStats.currentValue
-            const unrealizedUSD = hasPrices ? valueUSD - costUSD : null
-            const pnlUSD        = unrealizedUSD != null
-              ? unrealizedUSD + portfolioStats.realizedPL
-              : portfolioStats.realizedPL !== 0 ? portfolioStats.realizedPL : null
-            const pnlPct        = pnlUSD != null && costUSD > 0 ? (pnlUSD / costUSD) * 100 : null
-            const pnlPos        = pnlUSD == null ? null : pnlUSD >= 0
+            const costUSD        = portfolioStats.costBasis
+            const allPriced      = portfolioStats.cachedCount === portfolioStats.posCount && portfolioStats.posCount > 0
+            const hasPrices      = portfolioStats.cachedCount > 0
+            const valueUSD       = portfolioStats.currentValue
+            // Only show unrealized P&L when ALL open positions are priced — partial data is misleading
+            const unrealizedUSD  = allPriced ? valueUSD - costUSD : null
+            // Realized P&L is always accurate (no prices needed)
+            const realizedUSD    = portfolioStats.realizedPL
+            // Total P&L: only combine when unrealized is complete; otherwise just show realized
+            const pnlUSD         = unrealizedUSD != null
+              ? unrealizedUSD + realizedUSD
+              : realizedUSD !== 0 ? realizedUSD : null
+            const pnlPct         = pnlUSD != null && costUSD > 0 ? (pnlUSD / costUSD) * 100 : null
+            const pnlPos         = pnlUSD == null ? null : pnlUSD >= 0
+            // Label changes based on completeness
+            const pnlLabel       = unrealizedUSD != null ? 'TOTAL P&L' : realizedUSD !== 0 ? 'REALIZED P&L' : 'COST BASIS'
             return (
               <Link href="/portfolio" className="dash-pf-snap" style={{ textDecoration: 'none', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0, marginBottom: 16, borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden', transition: 'border-color 0.15s' }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(61,232,138,0.3)' }}
@@ -310,7 +317,7 @@ export default function Dashboard() {
               >
                 {/* Total Value */}
                 <div style={{ padding: '14px 20px', borderRight: '1px solid var(--border)' }}>
-                  <div style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', marginBottom: 5, fontWeight: 600 }}>TOTAL VALUE</div>
+                  <div style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', marginBottom: 5, fontWeight: 600 }}>MARKET VALUE</div>
                   {hasPrices ? (
                     <div className="font-num" style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)' }}>{fmtCurrency(valueUSD)}</div>
                   ) : (
@@ -318,25 +325,32 @@ export default function Dashboard() {
                   )}
                   <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 3 }}>
                     {portfolioStats.posCount} open position{portfolioStats.posCount !== 1 ? 's' : ''}
-                    {!hasPrices ? ' · visit portfolio to load' : portfolioStats.cachedCount < portfolioStats.posCount ? ` · ${portfolioStats.cachedCount}/${portfolioStats.posCount} priced` : ''}
+                    {!hasPrices ? ' · visit portfolio to load' : !allPriced ? ` · ${portfolioStats.cachedCount}/${portfolioStats.posCount} priced` : ''}
                   </div>
                 </div>
-                {/* Total P&L */}
+                {/* P&L — label + value adapts to data completeness */}
                 <div style={{ padding: '14px 20px' }}>
-                  <div style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', marginBottom: 5, fontWeight: 600 }}>TOTAL P&amp;L</div>
+                  <div style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', marginBottom: 5, fontWeight: 600 }}
+                    dangerouslySetInnerHTML={{ __html: pnlLabel }} />
                   {pnlUSD != null ? (
                     <>
                       <div className="font-num" style={{ fontSize: 20, fontWeight: 700, color: pnlPos ? 'var(--green)' : '#ff6b6b' }}>
                         {pnlPos ? '+' : '−'}{fmtCurrency(Math.abs(pnlUSD))}
                       </div>
-                      <div style={{ fontSize: 10, color: pnlPos ? 'var(--green)' : '#ff6b6b', marginTop: 3, opacity: 0.8 }}>
-                        {pnlPos ? '+' : ''}{pnlPct?.toFixed(1)}%
-                      </div>
+                      {pnlPct != null && (
+                        <div style={{ fontSize: 10, color: pnlPos ? 'var(--green)' : '#ff6b6b', marginTop: 3, opacity: 0.8 }}>
+                          {pnlPos ? '+' : ''}{pnlPct.toFixed(1)}%
+                          {!allPriced && <span style={{ color: 'var(--ink3)', marginLeft: 4 }}>· partial</span>}
+                        </div>
+                      )}
+                      {!allPriced && unrealizedUSD == null && (
+                        <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 3 }}>visit portfolio for full P&amp;L</div>
+                      )}
                     </>
                   ) : (
                     <>
-                      <div className="font-num" style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink3)' }}>—</div>
-                      <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 3 }}>visit portfolio to load prices</div>
+                      <div className="font-num" style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)' }}>{fmtCurrency(costUSD)}</div>
+                      <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 3 }}>visit portfolio for P&amp;L</div>
                     </>
                   )}
                 </div>

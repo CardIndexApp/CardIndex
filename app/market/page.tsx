@@ -71,7 +71,7 @@ function IndexMetricsPanel({ metrics, loading }: { metrics: IndexMetrics | null 
         <div style={{ fontSize: 10, color: 'var(--ink3)' }}>Normalized equal-weighted index (base = 100 at first tracked price)</div>
         {!loading && !metrics && (
           <div style={{ fontSize: 10, color: 'var(--gold)', background: 'rgba(232,197,71,0.08)', border: '1px solid rgba(232,197,71,0.2)', borderRadius: 6, padding: '2px 8px' }}>
-            Not enough price history yet — refresh index cards to build data
+            No price data yet — add index cards in Admin and refresh
           </div>
         )}
       </div>

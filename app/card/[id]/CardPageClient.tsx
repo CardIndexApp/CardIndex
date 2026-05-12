@@ -260,9 +260,15 @@ const PAGE_STYLES = `
 
   @media (min-width: 701px) {
     .ci-hide-desktop { display: none !important; }
+    /* Outer row stretches both columns to action-buttons height */
     .ci-card-header-outer { align-items: stretch !important; }
+    /* Inner row stretches image and info to the same height */
     .ci-card-header-inner { align-items: stretch !important; }
+    /* Image fills full height of inner row */
     .ci-card-img-wrap { width: 160px !important; height: unset !important; align-self: stretch !important; }
+    /* Card info becomes a flex column so ← Change card pins to bottom */
+    .ci-card-info { display: flex !important; flex-direction: column !important; }
+    .ci-change-card-link { margin-top: auto !important; padding-top: 12px; }
   }
   @media (max-width: 700px) {
     .ci-hide-mobile { display: none !important; }
@@ -3209,7 +3215,7 @@ export default function CardPageClient() {
                       </div>
                     </div>
                   )}
-                  <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="ci-card-info" style={{ flex: 1, minWidth: 0 }}>
                     <p className="font-mono-custom" style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', marginBottom: 6 }}>CARDINDEX — CARD MARKET INTELLIGENCE</p>
                     <h1 className="font-display" style={{ fontSize: 'clamp(20px, 4vw, 28px)', fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px', marginBottom: 4, lineHeight: 1.1 }}>{card.name}</h1>
                     <p style={{ fontSize: 13, color: 'var(--ink2)', marginBottom: 12 }}>{card.set} · #{card.cardNumber}</p>
@@ -3218,7 +3224,7 @@ export default function CardPageClient() {
                         <span key={tag} style={{ fontSize: 10, padding: '3px 10px', borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border2)', color: 'var(--ink2)', letterSpacing: 0.3 }}>{tag}</span>
                       ))}
                     </div>
-                    <Link href={urlSetSlug ? `/search?return_to_set=${encodeURIComponent(urlSetSlug)}` : '/search'} style={{ fontSize: 12, color: 'var(--ink3)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 14 }}>← Change card</Link>
+                    <Link href={urlSetSlug ? `/search?return_to_set=${encodeURIComponent(urlSetSlug)}` : '/search'} className="ci-change-card-link" style={{ fontSize: 12, color: 'var(--ink3)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 14 }}>← Change card</Link>
                   </div>
                 </div>
                 {/* Action buttons */}

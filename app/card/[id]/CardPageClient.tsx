@@ -257,6 +257,8 @@ const PAGE_STYLES = `
 
   @media (min-width: 701px) {
     .ci-hide-desktop { display: none !important; }
+    .ci-card-header-inner { align-items: stretch !important; }
+    .ci-card-img-wrap { width: 160px !important; height: auto !important; align-self: stretch !important; }
   }
   @media (max-width: 700px) {
     .ci-hide-mobile { display: none !important; }
@@ -3166,8 +3168,9 @@ export default function CardPageClient() {
           <div style={{ ...C, marginTop: 24 }} className="ci-card-surface">
             <div style={{ ...P }}>
               <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flex: 1, minWidth: 0 }}>
+                <div className="ci-card-header-inner" style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flex: 1, minWidth: 0 }}>
                   <div
+                    className="ci-card-img-wrap"
                     onClick={() => card.imageUrl && !imgError && setLightbox(true)}
                     title={card.imageUrl && !imgError ? 'Click to enlarge' : undefined}
                     style={{ width: 88, height: 122, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden', cursor: card.imageUrl && !imgError ? 'zoom-in' : 'default', position: 'relative', transition: 'border-color 0.15s' }}

@@ -5,7 +5,6 @@ import Link from 'next/link'
 import Navbar from '@/components/Navbar'
 import { createClient } from '@/lib/supabase/client'
 import { usePullToRefresh } from '@/lib/usePullToRefresh'
-import { cacheGet } from '@/lib/searchCache'
 import { useCurrency } from '@/lib/currency'
 
 type Tier = 'free' | 'standard' | 'pro'
@@ -34,6 +33,7 @@ interface RecentlyViewedItem {
 
 interface PortfolioStats {
   posCount: number        // open positions only
+  soldCount: number       // sold positions
   costBasis: number       // USD, open positions only
   currentValue: number    // USD, from cache (0 if no cache hits)
   cachedCount: number     // how many open positions have a cached price
@@ -154,25 +154,45 @@ export default function Dashboard() {
     setProfile(prof ?? { email: user.email ?? '', username: null, tier: 'free' })
     setWatchlist(wl ?? [])
 
-    // Portfolio stats — use locally cached prices where available
+    // Portfolio stats — pull prices from search_cache (same source as portfolio page)
     const positions = pf ?? []
     const openPositions = positions.filter(p => !p.sold)
+    const soldPositions = positions.filter(p => p.sold)
+
     let costBasis = 0
     let currentValue = 0
     let cachedCount = 0
     let realizedPL = 0
+
     for (const pos of openPositions) {
       costBasis += (pos.purchase_price as number) * (pos.quantity as number)
-      const hit = cacheGet<{ price: number }>(`${pos.card_id}:${pos.grade}`)
-      if (hit?.price) {
-        currentValue += hit.price * (pos.quantity as number)
-        cachedCount++
-      }
     }
-    for (const pos of positions.filter(p => p.sold && p.sale_price != null)) {
+    for (const pos of soldPositions.filter(p => p.sale_price != null)) {
       realizedPL += ((pos.sale_price as number) - (pos.purchase_price as number)) * (pos.quantity as number)
     }
-    setPortfolioStats({ posCount: openPositions.length, costBasis, currentValue, cachedCount, realizedPL })
+
+    if (openPositions.length > 0) {
+      const cacheKeys = openPositions.map(p => `${p.card_id}:${p.grade}`)
+      const { data: priceRows } = await supabase
+        .from('search_cache')
+        .select('cache_key, price')
+        .in('cache_key', cacheKeys)
+
+      const priceMap = new Map<string, number>()
+      for (const row of priceRows ?? []) {
+        if (row.price != null && row.price > 0) priceMap.set(row.cache_key, row.price)
+      }
+
+      for (const pos of openPositions) {
+        const price = priceMap.get(`${pos.card_id}:${pos.grade}`)
+        if (price) {
+          currentValue += price * (pos.quantity as number)
+          cachedCount++
+        }
+      }
+    }
+
+    setPortfolioStats({ posCount: openPositions.length, soldCount: soldPositions.length, costBasis, currentValue, cachedCount, realizedPL })
 
     // Recently viewed — stored in localStorage under the user's key
     try {
@@ -293,29 +313,24 @@ export default function Dashboard() {
 
           {/* ── Portfolio Snapshot ── */}
           {portfolioStats && (portfolioStats.posCount > 0 || portfolioStats.realizedPL !== 0) && (() => {
-            // fmtCurrency handles USD→local conversion internally — do NOT pre-multiply by rate
-            const costUSD        = portfolioStats.costBasis
-            const allPriced      = portfolioStats.cachedCount === portfolioStats.posCount && portfolioStats.posCount > 0
-            const hasPrices      = portfolioStats.cachedCount > 0
-            const valueUSD       = portfolioStats.currentValue
-            // Only show unrealized P&L when ALL open positions are priced — partial data is misleading
-            const unrealizedUSD  = allPriced ? valueUSD - costUSD : null
-            // Realized P&L is always accurate (no prices needed)
-            const realizedUSD    = portfolioStats.realizedPL
-            // Total P&L: only combine when unrealized is complete; otherwise just show realized
-            const pnlUSD         = unrealizedUSD != null
-              ? unrealizedUSD + realizedUSD
-              : realizedUSD !== 0 ? realizedUSD : null
-            const pnlPct         = pnlUSD != null && costUSD > 0 ? (pnlUSD / costUSD) * 100 : null
-            const pnlPos         = pnlUSD == null ? null : pnlUSD >= 0
-            // Label changes based on completeness
-            const pnlLabel       = unrealizedUSD != null ? 'TOTAL P&L' : realizedUSD !== 0 ? 'REALIZED P&L' : 'COST BASIS'
+            const costUSD       = portfolioStats.costBasis
+            const hasPrices     = portfolioStats.cachedCount > 0
+            const allPriced     = portfolioStats.cachedCount === portfolioStats.posCount && portfolioStats.posCount > 0
+            const valueUSD      = portfolioStats.currentValue
+            const unrealizedUSD = hasPrices ? valueUSD - costUSD : null
+            const unrealizedPct = unrealizedUSD != null && costUSD > 0 ? (unrealizedUSD / costUSD) * 100 : null
+            const unrealizedPos = unrealizedUSD == null ? null : unrealizedUSD >= 0
+            const realizedUSD   = portfolioStats.realizedPL
+            const realizedPos   = realizedUSD >= 0
+            const showRealized  = portfolioStats.realizedPL !== 0
+            // Use 2 cols when no realized, 3 when there are sold positions
+            const cols          = showRealized ? '1fr 1fr 1fr' : '1fr 1fr'
             return (
-              <Link href="/portfolio" className="dash-pf-snap" style={{ textDecoration: 'none', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0, marginBottom: 16, borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden', transition: 'border-color 0.15s' }}
+              <Link href="/portfolio" className="dash-pf-snap" style={{ textDecoration: 'none', display: 'grid', gridTemplateColumns: cols, gap: 0, marginBottom: 16, borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden', transition: 'border-color 0.15s' }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(61,232,138,0.3)' }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border2)' }}
               >
-                {/* Total Value */}
+                {/* Market Value */}
                 <div style={{ padding: '14px 20px', borderRight: '1px solid var(--border)' }}>
                   <div style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', marginBottom: 5, fontWeight: 600 }}>MARKET VALUE</div>
                   {hasPrices ? (
@@ -324,36 +339,42 @@ export default function Dashboard() {
                     <div className="font-num" style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink3)' }}>—</div>
                   )}
                   <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 3 }}>
-                    {portfolioStats.posCount} open position{portfolioStats.posCount !== 1 ? 's' : ''}
-                    {!hasPrices ? ' · visit portfolio to load' : !allPriced ? ` · ${portfolioStats.cachedCount}/${portfolioStats.posCount} priced` : ''}
+                    {portfolioStats.posCount} open
+                    {!hasPrices ? ' · visit portfolio to load' : !allPriced ? ` · ${portfolioStats.cachedCount}/${portfolioStats.posCount} cached` : ''}
                   </div>
                 </div>
-                {/* P&L — label + value adapts to data completeness */}
-                <div style={{ padding: '14px 20px' }}>
-                  <div style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', marginBottom: 5, fontWeight: 600 }}
-                    dangerouslySetInnerHTML={{ __html: pnlLabel }} />
-                  {pnlUSD != null ? (
+                {/* Unrealized P&L */}
+                <div style={{ padding: '14px 20px', borderRight: showRealized ? '1px solid var(--border)' : undefined }}>
+                  <div style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', marginBottom: 5, fontWeight: 600 }}>UNREALIZED P&amp;L</div>
+                  {unrealizedUSD != null ? (
                     <>
-                      <div className="font-num" style={{ fontSize: 20, fontWeight: 700, color: pnlPos ? 'var(--green)' : '#ff6b6b' }}>
-                        {pnlPos ? '+' : '−'}{fmtCurrency(Math.abs(pnlUSD))}
+                      <div className="font-num" style={{ fontSize: 20, fontWeight: 700, color: unrealizedPos ? 'var(--green)' : '#ff6b6b' }}>
+                        {unrealizedPos ? '+' : '−'}{fmtCurrency(Math.abs(unrealizedUSD))}
                       </div>
-                      {pnlPct != null && (
-                        <div style={{ fontSize: 10, color: pnlPos ? 'var(--green)' : '#ff6b6b', marginTop: 3, opacity: 0.8 }}>
-                          {pnlPos ? '+' : ''}{pnlPct.toFixed(1)}%
-                          {!allPriced && <span style={{ color: 'var(--ink3)', marginLeft: 4 }}>· partial</span>}
-                        </div>
-                      )}
-                      {!allPriced && unrealizedUSD == null && (
-                        <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 3 }}>visit portfolio for full P&amp;L</div>
-                      )}
+                      <div style={{ fontSize: 10, color: unrealizedPos ? 'var(--green)' : '#ff6b6b', marginTop: 3, opacity: 0.8 }}>
+                        {unrealizedPos ? '+' : ''}{unrealizedPct?.toFixed(1)}%
+                        {!allPriced && <span style={{ color: 'var(--ink3)', marginLeft: 4, opacity: 0.7 }}>· {portfolioStats.cachedCount}/{portfolioStats.posCount} priced</span>}
+                      </div>
                     </>
                   ) : (
                     <>
-                      <div className="font-num" style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)' }}>{fmtCurrency(costUSD)}</div>
-                      <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 3 }}>visit portfolio for P&amp;L</div>
+                      <div className="font-num" style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink3)' }}>—</div>
+                      <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 3 }}>visit portfolio to load</div>
                     </>
                   )}
                 </div>
+                {/* Realized P&L — only shown when there are sold positions */}
+                {showRealized && (
+                  <div style={{ padding: '14px 20px' }}>
+                    <div style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', marginBottom: 5, fontWeight: 600 }}>REALIZED P&amp;L</div>
+                    <div className="font-num" style={{ fontSize: 20, fontWeight: 700, color: realizedPos ? 'var(--green)' : '#ff6b6b' }}>
+                      {realizedPos ? '+' : '−'}{fmtCurrency(Math.abs(realizedUSD))}
+                    </div>
+                    <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 3 }}>
+                      {portfolioStats.soldCount} sold position{portfolioStats.soldCount !== 1 ? 's' : ''}
+                    </div>
+                  </div>
+                )}
               </Link>
             )
           })()}

@@ -33,10 +33,11 @@ interface RecentlyViewedItem {
 }
 
 interface PortfolioStats {
-  posCount: number
-  costBasis: number       // USD
+  posCount: number        // open positions only
+  costBasis: number       // USD, open positions only
   currentValue: number    // USD, from cache (0 if no cache hits)
-  cachedCount: number     // how many positions have a cached price
+  cachedCount: number     // how many open positions have a cached price
+  realizedPL: number      // USD, from sold positions
 }
 
 const QUICK_ACTIONS = [
@@ -147,7 +148,7 @@ export default function Dashboard() {
     const [{ data: prof }, { data: wl }, { data: pf }] = await Promise.all([
       supabase.from('profiles').select('email, username, tier').eq('id', user.id).single(),
       supabase.from('watchlists').select('id, card_id, card_name, set_name, grade').eq('user_id', user.id).order('added_at', { ascending: false }).limit(5),
-      supabase.from('portfolios').select('id, card_id, grade, purchase_price, quantity').eq('user_id', user.id),
+      supabase.from('portfolios').select('id, card_id, grade, purchase_price, quantity, sold, sale_price').eq('user_id', user.id),
     ])
 
     setProfile(prof ?? { email: user.email ?? '', username: null, tier: 'free' })
@@ -155,10 +156,12 @@ export default function Dashboard() {
 
     // Portfolio stats — use locally cached prices where available
     const positions = pf ?? []
+    const openPositions = positions.filter(p => !p.sold)
     let costBasis = 0
     let currentValue = 0
     let cachedCount = 0
-    for (const pos of positions) {
+    let realizedPL = 0
+    for (const pos of openPositions) {
       costBasis += (pos.purchase_price as number) * (pos.quantity as number)
       const hit = cacheGet<{ price: number }>(`${pos.card_id}:${pos.grade}`)
       if (hit?.price) {
@@ -166,7 +169,10 @@ export default function Dashboard() {
         cachedCount++
       }
     }
-    setPortfolioStats({ posCount: positions.length, costBasis, currentValue, cachedCount })
+    for (const pos of positions.filter(p => p.sold && p.sale_price != null)) {
+      realizedPL += ((pos.sale_price as number) - (pos.purchase_price as number)) * (pos.quantity as number)
+    }
+    setPortfolioStats({ posCount: openPositions.length, costBasis, currentValue, cachedCount, realizedPL })
 
     // Recently viewed — stored in localStorage under the user's key
     try {
@@ -286,14 +292,17 @@ export default function Dashboard() {
           </div>
 
           {/* ── Portfolio Snapshot ── */}
-          {portfolioStats && portfolioStats.posCount > 0 && (() => {
+          {portfolioStats && (portfolioStats.posCount > 0 || portfolioStats.realizedPL !== 0) && (() => {
             // fmtCurrency handles USD→local conversion internally — do NOT pre-multiply by rate
-            const costUSD    = portfolioStats.costBasis
-            const hasPrices  = portfolioStats.cachedCount > 0
-            const valueUSD   = portfolioStats.currentValue
-            const pnlUSD     = hasPrices ? valueUSD - costUSD : null
-            const pnlPct     = pnlUSD != null && costUSD > 0 ? (pnlUSD / costUSD) * 100 : null
-            const pnlPos     = pnlUSD == null ? null : pnlUSD >= 0
+            const costUSD       = portfolioStats.costBasis
+            const hasPrices     = portfolioStats.cachedCount > 0
+            const valueUSD      = portfolioStats.currentValue
+            const unrealizedUSD = hasPrices ? valueUSD - costUSD : null
+            const pnlUSD        = unrealizedUSD != null
+              ? unrealizedUSD + portfolioStats.realizedPL
+              : portfolioStats.realizedPL !== 0 ? portfolioStats.realizedPL : null
+            const pnlPct        = pnlUSD != null && costUSD > 0 ? (pnlUSD / costUSD) * 100 : null
+            const pnlPos        = pnlUSD == null ? null : pnlUSD >= 0
             return (
               <Link href="/portfolio" className="dash-pf-snap" style={{ textDecoration: 'none', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0, marginBottom: 16, borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden', transition: 'border-color 0.15s' }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(61,232,138,0.3)' }}
@@ -308,7 +317,7 @@ export default function Dashboard() {
                     <div className="font-num" style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink3)' }}>—</div>
                   )}
                   <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 3 }}>
-                    {portfolioStats.posCount} position{portfolioStats.posCount !== 1 ? 's' : ''}
+                    {portfolioStats.posCount} open position{portfolioStats.posCount !== 1 ? 's' : ''}
                     {!hasPrices ? ' · visit portfolio to load' : portfolioStats.cachedCount < portfolioStats.posCount ? ` · ${portfolioStats.cachedCount}/${portfolioStats.posCount} priced` : ''}
                   </div>
                 </div>

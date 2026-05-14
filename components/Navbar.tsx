@@ -10,6 +10,7 @@ import type { User } from '@supabase/supabase-js'
 const NAV_LINKS_AUTHED = [
   { label: 'Dashboard', href: '/dashboard' },
   { label: 'Market',    href: '/market' },
+  { label: 'Packs',     href: '/packs' },
   { label: 'Compare',   href: '/compare' },
   { label: 'Watchlist', href: '/watchlist' },
   { label: 'Portfolio', href: '/portfolio' },
@@ -17,6 +18,7 @@ const NAV_LINKS_AUTHED = [
 
 const NAV_LINKS_GUEST = [
   { label: 'Market',  href: '/market' },
+  { label: 'Packs',   href: '/packs' },
   { label: 'Pricing', href: '/pricing' },
 ]
 

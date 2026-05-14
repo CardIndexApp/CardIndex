@@ -258,20 +258,30 @@ const PAGE_STYLES = `
   /* Card image: mobile default */
   .ci-card-img-wrap { width: 88px; height: 122px; flex-shrink: 0; }
 
+  /* Card header base (mobile): flex row */
+  .ci-card-header-outer {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+
   @media (min-width: 701px) {
     .ci-hide-desktop { display: none !important; }
-    /* Desktop: grid layout so image fills full row height naturally */
+    /* Desktop: CSS grid so image fills full row height naturally */
     .ci-card-header-outer {
       display: grid !important;
       grid-template-columns: 160px 1fr auto;
-      gap: 20px;
-      align-items: stretch;
+      gap: 20px !important;
+      align-items: stretch !important;
+      flex-wrap: unset !important;
     }
     /* Image fills its grid cell completely */
     .ci-card-img-wrap {
       width: 100% !important;
       height: 100% !important;
-      min-height: 200px;
+      min-height: 220px;
       flex-shrink: unset;
     }
     /* Card info is a flex column so ← Change card pins to bottom */
@@ -855,6 +865,7 @@ export default function CardPageClient() {
   const [priceCheckInput, setPriceCheckInput] = useState('')
   const [priceCheckPrice, setPriceCheckPrice] = useState<number | null>(null)
   const [histWindow, setHistWindow] = useState<'3M' | '6M' | '12M' | 'ALL'>('ALL')
+  const [gradingSvc, setGradingSvc] = useState(0)
 
   // ── Report an issue ──────────────────────────────────────────────────────────
   const [reportOpen, setReportOpen]           = useState(false)
@@ -1389,13 +1400,53 @@ export default function CardPageClient() {
                       const parts = m.split(' ')
                       return parts[0] ?? m
                     }
-                    const pad = (periodHigh - periodLow) * 0.08
+
+                    // Linear regression on last up to 8 points → project 2 months forward
+                    const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+                    const regrPts = chartPts.slice(-8)
+                    const n = regrPts.length
+                    let allPts: Array<{ month: string; price?: number; projected?: number; volume?: number }> = chartPts.map(p => ({ ...p, projected: undefined }))
+                    let projHigh = periodHigh
+                    let projLow  = periodLow
+                    if (n >= 2) {
+                      const sumX  = regrPts.reduce((s, _, i) => s + i, 0)
+                      const sumY  = regrPts.reduce((s, p) => s + p.price, 0)
+                      const sumXY = regrPts.reduce((s, p, i) => s + i * p.price, 0)
+                      const sumX2 = regrPts.reduce((s, _, i) => s + i * i, 0)
+                      const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX)
+                      const intercept = (sumY - slope * sumX) / n
+                      // Generate month labels for the 2 future months
+                      const lastMonthStr = chartPts[chartPts.length - 1]?.month ?? ''
+                      const lastMonthParts = lastMonthStr.split(' ')
+                      const lastMonthIdx = MONTH_NAMES.indexOf(lastMonthParts[0] ?? '')
+                      const lastYear = parseInt(lastMonthParts[1] ?? '2024', 10)
+                      const futureMonths = [1, 2].map(offset => {
+                        const mi = (lastMonthIdx + offset + 12) % 12
+                        const yr = lastYear + Math.floor((lastMonthIdx + offset) / 12)
+                        return `${MONTH_NAMES[mi]} ${yr}`
+                      })
+                      // Projected values at regrPts.length and regrPts.length+1
+                      const proj1 = Math.max(0, intercept + slope * n)
+                      const proj2 = Math.max(0, intercept + slope * (n + 1))
+                      const lastHistPt = chartPts[chartPts.length - 1]
+                      // Build allPts: historical (price set, projected undefined), last point overlap, 2 future points
+                      allPts = [
+                        ...chartPts.slice(0, -1).map(p => ({ ...p, projected: undefined as number | undefined })),
+                        { ...lastHistPt, projected: intercept + slope * (n - 1) },
+                        { month: futureMonths[0], price: undefined, projected: proj1 },
+                        { month: futureMonths[1], price: undefined, projected: proj2 },
+                      ]
+                      projHigh = Math.max(periodHigh, proj1, proj2)
+                      projLow  = Math.min(periodLow,  proj1, proj2)
+                    }
+
+                    const pad = (projHigh - projLow) * 0.08
                     return (
                       <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
                         {/* Chart */}
                         <div style={{ width: '100%', minWidth: 0 }}>
                         <ResponsiveContainer width="99%" height={200}>
-                          <ComposedChart data={chartPts} margin={{ top: 24, right: 0, left: 0, bottom: 0 }}>
+                          <ComposedChart data={allPts} margin={{ top: 24, right: 0, left: 0, bottom: 0 }}>
                             <defs>
                               <linearGradient id="histGoldGrad" x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="0%"   stopColor="#e8c547" stopOpacity={0.55} />
@@ -1410,7 +1461,7 @@ export default function CardPageClient() {
                               tickLine={false}
                               interval="preserveStartEnd"
                             />
-                            <YAxis hide domain={[periodLow - pad, periodHigh + pad]} />
+                            <YAxis hide domain={[projLow - pad, projHigh + pad]} />
                             <ReferenceLine
                               y={periodHigh}
                               stroke="#55556a"
@@ -1426,11 +1477,18 @@ export default function CardPageClient() {
                             <Tooltip
                               content={({ active, payload }) => {
                                 if (!active || !payload?.length) return null
-                                const d = payload[0].payload as { month: string; price: number; volume?: number }
+                                const d = payload[0].payload as { month: string; price?: number; projected?: number; volume?: number }
+                                const displayPrice = d.price ?? d.projected
+                                if (displayPrice == null) return null
                                 return (
                                   <div style={{ background: 'var(--surface)', border: '1px solid var(--border2)', borderRadius: 8, padding: '8px 12px', fontSize: 12, boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}>
                                     <div style={{ fontSize: 10, color: 'var(--ink3)', marginBottom: 4 }}>{d.month}</div>
-                                    <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 14 }}>{fmtCurrency(d.price)}</div>
+                                    <div style={{ fontWeight: 700, color: d.projected != null && d.price == null ? '#6b8cff' : 'var(--ink)', fontSize: 14 }}>
+                                      {fmtCurrency(displayPrice)}
+                                    </div>
+                                    {d.projected != null && d.price == null && (
+                                      <div style={{ fontSize: 10, color: '#6b8cff', marginTop: 2 }}>Projected</div>
+                                    )}
                                     {d.volume != null && d.volume > 0 && (
                                       <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>{d.volume} sales</div>
                                     )}
@@ -1446,11 +1504,24 @@ export default function CardPageClient() {
                               fill="url(#histGoldGrad)"
                               dot={false}
                               activeDot={{ r: 4, fill: '#e8c547', strokeWidth: 0 }}
+                              connectNulls={false}
                             />
+                            {n >= 2 && (
+                              <Line
+                                type="linear"
+                                dataKey="projected"
+                                stroke="#6b8cff"
+                                strokeWidth={1.5}
+                                strokeDasharray="5 4"
+                                dot={false}
+                                connectNulls={false}
+                                activeDot={{ r: 3, fill: '#6b8cff', strokeWidth: 0 }}
+                              />
+                            )}
                           </ComposedChart>
                         </ResponsiveContainer>
                         </div>
-                        {/* Period buttons */}
+                        {/* Period buttons + projected legend */}
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', marginTop: 12 }}>
                           {HIST_WINDOWS.map(w => {
                             const avail = w.pts === Infinity ? histData.length : Math.min(w.pts, histData.length)
@@ -1475,6 +1546,14 @@ export default function CardPageClient() {
                             {periodChg >= 0 ? '+' : ''}{periodChg.toFixed(1)}%
                           </span>
                         </div>
+                        {n >= 2 && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, justifyContent: 'flex-end' }}>
+                            <svg width="18" height="6" viewBox="0 0 18 6" fill="none">
+                              <line x1="0" y1="3" x2="18" y2="3" stroke="#6b8cff" strokeWidth="1.5" strokeDasharray="5 4"/>
+                            </svg>
+                            <span style={{ fontSize: 10, color: '#6b8cff', letterSpacing: 0.5 }}>Projected</span>
+                          </div>
+                        )}
                       </div>
                     )
                   })()}
@@ -3004,6 +3083,124 @@ export default function CardPageClient() {
                     </div>
                   )
                 })()}
+
+                {/* ── Grading ROI Calculator ── */}
+                {liveData.all_tier_prices && (() => {
+                  const tiers = liveData.all_tier_prices!
+                  const rawEntry = tiers['NEAR_MINT']
+                  const rawPrice = rawEntry?.avg ?? 0
+                  if (!rawPrice) return null
+
+                  const PSA_COSTS = [
+                    { label: 'Economy',       cost: 22,  days: '45-60 days' },
+                    { label: 'Regular',       cost: 35,  days: '20 days'    },
+                    { label: 'Express',       cost: 75,  days: '10 days'    },
+                    { label: 'Super Express', cost: 150, days: '5 days'     },
+                  ]
+
+                  // Costs double for cards >$500 raw
+                  const costMultiplier = rawPrice > 500 ? 2 : 1
+                  const svc = PSA_COSTS[gradingSvc] ?? PSA_COSTS[0]
+                  const gradingCost = svc.cost * costMultiplier
+
+                  // PSA graded tiers to show
+                  const gradedTierMap: Array<{ key: string; label: string }> = [
+                    { key: 'PSA_10', label: 'PSA 10' },
+                    { key: 'PSA_9',  label: 'PSA 9'  },
+                    { key: 'PSA_8',  label: 'PSA 8'  },
+                  ]
+                  const roiRows = gradedTierMap
+                    .map(({ key, label }) => {
+                      const entry = tiers[key]
+                      if (!entry?.avg) return null
+                      const gradedPrice = entry.avg
+                      const netGain = gradedPrice - rawPrice - gradingCost
+                      const roi = rawPrice + gradingCost > 0 ? (netGain / (rawPrice + gradingCost)) * 100 : 0
+                      return { label, gradedPrice, netGain, roi }
+                    })
+                    .filter((r): r is NonNullable<typeof r> => r !== null)
+
+                  if (roiRows.length === 0) return null
+
+                  const bestRow = roiRows.reduce((best, r) => (r.roi > best.roi ? r : best), roiRows[0])
+
+                  return (
+                    <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', padding: '20px', marginBottom: 10 }}>
+                      {/* Header */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                        <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)' }}>GRADING ROI</span>
+                        <TileInfo id="grading-roi-tip" text="Estimated return if you grade this raw card. Grading costs are estimates based on PSA standard service." activeTip={activeTip} setActiveTip={setActiveTip} inline />
+                        {costMultiplier > 1 && (
+                          <span style={{ fontSize: 10, color: 'var(--gold)', marginLeft: 'auto' }}>High-value card: costs doubled</span>
+                        )}
+                      </div>
+
+                      {/* Service selector */}
+                      <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
+                        {PSA_COSTS.map((s, i) => {
+                          const active = gradingSvc === i
+                          return (
+                            <button
+                              key={s.label}
+                              onClick={() => setGradingSvc(i)}
+                              title={s.days}
+                              style={{
+                                padding: '5px 11px', borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                                border: `1px solid ${active ? 'var(--gold)' : 'var(--border2)'}`,
+                                background: active ? 'rgba(232,197,71,0.1)' : 'var(--surface2)',
+                                color: active ? 'var(--gold)' : 'var(--ink3)',
+                                transition: 'all 0.15s',
+                              }}
+                            >
+                              {s.label}
+                              <span style={{ opacity: 0.7, marginLeft: 4 }}>(${s.cost * costMultiplier})</span>
+                            </button>
+                          )
+                        })}
+                      </div>
+
+                      {/* ROI rows */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {roiRows.map(row => {
+                          const positive = row.netGain >= 0
+                          const isBest = row.label === bestRow.label
+                          const rowColor = positive ? 'var(--green)' : 'var(--red)'
+                          return (
+                            <div
+                              key={row.label}
+                              style={{
+                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                padding: '10px 12px', borderRadius: 10,
+                                background: isBest ? (positive ? 'rgba(61,232,138,0.06)' : 'rgba(232,82,74,0.06)') : 'var(--surface2)',
+                                border: `1px solid ${isBest ? (positive ? 'rgba(61,232,138,0.25)' : 'rgba(232,82,74,0.25)') : 'var(--border)'}`,
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                {isBest && <span style={{ fontSize: 9, color: rowColor, fontWeight: 700, letterSpacing: 0.5 }}>BEST</span>}
+                                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{row.label}</span>
+                              </div>
+                              <div style={{ textAlign: 'right' }}>
+                                <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
+                                  {fmtCurrency(row.gradedPrice)}
+                                </div>
+                                <div className="font-num" style={{ fontSize: 11, color: rowColor, marginTop: 2 }}>
+                                  {row.netGain >= 0 ? '+' : ''}{fmtCurrency(row.netGain)} · {row.roi >= 0 ? '+' : ''}{row.roi.toFixed(0)}% ROI
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+
+                      {/* Cost breakdown */}
+                      <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)', display: 'flex', gap: 16, fontSize: 10, color: 'var(--ink3)' }}>
+                        <span>Raw: {fmtCurrency(rawPrice)}</span>
+                        <span>+ Grading: ${gradingCost}</span>
+                        <span>({svc.days})</span>
+                      </div>
+                    </div>
+                  )
+                })()}
               </>
             )}
 
@@ -3187,7 +3384,7 @@ export default function CardPageClient() {
           {/* ── Card Header (with controls) ── */}
           <div style={{ ...C, marginTop: 24 }} className="ci-card-surface">
             <div style={{ ...P }}>
-              <div className="ci-card-header-outer" style={{ display: 'flex', gap: 16, alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+              <div className="ci-card-header-outer">
 
                 {/* Image */}
                 <div

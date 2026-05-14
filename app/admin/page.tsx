@@ -893,15 +893,6 @@ export default function AdminPage() {
                       >
                         🔧 Portfolio Migration
                       </button>
-                      <button
-                        onClick={() => setMigrationSql(
-                          `-- Pack EV: create packs and pack_cards tables\nCREATE TABLE IF NOT EXISTS packs (\n  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,\n  set_name text NOT NULL,\n  pack_name text NOT NULL,\n  retail_price_usd numeric NOT NULL DEFAULT 4.99,\n  retail_price_aud numeric,\n  release_date date,\n  image_url text,\n  is_active boolean DEFAULT true,\n  created_at timestamptz DEFAULT now()\n);\n\nCREATE TABLE IF NOT EXISTS pack_cards (\n  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,\n  pack_id uuid REFERENCES packs(id) ON DELETE CASCADE,\n  card_name text NOT NULL,\n  card_id text,\n  rarity text NOT NULL DEFAULT 'Rare',\n  pull_rate_pct numeric NOT NULL,\n  created_at timestamptz DEFAULT now()\n);`
-                        )}
-                        style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid rgba(74,158,255,0.3)', background: 'rgba(74,158,255,0.07)', color: '#4a9eff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-                        title="Create packs and pack_cards tables for Pack EV Analysis"
-                      >
-                        🔧 Pack EV Migration
-                      </button>
                       {refreshProgress ? (
                         <span style={{ fontSize: 12, color: 'var(--ink3)', padding: '7px 0' }}>
                           Refreshing {refreshProgress.done}/{refreshProgress.total}…

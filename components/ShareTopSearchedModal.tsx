@@ -41,6 +41,10 @@ function rankColor(rank: number): string {
   return 'rgba(255,255,255,0.22)'
 }
 
+function esc(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
 function buildTopSearchedHtml(
   cards: TopSearchedCard[],
   weekNum: number,
@@ -57,8 +61,8 @@ function buildTopSearchedHtml(
       : null
     const nameParts = card.card_name.split('&').map(p => p.trim())
     const nameHtml  = nameParts.length > 1
-      ? nameParts.map((p, i) => `${p}${i < nameParts.length - 1 ? ' &' : ''}`).join('<br>')
-      : card.card_name
+      ? nameParts.map((p, i) => `${esc(p)}${i < nameParts.length - 1 ? ' &amp;' : ''}`).join('<br>')
+      : esc(card.card_name)
     const imgProxy = card.image_url ? `/api/img?url=${encodeURIComponent(card.image_url)}` : null
 
     return `
@@ -68,12 +72,12 @@ function buildTopSearchedHtml(
     </div>
     <div class="card-thumb">
       ${imgProxy
-        ? `<img src="${imgProxy}" crossorigin="anonymous" alt="${card.card_name}">`
+        ? `<img src="${imgProxy}" crossorigin="anonymous" alt="${esc(card.card_name)}">`
         : '<div class="no-img">🃏</div>'}
     </div>
     <div class="card-info">
       <div class="card-name">${nameHtml}</div>
-      <div class="card-meta">${card.set_name ? `${card.set_name} · ` : ''}${card.grade}</div>
+      <div class="card-meta">${card.set_name ? `${esc(card.set_name)} · ` : ''}${esc(card.grade)}</div>
       <div class="search-count"><span class="search-num">${card.search_count}</span>${card.search_count === 1 ? 'search' : 'searches'} this week</div>
     </div>
     <div class="card-price">

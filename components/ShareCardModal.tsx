@@ -58,11 +58,6 @@ function buildHtml(d: ShareCardData): string {
     return pos < 0.33 ? 'Near low' : pos > 0.66 ? 'Near high' : 'Near midpoint'
   })()
 
-  const psa10Prem   = d.psa10price && d.price > 0 ? `${(d.psa10price / d.price).toFixed(2)}×` : '—'
-  const psa910Ratio = d.psa10price && d.psa9price  ? `${(d.psa9price  / d.psa10price).toFixed(2)}×` : '—'
-  const mintPrem    = d.psa10price && d.psa9price && d.psa9price > 0
-    ? `${(d.psa10price / d.psa9price).toFixed(2)}×` : '—'
-
   const gradingCost = 22
   const gradeTiers = [
     { label: 'PSA 10', price: d.psa10price },
@@ -162,85 +157,85 @@ function buildHtml(d: ShareCardData): string {
   .logo { display:flex; align-items:center; gap:12px; }
   .logo-icon { width:38px; height:38px; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
   .logo-wordmark { display:flex; align-items:center; }
-  .logo-wordmark span.card { font-size:28px; font-weight:700; color:#ffffff; letter-spacing:-0.5px; }
-  .logo-wordmark span.index { font-size:28px; font-weight:700; color:#d7aa3c; letter-spacing:-0.5px; }
+  .logo-wordmark span.card { font-size:32px; font-weight:700; color:#ffffff; letter-spacing:-0.5px; }
+  .logo-wordmark span.index { font-size:32px; font-weight:700; color:#d7aa3c; letter-spacing:-0.5px; }
   .top-section { position:relative; z-index:2; padding:36px 56px 0; flex-shrink:0; display:flex; gap:36px; align-items:flex-start; }
-  .card-thumb { width:240px; aspect-ratio:63/88; flex-shrink:0; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:14px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; position:relative; overflow:hidden; }
+  .card-thumb { width:252px; aspect-ratio:63/88; flex-shrink:0; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:14px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; position:relative; overflow:hidden; }
   .card-thumb img { width:100%; height:100%; object-fit:cover; border-radius:inherit; display:block; }
   .card-thumb::before { content:""; position:absolute; inset:0; background:radial-gradient(ellipse at 50% 30%,rgba(215,170,60,0.05) 0%,transparent 60%); }
-  .card-identity { flex:1; padding-top:4px; }
-  .ci-set { font-size:12px; font-weight:600; color:rgba(255,255,255,0.28); letter-spacing:0.1em; text-transform:uppercase; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
-  .grade-chip { background:rgba(215,170,60,0.08); border:1px solid rgba(215,170,60,0.18); border-radius:4px; padding:3px 10px; font-size:11px; font-weight:600; color:rgba(215,170,60,0.65); }
-  .ci-name { font-size:42px; font-weight:700; color:#fff; letter-spacing:-1.5px; line-height:1.05; margin-bottom:18px; }
-  .price-big { font-size:54px; font-weight:700; color:#fff; letter-spacing:-2.5px; line-height:1; margin-bottom:10px; }
-  .price-meta { display:flex; align-items:center; gap:14px; }
-  .price-change { font-size:18px; font-weight:600; }
-  .price-avgs { font-size:13px; font-weight:400; color:rgba(255,255,255,0.28); }
+  .card-identity { flex:1; padding-top:4px; min-width:0; }
+  .grade-chip { display:inline-block; background:rgba(215,170,60,0.08); border:1px solid rgba(215,170,60,0.18); border-radius:4px; padding:4px 12px; font-size:14px; font-weight:700; color:rgba(215,170,60,0.8); letter-spacing:0.08em; margin-bottom:8px; }
+  .ci-set { font-size:15px; font-weight:600; color:rgba(255,255,255,0.32); letter-spacing:0.06em; text-transform:uppercase; margin-bottom:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ci-name { font-size:44px; font-weight:700; color:#fff; letter-spacing:-1.5px; line-height:1.05; margin-bottom:16px; }
+  .price-big { font-size:56px; font-weight:700; color:#fff; letter-spacing:-2.5px; line-height:1; margin-bottom:10px; }
+  .price-meta { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .price-change { font-size:22px; font-weight:600; }
+  .price-avgs { font-size:16px; font-weight:400; color:rgba(255,255,255,0.28); }
   .score-row { position:relative; z-index:2; margin:18px 56px 0; flex-shrink:0; display:flex; align-items:center; justify-content:space-between; padding:20px 24px; background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.07); border-radius:12px; }
   .score-left { flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:6px; }
-  .score-label { font-size:11px; font-weight:600; color:rgba(255,255,255,0.24); letter-spacing:0.12em; text-transform:uppercase; }
-  .score-circle { width:96px; height:96px; border-radius:50%; border:3px solid ${scoreCol}; display:flex; flex-direction:column; align-items:center; justify-content:center; }
-  .score-num { font-size:42px; font-weight:700; color:${scoreCol}; letter-spacing:-2px; line-height:1; }
-  .score-sub { font-size:10px; font-weight:600; color:${scoreCol}; opacity:0.55; letter-spacing:0.1em; text-transform:uppercase; margin-top:2px; }
+  .score-label { font-size:14px; font-weight:600; color:rgba(255,255,255,0.24); letter-spacing:0.12em; text-transform:uppercase; }
+  .score-circle { width:108px; height:108px; border-radius:50%; border:3px solid ${scoreCol}; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .score-num { font-size:46px; font-weight:700; color:${scoreCol}; letter-spacing:-2px; line-height:1; }
+  .score-sub { font-size:12px; font-weight:600; color:${scoreCol}; opacity:0.6; letter-spacing:0.1em; text-transform:uppercase; margin-top:2px; }
   .score-bars { flex:1; padding-left:36px; }
-  .sb-row { display:flex; align-items:center; gap:14px; margin-bottom:11px; }
+  .sb-row { display:flex; align-items:center; gap:14px; margin-bottom:12px; }
   .sb-row:last-child { margin-bottom:0; }
-  .sb-label { font-size:14px; font-weight:600; color:rgba(255,255,255,0.55); width:108px; flex-shrink:0; }
-  .sb-bar-bg { flex:1; height:6px; background:rgba(255,255,255,0.07); border-radius:3px; overflow:hidden; }
+  .sb-label { font-size:17px; font-weight:600; color:rgba(255,255,255,0.55); width:130px; flex-shrink:0; }
+  .sb-bar-bg { flex:1; height:7px; background:rgba(255,255,255,0.07); border-radius:3px; overflow:hidden; }
   .sb-fill { height:100%; border-radius:3px; }
-  .sb-val { font-size:15px; font-weight:700; width:34px; text-align:right; flex-shrink:0; }
+  .sb-val { font-size:18px; font-weight:700; width:38px; text-align:right; flex-shrink:0; }
   .badges-grid { position:relative; z-index:2; display:grid; grid-template-columns:repeat(3,1fr); gap:10px; padding:14px 56px 0; flex-shrink:0; }
-  .badge { background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.07); border-radius:10px; padding:16px 18px; }
-  .badge-label { font-size:10px; font-weight:600; color:rgba(255,255,255,0.24); letter-spacing:0.1em; text-transform:uppercase; margin-bottom:7px; }
-  .badge-value { font-size:20px; font-weight:700; color:#fff; letter-spacing:-0.3px; }
+  .badge { background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.07); border-radius:10px; padding:18px 20px; }
+  .badge-label { font-size:13px; font-weight:600; color:rgba(255,255,255,0.24); letter-spacing:0.08em; text-transform:uppercase; margin-bottom:8px; }
+  .badge-value { font-size:24px; font-weight:700; color:#fff; letter-spacing:-0.3px; }
   .badge-value.green { color:#3cb87a; }
   .badge-value.amber { color:#d7aa3c; }
-  .badge-value.sm { font-size:15px; color:rgba(255,255,255,0.45); }
+  .badge-value.sm { font-size:19px; color:rgba(255,255,255,0.45); }
   .signal-section { position:relative; z-index:2; margin:14px 56px 0; flex-shrink:0; background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.07); border-radius:12px; padding:18px 22px; }
   .ss-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
-  .ss-title { font-size:10px; font-weight:600; color:rgba(255,255,255,0.24); letter-spacing:0.12em; text-transform:uppercase; }
-  .ss-badge { border-radius:5px; padding:5px 14px; font-size:12px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; }
+  .ss-title { font-size:13px; font-weight:600; color:rgba(255,255,255,0.24); letter-spacing:0.1em; text-transform:uppercase; }
+  .ss-badge { border-radius:5px; padding:6px 16px; font-size:14px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; }
   .ss-badge.bullish { background:rgba(60,184,122,0.1); border:1px solid rgba(60,184,122,0.22); color:#3cb87a; }
   .ss-badge.bearish { background:rgba(229,82,82,0.1); border:1px solid rgba(229,82,82,0.22); color:#e05252; }
   .ss-avgs { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
   .ss-avg { background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:8px; padding:14px 16px; }
-  .ss-avg-label { font-size:10px; font-weight:600; color:rgba(255,255,255,0.24); letter-spacing:0.1em; text-transform:uppercase; margin-bottom:6px; }
-  .ss-avg-val { font-size:18px; font-weight:700; color:#fff; letter-spacing:-0.3px; }
+  .ss-avg-label { font-size:12px; font-weight:600; color:rgba(255,255,255,0.24); letter-spacing:0.08em; text-transform:uppercase; margin-bottom:7px; }
+  .ss-avg-val { font-size:22px; font-weight:700; color:#fff; letter-spacing:-0.3px; }
   .ss-avg-val.amber { color:#d7aa3c; }
   .projected-section { position:relative; z-index:2; margin:14px 56px 0; flex-shrink:0; background:rgba(215,170,60,0.04); border:1px solid rgba(215,170,60,0.16); border-radius:12px; padding:18px 22px; }
   .proj-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
-  .proj-title { font-size:10px; font-weight:600; color:rgba(215,170,60,0.6); letter-spacing:0.14em; text-transform:uppercase; }
-  .proj-basis { font-size:10px; font-weight:500; color:rgba(255,255,255,0.22); letter-spacing:0.06em; text-transform:uppercase; }
+  .proj-title { font-size:13px; font-weight:600; color:rgba(215,170,60,0.6); letter-spacing:0.12em; text-transform:uppercase; }
+  .proj-basis { font-size:12px; font-weight:500; color:rgba(255,255,255,0.22); letter-spacing:0.04em; text-transform:uppercase; }
   .proj-cols { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
-  .proj-col { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:8px; padding:14px 16px; display:flex; flex-direction:column; gap:4px; }
+  .proj-col { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:8px; padding:16px; display:flex; flex-direction:column; gap:5px; }
   .proj-col.up { background:rgba(60,184,122,0.06); border-color:rgba(60,184,122,0.18); }
-  .proj-label { font-size:10px; font-weight:600; color:rgba(255,255,255,0.28); letter-spacing:0.1em; text-transform:uppercase; }
-  .proj-price { font-size:22px; font-weight:700; color:#fff; letter-spacing:-0.6px; margin-top:2px; }
+  .proj-label { font-size:12px; font-weight:600; color:rgba(255,255,255,0.28); letter-spacing:0.08em; text-transform:uppercase; }
+  .proj-price { font-size:26px; font-weight:700; color:#fff; letter-spacing:-0.6px; margin-top:2px; }
   .proj-col.up .proj-price { color:#3cb87a; }
-  .proj-delta { font-size:12px; font-weight:600; color:rgba(255,255,255,0.3); }
+  .proj-delta { font-size:15px; font-weight:600; color:rgba(255,255,255,0.3); }
   .proj-col.up .proj-delta { color:rgba(60,184,122,0.7); }
   .grading-section { position:relative; z-index:2; margin:14px 56px 0; flex-shrink:0; }
   .gs-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
-  .gs-label { font-size:10px; font-weight:600; color:rgba(255,255,255,0.22); letter-spacing:0.14em; text-transform:uppercase; }
-  .gs-econ { font-size:10px; font-weight:500; color:rgba(255,255,255,0.22); letter-spacing:0.06em; text-transform:uppercase; }
+  .gs-label { font-size:13px; font-weight:600; color:rgba(255,255,255,0.22); letter-spacing:0.12em; text-transform:uppercase; }
+  .gs-econ { font-size:12px; font-weight:500; color:rgba(255,255,255,0.22); letter-spacing:0.04em; text-transform:uppercase; }
   .gs-tiers { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
   .gs-tier { border-radius:10px; padding:18px 16px; border:1px solid rgba(255,255,255,0.07); background:rgba(255,255,255,0.025); display:flex; flex-direction:column; gap:6px; }
   .gs-tier.best { background:rgba(60,184,122,0.07); border-color:rgba(60,184,122,0.25); box-shadow:0 0 20px rgba(60,184,122,0.08); }
   .gs-tier.loss { background:rgba(229,82,82,0.04); border-color:rgba(229,82,82,0.14); }
   .gs-tier-top { display:flex; align-items:center; justify-content:space-between; }
-  .gs-grade { font-size:15px; font-weight:700; color:rgba(255,255,255,0.45); }
+  .gs-grade { font-size:18px; font-weight:700; color:rgba(255,255,255,0.45); }
   .gs-tier.best .gs-grade { color:#3cb87a; }
   .gs-tier.loss .gs-grade { color:rgba(229,82,82,0.7); }
-  .gs-best-pill { background:rgba(60,184,122,0.15); border:1px solid rgba(60,184,122,0.3); border-radius:4px; padding:2px 8px; font-size:9px; font-weight:700; color:#3cb87a; letter-spacing:0.1em; text-transform:uppercase; }
-  .gs-price { font-size:26px; font-weight:700; color:#fff; letter-spacing:-0.8px; }
+  .gs-best-pill { background:rgba(60,184,122,0.15); border:1px solid rgba(60,184,122,0.3); border-radius:4px; padding:3px 10px; font-size:11px; font-weight:700; color:#3cb87a; letter-spacing:0.1em; text-transform:uppercase; }
+  .gs-price { font-size:30px; font-weight:700; color:#fff; letter-spacing:-0.8px; }
   .gs-tier.best .gs-price { color:#3cb87a; }
   .gs-tier.loss .gs-price { color:rgba(229,82,82,0.8); }
-  .gs-roi { font-size:14px; font-weight:700; color:rgba(255,255,255,0.3); }
+  .gs-roi { font-size:16px; font-weight:700; color:rgba(255,255,255,0.3); }
   .gs-tier.best .gs-roi { color:#3cb87a; }
   .spacer { flex:1; }
   .bottombar { position:relative; z-index:10; height:72px; flex-shrink:0; border-top:1px solid rgba(255,255,255,0.07); display:flex; align-items:center; justify-content:space-between; padding:0 56px; }
-  .bot-left { font-size:12px; font-weight:400; color:rgba(255,255,255,0.18); letter-spacing:0.08em; text-transform:uppercase; }
-  .bot-right { font-size:12px; font-weight:500; color:rgba(255,255,255,0.18); display:flex; align-items:center; gap:8px; letter-spacing:0.06em; text-transform:uppercase; }
+  .bot-left { font-size:15px; font-weight:400; color:rgba(255,255,255,0.18); letter-spacing:0.08em; text-transform:uppercase; }
+  .bot-right { font-size:15px; font-weight:500; color:rgba(255,255,255,0.18); display:flex; align-items:center; gap:8px; letter-spacing:0.06em; text-transform:uppercase; }
   .bot-right span { color:#d7aa3c; }
 </style></head><body>
 <div class="grid"></div><div class="glow"></div>
@@ -255,7 +250,8 @@ function buildHtml(d: ShareCardData): string {
     ${d.imageUrl ? `<img src="${d.imageUrl}" crossorigin="anonymous" alt="${d.cardName}">` : '<span style="font-size:40px">🃏</span>'}
   </div>
   <div class="card-identity">
-    <div class="ci-set">${d.setName} <div class="grade-chip">${d.grade}</div></div>
+    <div class="grade-chip">${d.grade}</div>
+    <div class="ci-set">${d.setName}</div>
     <div class="ci-name">${nameHtml}</div>
     <div class="price-big">${d.priceDisplay}</div>
     <div class="price-meta">
@@ -280,12 +276,9 @@ function buildHtml(d: ShareCardData): string {
   </div>
 </div>
 <div class="badges-grid">
-  ${badgeHtml('Liquidity',      d.liquidityLabel ?? '—',                      d.liquidityLabel ? 'green' : '')}
+  ${badgeHtml('Liquidity',      d.liquidityLabel ?? '—',                         d.liquidityLabel ? 'green' : '')}
   ${badgeHtml('30D Sales',      d.salesCount30d ? String(d.salesCount30d) : '—', 'amber')}
-  ${badgeHtml('Price Position', pricePos,                                     'sm')}
-  ${badgeHtml('PSA 10 Prem.',   psa10Prem,                                    'amber')}
-  ${badgeHtml('PSA 9/10 Ratio', psa910Ratio,                                  '')}
-  ${badgeHtml('Mint Premium',   mintPrem,                                     '')}
+  ${badgeHtml('Price Position', pricePos,                                         'sm')}
 </div>
 <div class="signal-section">
   <div class="ss-header">

@@ -268,13 +268,13 @@ async function drawCard(canvas: HTMLCanvasElement, d: ShareCardData) {
 
   // ── Score row ──────────────────────────────────────────────────────────────
   const srTop = secTop + cardThumbH + 18
-  const srH   = 148
+  const srH   = 168
   drawSurface(ctx, PAD, srTop, W - PAD * 2, srH, 12)
 
   // Score circle (left)
-  const circleX = PAD + 24 + 48   // center x
+  const circleX = PAD + 28 + 52   // center x
   const circleY = srTop + srH / 2
-  const circleR = 48
+  const circleR = 52
   ctx.save()
   ctx.beginPath()
   ctx.arc(circleX, circleY, circleR, 0, Math.PI * 2)
@@ -285,32 +285,32 @@ async function drawCard(canvas: HTMLCanvasElement, d: ShareCardData) {
   // Score label above circle
   font(ctx, 11, 600)
   ctx.fillStyle = INK4; ctx.textAlign = 'center'
-  ctx.fillText('SCORE', circleX, srTop + 18)
+  ctx.fillText('SCORE', circleX, srTop + 20)
 
   // Score number
-  font(ctx, 42, 700)
+  font(ctx, 46, 700)
   ctx.fillStyle = accent; ctx.textAlign = 'center'
   ctx.fillText(String(Math.round(d.score)), circleX, circleY + 14)
 
   // Score sublabel
   font(ctx, 10, 600)
   ctx.fillStyle = 'rgba(215,170,60,0.45)'; ctx.textAlign = 'center'
-  ctx.fillText(d.scoreLabel.toUpperCase(), circleX, circleY + 28)
+  ctx.fillText(d.scoreLabel.toUpperCase(), circleX, circleY + 30)
 
   // Breakdown bars (right)
-  const barsX = PAD + 24 + 96 + 36
-  const barsW = W - PAD - 24 - barsX
+  const barsX = PAD + 28 + circleR * 2 + 36
+  const barsW = W - PAD - 28 - barsX
   const bars  = [
     { label: 'Trend',       val: d.trend       ?? 0 },
     { label: 'Liquidity',   val: d.liquidity   ?? 0 },
     { label: 'Consistency', val: d.consistency ?? 0 },
     { label: 'Value',       val: d.value       ?? 0 },
   ]
-  const barH    = 6
-  const barSlot = (srH - 8) / 4
+  const barH    = 7
+  const barSlot = (srH - 16) / 4
   for (let i = 0; i < bars.length; i++) {
     const { label, val } = bars[i]
-    const by = srTop + 4 + i * barSlot + barSlot / 2
+    const by = srTop + 8 + i * barSlot + barSlot / 2
     const col = scoreCol(val)
     // Label
     font(ctx, 14, 600)
@@ -319,11 +319,11 @@ async function drawCard(canvas: HTMLCanvasElement, d: ShareCardData) {
     // Value
     font(ctx, 15, 700)
     ctx.fillStyle = col; ctx.textAlign = 'right'
-    ctx.fillText(String(Math.round(val)), W - PAD - 24, by)
+    ctx.fillText(String(Math.round(val)), W - PAD - 28, by)
     // Bar track
-    const trackX = barsX + 120
-    const trackW = barsW - 120 - 40
-    const trackY = by + 10
+    const trackX = barsX + 124
+    const trackW = barsW - 124 - 44
+    const trackY = by + 12
     ctx.fillStyle = 'rgba(255,255,255,0.07)'
     roundRect(ctx, trackX, trackY, trackW, barH, 3)
     ctx.fill()
@@ -370,52 +370,54 @@ async function drawCard(canvas: HTMLCanvasElement, d: ShareCardData) {
 
   // ── Moving Average Signal ──────────────────────────────────────────────────
   const ssTop = bgTop + bgH * 2 + 10 + 14
-  const ssH   = 110
+  const ssH   = 132
   const isBullish = (d.avg7d ?? d.price) >= (d.avg30d ?? d.price)
   drawSurface(ctx, PAD, ssTop, W - PAD * 2, ssH, 12)
   // Title
   font(ctx, 10, 600)
   ctx.fillStyle = INK4; ctx.textAlign = 'left'
-  ctx.fillText('MOVING AVERAGE SIGNAL', PAD + 22, ssTop + 20)
+  ctx.fillText('MOVING AVERAGE SIGNAL', PAD + 22, ssTop + 22)
   // Signal badge
   const sbLabel = isBullish ? '▲ Bullish' : '▼ Bearish'
   const sbCol   = isBullish ? GREEN : RED
   const sbBg    = isBullish ? 'rgba(60,184,122,0.1)' : 'rgba(229,82,82,0.1)'
   const sbBrd   = isBullish ? 'rgba(60,184,122,0.22)' : 'rgba(229,82,82,0.22)'
   font(ctx, 12, 700); const sbW = ctx.measureText(sbLabel).width + 28
-  drawSurface(ctx, W - PAD - 22 - sbW, ssTop + 10, sbW, 26, 5, sbBg, sbBrd)
+  drawSurface(ctx, W - PAD - 22 - sbW, ssTop + 12, sbW, 26, 5, sbBg, sbBrd)
   ctx.fillStyle = sbCol; ctx.textAlign = 'center'
-  ctx.fillText(sbLabel, W - PAD - 22 - sbW / 2, ssTop + 23)
-  // Avg boxes
+  ctx.fillText(sbLabel, W - PAD - 22 - sbW / 2, ssTop + 25)
+  // Avg boxes (taller for readability)
   const avgBoxes = [
     { label: 'Current', val: d.priceDisplay,           amber: true },
     { label: '1D Avg',  val: d.avg1d  ? fmt(d.avg1d)  : '—', amber: false },
     { label: '7D Avg',  val: d.avg7d  ? fmt(d.avg7d)  : '—', amber: false },
     { label: '30D Avg', val: d.avg30d ? fmt(d.avg30d) : '—', amber: false },
   ]
-  const abW = (W - PAD * 2 - 22 * 2 - 30) / 4
+  const abW   = (W - PAD * 2 - 22 * 2 - 30) / 4
+  const abH   = 72
+  const abTop = ssTop + 44
   for (let i = 0; i < 4; i++) {
     const ax = PAD + 22 + i * (abW + 10)
-    const ay = ssTop + 38
-    drawSurface(ctx, ax, ay, abW, 56, 8, 'rgba(255,255,255,0.02)', 'rgba(255,255,255,0.06)')
+    drawSurface(ctx, ax, abTop, abW, abH, 8, 'rgba(255,255,255,0.02)', 'rgba(255,255,255,0.06)')
     font(ctx, 10, 600); ctx.fillStyle = INK4; ctx.textAlign = 'left'
-    ctx.fillText(avgBoxes[i].label.toUpperCase(), ax + 16, ay + 16)
-    font(ctx, 17, 700)
+    ctx.fillText(avgBoxes[i].label.toUpperCase(), ax + 16, abTop + 18)
+    font(ctx, 18, 700)
     ctx.fillStyle = avgBoxes[i].amber ? GOLD : INK
-    ctx.fillText(avgBoxes[i].val, ax + 16, ay + 42)
+    ctx.fillText(avgBoxes[i].val, ax + 16, abTop + 50)
   }
 
   // ── Projected Price ─────────────────────────────────────────────────────────
   const ppTop = ssTop + ssH + 14
-  const ppH   = 110
+  const ppH   = 130
+  const ppBoxH = 78
   drawSurface(ctx, PAD, ppTop, W - PAD * 2, ppH, 12, 'rgba(215,170,60,0.04)', 'rgba(215,170,60,0.16)')
   // Header
   font(ctx, 10, 600)
   ctx.fillStyle = 'rgba(215,170,60,0.6)'; ctx.textAlign = 'left'
-  ctx.fillText('PROJECTED PRICE', PAD + 22, ppTop + 20)
+  ctx.fillText('PROJECTED PRICE', PAD + 22, ppTop + 22)
   font(ctx, 10, 500)
   ctx.fillStyle = INK4; ctx.textAlign = 'right'
-  ctx.fillText(`Based on 30D trend · ${d.grade}`, W - PAD - 22, ppTop + 20)
+  ctx.fillText(`Based on 30D trend · ${d.grade}`, W - PAD - 22, ppTop + 22)
   // Projection cols
   const projs = [
     { label: '30D Forecast', price: d.proj30d },
@@ -425,38 +427,38 @@ async function drawCard(canvas: HTMLCanvasElement, d: ShareCardData) {
   const pcW = (W - PAD * 2 - 22 * 2 - 20) / 3
   for (let i = 0; i < 3; i++) {
     const px   = PAD + 22 + i * (pcW + 10)
-    const py   = ppTop + 36
+    const py   = ppTop + 38
     const prc  = projs[i].price
     const pct  = prc && d.price > 0 ? ((prc - d.price) / d.price * 100) : 0
     const up   = pct >= 0
     const pbg  = up ? 'rgba(60,184,122,0.06)'  : 'rgba(255,255,255,0.03)'
     const pbrd = up ? 'rgba(60,184,122,0.18)'  : 'rgba(255,255,255,0.07)'
-    drawSurface(ctx, px, py, pcW, 62, 8, pbg, pbrd)
+    drawSurface(ctx, px, py, pcW, ppBoxH, 8, pbg, pbrd)
     // Label
     font(ctx, 10, 600); ctx.fillStyle = INK3; ctx.textAlign = 'left'
     ctx.fillText(projs[i].label.toUpperCase(), px + 16, py + 16)
-    // Price (line 1)
-    font(ctx, 20, 700)
+    // Price
+    font(ctx, 21, 700)
     ctx.fillStyle = up ? GREEN : INK
-    ctx.fillText(prc ? fmt(prc) : '—', px + 16, py + 38)
-    // Delta (line 2 — below price, no overlap)
+    ctx.fillText(prc ? fmt(prc) : '—', px + 16, py + 44)
+    // Delta — clearly below price with 8px gap
     if (prc) {
       font(ctx, 12, 600)
       ctx.fillStyle = up ? 'rgba(60,184,122,0.7)' : 'rgba(255,255,255,0.3)'
-      ctx.fillText(`${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`, px + 16, py + 55)
+      ctx.fillText(`${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`, px + 16, py + 65)
     }
   }
 
   // ── Grading ROI ─────────────────────────────────────────────────────────────
   const grTop = ppTop + ppH + 14
-  const grH   = 116
+  const grH   = 158
   // Header
   font(ctx, 10, 600)
   ctx.fillStyle = INK4; ctx.textAlign = 'left'
-  ctx.fillText('GRADING ROI', PAD, grTop + 10)
+  ctx.fillText('GRADING ROI', PAD, grTop + 12)
   font(ctx, 10, 500)
   ctx.fillStyle = INK4; ctx.textAlign = 'right'
-  ctx.fillText('Economy · $22 · 45–60 days', W - PAD, grTop + 10)
+  ctx.fillText('Economy · $22 · 45–60 days', W - PAD, grTop + 12)
 
   const gradingCost = 22
   const tiers = [
@@ -467,8 +469,8 @@ async function drawCard(canvas: HTMLCanvasElement, d: ShareCardData) {
   const gtW = (W - PAD * 2 - 20) / 3
   for (let i = 0; i < 3; i++) {
     const gx  = PAD + i * (gtW + 10)
-    const gy  = grTop + 24
-    const gh  = grH - 24
+    const gy  = grTop + 28
+    const gh  = grH - 28
     const gp  = tiers[i].price
     const netGain = gp ? gp - d.price - gradingCost : 0
     const roi     = gp && (d.price + gradingCost) > 0 ? (netGain / (d.price + gradingCost) * 100) : 0
@@ -484,25 +486,25 @@ async function drawCard(canvas: HTMLCanvasElement, d: ShareCardData) {
     // Grade label
     font(ctx, 15, 700)
     ctx.fillStyle = gradCol; ctx.textAlign = 'left'
-    ctx.fillText(tiers[i].label, gx + 16, gy + 26)
+    ctx.fillText(tiers[i].label, gx + 16, gy + 28)
 
     if (isBest) {
       font(ctx, 9, 700)
       ctx.fillStyle = GREEN; ctx.textAlign = 'right'
-      ctx.fillText('BEST', gx + gtW - 14, gy + 26)
+      ctx.fillText('BEST', gx + gtW - 14, gy + 28)
     }
 
     // Graded price
-    font(ctx, 24, 700)
+    font(ctx, 26, 700)
     ctx.fillStyle = gp ? roiCol : INK2; ctx.textAlign = 'left'
-    ctx.fillText(gp ? fmt(gp) : '—', gx + 16, gy + 56)
+    ctx.fillText(gp ? fmt(gp) : '—', gx + 16, gy + 70)
 
     // ROI line
     if (gp) {
       const roiStr = `${roi >= 0 ? '+' : ''}${Math.round(roi)}% ROI · ${netGain >= 0 ? '+' : ''}${fmt(netGain)}`
       font(ctx, 13, 700)
       ctx.fillStyle = roiCol
-      ctx.fillText(roiStr, gx + 16, gy + 78)
+      ctx.fillText(roiStr, gx + 16, gy + 98)
     }
   }
 

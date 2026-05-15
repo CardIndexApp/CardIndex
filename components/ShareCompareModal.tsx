@@ -87,12 +87,12 @@ function buildCompareHtml(left: ShareCardCompare, right: ShareCardCompare): stri
 
     return `
   <div class="card-col ${side}">
-    <div class="col-header">
-      <div>
-        <div class="card-set-row">${card.setName} <span class="grade-chip">${card.grade}</span></div>
-        <div class="col-card-name">${nameHtml}</div>
-      </div>
+    <div class="winner-wrap">
       ${winner ? '<div class="winner-badge"><div class="wb-dot"></div>Better Buy</div>' : ''}
+    </div>
+    <div class="col-header">
+      <div class="card-set-row">${card.setName} <span class="grade-chip">${card.grade}</span></div>
+      <div class="col-card-name">${nameHtml}</div>
     </div>
     <div class="col-thumb">
       ${card.imageUrl
@@ -153,13 +153,15 @@ function buildCompareHtml(left: ShareCardCompare, right: ShareCardCompare): stri
   .card-col { flex:1; padding:26px 28px; display:flex; flex-direction:column; gap:13px; }
   .card-col.left { padding-left:48px; }
   .card-col.right { padding-right:48px; }
-  /* Header */
-  .col-header { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; flex-shrink:0; }
-  .card-set-row { font-size:14px; font-weight:600; color:rgba(255,255,255,0.26); letter-spacing:0.07em; text-transform:uppercase; margin-bottom:8px; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
-  .grade-chip { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:4px; padding:3px 9px; font-size:12px; color:rgba(255,255,255,0.38); }
-  .col-card-name { font-size:30px; font-weight:700; color:#fff; letter-spacing:-0.8px; line-height:1.1; }
-  .winner-badge { background:rgba(60,184,122,0.09); border:1px solid rgba(60,184,122,0.22); border-radius:5px; padding:7px 12px; flex-shrink:0; font-size:13px; font-weight:700; color:#3cb87a; letter-spacing:0.08em; text-transform:uppercase; display:flex; align-items:center; gap:5px; height:fit-content; margin-top:2px; white-space:nowrap; }
+  /* Winner wrap — fixed height so both columns stay vertically aligned */
+  .winner-wrap { height:38px; display:flex; align-items:center; flex-shrink:0; }
+  .winner-badge { background:rgba(60,184,122,0.09); border:1px solid rgba(60,184,122,0.22); border-radius:5px; padding:7px 14px; font-size:15px; font-weight:700; color:#3cb87a; letter-spacing:0.03em; text-transform:uppercase; display:flex; align-items:center; gap:6px; white-space:nowrap; }
   .wb-dot { width:7px; height:7px; border-radius:50%; background:#3cb87a; flex-shrink:0; }
+  /* Header */
+  .col-header { flex-shrink:0; }
+  .card-set-row { font-size:14px; font-weight:600; color:rgba(255,255,255,0.26); letter-spacing:0.02em; text-transform:uppercase; margin-bottom:8px; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .grade-chip { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:4px; padding:3px 9px; font-size:12px; color:rgba(255,255,255,0.38); letter-spacing:0; }
+  .col-card-name { font-size:30px; font-weight:700; color:#fff; letter-spacing:-0.8px; line-height:1.1; }
   /* Card thumb */
   .col-thumb { width:58%; margin:0 auto; aspect-ratio:63/88; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:12px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; flex-shrink:0; position:relative; overflow:hidden; }
   .col-thumb img { width:100%; height:100%; object-fit:cover; border-radius:inherit; display:block; }
@@ -173,20 +175,20 @@ function buildCompareHtml(left: ShareCardCompare, right: ShareCardCompare): stri
   .col-change.green { color:#3cb87a; }
   .score-circle-big { width:96px; height:96px; border-radius:50%; border:3px solid; display:flex; flex-direction:column; align-items:center; justify-content:center; flex-shrink:0; }
   .scb-num { font-size:42px; font-weight:700; letter-spacing:-1px; line-height:1; }
-  .scb-label { font-size:11px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; margin-top:3px; }
+  .scb-label { font-size:11px; font-weight:600; letter-spacing:0.03em; text-transform:uppercase; margin-top:3px; }
   /* Metric bars */
   .primary-metrics { flex-shrink:0; display:flex; flex-direction:column; gap:8px; }
   .m-row { background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.06); border-radius:8px; padding:11px 14px; display:flex; align-items:center; gap:12px; }
   .m-row.win  { background:rgba(60,184,122,0.05); border-color:rgba(60,184,122,0.13); }
   .m-row.lose { background:rgba(229,82,82,0.04); border-color:rgba(229,82,82,0.10); }
-  .m-label { font-size:14px; font-weight:600; color:rgba(255,255,255,0.3); letter-spacing:0.05em; text-transform:uppercase; width:110px; flex-shrink:0; }
+  .m-label { font-size:14px; font-weight:600; color:rgba(255,255,255,0.3); letter-spacing:0.02em; text-transform:uppercase; width:110px; flex-shrink:0; }
   .m-bar-bg { flex:1; height:6px; background:rgba(255,255,255,0.07); border-radius:3px; overflow:hidden; }
   .m-fill { height:100%; border-radius:3px; }
   .m-val { font-size:18px; font-weight:700; width:36px; text-align:right; flex-shrink:0; }
   /* Badges */
   .badges { flex-shrink:0; display:flex; gap:8px; }
   .badge { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.09); border-radius:9px; padding:13px 14px; display:flex; flex-direction:column; gap:6px; flex:1; }
-  .badge-label { font-size:13px; font-weight:600; color:rgba(255,255,255,0.28); letter-spacing:0.07em; text-transform:uppercase; }
+  .badge-label { font-size:13px; font-weight:600; color:rgba(255,255,255,0.28); letter-spacing:0.02em; text-transform:uppercase; }
   .badge-value { font-size:21px; font-weight:700; color:#fff; letter-spacing:-0.4px; }
   .badge-value.green { color:#3cb87a; }
   .badge-value.amber { color:#d7aa3c; }
@@ -194,21 +196,21 @@ function buildCompareHtml(left: ShareCardCompare, right: ShareCardCompare): stri
   .signal-compare { flex:1; margin:0 48px; position:relative; z-index:2; display:flex; flex-direction:column; min-height:0; padding-bottom:28px; }
   .sc-divider { height:1px; background:rgba(255,255,255,0.07); margin:0 0 18px; flex-shrink:0; }
   .sc-header { margin-bottom:16px; flex-shrink:0; }
-  .sc-title { font-size:13px; font-weight:600; color:rgba(255,255,255,0.22); letter-spacing:0.12em; text-transform:uppercase; }
+  .sc-title { font-size:13px; font-weight:600; color:rgba(255,255,255,0.22); letter-spacing:0.04em; text-transform:uppercase; }
   .sc-cols { flex:1; display:flex; gap:0; min-height:0; }
   .sc-col { flex:1; display:flex; flex-direction:column; gap:10px; }
   .sc-col.left { padding-right:32px; border-right:1px solid rgba(255,255,255,0.06); }
   .sc-col.right { padding-left:32px; }
-  .sc-col-label { font-size:14px; font-weight:600; color:rgba(255,255,255,0.28); letter-spacing:0.06em; text-transform:uppercase; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .sc-col-label { font-size:14px; font-weight:600; color:rgba(255,255,255,0.28); letter-spacing:0.02em; text-transform:uppercase; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .sc-avg-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
   .sc-avg { background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:8px; padding:13px 15px; }
-  .sc-avg-label { font-size:13px; font-weight:600; color:rgba(255,255,255,0.24); letter-spacing:0.08em; text-transform:uppercase; margin-bottom:6px; }
+  .sc-avg-label { font-size:13px; font-weight:600; color:rgba(255,255,255,0.24); letter-spacing:0.02em; text-transform:uppercase; margin-bottom:6px; }
   .sc-avg-val { font-size:20px; font-weight:700; color:#fff; letter-spacing:-0.3px; }
   .sc-avg-val.amber { color:#d7aa3c; }
   .sc-signal { background:rgba(60,184,122,0.06); border:1px solid rgba(60,184,122,0.16); border-radius:8px; padding:13px 15px; display:flex; align-items:center; justify-content:space-between; }
   .sc-signal.bear { background:rgba(229,82,82,0.05); border-color:rgba(229,82,82,0.14); }
-  .sc-signal-label { font-size:13px; font-weight:600; color:rgba(255,255,255,0.24); letter-spacing:0.08em; text-transform:uppercase; }
-  .sc-signal-val { font-size:17px; font-weight:700; color:#3cb87a; letter-spacing:0.05em; }
+  .sc-signal-label { font-size:13px; font-weight:600; color:rgba(255,255,255,0.24); letter-spacing:0.02em; text-transform:uppercase; }
+  .sc-signal-val { font-size:17px; font-weight:700; color:#3cb87a; letter-spacing:0; }
   .sc-signal-val.bear { color:#e05252; }
 </style></head><body>
 <div class="grid"></div><div class="glow-center"></div>

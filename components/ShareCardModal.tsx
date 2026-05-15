@@ -121,10 +121,13 @@ function drawSurface(
 }
 
 async function drawCard(canvas: HTMLCanvasElement, d: ShareCardData) {
-  canvas.width  = W
-  canvas.height = H
+  // Render at 2× for sharpness; output PNG is still W×H logical pixels
+  const SCALE = 2
+  canvas.width  = W * SCALE
+  canvas.height = H * SCALE
 
   const ctx = canvas.getContext('2d')!
+  ctx.scale(SCALE, SCALE)
   const fmt = d.fmtFn ?? ((n: number) => `$${n.toFixed(2)}`)
   const accent = scoreCol(d.score)
 
@@ -428,16 +431,19 @@ async function drawCard(canvas: HTMLCanvasElement, d: ShareCardData) {
     const up   = pct >= 0
     const pbg  = up ? 'rgba(60,184,122,0.06)'  : 'rgba(255,255,255,0.03)'
     const pbrd = up ? 'rgba(60,184,122,0.18)'  : 'rgba(255,255,255,0.07)'
-    drawSurface(ctx, px, py, pcW, 58, 8, pbg, pbrd)
+    drawSurface(ctx, px, py, pcW, 62, 8, pbg, pbrd)
+    // Label
     font(ctx, 10, 600); ctx.fillStyle = INK3; ctx.textAlign = 'left'
     ctx.fillText(projs[i].label.toUpperCase(), px + 16, py + 16)
-    font(ctx, 21, 700)
+    // Price (line 1)
+    font(ctx, 20, 700)
     ctx.fillStyle = up ? GREEN : INK
-    ctx.fillText(prc ? fmt(prc) : '—', px + 16, py + 42)
+    ctx.fillText(prc ? fmt(prc) : '—', px + 16, py + 38)
+    // Delta (line 2 — below price, no overlap)
     if (prc) {
       font(ctx, 12, 600)
       ctx.fillStyle = up ? 'rgba(60,184,122,0.7)' : 'rgba(255,255,255,0.3)'
-      ctx.fillText(`${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`, px + 16 + (ctx.measureText(fmt(prc)).width) + 8, py + 42)
+      ctx.fillText(`${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`, px + 16, py + 55)
     }
   }
 
@@ -472,30 +478,30 @@ async function drawCard(canvas: HTMLCanvasElement, d: ShareCardData) {
     const gbrd = isBest ? 'rgba(60,184,122,0.25)'  : isLoss ? 'rgba(229,82,82,0.14)'  : BORDER
     drawSurface(ctx, gx, gy, gtW, gh, 10, gbg, gbrd)
 
+    const roiCol  = netGain >= 0 ? GREEN : RED
+    const gradCol = isBest ? GREEN : isLoss ? 'rgba(229,82,82,0.7)' : INK2
+
     // Grade label
     font(ctx, 15, 700)
-    ctx.fillStyle = isBest ? GREEN : isLoss ? 'rgba(229,82,82,0.7)' : INK2
-    ctx.textAlign = 'left'
+    ctx.fillStyle = gradCol; ctx.textAlign = 'left'
     ctx.fillText(tiers[i].label, gx + 16, gy + 26)
 
     if (isBest) {
       font(ctx, 9, 700)
-      ctx.fillStyle = GREEN
-      ctx.textAlign = 'right'
+      ctx.fillStyle = GREEN; ctx.textAlign = 'right'
       ctx.fillText('BEST', gx + gtW - 14, gy + 26)
     }
 
     // Graded price
     font(ctx, 24, 700)
-    ctx.fillStyle = isBest ? GREEN : isLoss ? 'rgba(229,82,82,0.8)' : INK
-    ctx.textAlign = 'left'
+    ctx.fillStyle = gp ? roiCol : INK2; ctx.textAlign = 'left'
     ctx.fillText(gp ? fmt(gp) : '—', gx + 16, gy + 56)
 
     // ROI line
     if (gp) {
       const roiStr = `${roi >= 0 ? '+' : ''}${Math.round(roi)}% ROI · ${netGain >= 0 ? '+' : ''}${fmt(netGain)}`
       font(ctx, 13, 700)
-      ctx.fillStyle = isBest ? GREEN : RED
+      ctx.fillStyle = roiCol
       ctx.fillText(roiStr, gx + 16, gy + 78)
     }
   }
@@ -508,7 +514,7 @@ async function drawCard(canvas: HTMLCanvasElement, d: ShareCardData) {
   ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.textAlign = 'left'
   ctx.fillText('Pokémon TCG · card-index.app', PAD, H - 36)
   ctx.textAlign = 'right'
-  ctx.fillText('card-index.app', W - PAD, H - 36)
+  ctx.fillText('Real market data for TCG collectors', W - PAD, H - 36)
 
   ctx.textAlign    = 'left'
   ctx.textBaseline = 'alphabetic'
@@ -533,7 +539,7 @@ export default function ShareCardModal({
     setPreviewUrl(null)
     try {
       await drawCard(canvasRef.current, data)
-      setPreviewUrl(canvasRef.current.toDataURL('image/png'))
+      setPreviewUrl(canvasRef.current.toDataURL('image/png', 1.0))
     } finally {
       setGenerating(false)
     }
@@ -611,7 +617,7 @@ export default function ShareCardModal({
               cursor: generating || !previewUrl ? 'default' : 'pointer',
             }}
           >
-            {generating ? 'Generating…' : 'Download 1080×1350 PNG'}
+            {generating ? 'Generating…' : 'Download PNG (2160×2700 @2×)'}
           </button>
 
           <canvas ref={canvasRef} style={{ display: 'none' }} />

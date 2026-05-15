@@ -58,22 +58,6 @@ function buildHtml(d: ShareCardData): string {
     return pos < 0.33 ? 'Near low' : pos > 0.66 ? 'Near high' : 'Near midpoint'
   })()
 
-  const gradingCost = 22
-  const gradeTiers = [
-    { label: 'PSA 10', price: d.psa10price },
-    { label: 'PSA 9',  price: d.psa9price  },
-    { label: 'PSA 8',  price: d.psa8price  },
-  ].map(t => {
-    const gp      = t.price ?? 0
-    const netGain = gp ? gp - d.price - gradingCost : 0
-    const roi     = gp && (d.price + gradingCost) > 0
-      ? (netGain / (d.price + gradingCost) * 100) : 0
-    const isBest  = t.label === 'PSA 10' && gp > d.price + gradingCost
-    const isLoss  = !gp || netGain < 0
-    return { ...t, gp, netGain, roi, isBest, isLoss }
-  })
-  const bestIdx = gradeTiers.findIndex(t => t.isBest)
-
   const changeStr = `${d.change >= 0 ? '+' : ''}${d.change.toFixed(1)}% 30d`
   const avgStr = [
     d.avg7d  ? `7D ${fmt(d.avg7d)}`  : '',
@@ -119,23 +103,6 @@ function buildHtml(d: ShareCardData): string {
         <div class="proj-label">${label}</div>
         <div class="proj-price">${fmt(price)}</div>
         <div class="proj-delta">${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%</div>
-      </div>`
-  }
-
-  function tierHtml(t: typeof gradeTiers[0], isBest: boolean) {
-    const cls = isBest ? 'gs-tier best' : t.isLoss ? 'gs-tier loss' : 'gs-tier'
-    const roiStr = t.gp
-      ? `${t.roi >= 0 ? '+' : ''}${Math.round(t.roi)}% ROI · ${t.netGain >= 0 ? '+' : ''}${fmt(t.netGain)}`
-      : '—'
-    const roiColor = t.gp ? (t.netGain >= 0 ? '#3cb87a' : '#e05252') : 'rgba(255,255,255,0.3)'
-    return `
-      <div class="${cls}">
-        <div class="gs-tier-top">
-          <div class="gs-grade">${t.label}</div>
-          ${isBest ? '<div class="gs-best-pill">Best</div>' : ''}
-        </div>
-        <div class="gs-price">${t.gp ? fmt(t.gp) : '—'}</div>
-        <div class="gs-roi" style="color:${roiColor}">${roiStr}</div>
       </div>`
   }
 
@@ -207,24 +174,6 @@ function buildHtml(d: ShareCardData): string {
   .proj-col.up .proj-price { color:#3cb87a; }
   .proj-delta { font-size:17px; font-weight:600; color:rgba(255,255,255,0.3); }
   .proj-col.up .proj-delta { color:rgba(60,184,122,0.7); }
-  .grading-section { position:relative; z-index:2; margin:16px 56px 0; flex-shrink:0; }
-  .gs-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
-  .gs-label { font-size:15px; font-weight:600; color:rgba(255,255,255,0.22); letter-spacing:0.12em; text-transform:uppercase; }
-  .gs-econ { font-size:13px; font-weight:500; color:rgba(255,255,255,0.22); letter-spacing:0.04em; text-transform:uppercase; }
-  .gs-tiers { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
-  .gs-tier { border-radius:10px; padding:20px 18px; border:1px solid rgba(255,255,255,0.07); background:rgba(255,255,255,0.025); display:flex; flex-direction:column; gap:7px; }
-  .gs-tier.best { background:rgba(60,184,122,0.07); border-color:rgba(60,184,122,0.25); box-shadow:0 0 20px rgba(60,184,122,0.08); }
-  .gs-tier.loss { background:rgba(229,82,82,0.04); border-color:rgba(229,82,82,0.14); }
-  .gs-tier-top { display:flex; align-items:center; justify-content:space-between; }
-  .gs-grade { font-size:20px; font-weight:700; color:rgba(255,255,255,0.45); }
-  .gs-tier.best .gs-grade { color:#3cb87a; }
-  .gs-tier.loss .gs-grade { color:rgba(229,82,82,0.7); }
-  .gs-best-pill { background:rgba(60,184,122,0.15); border:1px solid rgba(60,184,122,0.3); border-radius:4px; padding:3px 10px; font-size:12px; font-weight:700; color:#3cb87a; letter-spacing:0.1em; text-transform:uppercase; }
-  .gs-price { font-size:34px; font-weight:700; color:#fff; letter-spacing:-0.8px; }
-  .gs-tier.best .gs-price { color:#3cb87a; }
-  .gs-tier.loss .gs-price { color:rgba(229,82,82,0.8); }
-  .gs-roi { font-size:17px; font-weight:700; color:rgba(255,255,255,0.3); }
-  .gs-tier.best .gs-roi { color:#3cb87a; }
   .spacer { flex:1; }
   .bottombar { position:relative; z-index:10; height:76px; flex-shrink:0; border-top:1px solid rgba(255,255,255,0.07); display:flex; align-items:center; justify-content:space-between; padding:0 56px; }
   .bot-left { font-size:17px; font-weight:400; color:rgba(255,255,255,0.18); letter-spacing:0.08em; text-transform:uppercase; }
@@ -291,15 +240,6 @@ function buildHtml(d: ShareCardData): string {
     ${projHtml('30D Forecast', d.proj30d)}
     ${projHtml('60D Forecast', d.proj60d)}
     ${projHtml('90D Forecast', d.proj90d)}
-  </div>
-</div>
-<div class="grading-section">
-  <div class="gs-header">
-    <div class="gs-label">Grading ROI</div>
-    <div class="gs-econ">Economy · $22 · 45–60 days</div>
-  </div>
-  <div class="gs-tiers">
-    ${gradeTiers.map((t, i) => tierHtml(t, i === bestIdx)).join('')}
   </div>
 </div>
 <div class="spacer"></div>

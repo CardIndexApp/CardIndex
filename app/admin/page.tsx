@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { tcgImg } from '@/lib/img'
 import ShareTopSearchedModal, { type TopSearchedCard } from '@/components/ShareTopSearchedModal'
 import ShareEndCardModal from '@/components/ShareEndCardModal'
+import ShareStatModal, { type StatCardConfig } from '@/components/ShareStatModal'
 
 type Tier = 'free' | 'standard' | 'pro'
 
@@ -159,6 +160,7 @@ export default function AdminPage() {
   const [topSearchedLoading, setTopSearchedLoading] = useState(false)
   const [showTopSearchedModal, setShowTopSearchedModal] = useState(false)
   const [showEndCardModal, setShowEndCardModal] = useState(false)
+  const [activeStatModal, setActiveStatModal] = useState<StatCardConfig | null>(null)
 
   // ── Pull-to-refresh ───────────────────────────────────────────────────────
   const PTR_THRESHOLD = 80 // px of pull needed to trigger
@@ -444,6 +446,61 @@ export default function AdminPage() {
   )
 
   const pendingRequests = requests.filter(r => !r.actioned_at)
+
+  // ── Stat number formatter ─────────────────────────────────────────────────
+  function fmtStat(n: number): string {
+    if (n >= 1_000_000) {
+      const v = n / 1_000_000
+      return v < 10 ? `${parseFloat(v.toFixed(1))}M` : `${Math.round(v)}M`
+    }
+    if (n >= 1000) {
+      const v = n / 1000
+      return v < 10 ? `${parseFloat(v.toFixed(1))}K` : `${Math.round(v)}K`
+    }
+    return `${Math.round(n)}`
+  }
+
+  const statCards: Array<{ title: string; desc: string; config: StatCardConfig }> = usageStats && portfolioStats ? [
+    {
+      title: 'Total Searches',
+      desc: 'All-time card lookups across the platform',
+      config: {
+        statDisplay:  `${fmtStat(usageStats.totalSearches)}+`,
+        label:        'Total Searches',
+        sublabel:     `Pokémon TCG collectors and investors have run over ${fmtStat(usageStats.totalSearches)} card lookups on CardIndex.`,
+        descriptor:   'Live data · Updated daily',
+        accentColor:  '#d7aa3c',
+        glowRgba:     'rgba(215,170,60,0.08)',
+        filename:     'cardindex-stat-searches',
+      },
+    },
+    {
+      title: 'Market Value Tracked',
+      desc: 'Total USD value across all user portfolios',
+      config: {
+        statDisplay:  `$${fmtStat(portfolioStats.totalMarketValue)}`,
+        label:        'Market Value\nTracked',
+        sublabel:     `CardIndex monitors over $${fmtStat(portfolioStats.totalMarketValue)} in Pokémon TCG card value across active user portfolios.`,
+        descriptor:   'Across all tracked portfolios',
+        accentColor:  '#3cb87a',
+        glowRgba:     'rgba(60,184,122,0.07)',
+        filename:     'cardindex-stat-market-value',
+      },
+    },
+    {
+      title: 'Cards Actively Tracked',
+      desc: 'Unique card/grade combos in the price cache',
+      config: {
+        statDisplay:  fmtStat(usageStats.cachedCards),
+        label:        'Cards Actively\nTracked',
+        sublabel:     `Over ${fmtStat(usageStats.cachedCards)} individual Pokémon cards are being actively monitored for price movements right now.`,
+        descriptor:   'Across Raw, PSA, CGC & BGS grades',
+        accentColor:  '#6b8cff',
+        glowRgba:     'rgba(107,140,255,0.07)',
+        filename:     'cardindex-stat-cards-tracked',
+      },
+    },
+  ] : []
 
   if (loading) {
     return (
@@ -1225,6 +1282,50 @@ export default function AdminPage() {
                   )}
                 </div>
               </div>
+              {/* ── Stat cards ── */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '8px 0' }}>
+                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: 'var(--ink3)', textTransform: 'uppercase' }}>Stat Cards</span>
+                <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+              </div>
+
+              {statCards.map(({ title, desc, config }) => (
+                <div key={title} style={S.card}>
+                  <div style={S.head}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: config.accentColor, flexShrink: 0 }} />
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{title}</div>
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 3, paddingLeft: 20 }}>{desc}</div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <span style={{ fontSize: 22, fontWeight: 800, color: config.accentColor, letterSpacing: '-0.5px' }}>
+                        {config.statDisplay}
+                      </span>
+                      <button
+                        onClick={() => setActiveStatModal(config)}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 7,
+                          padding: '9px 18px', borderRadius: 9, border: 'none',
+                          background: 'var(--gold)', color: '#08080f',
+                          fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                        }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M4 12v1a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-1"/>
+                          <path d="M8 2v9M5 8l3 3 3-3"/>
+                        </svg>
+                        Generate
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {!usageStats && (
+                <div style={{ fontSize: 12, color: 'var(--ink3)', padding: '8px 0' }}>Stat data loading — switch to the Users tab first to load platform stats.</div>
+              )}
+
               {/* End Card */}
               <div style={S.card}>
                 <div style={S.head}>
@@ -1269,6 +1370,11 @@ export default function AdminPage() {
           dateStr={topSearched.dateStr}
           onClose={() => setShowTopSearchedModal(false)}
         />
+      )}
+
+      {/* ── Stat card modal ── */}
+      {activeStatModal && (
+        <ShareStatModal config={activeStatModal} onClose={() => setActiveStatModal(null)} />
       )}
 
       {/* ── End Card modal ── */}

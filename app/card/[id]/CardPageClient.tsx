@@ -1054,27 +1054,49 @@ export default function CardPageClient() {
           </div>
         )}
         {/* ── Share card modal ────────────────────────────────────────── */}
-        {showShare && liveData && (
-          <ShareCardModal
-            onClose={() => setShowShare(false)}
-            data={{
-              cardName:     urlName ?? liveData.card_name ?? '',
-              setName:      urlSet  ?? liveData.set_name ?? '',
-              grade:        urlGrade ?? 'Raw',
-              score:        liveData.score ?? 0,
-              scoreLabel:   liveData.score_breakdown?.label ?? '',
-              price:        liveData.price ?? 0,
-              priceDisplay: fmtCurrency(liveData.price ?? 0),
-              change:       liveData.price_change_pct ?? 0,
-              imageUrl:     tcgImg(liveData.image_url ?? ''),
-              // Normalize breakdown components to 0-100 to match ScoreBar display
-              trend:        liveData.score_breakdown ? Math.round(liveData.score_breakdown.trend       / 30 * 100) : undefined,
-              liquidity:    liveData.score_breakdown ? Math.round(liveData.score_breakdown.liquidity   / 25 * 100) : undefined,
-              consistency:  liveData.score_breakdown ? Math.round(liveData.score_breakdown.consistency / 25 * 100) : undefined,
-              value:        liveData.score_breakdown ? Math.round(liveData.score_breakdown.value       / 20 * 100) : undefined,
-            }}
-          />
-        )}
+        {showShare && liveData && (() => {
+          const _sales = liveData.sales_count_30d ?? 0
+          const _liqLabel = _sales >= 500 ? 'Extremely High' : _sales >= 200 ? 'Very High' : _sales >= 50 ? 'High' : _sales >= 15 ? 'Moderate' : _sales >= 5 ? 'Low' : 'Very Low'
+          const _a7  = liveData.avg7d  && liveData.avg7d  > 0 ? liveData.avg7d  : null
+          const _a30 = liveData.avg30d && liveData.avg30d > 0 ? liveData.avg30d : null
+          const _wklyDelta = _a7 && _a30 ? _a7 - _a30 : 0
+          const _p = liveData.price ?? 0
+          const _tiers = liveData.all_tier_prices as Record<string, { avg: number }> | null | undefined
+          return (
+            <ShareCardModal
+              onClose={() => setShowShare(false)}
+              data={{
+                cardName:      urlName ?? liveData.card_name ?? '',
+                setName:       urlSet  ?? liveData.set_name ?? '',
+                grade:         urlGrade ?? 'Raw',
+                score:         liveData.score ?? 0,
+                scoreLabel:    liveData.score_breakdown?.label ?? '',
+                price:         _p,
+                priceDisplay:  fmtCurrency(_p),
+                change:        liveData.price_change_pct ?? 0,
+                imageUrl:      tcgImg(liveData.image_url ?? ''),
+                trend:         liveData.score_breakdown ? Math.round(liveData.score_breakdown.trend       / 30 * 100) : undefined,
+                liquidity:     liveData.score_breakdown ? Math.round(liveData.score_breakdown.liquidity   / 25 * 100) : undefined,
+                consistency:   liveData.score_breakdown ? Math.round(liveData.score_breakdown.consistency / 25 * 100) : undefined,
+                value:         liveData.score_breakdown ? Math.round(liveData.score_breakdown.value       / 20 * 100) : undefined,
+                avg1d:         liveData.avg1d  ?? undefined,
+                avg7d:         _a7  ?? undefined,
+                avg30d:        _a30 ?? undefined,
+                salesCount30d: _sales || undefined,
+                liquidityLabel: _liqLabel,
+                priceRangeLow:  liveData.price_range_low  > 0 ? liveData.price_range_low  : undefined,
+                priceRangeHigh: liveData.price_range_high > 0 ? liveData.price_range_high : undefined,
+                psa10price:    _tiers?.['PSA_10']?.avg,
+                psa9price:     _tiers?.['PSA_9']?.avg,
+                psa8price:     _tiers?.['PSA_8']?.avg,
+                proj30d:       _wklyDelta ? Math.max(0, _p + _wklyDelta * 4)  : undefined,
+                proj60d:       _wklyDelta ? Math.max(0, _p + _wklyDelta * 8)  : undefined,
+                proj90d:       _wklyDelta ? Math.max(0, _p + _wklyDelta * 12) : undefined,
+                fmtFn:         fmtCurrency,
+              }}
+            />
+          )
+        })()}
         <style>{PAGE_STYLES}</style>
         <Navbar />
         <main className="ci-main" style={{ paddingTop: 72, paddingBottom: 80, minHeight: '100vh' }}>
@@ -3355,27 +3377,49 @@ export default function CardPageClient() {
         </div>
       )}
       {/* ── Share card modal ────────────────────────────────────────── */}
-      {showShare && liveData && (
-        <ShareCardModal
-          onClose={() => setShowShare(false)}
-          data={{
-            cardName:     urlName ?? card?.name ?? liveData.card_name ?? '',
-            setName:      urlSet  ?? liveData.set_name ?? '',
-            grade:        urlGrade ?? 'Raw',
-            score:        liveData.score ?? 0,
-            scoreLabel:   liveData.score_breakdown?.label ?? '',
-            price:        liveData.price ?? 0,
-            priceDisplay: fmtCurrency(liveData.price ?? 0),
-            change:       liveData.price_change_pct ?? 0,
-            imageUrl:     tcgImg(liveData.image_url ?? card?.imageUrl ?? ''),
-            // Normalize breakdown components to 0-100 to match ScoreBar display
-            trend:        liveData.score_breakdown ? Math.round(liveData.score_breakdown.trend       / 30 * 100) : undefined,
-            liquidity:    liveData.score_breakdown ? Math.round(liveData.score_breakdown.liquidity   / 25 * 100) : undefined,
-            consistency:  liveData.score_breakdown ? Math.round(liveData.score_breakdown.consistency / 25 * 100) : undefined,
-            value:        liveData.score_breakdown ? Math.round(liveData.score_breakdown.value       / 20 * 100) : undefined,
-          }}
-        />
-      )}
+      {showShare && liveData && (() => {
+        const _sales = liveData.sales_count_30d ?? 0
+        const _liqLabel = _sales >= 500 ? 'Extremely High' : _sales >= 200 ? 'Very High' : _sales >= 50 ? 'High' : _sales >= 15 ? 'Moderate' : _sales >= 5 ? 'Low' : 'Very Low'
+        const _a7  = liveData.avg7d  && liveData.avg7d  > 0 ? liveData.avg7d  : null
+        const _a30 = liveData.avg30d && liveData.avg30d > 0 ? liveData.avg30d : null
+        const _wklyDelta = _a7 && _a30 ? _a7 - _a30 : 0
+        const _p = liveData.price ?? 0
+        const _tiers = liveData.all_tier_prices as Record<string, { avg: number }> | null | undefined
+        return (
+          <ShareCardModal
+            onClose={() => setShowShare(false)}
+            data={{
+              cardName:      urlName ?? card?.name ?? liveData.card_name ?? '',
+              setName:       urlSet  ?? liveData.set_name ?? '',
+              grade:         urlGrade ?? 'Raw',
+              score:         liveData.score ?? 0,
+              scoreLabel:    liveData.score_breakdown?.label ?? '',
+              price:         _p,
+              priceDisplay:  fmtCurrency(_p),
+              change:        liveData.price_change_pct ?? 0,
+              imageUrl:      tcgImg(liveData.image_url ?? card?.imageUrl ?? ''),
+              trend:         liveData.score_breakdown ? Math.round(liveData.score_breakdown.trend       / 30 * 100) : undefined,
+              liquidity:     liveData.score_breakdown ? Math.round(liveData.score_breakdown.liquidity   / 25 * 100) : undefined,
+              consistency:   liveData.score_breakdown ? Math.round(liveData.score_breakdown.consistency / 25 * 100) : undefined,
+              value:         liveData.score_breakdown ? Math.round(liveData.score_breakdown.value       / 20 * 100) : undefined,
+              avg1d:         liveData.avg1d  ?? undefined,
+              avg7d:         _a7  ?? undefined,
+              avg30d:        _a30 ?? undefined,
+              salesCount30d: _sales || undefined,
+              liquidityLabel: _liqLabel,
+              priceRangeLow:  liveData.price_range_low  > 0 ? liveData.price_range_low  : undefined,
+              priceRangeHigh: liveData.price_range_high > 0 ? liveData.price_range_high : undefined,
+              psa10price:    _tiers?.['PSA_10']?.avg,
+              psa9price:     _tiers?.['PSA_9']?.avg,
+              psa8price:     _tiers?.['PSA_8']?.avg,
+              proj30d:       _wklyDelta ? Math.max(0, _p + _wklyDelta * 4)  : undefined,
+              proj60d:       _wklyDelta ? Math.max(0, _p + _wklyDelta * 8)  : undefined,
+              proj90d:       _wklyDelta ? Math.max(0, _p + _wklyDelta * 12) : undefined,
+              fmtFn:         fmtCurrency,
+            }}
+          />
+        )
+      })()}
       <style>{PAGE_STYLES}</style>
       <Navbar />
       <main className="ci-main" style={{ paddingTop: 72, paddingBottom: 100, minHeight: '100vh' }}>

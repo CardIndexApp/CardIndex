@@ -134,13 +134,12 @@ function buildCompareHtml(left: ShareCardCompare, right: ShareCardCompare): stri
   </div>`
   }
 
-  return `<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8">
+  return `
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { width:1080px; height:1350px; background:#0a0a0c; font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; overflow:hidden; display:flex; flex-direction:column; position:relative; }
+  .sc-wrap { width:1080px; height:1350px; background:#0a0a0c; font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; overflow:hidden; display:flex; flex-direction:column; position:relative; }
   .grid { position:absolute; inset:0; pointer-events:none; background-image:linear-gradient(rgba(255,255,255,0.022) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.022) 1px,transparent 1px); background-size:54px 54px; }
-  .glow-center { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:160px; height:1200px; background:radial-gradient(ellipse,rgba(215,170,60,0.04) 0%,transparent 65%); pointer-events:none; }
+  .glow-center { position:absolute; left:calc(50% - 80px); top:calc(50% - 600px); width:160px; height:1200px; background:radial-gradient(ellipse,rgba(215,170,60,0.04) 0%,transparent 65%); pointer-events:none; }
   .topbar { position:relative; z-index:10; height:86px; flex-shrink:0; display:flex; align-items:center; justify-content:center; padding:0 56px; border-bottom:1px solid rgba(255,255,255,0.07); }
   .logo-wordmark { display:flex; align-items:center; }
   .logo-wordmark span.card { font-size:32px; font-weight:700; color:#ffffff; letter-spacing:-0.5px; }
@@ -212,7 +211,8 @@ function buildCompareHtml(left: ShareCardCompare, right: ShareCardCompare): stri
   .sc-signal-label { font-size:13px; font-weight:600; color:rgba(255,255,255,0.24); letter-spacing:0.02em; text-transform:uppercase; }
   .sc-signal-val { font-size:17px; font-weight:700; color:#3cb87a; letter-spacing:0; }
   .sc-signal-val.bear { color:#e05252; }
-</style></head><body>
+</style>
+<div class="sc-wrap">
 <div class="grid"></div><div class="glow-center"></div>
 <div class="topbar">
   <div class="logo-wordmark"><span class="card">Card</span><span class="index">Index</span></div>
@@ -233,7 +233,7 @@ function buildCompareHtml(left: ShareCardCompare, right: ShareCardCompare): stri
     ${signalCol(right, 'right')}
   </div>
 </div>
-</body></html>`
+</div>`
 }
 
 export default function ShareCompareModal({

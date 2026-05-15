@@ -1,7 +1,8 @@
 'use client'
 
 /**
- * ShareCardModal — renders a 1080×1350 shareable PNG matching the CI single-card template.
+ * ShareCardModal — renders the exact 03-single-card.html template with live data,
+ * then captures it via html2canvas for download.
  */
 
 import { useState, useRef, useCallback, useEffect } from 'react'
@@ -16,513 +17,315 @@ export interface ShareCardData {
   priceDisplay:  string
   change:        number
   imageUrl:      string
-  // Breakdown bars (0-100)
   trend?:        number
   liquidity?:    number
   consistency?:  number
   value?:        number
-  // Averages
   avg1d?:        number
   avg7d?:        number
   avg30d?:       number
-  // Market stats
   salesCount30d?:  number
-  liquidityLabel?: string   // e.g. "Very High"
+  liquidityLabel?: string
   priceRangeLow?:  number
   priceRangeHigh?: number
-  // Grading ROI (raw prices)
   psa10price?:   number
   psa9price?:    number
   psa8price?:    number
-  // Projections
   proj30d?:      number
   proj60d?:      number
   proj90d?:      number
-  // Formatter (passed in so currency matches user preference)
   fmtFn?:        (n: number) => string
 }
 
-const W = 1080
-const H = 1350
-const PAD = 56
-const GOLD   = '#d7aa3c'
-const GREEN  = '#3cb87a'
-const RED    = '#e05252'
-const BORDER = 'rgba(255,255,255,0.07)'
-const SURF   = 'rgba(255,255,255,0.025)'
-const INK    = '#ffffff'
-const INK2   = 'rgba(255,255,255,0.45)'
-const INK3   = 'rgba(255,255,255,0.28)'
-const INK4   = 'rgba(255,255,255,0.22)'
-
-function scoreCol(s: number) {
-  return s >= 70 ? GREEN : s >= 50 ? GOLD : RED
+function scoreColor(s: number) {
+  return s >= 70 ? '#3cb87a' : s >= 50 ? '#d7aa3c' : '#e05252'
 }
-function changeCol(c: number) { return c >= 0 ? GREEN : RED }
+function changeColor(c: number) { return c >= 0 ? '#3cb87a' : '#e05252' }
 
-function roundRect(
-  ctx: CanvasRenderingContext2D,
-  x: number, y: number, w: number, h: number, r: number,
-) {
-  const safeR = Math.min(r, w / 2, h / 2)
-  ctx.beginPath()
-  ctx.moveTo(x + safeR, y)
-  ctx.lineTo(x + w - safeR, y)
-  ctx.quadraticCurveTo(x + w, y, x + w, y + safeR)
-  ctx.lineTo(x + w, y + h - safeR)
-  ctx.quadraticCurveTo(x + w, y + h, x + w - safeR, y + h)
-  ctx.lineTo(x + safeR, y + h)
-  ctx.quadraticCurveTo(x, y + h, x, y + h - safeR)
-  ctx.lineTo(x, y + safeR)
-  ctx.quadraticCurveTo(x, y, x + safeR, y)
-  ctx.closePath()
-}
-
-function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.onload  = () => resolve(img)
-    img.onerror = () => reject(new Error(`Failed to load: ${src}`))
-    img.src = src
-  })
-}
-
-function font(ctx: CanvasRenderingContext2D, sz: number, wt: string | number = 400) {
-  ctx.font = `${wt} ${sz}px "Helvetica Neue", Helvetica, Arial, sans-serif`
-}
-
-function fillText(
-  ctx: CanvasRenderingContext2D,
-  text: string, x: number, y: number,
-  colour: string, sz: number, wt: string | number = 400,
-  align: CanvasTextAlign = 'left',
-) {
-  font(ctx, sz, wt)
-  ctx.fillStyle = colour
-  ctx.textAlign = align
-  ctx.fillText(text, x, y)
-}
-
-// Draw a surface card (rounded rect with border)
-function drawSurface(
-  ctx: CanvasRenderingContext2D,
-  x: number, y: number, w: number, h: number, r = 12,
-  bg = SURF, border = BORDER,
-) {
-  ctx.save()
-  roundRect(ctx, x, y, w, h, r)
-  ctx.fillStyle = bg
-  ctx.fill()
-  ctx.strokeStyle = border
-  ctx.lineWidth = 1
-  ctx.stroke()
-  ctx.restore()
-}
-
-async function drawCard(canvas: HTMLCanvasElement, d: ShareCardData) {
-  // Render at 2× for sharpness; output PNG is still W×H logical pixels
-  const SCALE = 2
-  canvas.width  = W * SCALE
-  canvas.height = H * SCALE
-
-  const ctx = canvas.getContext('2d')!
-  ctx.scale(SCALE, SCALE)
+function buildHtml(d: ShareCardData): string {
   const fmt = d.fmtFn ?? ((n: number) => `$${n.toFixed(2)}`)
-  const accent = scoreCol(d.score)
 
-  // ── Background ──────────────────────────────────────────────────────────────
-  ctx.fillStyle = '#0b0c0e'
-  ctx.fillRect(0, 0, W, H)
+  const trend       = Math.round(d.trend       ?? 0)
+  const liquidity   = Math.round(d.liquidity   ?? 0)
+  const consistency = Math.round(d.consistency ?? 0)
+  const value       = Math.round(d.value       ?? 0)
 
-  // Grid
-  ctx.strokeStyle = 'rgba(255,255,255,0.022)'
-  ctx.lineWidth = 1
-  const gs = 54
-  for (let x = 0; x < W; x += gs) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke() }
-  for (let y = 0; y < H; y += gs) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke() }
-
-  // Glow
-  const glow = ctx.createRadialGradient(W / 2, H * 0.26, 0, W / 2, H * 0.26, 400)
-  glow.addColorStop(0, 'rgba(215,170,60,0.07)')
-  glow.addColorStop(1, 'transparent')
-  ctx.fillStyle = glow
-  ctx.fillRect(0, 0, W, H)
-
-  // ── Top bar (0–80) ─────────────────────────────────────────────────────────
-  ctx.textBaseline = 'middle'
-  const logoY = 40
-  font(ctx, 28, 700)
-  ctx.fillStyle = INK
-  ctx.textAlign = 'center'
-  const cw = ctx.measureText('Card').width
-  const iw = ctx.measureText('Index').width
-  const totalW = cw + iw
-  const logoStartX = W / 2 - totalW / 2
-  ctx.fillStyle = INK;   ctx.textAlign = 'left'; ctx.fillText('Card',  logoStartX, logoY)
-  ctx.fillStyle = GOLD;                           ctx.fillText('Index', logoStartX + cw, logoY)
-
-  // Separator
-  ctx.strokeStyle = BORDER; ctx.lineWidth = 1
-  ctx.beginPath(); ctx.moveTo(PAD, 80); ctx.lineTo(W - PAD, 80); ctx.stroke()
-
-  // ── Top section (card image + identity) ────────────────────────────────────
-  const secTop = 116   // 80 topbar + 36 padding
-  const cardThumbW = 240
-  const cardThumbH = Math.round(cardThumbW * 88 / 63)  // ≈ 335
-  const cardThumbR = 14
-
-  // Drop shadow
-  ctx.save()
-  ctx.shadowColor   = 'rgba(0,0,0,0.7)'
-  ctx.shadowBlur    = 32
-  ctx.shadowOffsetY = 10
-  ctx.fillStyle     = 'rgba(0,0,0,0.01)'
-  roundRect(ctx, PAD + 4, secTop + 4, cardThumbW - 8, cardThumbH - 8, cardThumbR)
-  ctx.fill()
-  ctx.restore()
-
-  // Card image
-  try {
-    const img = await loadImage(d.imageUrl)
-    ctx.save()
-    roundRect(ctx, PAD, secTop, cardThumbW, cardThumbH, cardThumbR)
-    ctx.clip()
-    ctx.drawImage(img, PAD, secTop, cardThumbW, cardThumbH)
-    ctx.restore()
-  } catch {
-    drawSurface(ctx, PAD, secTop, cardThumbW, cardThumbH, cardThumbR, 'rgba(255,255,255,0.03)', BORDER)
-    fillText(ctx, '🃏', PAD + cardThumbW / 2, secTop + cardThumbH / 2, INK3, 48, 400, 'center')
-  }
-
-  // Card identity (right of image)
-  const idX = PAD + cardThumbW + 36
-  let idY = secTop + 4
-
-  // Set + grade chip
-  font(ctx, 12, 600)
-  ctx.fillStyle = INK4; ctx.textAlign = 'left'
-  ctx.fillText(d.setName.toUpperCase(), idX, idY + 8)
-  const setW = ctx.measureText(d.setName.toUpperCase()).width
-  // Grade chip
-  const chipX = idX + setW + 10
-  const chipW = 80
-  drawSurface(ctx, chipX, idY, chipW, 22, 4, 'rgba(215,170,60,0.08)', 'rgba(215,170,60,0.18)')
-  font(ctx, 11, 600)
-  ctx.fillStyle = 'rgba(215,170,60,0.65)'; ctx.textAlign = 'center'
-  ctx.fillText(d.grade, chipX + chipW / 2, idY + 11)
-  idY += 30
-
-  // Card name (multiline: break on & or wrap)
-  const nameParts = d.cardName.split(/(&)/).map(p => p.trim()).filter(Boolean)
-  let nameFz = nameParts.length > 1 ? 36 : 42
-  // Reduce if too wide
-  font(ctx, nameFz, 700)
-  const maxNameW = W - idX - PAD
-  while (nameFz > 22 && nameParts.some(p => ctx.measureText(p === '&' ? '' : p).width > maxNameW)) {
-    nameFz -= 2; font(ctx, nameFz, 700)
-  }
-  ctx.fillStyle = INK; ctx.textAlign = 'left'
-  const nameLineH = Math.round(nameFz * 1.05)
-  const nameLines: string[] = []
-  if (nameParts.length <= 1) {
-    nameLines.push(d.cardName)
-  } else {
-    // join back as lines like the template: "Moltres &\nZapdos &\nArticuno GX"
-    let cur = ''
-    for (const p of nameParts) {
-      if (p === '&') { nameLines.push(cur.trim() + ' &'); cur = '' }
-      else { cur += p + ' ' }
-    }
-    if (cur.trim()) nameLines.push(cur.trim())
-  }
-  for (const line of nameLines) {
-    font(ctx, nameFz, 700)
-    ctx.fillStyle = INK; ctx.textAlign = 'left'
-    ctx.fillText(line, idX, idY + nameFz * 0.8)
-    idY += nameLineH
-  }
-  idY += 16
-
-  // Price
-  font(ctx, 50, 700)
-  ctx.fillStyle = INK; ctx.textAlign = 'left'
-  ctx.fillText(d.priceDisplay, idX, idY + 40)
-  idY += 60
-
-  // Change + avgs
-  const changeStr = `${d.change >= 0 ? '+' : ''}${d.change.toFixed(1)}% 30d`
-  font(ctx, 18, 600)
-  ctx.fillStyle = changeCol(d.change); ctx.textAlign = 'left'
-  ctx.fillText(changeStr, idX, idY + 14)
-
-  if (d.avg7d || d.avg30d) {
-    const avgStr = [
-      d.avg7d  ? `7D ${fmt(d.avg7d)}`  : '',
-      d.avg30d ? `30D ${fmt(d.avg30d)}` : '',
-    ].filter(Boolean).join(' · ')
-    font(ctx, 13, 400)
-    ctx.fillStyle = INK3; ctx.textAlign = 'left'
-    ctx.fillText(avgStr, idX, idY + 36)
-  }
-
-  // ── Score row ──────────────────────────────────────────────────────────────
-  const srTop = secTop + cardThumbH + 18
-  const srH   = 168
-  drawSurface(ctx, PAD, srTop, W - PAD * 2, srH, 12)
-
-  // Score circle (left)
-  const circleX = PAD + 28 + 52   // center x
-  const circleY = srTop + srH / 2
-  const circleR = 52
-  ctx.save()
-  ctx.beginPath()
-  ctx.arc(circleX, circleY, circleR, 0, Math.PI * 2)
-  ctx.strokeStyle = accent; ctx.lineWidth = 3
-  ctx.stroke()
-  ctx.restore()
-
-  // Score label above circle
-  font(ctx, 11, 600)
-  ctx.fillStyle = INK4; ctx.textAlign = 'center'
-  ctx.fillText('SCORE', circleX, srTop + 20)
-
-  // Score number
-  font(ctx, 46, 700)
-  ctx.fillStyle = accent; ctx.textAlign = 'center'
-  ctx.fillText(String(Math.round(d.score)), circleX, circleY + 14)
-
-  // Score sublabel
-  font(ctx, 10, 600)
-  ctx.fillStyle = 'rgba(215,170,60,0.45)'; ctx.textAlign = 'center'
-  ctx.fillText(d.scoreLabel.toUpperCase(), circleX, circleY + 30)
-
-  // Breakdown bars (right)
-  const barsX = PAD + 28 + circleR * 2 + 36
-  const barsW = W - PAD - 28 - barsX
-  const bars  = [
-    { label: 'Trend',       val: d.trend       ?? 0 },
-    { label: 'Liquidity',   val: d.liquidity   ?? 0 },
-    { label: 'Consistency', val: d.consistency ?? 0 },
-    { label: 'Value',       val: d.value       ?? 0 },
-  ]
-  const barH    = 7
-  const barSlot = (srH - 16) / 4
-  for (let i = 0; i < bars.length; i++) {
-    const { label, val } = bars[i]
-    const by = srTop + 8 + i * barSlot + barSlot / 2
-    const col = scoreCol(val)
-    // Label
-    font(ctx, 14, 600)
-    ctx.fillStyle = INK2; ctx.textAlign = 'left'
-    ctx.fillText(label, barsX, by)
-    // Value
-    font(ctx, 15, 700)
-    ctx.fillStyle = col; ctx.textAlign = 'right'
-    ctx.fillText(String(Math.round(val)), W - PAD - 28, by)
-    // Bar track
-    const trackX = barsX + 124
-    const trackW = barsW - 124 - 44
-    const trackY = by + 12
-    ctx.fillStyle = 'rgba(255,255,255,0.07)'
-    roundRect(ctx, trackX, trackY, trackW, barH, 3)
-    ctx.fill()
-    // Bar fill
-    const fw = Math.max(0, Math.round(trackW * val / 100))
-    if (fw > 0) {
-      const grad = ctx.createLinearGradient(trackX, 0, trackX + fw, 0)
-      grad.addColorStop(0, col + 'bb'); grad.addColorStop(1, col)
-      ctx.fillStyle = grad
-      roundRect(ctx, trackX, trackY, fw, barH, 3)
-      ctx.fill()
-    }
-  }
-
-  // ── Badges grid (6 badges, 3 cols) ─────────────────────────────────────────
-  const bgTop  = srTop + srH + 14
-  const bgColW = (W - PAD * 2 - 20) / 3
-  const bgH    = 64
-  const bgData = [
-    { label: 'Liquidity',      value: d.liquidityLabel ?? '—',           colour: d.liquidityLabel ? GREEN : INK },
-    { label: '30D Sales',      value: d.salesCount30d ? String(d.salesCount30d) : '—', colour: GOLD },
-    { label: 'Price Position', value: (() => {
-        if (!d.priceRangeLow || !d.priceRangeHigh) return '—'
-        const pos = (d.price - d.priceRangeLow) / (d.priceRangeHigh - d.priceRangeLow)
-        return pos < 0.33 ? 'Near low' : pos > 0.66 ? 'Near high' : 'Near midpoint'
-      })(), colour: INK2 },
-    { label: 'PSA 10 Prem.',   value: d.psa10price && d.price > 0 ? `${(d.psa10price / d.price).toFixed(2)}×` : '—', colour: GOLD },
-    { label: 'PSA 9/10 Ratio', value: d.psa10price && d.psa9price ? `${(d.psa9price / d.psa10price).toFixed(2)}×` : '—', colour: INK },
-    { label: 'Grading Upside', value: d.psa10price && d.price > 0 ? `+${Math.round((d.psa10price / d.price - 1) * 100)}%` : '—', colour: d.psa10price && d.psa10price > d.price ? GREEN : INK2 },
-  ]
-  for (let i = 0; i < 6; i++) {
-    const col = i % 3
-    const row = Math.floor(i / 3)
-    const bx  = PAD + col * (bgColW + 10)
-    const by  = bgTop + row * (bgH + 10)
-    drawSurface(ctx, bx, by, bgColW, bgH, 10)
-    font(ctx, 10, 600)
-    ctx.fillStyle = INK4; ctx.textAlign = 'left'
-    ctx.fillText(bgData[i].label.toUpperCase(), bx + 18, by + 18)
-    font(ctx, 19, 700)
-    ctx.fillStyle = bgData[i].colour
-    ctx.fillText(bgData[i].value, bx + 18, by + 48)
-  }
-
-  // ── Moving Average Signal ──────────────────────────────────────────────────
-  const ssTop = bgTop + bgH * 2 + 10 + 14
-  const ssH   = 132
   const isBullish = (d.avg7d ?? d.price) >= (d.avg30d ?? d.price)
-  drawSurface(ctx, PAD, ssTop, W - PAD * 2, ssH, 12)
-  // Title
-  font(ctx, 10, 600)
-  ctx.fillStyle = INK4; ctx.textAlign = 'left'
-  ctx.fillText('MOVING AVERAGE SIGNAL', PAD + 22, ssTop + 22)
-  // Signal badge
-  const sbLabel = isBullish ? '▲ Bullish' : '▼ Bearish'
-  const sbCol   = isBullish ? GREEN : RED
-  const sbBg    = isBullish ? 'rgba(60,184,122,0.1)' : 'rgba(229,82,82,0.1)'
-  const sbBrd   = isBullish ? 'rgba(60,184,122,0.22)' : 'rgba(229,82,82,0.22)'
-  font(ctx, 12, 700); const sbW = ctx.measureText(sbLabel).width + 28
-  drawSurface(ctx, W - PAD - 22 - sbW, ssTop + 12, sbW, 26, 5, sbBg, sbBrd)
-  ctx.fillStyle = sbCol; ctx.textAlign = 'center'
-  ctx.fillText(sbLabel, W - PAD - 22 - sbW / 2, ssTop + 25)
-  // Avg boxes (taller for readability)
-  const avgBoxes = [
-    { label: 'Current', val: d.priceDisplay,           amber: true },
-    { label: '1D Avg',  val: d.avg1d  ? fmt(d.avg1d)  : '—', amber: false },
-    { label: '7D Avg',  val: d.avg7d  ? fmt(d.avg7d)  : '—', amber: false },
-    { label: '30D Avg', val: d.avg30d ? fmt(d.avg30d) : '—', amber: false },
-  ]
-  const abW   = (W - PAD * 2 - 22 * 2 - 30) / 4
-  const abH   = 72
-  const abTop = ssTop + 44
-  for (let i = 0; i < 4; i++) {
-    const ax = PAD + 22 + i * (abW + 10)
-    drawSurface(ctx, ax, abTop, abW, abH, 8, 'rgba(255,255,255,0.02)', 'rgba(255,255,255,0.06)')
-    font(ctx, 10, 600); ctx.fillStyle = INK4; ctx.textAlign = 'left'
-    ctx.fillText(avgBoxes[i].label.toUpperCase(), ax + 16, abTop + 18)
-    font(ctx, 18, 700)
-    ctx.fillStyle = avgBoxes[i].amber ? GOLD : INK
-    ctx.fillText(avgBoxes[i].val, ax + 16, abTop + 50)
-  }
 
-  // ── Projected Price ─────────────────────────────────────────────────────────
-  const ppTop = ssTop + ssH + 14
-  const ppH   = 130
-  const ppBoxH = 78
-  drawSurface(ctx, PAD, ppTop, W - PAD * 2, ppH, 12, 'rgba(215,170,60,0.04)', 'rgba(215,170,60,0.16)')
-  // Header
-  font(ctx, 10, 600)
-  ctx.fillStyle = 'rgba(215,170,60,0.6)'; ctx.textAlign = 'left'
-  ctx.fillText('PROJECTED PRICE', PAD + 22, ppTop + 22)
-  font(ctx, 10, 500)
-  ctx.fillStyle = INK4; ctx.textAlign = 'right'
-  ctx.fillText(`Based on 30D trend · ${d.grade}`, W - PAD - 22, ppTop + 22)
-  // Projection cols
-  const projs = [
-    { label: '30D Forecast', price: d.proj30d },
-    { label: '60D Forecast', price: d.proj60d },
-    { label: '90D Forecast', price: d.proj90d },
-  ]
-  const pcW = (W - PAD * 2 - 22 * 2 - 20) / 3
-  for (let i = 0; i < 3; i++) {
-    const px   = PAD + 22 + i * (pcW + 10)
-    const py   = ppTop + 38
-    const prc  = projs[i].price
-    const pct  = prc && d.price > 0 ? ((prc - d.price) / d.price * 100) : 0
-    const up   = pct >= 0
-    const pbg  = up ? 'rgba(60,184,122,0.06)'  : 'rgba(255,255,255,0.03)'
-    const pbrd = up ? 'rgba(60,184,122,0.18)'  : 'rgba(255,255,255,0.07)'
-    drawSurface(ctx, px, py, pcW, ppBoxH, 8, pbg, pbrd)
-    // Label
-    font(ctx, 10, 600); ctx.fillStyle = INK3; ctx.textAlign = 'left'
-    ctx.fillText(projs[i].label.toUpperCase(), px + 16, py + 16)
-    // Price
-    font(ctx, 21, 700)
-    ctx.fillStyle = up ? GREEN : INK
-    ctx.fillText(prc ? fmt(prc) : '—', px + 16, py + 44)
-    // Delta — clearly below price with 8px gap
-    if (prc) {
-      font(ctx, 12, 600)
-      ctx.fillStyle = up ? 'rgba(60,184,122,0.7)' : 'rgba(255,255,255,0.3)'
-      ctx.fillText(`${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`, px + 16, py + 65)
-    }
-  }
+  const pricePos = (() => {
+    if (!d.priceRangeLow || !d.priceRangeHigh) return '—'
+    const pos = (d.price - d.priceRangeLow) / (d.priceRangeHigh - d.priceRangeLow)
+    return pos < 0.33 ? 'Near low' : pos > 0.66 ? 'Near high' : 'Near midpoint'
+  })()
 
-  // ── Grading ROI ─────────────────────────────────────────────────────────────
-  const grTop = ppTop + ppH + 14
-  const grH   = 158
-  // Header
-  font(ctx, 10, 600)
-  ctx.fillStyle = INK4; ctx.textAlign = 'left'
-  ctx.fillText('GRADING ROI', PAD, grTop + 12)
-  font(ctx, 10, 500)
-  ctx.fillStyle = INK4; ctx.textAlign = 'right'
-  ctx.fillText('Economy · $22 · 45–60 days', W - PAD, grTop + 12)
+  const psa10Prem   = d.psa10price && d.price > 0 ? `${(d.psa10price / d.price).toFixed(2)}×` : '—'
+  const psa910Ratio = d.psa10price && d.psa9price  ? `${(d.psa9price  / d.psa10price).toFixed(2)}×` : '—'
+  const mintPrem    = d.psa10price && d.psa9price && d.psa9price > 0
+    ? `${(d.psa10price / d.psa9price).toFixed(2)}×` : '—'
 
   const gradingCost = 22
-  const tiers = [
+  const gradeTiers = [
     { label: 'PSA 10', price: d.psa10price },
     { label: 'PSA 9',  price: d.psa9price  },
     { label: 'PSA 8',  price: d.psa8price  },
-  ]
-  const gtW = (W - PAD * 2 - 20) / 3
-  for (let i = 0; i < 3; i++) {
-    const gx  = PAD + i * (gtW + 10)
-    const gy  = grTop + 28
-    const gh  = grH - 28
-    const gp  = tiers[i].price
+  ].map(t => {
+    const gp      = t.price ?? 0
     const netGain = gp ? gp - d.price - gradingCost : 0
-    const roi     = gp && (d.price + gradingCost) > 0 ? (netGain / (d.price + gradingCost) * 100) : 0
-    const isBest  = i === 0 && gp && gp > d.price + gradingCost
+    const roi     = gp && (d.price + gradingCost) > 0
+      ? (netGain / (d.price + gradingCost) * 100) : 0
+    const isBest  = t.label === 'PSA 10' && gp > d.price + gradingCost
     const isLoss  = !gp || netGain < 0
-    const gbg  = isBest ? 'rgba(60,184,122,0.07)'  : isLoss ? 'rgba(229,82,82,0.04)'  : SURF
-    const gbrd = isBest ? 'rgba(60,184,122,0.25)'  : isLoss ? 'rgba(229,82,82,0.14)'  : BORDER
-    drawSurface(ctx, gx, gy, gtW, gh, 10, gbg, gbrd)
+    return { ...t, gp, netGain, roi, isBest, isLoss }
+  })
+  const bestIdx = gradeTiers.findIndex(t => t.isBest)
 
-    const roiCol  = netGain >= 0 ? GREEN : RED
-    const gradCol = isBest ? GREEN : isLoss ? 'rgba(229,82,82,0.7)' : INK2
+  const changeStr = `${d.change >= 0 ? '+' : ''}${d.change.toFixed(1)}% 30d`
+  const avgStr = [
+    d.avg7d  ? `7D ${fmt(d.avg7d)}`  : '',
+    d.avg30d ? `30D ${fmt(d.avg30d)}` : '',
+  ].filter(Boolean).join(' · ')
 
-    // Grade label
-    font(ctx, 15, 700)
-    ctx.fillStyle = gradCol; ctx.textAlign = 'left'
-    ctx.fillText(tiers[i].label, gx + 16, gy + 28)
+  // Multi-line card name (split on &)
+  const nameParts = d.cardName.split('&').map(p => p.trim())
+  const nameHtml  = nameParts.length > 1
+    ? nameParts.map((p, i) => `${p}${i < nameParts.length - 1 ? ' &' : ''}`).join('<br>')
+    : d.cardName
 
-    if (isBest) {
-      font(ctx, 9, 700)
-      ctx.fillStyle = GREEN; ctx.textAlign = 'right'
-      ctx.fillText('BEST', gx + gtW - 14, gy + 28)
-    }
-
-    // Graded price
-    font(ctx, 26, 700)
-    ctx.fillStyle = gp ? roiCol : INK2; ctx.textAlign = 'left'
-    ctx.fillText(gp ? fmt(gp) : '—', gx + 16, gy + 70)
-
-    // ROI line
-    if (gp) {
-      const roiStr = `${roi >= 0 ? '+' : ''}${Math.round(roi)}% ROI · ${netGain >= 0 ? '+' : ''}${fmt(netGain)}`
-      font(ctx, 13, 700)
-      ctx.fillStyle = roiCol
-      ctx.fillText(roiStr, gx + 16, gy + 98)
-    }
+  function barHtml(label: string, val: number) {
+    const col = scoreColor(val)
+    const valColor = col
+    return `
+      <div class="sb-row">
+        <div class="sb-label">${label}</div>
+        <div class="sb-bar-bg"><div class="sb-fill" style="width:${val}%;background:${col}"></div></div>
+        <div class="sb-val" style="color:${valColor}">${val}</div>
+      </div>`
   }
 
-  // ── Bottom bar ─────────────────────────────────────────────────────────────
-  ctx.strokeStyle = BORDER; ctx.lineWidth = 1
-  ctx.beginPath(); ctx.moveTo(PAD, H - 72); ctx.lineTo(W - PAD, H - 72); ctx.stroke()
+  function badgeHtml(label: string, value: string, colClass: string) {
+    return `
+      <div class="badge">
+        <div class="badge-label">${label}</div>
+        <div class="badge-value ${colClass}">${value}</div>
+      </div>`
+  }
 
-  font(ctx, 12, 400)
-  ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.textAlign = 'left'
-  ctx.fillText('Pokémon TCG · card-index.app', PAD, H - 36)
-  ctx.textAlign = 'right'
-  ctx.fillText('Real market data for TCG collectors', W - PAD, H - 36)
+  function projHtml(label: string, price: number | undefined) {
+    if (!price) return `
+      <div class="proj-col">
+        <div class="proj-label">${label}</div>
+        <div class="proj-price">—</div>
+        <div class="proj-delta"></div>
+      </div>`
+    const pct = d.price > 0 ? ((price - d.price) / d.price * 100) : 0
+    const up  = pct >= 0
+    return `
+      <div class="proj-col${up ? ' up' : ''}">
+        <div class="proj-label">${label}</div>
+        <div class="proj-price">${fmt(price)}</div>
+        <div class="proj-delta">${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%</div>
+      </div>`
+  }
 
-  ctx.textAlign    = 'left'
-  ctx.textBaseline = 'alphabetic'
+  function tierHtml(t: typeof gradeTiers[0], isBest: boolean) {
+    const cls = isBest ? 'gs-tier best' : t.isLoss ? 'gs-tier loss' : 'gs-tier'
+    const roiStr = t.gp
+      ? `${t.roi >= 0 ? '+' : ''}${Math.round(t.roi)}% ROI · ${t.netGain >= 0 ? '+' : ''}${fmt(t.netGain)}`
+      : '—'
+    const roiColor = t.gp ? (t.netGain >= 0 ? '#3cb87a' : '#e05252') : 'rgba(255,255,255,0.3)'
+    return `
+      <div class="${cls}">
+        <div class="gs-tier-top">
+          <div class="gs-grade">${t.label}</div>
+          ${isBest ? '<div class="gs-best-pill">Best</div>' : ''}
+        </div>
+        <div class="gs-price">${t.gp ? fmt(t.gp) : '—'}</div>
+        <div class="gs-roi" style="color:${roiColor}">${roiStr}</div>
+      </div>`
+  }
+
+  const logoSvg = `<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="32" height="32" rx="6" fill="#d7aa3c" fill-opacity="0.15"/>
+    <path d="M8 24L14 10L20 20L24 14L28 24" stroke="#d7aa3c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`
+
+  const scoreCol = scoreColor(d.score)
+
+  return `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { width:1080px; height:1350px; background:#0b0c0e; font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; overflow:hidden; display:flex; flex-direction:column; position:relative; }
+  .grid { position:absolute; inset:0; pointer-events:none; background-image:linear-gradient(rgba(255,255,255,0.022) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.022) 1px,transparent 1px); background-size:54px 54px; }
+  .glow { position:absolute; left:50%; top:26%; transform:translate(-50%,-50%); width:800px; height:500px; background:radial-gradient(ellipse,rgba(215,170,60,0.07) 0%,transparent 62%); pointer-events:none; }
+  .topbar { position:relative; z-index:10; height:80px; flex-shrink:0; display:flex; align-items:center; justify-content:center; padding:0 56px; border-bottom:1px solid rgba(255,255,255,0.07); }
+  .logo { display:flex; align-items:center; gap:12px; }
+  .logo-icon { width:38px; height:38px; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+  .logo-wordmark { display:flex; align-items:center; }
+  .logo-wordmark span.card { font-size:28px; font-weight:700; color:#ffffff; letter-spacing:-0.5px; }
+  .logo-wordmark span.index { font-size:28px; font-weight:700; color:#d7aa3c; letter-spacing:-0.5px; }
+  .top-section { position:relative; z-index:2; padding:36px 56px 0; flex-shrink:0; display:flex; gap:36px; align-items:flex-start; }
+  .card-thumb { width:240px; aspect-ratio:63/88; flex-shrink:0; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:14px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; position:relative; overflow:hidden; }
+  .card-thumb img { width:100%; height:100%; object-fit:cover; border-radius:inherit; display:block; }
+  .card-thumb::before { content:""; position:absolute; inset:0; background:radial-gradient(ellipse at 50% 30%,rgba(215,170,60,0.05) 0%,transparent 60%); }
+  .card-identity { flex:1; padding-top:4px; }
+  .ci-set { font-size:12px; font-weight:600; color:rgba(255,255,255,0.28); letter-spacing:0.1em; text-transform:uppercase; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+  .grade-chip { background:rgba(215,170,60,0.08); border:1px solid rgba(215,170,60,0.18); border-radius:4px; padding:3px 10px; font-size:11px; font-weight:600; color:rgba(215,170,60,0.65); }
+  .ci-name { font-size:42px; font-weight:700; color:#fff; letter-spacing:-1.5px; line-height:1.05; margin-bottom:18px; }
+  .price-big { font-size:54px; font-weight:700; color:#fff; letter-spacing:-2.5px; line-height:1; margin-bottom:10px; }
+  .price-meta { display:flex; align-items:center; gap:14px; }
+  .price-change { font-size:18px; font-weight:600; }
+  .price-avgs { font-size:13px; font-weight:400; color:rgba(255,255,255,0.28); }
+  .score-row { position:relative; z-index:2; margin:18px 56px 0; flex-shrink:0; display:flex; align-items:center; justify-content:space-between; padding:20px 24px; background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.07); border-radius:12px; }
+  .score-left { flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:6px; }
+  .score-label { font-size:11px; font-weight:600; color:rgba(255,255,255,0.24); letter-spacing:0.12em; text-transform:uppercase; }
+  .score-circle { width:96px; height:96px; border-radius:50%; border:3px solid ${scoreCol}; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .score-num { font-size:42px; font-weight:700; color:${scoreCol}; letter-spacing:-2px; line-height:1; }
+  .score-sub { font-size:10px; font-weight:600; color:${scoreCol}; opacity:0.55; letter-spacing:0.1em; text-transform:uppercase; margin-top:2px; }
+  .score-bars { flex:1; padding-left:36px; }
+  .sb-row { display:flex; align-items:center; gap:14px; margin-bottom:11px; }
+  .sb-row:last-child { margin-bottom:0; }
+  .sb-label { font-size:14px; font-weight:600; color:rgba(255,255,255,0.55); width:108px; flex-shrink:0; }
+  .sb-bar-bg { flex:1; height:6px; background:rgba(255,255,255,0.07); border-radius:3px; overflow:hidden; }
+  .sb-fill { height:100%; border-radius:3px; }
+  .sb-val { font-size:15px; font-weight:700; width:34px; text-align:right; flex-shrink:0; }
+  .badges-grid { position:relative; z-index:2; display:grid; grid-template-columns:repeat(3,1fr); gap:10px; padding:14px 56px 0; flex-shrink:0; }
+  .badge { background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.07); border-radius:10px; padding:16px 18px; }
+  .badge-label { font-size:10px; font-weight:600; color:rgba(255,255,255,0.24); letter-spacing:0.1em; text-transform:uppercase; margin-bottom:7px; }
+  .badge-value { font-size:20px; font-weight:700; color:#fff; letter-spacing:-0.3px; }
+  .badge-value.green { color:#3cb87a; }
+  .badge-value.amber { color:#d7aa3c; }
+  .badge-value.sm { font-size:15px; color:rgba(255,255,255,0.45); }
+  .signal-section { position:relative; z-index:2; margin:14px 56px 0; flex-shrink:0; background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.07); border-radius:12px; padding:18px 22px; }
+  .ss-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  .ss-title { font-size:10px; font-weight:600; color:rgba(255,255,255,0.24); letter-spacing:0.12em; text-transform:uppercase; }
+  .ss-badge { border-radius:5px; padding:5px 14px; font-size:12px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; }
+  .ss-badge.bullish { background:rgba(60,184,122,0.1); border:1px solid rgba(60,184,122,0.22); color:#3cb87a; }
+  .ss-badge.bearish { background:rgba(229,82,82,0.1); border:1px solid rgba(229,82,82,0.22); color:#e05252; }
+  .ss-avgs { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+  .ss-avg { background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:8px; padding:14px 16px; }
+  .ss-avg-label { font-size:10px; font-weight:600; color:rgba(255,255,255,0.24); letter-spacing:0.1em; text-transform:uppercase; margin-bottom:6px; }
+  .ss-avg-val { font-size:18px; font-weight:700; color:#fff; letter-spacing:-0.3px; }
+  .ss-avg-val.amber { color:#d7aa3c; }
+  .projected-section { position:relative; z-index:2; margin:14px 56px 0; flex-shrink:0; background:rgba(215,170,60,0.04); border:1px solid rgba(215,170,60,0.16); border-radius:12px; padding:18px 22px; }
+  .proj-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  .proj-title { font-size:10px; font-weight:600; color:rgba(215,170,60,0.6); letter-spacing:0.14em; text-transform:uppercase; }
+  .proj-basis { font-size:10px; font-weight:500; color:rgba(255,255,255,0.22); letter-spacing:0.06em; text-transform:uppercase; }
+  .proj-cols { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  .proj-col { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:8px; padding:14px 16px; display:flex; flex-direction:column; gap:4px; }
+  .proj-col.up { background:rgba(60,184,122,0.06); border-color:rgba(60,184,122,0.18); }
+  .proj-label { font-size:10px; font-weight:600; color:rgba(255,255,255,0.28); letter-spacing:0.1em; text-transform:uppercase; }
+  .proj-price { font-size:22px; font-weight:700; color:#fff; letter-spacing:-0.6px; margin-top:2px; }
+  .proj-col.up .proj-price { color:#3cb87a; }
+  .proj-delta { font-size:12px; font-weight:600; color:rgba(255,255,255,0.3); }
+  .proj-col.up .proj-delta { color:rgba(60,184,122,0.7); }
+  .grading-section { position:relative; z-index:2; margin:14px 56px 0; flex-shrink:0; }
+  .gs-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+  .gs-label { font-size:10px; font-weight:600; color:rgba(255,255,255,0.22); letter-spacing:0.14em; text-transform:uppercase; }
+  .gs-econ { font-size:10px; font-weight:500; color:rgba(255,255,255,0.22); letter-spacing:0.06em; text-transform:uppercase; }
+  .gs-tiers { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  .gs-tier { border-radius:10px; padding:18px 16px; border:1px solid rgba(255,255,255,0.07); background:rgba(255,255,255,0.025); display:flex; flex-direction:column; gap:6px; }
+  .gs-tier.best { background:rgba(60,184,122,0.07); border-color:rgba(60,184,122,0.25); box-shadow:0 0 20px rgba(60,184,122,0.08); }
+  .gs-tier.loss { background:rgba(229,82,82,0.04); border-color:rgba(229,82,82,0.14); }
+  .gs-tier-top { display:flex; align-items:center; justify-content:space-between; }
+  .gs-grade { font-size:15px; font-weight:700; color:rgba(255,255,255,0.45); }
+  .gs-tier.best .gs-grade { color:#3cb87a; }
+  .gs-tier.loss .gs-grade { color:rgba(229,82,82,0.7); }
+  .gs-best-pill { background:rgba(60,184,122,0.15); border:1px solid rgba(60,184,122,0.3); border-radius:4px; padding:2px 8px; font-size:9px; font-weight:700; color:#3cb87a; letter-spacing:0.1em; text-transform:uppercase; }
+  .gs-price { font-size:26px; font-weight:700; color:#fff; letter-spacing:-0.8px; }
+  .gs-tier.best .gs-price { color:#3cb87a; }
+  .gs-tier.loss .gs-price { color:rgba(229,82,82,0.8); }
+  .gs-roi { font-size:14px; font-weight:700; color:rgba(255,255,255,0.3); }
+  .gs-tier.best .gs-roi { color:#3cb87a; }
+  .spacer { flex:1; }
+  .bottombar { position:relative; z-index:10; height:72px; flex-shrink:0; border-top:1px solid rgba(255,255,255,0.07); display:flex; align-items:center; justify-content:space-between; padding:0 56px; }
+  .bot-left { font-size:12px; font-weight:400; color:rgba(255,255,255,0.18); letter-spacing:0.08em; text-transform:uppercase; }
+  .bot-right { font-size:12px; font-weight:500; color:rgba(255,255,255,0.18); display:flex; align-items:center; gap:8px; letter-spacing:0.06em; text-transform:uppercase; }
+  .bot-right span { color:#d7aa3c; }
+</style></head><body>
+<div class="grid"></div><div class="glow"></div>
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-icon">${logoSvg}</div>
+    <div class="logo-wordmark"><span class="card">Card</span><span class="index">Index</span></div>
+  </div>
+</div>
+<div class="top-section">
+  <div class="card-thumb">
+    ${d.imageUrl ? `<img src="${d.imageUrl}" crossorigin="anonymous" alt="${d.cardName}">` : '<span style="font-size:40px">🃏</span>'}
+  </div>
+  <div class="card-identity">
+    <div class="ci-set">${d.setName} <div class="grade-chip">${d.grade}</div></div>
+    <div class="ci-name">${nameHtml}</div>
+    <div class="price-big">${d.priceDisplay}</div>
+    <div class="price-meta">
+      <div class="price-change" style="color:${changeColor(d.change)}">${changeStr}</div>
+      ${avgStr ? `<div class="price-avgs">${avgStr}</div>` : ''}
+    </div>
+  </div>
+</div>
+<div class="score-row">
+  <div class="score-left">
+    <div class="score-label">Score</div>
+    <div class="score-circle">
+      <div class="score-num">${Math.round(d.score)}</div>
+      <div class="score-sub">${d.scoreLabel}</div>
+    </div>
+  </div>
+  <div class="score-bars">
+    ${barHtml('Trend', trend)}
+    ${barHtml('Liquidity', liquidity)}
+    ${barHtml('Consistency', consistency)}
+    ${barHtml('Value', value)}
+  </div>
+</div>
+<div class="badges-grid">
+  ${badgeHtml('Liquidity',      d.liquidityLabel ?? '—',                      d.liquidityLabel ? 'green' : '')}
+  ${badgeHtml('30D Sales',      d.salesCount30d ? String(d.salesCount30d) : '—', 'amber')}
+  ${badgeHtml('Price Position', pricePos,                                     'sm')}
+  ${badgeHtml('PSA 10 Prem.',   psa10Prem,                                    'amber')}
+  ${badgeHtml('PSA 9/10 Ratio', psa910Ratio,                                  '')}
+  ${badgeHtml('Mint Premium',   mintPrem,                                     '')}
+</div>
+<div class="signal-section">
+  <div class="ss-header">
+    <div class="ss-title">Moving Average Signal</div>
+    <div class="ss-badge ${isBullish ? 'bullish' : 'bearish'}">${isBullish ? '▲ Bullish' : '▼ Bearish'}</div>
+  </div>
+  <div class="ss-avgs">
+    <div class="ss-avg"><div class="ss-avg-label">Current</div><div class="ss-avg-val amber">${d.priceDisplay}</div></div>
+    <div class="ss-avg"><div class="ss-avg-label">1D Avg</div><div class="ss-avg-val">${d.avg1d ? fmt(d.avg1d) : '—'}</div></div>
+    <div class="ss-avg"><div class="ss-avg-label">7D Avg</div><div class="ss-avg-val">${d.avg7d ? fmt(d.avg7d) : '—'}</div></div>
+    <div class="ss-avg"><div class="ss-avg-label">30D Avg</div><div class="ss-avg-val">${d.avg30d ? fmt(d.avg30d) : '—'}</div></div>
+  </div>
+</div>
+<div class="projected-section">
+  <div class="proj-header">
+    <div class="proj-title">Projected Price</div>
+    <div class="proj-basis">Based on 30D trend · ${d.grade}</div>
+  </div>
+  <div class="proj-cols">
+    ${projHtml('30D Forecast', d.proj30d)}
+    ${projHtml('60D Forecast', d.proj60d)}
+    ${projHtml('90D Forecast', d.proj90d)}
+  </div>
+</div>
+<div class="grading-section">
+  <div class="gs-header">
+    <div class="gs-label">Grading ROI</div>
+    <div class="gs-econ">Economy · $22 · 45–60 days</div>
+  </div>
+  <div class="gs-tiers">
+    ${gradeTiers.map((t, i) => tierHtml(t, i === bestIdx)).join('')}
+  </div>
+</div>
+<div class="spacer"></div>
+<div class="bottombar">
+  <div class="bot-left">Pokémon TCG · card-index.app</div>
+  <div class="bot-right">CI <span>${Math.round(d.score)}</span> · ${d.scoreLabel}</div>
+</div>
+</body></html>`
 }
-
-// ── Modal ─────────────────────────────────────────────────────────────────────
 
 export default function ShareCardModal({
   data,
@@ -533,15 +336,51 @@ export default function ShareCardModal({
 }) {
   const [generating, setGenerating] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   const generate = useCallback(async () => {
-    if (!canvasRef.current) return
     setGenerating(true)
     setPreviewUrl(null)
     try {
-      await drawCard(canvasRef.current, data)
-      setPreviewUrl(canvasRef.current.toDataURL('image/png', 1.0))
+      const html2canvas = (await import('html2canvas')).default
+
+      // Create an off-screen container sized exactly to the template
+      const wrap = document.createElement('div')
+      wrap.style.cssText = [
+        'position:fixed',
+        'left:-9999px',
+        'top:0',
+        'width:1080px',
+        'height:1350px',
+        'overflow:hidden',
+        'pointer-events:none',
+        'z-index:-1',
+      ].join(';')
+      wrap.innerHTML = buildHtml(data)
+      document.body.appendChild(wrap)
+
+      // Wait for images to load
+      const imgs = Array.from(wrap.querySelectorAll('img'))
+      await Promise.allSettled(imgs.map(img =>
+        img.complete ? Promise.resolve() : new Promise(r => {
+          img.onload = r; img.onerror = r
+        })
+      ))
+
+      const canvas = await html2canvas(wrap, {
+        width:  1080,
+        height: 1350,
+        scale:  2,
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: '#0b0c0e',
+        logging: false,
+      })
+
+      document.body.removeChild(wrap)
+      setPreviewUrl(canvas.toDataURL('image/png', 1.0))
+    } catch (e) {
+      console.error('ShareCard generation failed:', e)
     } finally {
       setGenerating(false)
     }
@@ -568,7 +407,7 @@ export default function ShareCardModal({
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: 16, pointerEvents: 'none',
       }}>
-        <div style={{
+        <div ref={containerRef} style={{
           pointerEvents: 'auto',
           background: '#0e0e1c', border: '1px solid rgba(255,255,255,0.08)',
           borderRadius: 20, padding: 24, width: '100%', maxWidth: 500,
@@ -598,12 +437,17 @@ export default function ShareCardModal({
             background: '#060610', border: '1px solid rgba(255,255,255,0.06)',
             minHeight: 180, display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            {generating && <div style={{ color: '#55556a', fontSize: 13 }}>Generating…</div>}
+            {generating && (
+              <div style={{ color: '#55556a', fontSize: 13, padding: 24, textAlign: 'center' }}>
+                <div style={{ marginBottom: 8 }}>Generating…</div>
+                <div style={{ fontSize: 11, color: '#33334a' }}>Rendering template</div>
+              </div>
+            )}
             {!generating && previewUrl && (
               <img
                 src={previewUrl}
                 alt="Share preview"
-                style={{ width: '100%', height: 'auto', display: 'block', maxHeight: 440, objectFit: 'contain' }}
+                style={{ width: '100%', height: 'auto', display: 'block', maxHeight: 460, objectFit: 'contain' }}
               />
             )}
           </div>
@@ -619,10 +463,8 @@ export default function ShareCardModal({
               cursor: generating || !previewUrl ? 'default' : 'pointer',
             }}
           >
-            {generating ? 'Generating…' : 'Download PNG (2160×2700 @2×)'}
+            {generating ? 'Generating…' : 'Download PNG (2160×2700)'}
           </button>
-
-          <canvas ref={canvasRef} style={{ display: 'none' }} />
         </div>
       </div>
     </>

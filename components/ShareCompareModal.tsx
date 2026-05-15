@@ -107,7 +107,7 @@ function buildCompareHtml(left: ShareCardCompare, right: ShareCardCompare): stri
         </div>
         <div class="score-circle-big" style="border-color:${circleBorder}">
           <div class="scb-num" style="color:${numColor}">${Math.round(card.score)}</div>
-          <div class="scb-label" style="color:${dimmed ? 'rgba(255,255,255,0.2)' : 'rgba(215,170,60,0.55)'}">${card.scoreLabel}</div>
+          <div class="scb-label" style="color:${dimmed ? 'rgba(255,255,255,0.2)' : scoreCol};opacity:${dimmed ? 1 : 0.7}">${card.scoreLabel}</div>
         </div>
       </div>
     </div>
@@ -154,8 +154,8 @@ function buildCompareHtml(left: ShareCardCompare, right: ShareCardCompare): stri
   .card-col.left { padding-left:48px; }
   .card-col.right { padding-right:48px; }
   /* Winner wrap — fixed height so both columns stay vertically aligned */
-  .winner-wrap { height:38px; display:flex; align-items:center; flex-shrink:0; }
-  .winner-badge { background:rgba(60,184,122,0.09); border:1px solid rgba(60,184,122,0.22); border-radius:5px; padding:7px 14px; font-size:15px; font-weight:700; color:#3cb87a; letter-spacing:0.03em; text-transform:uppercase; display:flex; align-items:center; gap:6px; white-space:nowrap; }
+  .winner-wrap { height:38px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .winner-badge { background:rgba(60,184,122,0.09); border:1px solid rgba(60,184,122,0.22); border-radius:5px; padding:7px 14px; font-size:15px; font-weight:700; color:#3cb87a; letter-spacing:0; text-transform:uppercase; display:flex; align-items:center; gap:6px; white-space:nowrap; }
   .wb-dot { width:7px; height:7px; border-radius:50%; background:#3cb87a; flex-shrink:0; }
   /* Header */
   .col-header { flex-shrink:0; }

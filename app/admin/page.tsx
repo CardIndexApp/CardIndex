@@ -5,6 +5,8 @@ import Link from 'next/link'
 import Navbar from '@/components/Navbar'
 import { createClient } from '@/lib/supabase/client'
 import { tcgImg } from '@/lib/img'
+import ShareTopSearchedModal, { type TopSearchedCard } from '@/components/ShareTopSearchedModal'
+import ShareEndCardModal from '@/components/ShareEndCardModal'
 
 type Tier = 'free' | 'standard' | 'pro'
 
@@ -88,7 +90,14 @@ interface TcgCard {
   rarity?: string
 }
 
-type AdminTab = 'users' | 'market'
+type AdminTab = 'users' | 'market' | 'content'
+
+interface TopSearchedResponse {
+  cards:   TopSearchedCard[]
+  weekNum: number
+  year:    number
+  dateStr: string
+}
 
 const TIER_COLORS: Record<Tier, string> = {
   free: 'var(--ink3)',
@@ -144,6 +153,12 @@ export default function AdminPage() {
   const [seeding, setSeeding] = useState(false)
   const [migrationSql, setMigrationSql] = useState<string | null>(null)
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // ── Content tab ───────────────────────────────────────────────────────────
+  const [topSearched, setTopSearched] = useState<TopSearchedResponse | null>(null)
+  const [topSearchedLoading, setTopSearchedLoading] = useState(false)
+  const [showTopSearchedModal, setShowTopSearchedModal] = useState(false)
+  const [showEndCardModal, setShowEndCardModal] = useState(false)
 
   // ── Pull-to-refresh ───────────────────────────────────────────────────────
   const PTR_THRESHOLD = 80 // px of pull needed to trigger
@@ -262,6 +277,16 @@ export default function AdminPage() {
   useEffect(() => {
     if (activeTab === 'market') loadConstituents()
   }, [activeTab, loadConstituents])
+
+  useEffect(() => {
+    if (activeTab !== 'content' || topSearched) return
+    setTopSearchedLoading(true)
+    fetch('/api/admin/content/top-searched')
+      .then(r => r.json())
+      .then(json => setTopSearched(json))
+      .catch(() => {})
+      .finally(() => setTopSearchedLoading(false))
+  }, [activeTab, topSearched])
 
   function handleCardSearchInput(val: string) {
     setCardSearch(val)
@@ -520,7 +545,7 @@ export default function AdminPage() {
 
           {/* Tab switcher */}
           <div className="adm-tabs" style={{ display: 'flex', gap: 4, marginBottom: 24, borderRadius: 10, padding: 4, background: 'var(--surface)', border: '1px solid var(--border2)', width: 'fit-content' }}>
-            {([['users', 'Users'], ['market', 'Market Index']] as [AdminTab, string][]).map(([tab, label]) => (
+            {([['users', 'Users'], ['market', 'Market Index'], ['content', 'Content']] as [AdminTab, string][]).map(([tab, label]) => (
               <button key={tab} onClick={() => setActiveTab(tab)} style={{
                 padding: '7px 20px', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600,
                 background: activeTab === tab ? 'var(--surface2)' : 'transparent',
@@ -1096,8 +1121,160 @@ export default function AdminPage() {
             )
           })()}
 
+          {/* ── Content tab ────────────────────────────────────────────────── */}
+          {activeTab === 'content' && (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: 'var(--ink3)', textTransform: 'uppercase' }}>Share Images</span>
+                <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+              </div>
+
+              {/* Most Searched card */}
+              <div style={S.card}>
+                <div style={S.head}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Most Searched Cards</div>
+                    <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 3 }}>Top 5 most-searched cards this week with CI score &amp; verdict</div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (!topSearched) return
+                      setShowTopSearchedModal(true)
+                    }}
+                    disabled={topSearchedLoading || !topSearched || (topSearched.cards?.length ?? 0) === 0}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 7,
+                      padding: '9px 18px', borderRadius: 9, border: 'none',
+                      background: topSearchedLoading || !topSearched || (topSearched.cards?.length ?? 0) === 0
+                        ? 'rgba(232,197,71,0.2)' : 'var(--gold)',
+                      color: topSearchedLoading || !topSearched || (topSearched.cards?.length ?? 0) === 0
+                        ? 'rgba(232,197,71,0.5)' : '#08080f',
+                      fontSize: 13, fontWeight: 700, cursor: topSearchedLoading || !topSearched || (topSearched.cards?.length ?? 0) === 0 ? 'default' : 'pointer',
+                    }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M4 12v1a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-1"/>
+                      <path d="M8 2v9M5 8l3 3 3-3"/>
+                    </svg>
+                    {topSearchedLoading ? 'Loading…' : 'Generate Image'}
+                  </button>
+                </div>
+                <div style={S.body}>
+                  {topSearchedLoading ? (
+                    <div style={{ fontSize: 12, color: 'var(--ink3)', padding: '8px 0' }}>Loading top searched cards…</div>
+                  ) : !topSearched || topSearched.cards?.length === 0 ? (
+                    <div style={{ fontSize: 12, color: 'var(--ink3)', padding: '8px 0' }}>No search data available for this week yet.</div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {/* Week info */}
+                      <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
+                        <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 6, background: 'rgba(215,170,60,0.08)', border: '1px solid rgba(215,170,60,0.2)', color: 'var(--gold)' }}>
+                          Week {topSearched.weekNum} · {topSearched.year}
+                        </span>
+                        <span style={{ fontSize: 11, color: 'var(--ink3)', padding: '3px 0' }}>{topSearched.dateStr}</span>
+                      </div>
+                      {/* Card list preview */}
+                      {topSearched.cards.map((card) => (
+                        <div key={`${card.card_name}-${card.grade}`} style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          padding: '10px 14px', borderRadius: 10,
+                          background: 'var(--bg)', border: '1px solid var(--border)',
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            <span style={{
+                              fontSize: 12, fontWeight: 800,
+                              color: card.rank === 1 ? 'var(--gold)' : card.rank === 2 ? '#9ca3af' : card.rank === 3 ? '#cd7f32' : 'var(--ink3)',
+                              minWidth: 28,
+                            }}>#{card.rank}</span>
+                            {card.image_url && (
+                              <div style={{ width: 28, height: 28, borderRadius: 5, overflow: 'hidden', flexShrink: 0 }}>
+                                <img src={tcgImg(card.image_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                              </div>
+                            )}
+                            <div>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{card.card_name}</div>
+                              <div style={{ fontSize: 11, color: 'var(--ink3)' }}>
+                                {card.set_name ? `${card.set_name} · ` : ''}{card.grade}
+                              </div>
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <span style={{ fontSize: 11, color: 'var(--ink3)' }}>{card.search_count} {card.search_count === 1 ? 'search' : 'searches'}</span>
+                            {card.score != null && (
+                              <span style={{
+                                fontSize: 12, fontWeight: 700,
+                                color: card.score >= 70 ? 'var(--green)' : card.score >= 50 ? 'var(--gold)' : 'var(--red)',
+                                background: card.score >= 70 ? 'rgba(61,232,138,0.08)' : card.score >= 50 ? 'rgba(215,170,60,0.08)' : 'rgba(232,82,74,0.08)',
+                                border: `1px solid ${card.score >= 70 ? 'rgba(61,232,138,0.2)' : card.score >= 50 ? 'rgba(215,170,60,0.2)' : 'rgba(232,82,74,0.2)'}`,
+                                padding: '2px 9px', borderRadius: 99,
+                              }}>
+                                {Math.round(card.score)} {card.verdict ? `· ${card.verdict}` : ''}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                      {/* Reload */}
+                      <button
+                        onClick={() => { setTopSearched(null) }}
+                        style={{ alignSelf: 'flex-start', marginTop: 4, fontSize: 11, fontWeight: 600, color: 'var(--ink3)', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 7, padding: '5px 12px', cursor: 'pointer' }}
+                      >
+                        ↺ Reload
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+              {/* End Card */}
+              <div style={S.card}>
+                <div style={S.head}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>End Card</div>
+                    <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 3 }}>Static brand end card — "Stop guessing. Start investing."</div>
+                  </div>
+                  <button
+                    onClick={() => setShowEndCardModal(true)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 7,
+                      padding: '9px 18px', borderRadius: 9, border: 'none',
+                      background: 'var(--gold)', color: '#08080f',
+                      fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                    }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M4 12v1a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-1"/>
+                      <path d="M8 2v9M5 8l3 3 3-3"/>
+                    </svg>
+                    Generate Image
+                  </button>
+                </div>
+                <div style={S.body}>
+                  <div style={{ fontSize: 12, color: 'var(--ink3)' }}>
+                    Renders the CardIndex brand end card at 2160×2700 (2× retina). Use as a final slide in video content or story posts.
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
         </div>
       </main>
+
+      {/* ── Top Searched share modal ── */}
+      {showTopSearchedModal && topSearched && topSearched.cards.length > 0 && (
+        <ShareTopSearchedModal
+          cards={topSearched.cards}
+          weekNum={topSearched.weekNum}
+          year={topSearched.year}
+          dateStr={topSearched.dateStr}
+          onClose={() => setShowTopSearchedModal(false)}
+        />
+      )}
+
+      {/* ── End Card modal ── */}
+      {showEndCardModal && (
+        <ShareEndCardModal onClose={() => setShowEndCardModal(false)} />
+      )}
 
       {/* ── Migration SQL modal ── */}
       {migrationSql && (

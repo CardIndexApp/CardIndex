@@ -5,6 +5,7 @@ import Navbar from '@/components/Navbar'
 import { tcgImg } from '@/lib/img'
 import { createClient } from '@/lib/supabase/client'
 import { useCurrency } from '@/lib/currency'
+import ShareCompareModal, { ShareCardCompare } from '@/components/ShareCompareModal'
 import {
   LineChart,
   Line,
@@ -38,6 +39,7 @@ interface ScoreBreakdown {
 interface LiveData {
   price: number
   price_change_pct: number
+  avg1d?: number | null
   avg7d?: number | null
   avg30d?: number | null
   price_range_low?: number
@@ -553,12 +555,14 @@ export default function CompareClient() {
 
   // ── Auth + tier gate ─────────────────────────────────────────────────────────
   const [authChecked, setAuthChecked] = useState(false)
+  const [isAdmin,     setIsAdmin]     = useState(false)
   useEffect(() => {
     const client = createClient()
     client.auth.getSession().then(async ({ data: { session } }) => {
       if (!session) { router.replace('/'); return }
-      const { data: prof } = await client.from('profiles').select('tier').eq('id', session.user.id).single()
+      const { data: prof } = await client.from('profiles').select('tier, is_admin').eq('id', session.user.id).single()
       if (prof?.tier !== 'pro') { router.replace('/pricing'); return }
+      setIsAdmin(prof?.is_admin === true)
       setAuthChecked(true)
     })
   }, [router])
@@ -574,6 +578,7 @@ export default function CompareClient() {
   const MAX_CARDS = isMobile ? 2 : 5
 
   const [cards, setCards] = useState<CompareCard[]>([])
+  const [showShare, setShowShare] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
@@ -755,6 +760,32 @@ export default function CompareClient() {
 
   if (!authChecked) return null
 
+  // ── Share data helper ────────────────────────────────────────────────────────
+  function toShareCard(c: CompareCard): ShareCardCompare {
+    const d = c.data!
+    const sb = d.score_breakdown
+    const scale = (v: number, max: number) => Math.round(v / max * 100)
+    return {
+      name:          c.name,
+      setName:       c.setName,
+      grade:         c.grade,
+      imageUrl:      c.imageUrl ? tcgImg(c.imageUrl) : undefined,
+      priceDisplay:  fmtPrice(d.price, d.currency),
+      changePct:     d.price_change_pct ?? 0,
+      score:         d.score ?? 0,
+      scoreLabel:    sb?.label ?? '',
+      trend:         sb ? scale(sb.trend,       30) : 0,
+      liquidity:     sb ? scale(sb.liquidity,   25) : 0,
+      consistency:   sb ? scale(sb.consistency, 25) : 0,
+      value:         sb ? scale(sb.value,       20) : 0,
+      salesCount30d: d.sales_count_30d ?? 0,
+      avg1d:         d.avg1d  ?? undefined,
+      avg7d:         d.avg7d  ?? undefined,
+      avg30d:        d.avg30d ?? undefined,
+      fmtFn:         (n: number) => fmtPrice(n, d.currency),
+    }
+  }
+
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
@@ -763,6 +794,14 @@ export default function CompareClient() {
         @keyframes cmp-pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
         .cmp-sk { animation: cmp-pulse 1.6s ease-in-out infinite; }
       `}</style>
+
+      {showShare && cards.length === 2 && cards[0].data && cards[1].data && (
+        <ShareCompareModal
+          left={toShareCard(cards[0])}
+          right={toShareCard(cards[1])}
+          onClose={() => setShowShare(false)}
+        />
+      )}
 
       <Navbar />
 
@@ -801,7 +840,7 @@ export default function CompareClient() {
                         cursor: 'pointer', letterSpacing: 0.5, transition: 'all 0.15s',
                       }}
                     >
-                      {l === 'en' ? '🇺🇸' : '🇯🇵'}
+                      {l === 'en' ? 'EN' : 'JP'}
                     </button>
                   ))}
                 </div>
@@ -877,6 +916,15 @@ export default function CompareClient() {
               <button onClick={clearAll} style={{ padding: '5px 12px', borderRadius: 8, background: 'transparent', border: '1px solid var(--border2)', color: 'var(--ink3)', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
                 Clear all
               </button>
+              {isAdmin && cards.length === 2 && cards.every(c => c.data && !c.loading) && (
+                <button
+                  onClick={() => setShowShare(true)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 8, background: 'rgba(232,197,71,0.1)', border: '1px solid rgba(232,197,71,0.3)', color: 'var(--gold)', fontSize: 11, fontWeight: 700, cursor: 'pointer', letterSpacing: 0.3 }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="13" cy="3" r="2"/><circle cx="3" cy="8" r="2"/><circle cx="13" cy="13" r="2"/><path d="M5 7l6-3M5 9l6 3"/></svg>
+                  Share
+                </button>
+              )}
             </div>
           )}
 

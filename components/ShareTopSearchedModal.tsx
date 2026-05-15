@@ -104,52 +104,52 @@ function buildTopSearchedHtml(
   .logo-wordmark span.index { font-size:32px; font-weight:700; color:#d7aa3c; letter-spacing:-0.5px; }
 
   /* HERO */
-  .hero { position:relative; z-index:2; padding:36px 56px 0; flex-shrink:0; }
-  .eyebrow { font-size:12px; font-weight:600; color:#d7aa3c; letter-spacing:0.18em; text-transform:uppercase; margin-bottom:14px; display:flex; align-items:center; gap:12px; }
+  .hero { position:relative; z-index:2; padding:28px 56px 0; flex-shrink:0; }
+  .eyebrow { font-size:12px; font-weight:600; color:#d7aa3c; letter-spacing:0.18em; text-transform:uppercase; margin-bottom:12px; display:flex; align-items:center; gap:12px; }
   .eyebrow::before { content:""; display:block; width:26px; height:2px; background:#d7aa3c; }
-  .headline { font-size:84px; font-weight:700; line-height:0.88; letter-spacing:-4px; color:#fff; margin-bottom:18px; }
+  .headline { font-size:104px; font-weight:700; line-height:0.88; letter-spacing:-5px; color:#fff; margin-bottom:16px; }
   .headline em { color:#d7aa3c; font-style:normal; }
-  .subline { font-size:16px; font-weight:400; color:rgba(255,255,255,0.34); line-height:1.4; max-width:520px; margin-bottom:20px; }
-  .week-row { display:flex; align-items:center; gap:16px; margin-bottom:28px; }
+  .subline { font-size:18px; font-weight:400; color:rgba(255,255,255,0.34); line-height:1.4; max-width:520px; margin-bottom:16px; }
+  .week-row { display:flex; align-items:center; gap:16px; margin-bottom:18px; }
   .week-pill { background:rgba(215,170,60,0.08); border:1px solid rgba(215,170,60,0.22); border-radius:6px; padding:8px 18px; font-size:12px; font-weight:700; color:#d7aa3c; letter-spacing:0.12em; text-transform:uppercase; }
   .date-text { font-size:12px; font-weight:400; color:rgba(255,255,255,0.2); letter-spacing:0.06em; text-transform:uppercase; }
 
   /* CARDS LIST */
-  .cards-section { position:relative; z-index:2; flex:1; display:flex; flex-direction:column; margin:0 48px; }
+  .cards-section { position:relative; z-index:2; flex:1; display:flex; flex-direction:column; margin:0 48px; padding-bottom:22px; }
   .section-label { font-size:10px; font-weight:600; color:rgba(255,255,255,0.2); letter-spacing:0.14em; text-transform:uppercase; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.07); }
-  .card-row { display:flex; align-items:center; gap:20px; padding:18px 0; border-bottom:1px solid rgba(255,255,255,0.05); flex:1; }
+  .card-row { display:flex; align-items:center; gap:22px; padding:14px 0; border-bottom:1px solid rgba(255,255,255,0.05); flex:1; }
   .card-row:last-child { border-bottom:none; }
 
   /* Rank badge */
-  .rank-badge { width:46px; height:46px; border-radius:50%; border:1.5px solid; display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:800; flex-shrink:0; letter-spacing:-0.5px; }
+  .rank-badge { width:52px; height:52px; border-radius:50%; border:1.5px solid; display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:800; flex-shrink:0; letter-spacing:-0.5px; }
 
   /* Thumbnail */
-  .card-thumb { width:80px; height:112px; border-radius:8px; overflow:hidden; flex-shrink:0; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); display:flex; align-items:center; justify-content:center; }
+  .card-thumb { width:86px; height:120px; border-radius:8px; overflow:hidden; flex-shrink:0; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); display:flex; align-items:center; justify-content:center; }
   .card-thumb img { width:100%; height:100%; object-fit:cover; border-radius:inherit; display:block; }
   .no-img { font-size:28px; opacity:0.3; }
 
   /* Card info */
   .card-info { flex:1; min-width:0; }
-  .card-name { font-size:26px; font-weight:700; color:#fff; letter-spacing:-0.6px; line-height:1.1; margin-bottom:6px; }
-  .card-meta { font-size:13px; font-weight:500; color:rgba(255,255,255,0.32); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:5px; }
-  .search-count { font-size:12px; font-weight:500; color:rgba(215,170,60,0.5); }
+  .card-name { font-size:30px; font-weight:700; color:#fff; letter-spacing:-0.7px; line-height:1.1; margin-bottom:6px; }
+  .card-meta { font-size:14px; font-weight:500; color:rgba(255,255,255,0.32); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:5px; }
+  .search-count { font-size:13px; font-weight:500; color:rgba(215,170,60,0.5); }
 
   /* Price */
   .card-price { text-align:right; flex-shrink:0; }
-  .price-val { font-size:28px; font-weight:700; color:#fff; letter-spacing:-0.8px; line-height:1; }
-  .price-chg { font-size:14px; font-weight:600; margin-top:5px; }
+  .price-val { font-size:32px; font-weight:700; color:#fff; letter-spacing:-0.9px; line-height:1; }
+  .price-chg { font-size:15px; font-weight:600; margin-top:6px; }
 
   /* Score */
   .score-block { display:flex; flex-direction:column; align-items:center; gap:7px; flex-shrink:0; }
-  .score-circle { width:72px; height:72px; border-radius:50%; border:2.5px solid; display:flex; align-items:center; justify-content:center; }
-  .score-num { font-size:30px; font-weight:700; letter-spacing:-1px; line-height:1; }
-  .verdict { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; }
+  .score-circle { width:82px; height:82px; border-radius:50%; border:2.5px solid; display:flex; align-items:center; justify-content:center; }
+  .score-num { font-size:34px; font-weight:700; letter-spacing:-1px; line-height:1; }
+  .verdict { font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; }
 
   /* BOTTOMBAR */
   .bottombar { position:relative; z-index:10; flex-shrink:0; }
-  .bottombar-inner { height:64px; border-top:1px solid rgba(255,255,255,0.07); display:flex; align-items:center; justify-content:space-between; padding:0 56px; margin:0 0; }
-  .bot-left  { font-size:11px; font-weight:400; color:rgba(255,255,255,0.16); letter-spacing:0.08em; text-transform:uppercase; }
-  .bot-right { font-size:11px; font-weight:500; color:rgba(255,255,255,0.16); display:flex; align-items:center; gap:8px; letter-spacing:0.06em; text-transform:uppercase; }
+  .bottombar-inner { height:72px; border-top:1px solid rgba(255,255,255,0.07); display:flex; align-items:center; justify-content:space-between; padding:0 56px; }
+  .bot-left  { font-size:12px; font-weight:400; color:rgba(255,255,255,0.18); letter-spacing:0.08em; text-transform:uppercase; }
+  .bot-right { font-size:12px; font-weight:500; color:rgba(255,255,255,0.18); display:flex; align-items:center; gap:8px; letter-spacing:0.06em; text-transform:uppercase; }
   .bot-right span { color:#d7aa3c; }
 </style></head><body>
 <div class="grid"></div>

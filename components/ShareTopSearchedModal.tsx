@@ -74,7 +74,7 @@ function buildTopSearchedHtml(
     <div class="card-info">
       <div class="card-name">${nameHtml}</div>
       <div class="card-meta">${card.set_name ? `${card.set_name} · ` : ''}${card.grade}</div>
-      <div class="search-count">${card.search_count} ${card.search_count === 1 ? 'search' : 'searches'} this week</div>
+      <div class="search-count"><span class="search-num">${card.search_count}</span>${card.search_count === 1 ? 'search' : 'searches'} this week</div>
     </div>
     <div class="card-price">
       <div class="price-val">${fmtCardPrice(card.price, card.currency)}</div>
@@ -132,7 +132,8 @@ function buildTopSearchedHtml(
   .card-info { flex:1; min-width:0; }
   .card-name { font-size:30px; font-weight:700; color:#fff; letter-spacing:-0.7px; line-height:1.1; margin-bottom:6px; }
   .card-meta { font-size:14px; font-weight:500; color:rgba(255,255,255,0.32); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:5px; }
-  .search-count { font-size:13px; font-weight:500; color:rgba(215,170,60,0.5); }
+  .search-count { font-size:16px; font-weight:600; color:rgba(215,170,60,0.7); margin-top:2px; display:flex; align-items:baseline; gap:5px; }
+  .search-num { font-size:26px; font-weight:800; color:#d7aa3c; letter-spacing:-0.5px; line-height:1; }
 
   /* Price */
   .card-price { text-align:right; flex-shrink:0; }

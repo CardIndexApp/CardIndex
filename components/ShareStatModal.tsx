@@ -95,11 +95,11 @@ function buildStatHtml(cfg: StatCardConfig): string {
   .desc-dot { width:7px; height:7px; border-radius:50%; background:${accentColor}; flex-shrink:0; }
   .desc-text { font-size:16px; font-weight:500; color:rgba(255,255,255,0.45); letter-spacing:0.02em; }
   .url-pill {
-    position:absolute; bottom:52px;
     display:inline-flex; align-items:center; gap:10px;
     background:rgba(215,170,60,0.08);
     border:1.5px solid rgba(215,170,60,0.3);
-    border-radius:50px; padding:12px 28px; z-index:2;
+    border-radius:50px; padding:12px 28px;
+    margin-top:40px;
   }
   .url-dot { width:7px; height:7px; border-radius:50%; background:#d7aa3c; flex-shrink:0; }
   .url-text { font-size:18px; font-weight:600; color:rgba(255,255,255,0.85); letter-spacing:-0.2px; }
@@ -121,10 +121,10 @@ function buildStatHtml(cfg: StatCardConfig): string {
       <div class="desc-dot"></div>
       <div class="desc-text">${descriptor}</div>
     </div>
-  </div>
-  <div class="url-pill">
-    <div class="url-dot"></div>
-    <div class="url-text">card-index.app</div>
+    <div class="url-pill">
+      <div class="url-dot"></div>
+      <div class="url-text">card-index.app</div>
+    </div>
   </div>
 </div>`
 }

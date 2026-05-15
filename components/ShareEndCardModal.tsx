@@ -71,7 +71,6 @@ const END_CARD_HTML = `
   <div class="glow"></div>
   <div class="content">
     <div class="logo-row">
-      <div class="logo-icon"><img src="${LOGO_B64}" alt=""></div>
       <div class="logo-word"><span class="card">Card</span><span class="idx">Index</span></div>
     </div>
     <div class="headline">Stop guessing.<br>Start investing<br>in <em>trading<br>cards.</em></div>

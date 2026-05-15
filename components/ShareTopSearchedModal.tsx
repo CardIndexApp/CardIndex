@@ -178,7 +178,7 @@ function buildTopSearchedHtml(
 <div class="bottombar">
   <div class="bottombar-inner">
     <div class="bot-left">Pokémon TCG · Weekly</div>
-    <div class="bot-right">cardindex.app</div>
+    <div class="bot-right">card-index.app</div>
   </div>
 </div>
 </body></html>`

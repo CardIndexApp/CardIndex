@@ -119,7 +119,7 @@ function buildHtml(d: ShareCardData): string {
   .logo-wordmark { display:flex; align-items:center; }
   .logo-wordmark span.card { font-size:34px; font-weight:700; color:#ffffff; letter-spacing:-0.5px; }
   .logo-wordmark span.index { font-size:34px; font-weight:700; color:#d7aa3c; letter-spacing:-0.5px; }
-  .top-section { position:relative; z-index:2; padding:44px 56px 0; flex-shrink:0; display:flex; gap:44px; align-items:flex-start; }
+  .top-section { position:relative; z-index:2; padding:32px 56px 0; flex-shrink:0; display:flex; gap:44px; align-items:flex-start; }
   .card-thumb { width:280px; aspect-ratio:63/88; flex-shrink:0; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:14px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; position:relative; overflow:hidden; }
   .card-thumb img { width:100%; height:100%; object-fit:cover; border-radius:inherit; display:block; }
   .card-thumb::before { content:""; position:absolute; inset:0; background:radial-gradient(ellipse at 50% 30%,rgba(215,170,60,0.05) 0%,transparent 60%); }
@@ -131,7 +131,7 @@ function buildHtml(d: ShareCardData): string {
   .price-meta { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
   .price-change { font-size:26px; font-weight:600; }
   .price-avgs { font-size:19px; font-weight:400; color:rgba(255,255,255,0.28); }
-  .score-row { position:relative; z-index:2; margin:24px 56px 0; flex-shrink:0; display:flex; align-items:center; justify-content:space-between; padding:26px 28px; background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.07); border-radius:12px; }
+  .score-row { position:relative; z-index:2; margin:16px 56px 0; flex-shrink:0; display:flex; align-items:center; justify-content:space-between; padding:26px 28px; background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.07); border-radius:12px; }
   .score-left { flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:8px; }
   .score-label { font-size:16px; font-weight:600; color:rgba(255,255,255,0.24); letter-spacing:0.12em; text-transform:uppercase; }
   .score-circle { width:124px; height:124px; border-radius:50%; border:3px solid ${scoreCol}; display:flex; flex-direction:column; align-items:center; justify-content:center; }
@@ -144,14 +144,14 @@ function buildHtml(d: ShareCardData): string {
   .sb-bar-bg { flex:1; height:8px; background:rgba(255,255,255,0.07); border-radius:4px; overflow:hidden; }
   .sb-fill { height:100%; border-radius:4px; }
   .sb-val { font-size:22px; font-weight:700; width:44px; text-align:right; flex-shrink:0; }
-  .badges-grid { position:relative; z-index:2; display:grid; grid-template-columns:repeat(3,1fr); gap:12px; padding:20px 56px 0; flex-shrink:0; }
+  .badges-grid { position:relative; z-index:2; display:grid; grid-template-columns:repeat(3,1fr); gap:12px; padding:14px 56px 0; flex-shrink:0; }
   .badge { background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.07); border-radius:10px; padding:24px 24px; }
   .badge-label { font-size:15px; font-weight:600; color:rgba(255,255,255,0.24); letter-spacing:0.08em; text-transform:uppercase; margin-bottom:10px; }
   .badge-value { font-size:30px; font-weight:700; color:#fff; letter-spacing:-0.3px; }
   .badge-value.green { color:#3cb87a; }
   .badge-value.amber { color:#d7aa3c; }
   .badge-value.sm { font-size:23px; color:rgba(255,255,255,0.45); }
-  .signal-section { position:relative; z-index:2; margin:20px 56px 0; flex-shrink:0; background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.07); border-radius:12px; padding:24px 26px; }
+  .signal-section { position:relative; z-index:2; margin:14px 56px 0; flex-shrink:0; background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.07); border-radius:12px; padding:24px 26px; }
   .ss-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; }
   .ss-title { font-size:16px; font-weight:600; color:rgba(255,255,255,0.24); letter-spacing:0.1em; text-transform:uppercase; }
   .ss-badge { border-radius:5px; padding:8px 20px; font-size:16px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; }
@@ -162,7 +162,7 @@ function buildHtml(d: ShareCardData): string {
   .ss-avg-label { font-size:14px; font-weight:600; color:rgba(255,255,255,0.24); letter-spacing:0.08em; text-transform:uppercase; margin-bottom:9px; }
   .ss-avg-val { font-size:26px; font-weight:700; color:#fff; letter-spacing:-0.3px; }
   .ss-avg-val.amber { color:#d7aa3c; }
-  .projected-section { position:relative; z-index:2; margin:20px 56px 0; flex-shrink:0; background:rgba(215,170,60,0.04); border:1px solid rgba(215,170,60,0.16); border-radius:12px; padding:24px 26px; }
+  .projected-section { position:relative; z-index:2; margin:14px 56px 0; flex-shrink:0; background:rgba(215,170,60,0.04); border:1px solid rgba(215,170,60,0.16); border-radius:12px; padding:24px 26px; }
   .proj-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; }
   .proj-title { font-size:16px; font-weight:600; color:rgba(215,170,60,0.6); letter-spacing:0.12em; text-transform:uppercase; }
   .proj-basis { font-size:14px; font-weight:500; color:rgba(255,255,255,0.22); letter-spacing:0.04em; text-transform:uppercase; }

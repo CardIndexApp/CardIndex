@@ -24,7 +24,6 @@ function buildStatHtml(cfg: StatCardConfig): string {
     background:#0a0a0c;
     font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;
     overflow:hidden;
-    display:flex; align-items:center; justify-content:center;
     position:relative;
   }
   .grid {
@@ -35,8 +34,7 @@ function buildStatHtml(cfg: StatCardConfig): string {
     background-size:80px 80px;
   }
   .glow {
-    position:absolute; left:50%; top:50%;
-    transform:translate(-50%,-50%);
+    position:absolute; left:calc(50% - 500px); top:calc(50% - 500px);
     width:1000px; height:1000px;
     background:radial-gradient(ellipse,${glowRgba} 0%,transparent 55%);
     pointer-events:none;
@@ -55,7 +53,7 @@ function buildStatHtml(cfg: StatCardConfig): string {
   .logo-wordmark span.card { font-size:28px; font-weight:700; color:#fff; letter-spacing:-0.5px; }
   .logo-wordmark span.idx  { font-size:28px; font-weight:700; color:#d7aa3c; letter-spacing:-0.5px; }
   .content {
-    position:relative; z-index:2;
+    position:absolute; top:300px; left:0; right:0; z-index:2;
     display:flex; flex-direction:column;
     align-items:center; text-align:center;
     padding:0 80px;

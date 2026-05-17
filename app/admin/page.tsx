@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { tcgImg } from '@/lib/img'
 import ShareTopSearchedModal, { type TopSearchedCard } from '@/components/ShareTopSearchedModal'
 import ShareEndCardModal from '@/components/ShareEndCardModal'
+import ShareBrandModal from '@/components/ShareBrandModal'
 import ShareStatModal, { type StatCardConfig } from '@/components/ShareStatModal'
 
 type Tier = 'free' | 'standard' | 'pro'
@@ -160,6 +161,7 @@ export default function AdminPage() {
   const [topSearchedLoading, setTopSearchedLoading] = useState(false)
   const [showTopSearchedModal, setShowTopSearchedModal] = useState(false)
   const [showEndCardModal, setShowEndCardModal] = useState(false)
+  const [showBrandModal, setShowBrandModal] = useState(false)
   const [activeStatModal, setActiveStatModal] = useState<StatCardConfig | null>(null)
 
   // ── Pull-to-refresh ───────────────────────────────────────────────────────
@@ -1355,6 +1357,36 @@ export default function AdminPage() {
                   </div>
                 </div>
               </div>
+
+              {/* Brand Lockup */}
+              <div style={S.card}>
+                <div style={S.head}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Brand Lockup</div>
+                    <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 3 }}>Wordmark centred on the CardIndex background</div>
+                  </div>
+                  <button
+                    onClick={() => setShowBrandModal(true)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 7,
+                      padding: '9px 18px', borderRadius: 9, border: 'none',
+                      background: 'var(--gold)', color: '#08080f',
+                      fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                    }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M4 12v1a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-1"/>
+                      <path d="M8 2v9M5 8l3 3 3-3"/>
+                    </svg>
+                    Generate Image
+                  </button>
+                </div>
+                <div style={S.body}>
+                  <div style={{ fontSize: 12, color: 'var(--ink3)' }}>
+                    Plain branded background at 2160×2700 (2× retina). Use as a title card, overlay base, or blank branded slide.
+                  </div>
+                </div>
+              </div>
             </>
           )}
 
@@ -1380,6 +1412,11 @@ export default function AdminPage() {
       {/* ── End Card modal ── */}
       {showEndCardModal && (
         <ShareEndCardModal onClose={() => setShowEndCardModal(false)} />
+      )}
+
+      {/* ── Brand Lockup modal ── */}
+      {showBrandModal && (
+        <ShareBrandModal onClose={() => setShowBrandModal(false)} />
       )}
 
       {/* ── Migration SQL modal ── */}

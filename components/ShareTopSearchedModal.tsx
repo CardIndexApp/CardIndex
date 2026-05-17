@@ -93,13 +93,12 @@ function buildTopSearchedHtml(
   </div>`
   }
 
-  return `<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8">
+  return `
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { width:1080px; height:1350px; background:#0a0a0c; font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; overflow:hidden; display:flex; flex-direction:column; position:relative; }
+  .ts-wrap { width:1080px; height:1350px; background:#0a0a0c; font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; overflow:hidden; display:flex; flex-direction:column; position:relative; }
   .grid { position:absolute; inset:0; pointer-events:none; background-image:linear-gradient(rgba(255,255,255,0.022) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.022) 1px,transparent 1px); background-size:54px 54px; }
-  .glow { position:absolute; left:50%; top:22%; transform:translate(-50%,-50%); width:1000px; height:500px; background:radial-gradient(ellipse,rgba(215,170,60,0.07) 0%,transparent 62%); pointer-events:none; }
+  .glow { position:absolute; left:calc(50% - 500px); top:calc(22% - 250px); width:1000px; height:500px; background:radial-gradient(ellipse,rgba(215,170,60,0.07) 0%,transparent 62%); pointer-events:none; }
 
   /* TOPBAR */
   .topbar { position:relative; z-index:10; height:80px; flex-shrink:0; display:flex; align-items:center; justify-content:center; padding:0 56px; border-bottom:1px solid rgba(255,255,255,0.07); }
@@ -110,7 +109,7 @@ function buildTopSearchedHtml(
   /* HERO */
   .hero { position:relative; z-index:2; padding:28px 56px 0; flex-shrink:0; }
   .eyebrow { font-size:12px; font-weight:600; color:#d7aa3c; letter-spacing:0.18em; text-transform:uppercase; margin-bottom:12px; display:flex; align-items:center; gap:12px; }
-  .eyebrow::before { content:""; display:block; width:26px; height:2px; background:#d7aa3c; }
+  .eyebrow-line { display:block; width:26px; height:2px; background:#d7aa3c; flex-shrink:0; }
   .headline { font-size:104px; font-weight:700; line-height:0.88; letter-spacing:-5px; color:#fff; margin-bottom:16px; }
   .headline em { color:#d7aa3c; font-style:normal; }
   .subline { font-size:18px; font-weight:400; color:rgba(255,255,255,0.34); line-height:1.4; max-width:520px; margin-bottom:16px; }
@@ -156,7 +155,8 @@ function buildTopSearchedHtml(
   .bot-left  { font-size:12px; font-weight:400; color:rgba(255,255,255,0.18); letter-spacing:0.08em; text-transform:uppercase; }
   .bot-right { font-size:12px; font-weight:500; color:rgba(255,255,255,0.18); display:flex; align-items:center; gap:8px; letter-spacing:0.06em; text-transform:uppercase; }
   .bot-right span { color:#d7aa3c; }
-</style></head><body>
+</style>
+<div class="ts-wrap">
 <div class="grid"></div>
 <div class="glow"></div>
 
@@ -165,7 +165,7 @@ function buildTopSearchedHtml(
 </div>
 
 <div class="hero">
-  <div class="eyebrow">Weekly Report</div>
+  <div class="eyebrow"><span class="eyebrow-line"></span>Weekly Report</div>
   <div class="headline">Most<br><em>Searched</em></div>
   <div class="subline">The most-searched cards on CardIndex this week.</div>
   <div class="week-row">
@@ -185,7 +185,7 @@ function buildTopSearchedHtml(
     <div class="bot-right">card-index.app</div>
   </div>
 </div>
-</body></html>`
+</div>`
 }
 
 export default function ShareTopSearchedModal({

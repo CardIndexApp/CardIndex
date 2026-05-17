@@ -26,6 +26,10 @@ function scoreColor(s: number) {
   return s >= 70 ? '#3cb87a' : s >= 50 ? '#d7aa3c' : '#e05252'
 }
 
+function esc(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
 function buildCompareHtml(left: ShareCardCompare, right: ShareCardCompare): string {
   const leftWins  = left.score  > right.score
   const rightWins = right.score > left.score
@@ -82,8 +86,8 @@ function buildCompareHtml(left: ShareCardCompare, right: ShareCardCompare): stri
 
     const nameParts = card.name.split('&').map(p => p.trim())
     const nameHtml  = nameParts.length > 1
-      ? nameParts.map((p, i) => `${p}${i < nameParts.length - 1 ? ' &' : ''}`).join('<br>')
-      : card.name
+      ? nameParts.map((p, i) => `${esc(p)}${i < nameParts.length - 1 ? ' &amp;' : ''}`).join('<br>')
+      : esc(card.name)
 
     return `
   <div class="card-col ${side}">
@@ -91,7 +95,7 @@ function buildCompareHtml(left: ShareCardCompare, right: ShareCardCompare): stri
       ${winner ? '<div class="winner-badge"><div class="wb-dot"></div>Better Buy</div>' : ''}
     </div>
     <div class="col-header">
-      <div class="card-set-row">${card.setName} <span class="grade-chip">${card.grade}</span></div>
+      <div class="card-set-row">${esc(card.setName)} <span class="grade-chip">${esc(card.grade)}</span></div>
       <div class="col-card-name">${nameHtml}</div>
     </div>
     <div class="col-thumb">

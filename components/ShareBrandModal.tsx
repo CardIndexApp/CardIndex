@@ -30,24 +30,22 @@ const BRAND_HTML = `
   .corner.tr { top:44px; right:44px; border-top:1px solid rgba(255,255,255,0.08); border-right:1px solid rgba(255,255,255,0.08); }
   .corner.bl { bottom:44px; left:44px; border-bottom:1px solid rgba(255,255,255,0.08); border-left:1px solid rgba(255,255,255,0.08); }
   .corner.br { bottom:44px; right:44px; border-bottom:1px solid rgba(255,255,255,0.08); border-right:1px solid rgba(255,255,255,0.08); }
-  .wordmark {
-    position:absolute; top:0; left:0; right:0; bottom:0;
+  .topbar {
+    position:absolute; top:0; left:0; right:0; height:80px; z-index:10;
     display:flex; align-items:center; justify-content:center;
-    z-index:2;
+    border-bottom:1px solid rgba(255,255,255,0.07);
   }
-  .wordmark-inner { display:flex; align-items:baseline; }
-  .wordmark-inner span.card  { font-size:96px; font-weight:700; color:#ffffff; letter-spacing:-3px; }
-  .wordmark-inner span.idx   { font-size:96px; font-weight:700; color:#d7aa3c; letter-spacing:-3px; }
+  .logo-wordmark { display:flex; align-items:center; }
+  .logo-wordmark span.card { font-size:28px; font-weight:700; color:#fff; letter-spacing:-0.5px; }
+  .logo-wordmark span.idx  { font-size:28px; font-weight:700; color:#d7aa3c; letter-spacing:-0.5px; }
 </style>
 <div class="brand-wrap">
   <div class="grid"></div>
   <div class="glow"></div>
   <div class="corner tl"></div><div class="corner tr"></div>
   <div class="corner bl"></div><div class="corner br"></div>
-  <div class="wordmark">
-    <div class="wordmark-inner">
-      <span class="card">Card</span><span class="idx">Index</span>
-    </div>
+  <div class="topbar">
+    <div class="logo-wordmark"><span class="card">Card</span><span class="idx">Index</span></div>
   </div>
 </div>`
 

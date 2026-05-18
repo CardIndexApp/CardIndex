@@ -9,6 +9,7 @@ import ShareTopSearchedModal, { type TopSearchedCard } from '@/components/ShareT
 import ShareEndCardModal from '@/components/ShareEndCardModal'
 import ShareBrandModal from '@/components/ShareBrandModal'
 import ShareStatModal, { type StatCardConfig } from '@/components/ShareStatModal'
+import { useCurrency, CURRENCIES } from '@/lib/currency'
 
 type Tier = 'free' | 'standard' | 'pro'
 
@@ -127,6 +128,7 @@ const S = {
 export default function AdminPage() {
   const router = useRouter()
   const supabase = createClient()
+  const { fmtCurrency, rates, currency } = useCurrency()
 
   const [loading, setLoading] = useState(true)
   const [users, setUsers] = useState<UserRow[]>([])
@@ -462,6 +464,18 @@ export default function AdminPage() {
     return `${Math.round(n)}`
   }
 
+  // Convert a price to the user's preferred currency.
+  // nativeCurrency: the currency the price is stored in (e.g. 'AUD'). Assumed USD if null/undefined.
+  function fmtPrice(amount: number, nativeCurrency?: string | null): string {
+    if (nativeCurrency && nativeCurrency !== 'USD') {
+      const usdEquiv = amount / (rates[nativeCurrency] ?? 1)
+      return fmtCurrency(usdEquiv)
+    }
+    return fmtCurrency(amount)
+  }
+
+  const currencySymbol = CURRENCIES[currency]?.symbol ?? '$'
+
   const statCards: Array<{ title: string; desc: string; config: StatCardConfig }> = usageStats && portfolioStats ? [
     {
       title: 'Total Searches',
@@ -478,15 +492,16 @@ export default function AdminPage() {
     },
     {
       title: 'Market Value Tracked',
-      desc: 'Total USD value across all user portfolios',
+      desc: 'Total value across all user portfolios',
       config: {
-        statDisplay:  `$${fmtStat(portfolioStats.totalMarketValue)}`,
+        statDisplay:  `${currencySymbol}${fmtStat(portfolioStats.totalMarketValue * (rates[currency] ?? 1))}`,
         label:        'Market Value\nTracked',
-        sublabel:     `CardIndex monitors over $${fmtStat(portfolioStats.totalMarketValue)} in Pokémon TCG card value across active user portfolios.`,
+        sublabel:     `CardIndex monitors over ${currencySymbol}${fmtStat(portfolioStats.totalMarketValue * (rates[currency] ?? 1))} in Pokémon TCG card value across active user portfolios.`,
         descriptor:   'Across all tracked portfolios',
         accentColor:  '#3cb87a',
         glowRgba:     'rgba(60,184,122,0.20)',
         filename:     'cardindex-stat-market-value',
+        currency,
       },
     },
     {
@@ -1400,6 +1415,8 @@ export default function AdminPage() {
           weekNum={topSearched.weekNum}
           year={topSearched.year}
           dateStr={topSearched.dateStr}
+          fmtFn={fmtPrice}
+          currency={currency}
           onClose={() => setShowTopSearchedModal(false)}
         />
       )}

@@ -539,7 +539,7 @@ function MultiTooltip({
 export default function CompareClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { fmtCurrency, rates } = useCurrency()
+  const { fmtCurrency, rates, currency } = useCurrency()
 
   // ── Price formatter — converts native-currency prices to user's preferred ──
   const fmtPrice = useCallback((amount: number, nativeCurrency?: string | null): string => {
@@ -799,6 +799,7 @@ export default function CompareClient() {
         <ShareCompareModal
           left={toShareCard(cards[0])}
           right={toShareCard(cards[1])}
+          currency={currency}
           onClose={() => setShowShare(false)}
         />
       )}

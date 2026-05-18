@@ -1093,6 +1093,7 @@ export default function CardPageClient() {
                 proj60d:       _wklyDelta ? Math.max(0, _p + _wklyDelta * 8)  : undefined,
                 proj90d:       _wklyDelta ? Math.max(0, _p + _wklyDelta * 12) : undefined,
                 fmtFn:         fmtCurrency,
+                currency,
               }}
             />
           )
@@ -3416,6 +3417,7 @@ export default function CardPageClient() {
               proj60d:       _wklyDelta ? Math.max(0, _p + _wklyDelta * 8)  : undefined,
               proj90d:       _wklyDelta ? Math.max(0, _p + _wklyDelta * 12) : undefined,
               fmtFn:         fmtCurrency,
+              currency,
             }}
           />
         )

@@ -30,7 +30,7 @@ function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-function buildCompareHtml(left: ShareCardCompare, right: ShareCardCompare): string {
+function buildCompareHtml(left: ShareCardCompare, right: ShareCardCompare, currency: string): string {
   const leftWins  = left.score  > right.score
   const rightWins = right.score > left.score
 
@@ -148,6 +148,7 @@ function buildCompareHtml(left: ShareCardCompare, right: ShareCardCompare): stri
   .logo-wordmark { display:flex; align-items:center; }
   .logo-wordmark span.card { font-size:32px; font-weight:700; color:#ffffff; letter-spacing:-0.5px; }
   .logo-wordmark span.index { font-size:32px; font-weight:700; color:#d7aa3c; letter-spacing:-0.5px; }
+  .currency-code { position:absolute; right:56px; font-size:11px; font-weight:700; color:rgba(255,255,255,0.3); letter-spacing:0.1em; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:4px; padding:5px 8px; }
   /* Columns */
   .columns { display:flex; position:relative; z-index:2; flex-shrink:0; }
   .vs-col { width:60px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; }
@@ -220,6 +221,7 @@ function buildCompareHtml(left: ShareCardCompare, right: ShareCardCompare): stri
 <div class="grid"></div><div class="glow-center"></div>
 <div class="topbar">
   <div class="logo-wordmark"><span class="card">Card</span><span class="index">Index</span></div>
+  <div class="currency-code">${currency}</div>
 </div>
 <div class="columns">
   ${colHtml(left, right, 'left')}
@@ -243,11 +245,13 @@ function buildCompareHtml(left: ShareCardCompare, right: ShareCardCompare): stri
 export default function ShareCompareModal({
   left,
   right,
+  currency,
   onClose,
 }: {
-  left:    ShareCardCompare
-  right:   ShareCardCompare
-  onClose: () => void
+  left:     ShareCardCompare
+  right:    ShareCardCompare
+  currency: string
+  onClose:  () => void
 }) {
   const [generating, setGenerating] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
@@ -259,7 +263,7 @@ export default function ShareCompareModal({
       const html2canvas = (await import('html2canvas')).default
       const wrap = document.createElement('div')
       wrap.style.cssText = 'position:fixed;left:-9999px;top:0;width:1080px;height:1350px;overflow:hidden;pointer-events:none;z-index:-1;'
-      wrap.innerHTML = buildCompareHtml(left, right)
+      wrap.innerHTML = buildCompareHtml(left, right, currency)
       document.body.appendChild(wrap)
 
       const imgs = Array.from(wrap.querySelectorAll('img'))

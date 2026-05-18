@@ -10,6 +10,7 @@ export interface StatCardConfig {
   accentColor:  string   // '#d7aa3c' | '#3cb87a' | '#6b8cff'
   glowRgba:     string   // e.g. 'rgba(215,170,60,0.08)'
   filename:     string   // download filename without extension
+  currency?:    string   // e.g. 'AUD' — shown as chip in topbar when provided
 }
 
 function buildStatHtml(cfg: StatCardConfig): string {
@@ -52,6 +53,7 @@ function buildStatHtml(cfg: StatCardConfig): string {
   .logo-wordmark { display:flex; align-items:center; }
   .logo-wordmark span.card { font-size:28px; font-weight:700; color:#fff; letter-spacing:-0.5px; }
   .logo-wordmark span.idx  { font-size:28px; font-weight:700; color:#d7aa3c; letter-spacing:-0.5px; }
+  .currency-code { position:absolute; right:56px; font-size:11px; font-weight:700; color:rgba(255,255,255,0.3); letter-spacing:0.1em; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:4px; padding:5px 8px; }
   .content {
     position:absolute; top:300px; left:0; right:0; z-index:2;
     display:flex; flex-direction:column;
@@ -111,6 +113,7 @@ function buildStatHtml(cfg: StatCardConfig): string {
   <div class="corner bl"></div><div class="corner br"></div>
   <div class="topbar">
     <div class="logo-wordmark"><span class="card">Card</span><span class="idx">Index</span></div>
+    ${cfg.currency ? `<div class="currency-code">${cfg.currency}</div>` : ''}
   </div>
   <div class="content">
     <div class="eyebrow">By the numbers</div>

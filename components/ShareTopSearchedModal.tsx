@@ -16,11 +16,6 @@ export interface TopSearchedCard {
   search_count: number
 }
 
-function fmtCardPrice(price: number | null, currency: string): string {
-  if (price == null) return '—'
-  const sym = currency === 'AUD' ? 'A$' : currency === 'EUR' ? '€' : '$'
-  return `${sym}${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
 
 function scoreColor(s: number | null): string {
   if (s == null) return 'rgba(255,255,255,0.3)'
@@ -50,6 +45,8 @@ function buildTopSearchedHtml(
   weekNum: number,
   year: number,
   dateStr: string,
+  fmtFn: (amount: number, nativeCurrency?: string | null) => string,
+  currency: string,
 ): string {
   function cardRowHtml(card: TopSearchedCard): string {
     const col     = scoreColor(card.score)
@@ -81,7 +78,7 @@ function buildTopSearchedHtml(
       <div class="search-count"><span class="search-num">${card.search_count}</span>${card.search_count === 1 ? 'search' : 'searches'} this week</div>
     </div>
     <div class="card-price">
-      <div class="price-val">${fmtCardPrice(card.price, card.currency)}</div>
+      <div class="price-val">${card.price != null ? fmtFn(card.price, card.currency) : '—'}</div>
       ${chgStr ? `<div class="price-chg" style="color:${chgPos ? '#3cb87a' : '#e05252'}">${chgStr} 30d</div>` : ''}
     </div>
     <div class="score-block">
@@ -105,6 +102,7 @@ function buildTopSearchedHtml(
   .logo-wordmark { display:flex; align-items:center; }
   .logo-wordmark span.card  { font-size:32px; font-weight:700; color:#ffffff; letter-spacing:-0.5px; }
   .logo-wordmark span.index { font-size:32px; font-weight:700; color:#d7aa3c; letter-spacing:-0.5px; }
+  .currency-code { position:absolute; right:56px; font-size:11px; font-weight:700; color:rgba(255,255,255,0.3); letter-spacing:0.1em; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:4px; padding:5px 8px; }
 
   /* HERO */
   .hero { position:relative; z-index:2; padding:28px 56px 0; flex-shrink:0; }
@@ -162,6 +160,7 @@ function buildTopSearchedHtml(
 
 <div class="topbar">
   <div class="logo-wordmark"><span class="card">Card</span><span class="index">Index</span></div>
+  <div class="currency-code">${currency}</div>
 </div>
 
 <div class="hero">
@@ -193,12 +192,16 @@ export default function ShareTopSearchedModal({
   weekNum,
   year,
   dateStr,
+  fmtFn,
+  currency,
   onClose,
 }: {
   cards:    TopSearchedCard[]
   weekNum:  number
   year:     number
   dateStr:  string
+  fmtFn:    (amount: number, nativeCurrency?: string | null) => string
+  currency: string
   onClose:  () => void
 }) {
   const [generating, setGenerating] = useState(false)
@@ -211,7 +214,7 @@ export default function ShareTopSearchedModal({
       const html2canvas = (await import('html2canvas')).default
       const wrap = document.createElement('div')
       wrap.style.cssText = 'position:fixed;left:-9999px;top:0;width:1080px;height:1350px;overflow:hidden;pointer-events:none;z-index:-1;'
-      wrap.innerHTML = buildTopSearchedHtml(cards, weekNum, year, dateStr)
+      wrap.innerHTML = buildTopSearchedHtml(cards, weekNum, year, dateStr, fmtFn, currency)
       document.body.appendChild(wrap)
 
       const imgs = Array.from(wrap.querySelectorAll('img'))

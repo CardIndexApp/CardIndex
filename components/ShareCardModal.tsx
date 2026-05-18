@@ -35,6 +35,7 @@ export interface ShareCardData {
   proj60d?:      number
   proj90d?:      number
   fmtFn?:        (n: number) => string
+  currency?:     string
 }
 
 function scoreColor(s: number) {
@@ -119,6 +120,7 @@ function buildHtml(d: ShareCardData): string {
   .logo-wordmark { display:flex; align-items:center; }
   .logo-wordmark span.card { font-size:34px; font-weight:700; color:#ffffff; letter-spacing:-0.5px; }
   .logo-wordmark span.index { font-size:34px; font-weight:700; color:#d7aa3c; letter-spacing:-0.5px; }
+  .currency-code { position:absolute; right:56px; font-size:11px; font-weight:700; color:rgba(255,255,255,0.3); letter-spacing:0.1em; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:4px; padding:5px 8px; }
   .top-section { position:relative; z-index:2; padding:32px 56px 0; flex-shrink:0; display:flex; gap:44px; align-items:flex-start; }
   .card-thumb { width:280px; aspect-ratio:63/88; flex-shrink:0; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:14px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; position:relative; overflow:hidden; }
   .card-thumb img { width:100%; height:100%; object-fit:cover; border-radius:inherit; display:block; }
@@ -179,6 +181,7 @@ function buildHtml(d: ShareCardData): string {
 <div class="grid"></div><div class="glow"></div>
 <div class="topbar">
   <div class="logo-wordmark"><span class="card">Card</span><span class="index">Index</span></div>
+  ${d.currency ? `<div class="currency-code">${d.currency}</div>` : ''}
 </div>
 <div class="top-section">
   <div class="card-thumb">

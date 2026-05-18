@@ -667,7 +667,7 @@ export default function AdminPage() {
             <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid rgba(232,197,71,0.3)' }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)', marginBottom: 8 }}>Market Value</div>
               <div className="font-num" style={{ fontSize: 26, fontWeight: 800, color: 'var(--gold)', lineHeight: 1 }}>
-                {portfolioStats ? `$${portfolioStats.totalMarketValue.toLocaleString('en-US', { maximumFractionDigits: 0 })}` : '—'}
+                {portfolioStats ? fmtCurrency(portfolioStats.totalMarketValue) : '—'}
               </div>
               <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 5 }}>
                 {portfolioStats ? `${portfolioStats.pricedPositions}/${portfolioStats.totalPositions} priced` : '—'}
@@ -676,7 +676,7 @@ export default function AdminPage() {
             <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)', marginBottom: 8 }}>Cost Basis</div>
               <div className="font-num" style={{ fontSize: 26, fontWeight: 800, color: 'var(--ink)', lineHeight: 1 }}>
-                {portfolioStats ? `$${portfolioStats.totalCostBasis.toLocaleString('en-US', { maximumFractionDigits: 0 })}` : '—'}
+                {portfolioStats ? fmtCurrency(portfolioStats.totalCostBasis) : '—'}
               </div>
               {portfolioStats && portfolioStats.totalCostBasis > 0 && (
                 <div style={{ fontSize: 11, marginTop: 5, color: portfolioStats.totalMarketValue >= portfolioStats.totalCostBasis ? 'var(--green)' : 'var(--red)' }}>
@@ -709,7 +709,7 @@ export default function AdminPage() {
             <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)', marginBottom: 8 }}>Avg Value</div>
               <div className="font-num" style={{ fontSize: 26, fontWeight: 800, color: 'var(--ink)', lineHeight: 1 }}>
-                {portfolioStats ? `$${portfolioStats.avgPortfolioValue.toLocaleString('en-US', { maximumFractionDigits: 0 })}` : '—'}
+                {portfolioStats ? fmtCurrency(portfolioStats.avgPortfolioValue) : '—'}
               </div>
               <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 5 }}>Per active user</div>
             </div>
@@ -1153,7 +1153,7 @@ export default function AdminPage() {
                                 <td className="adm-hide-mob" style={{ padding: '10px 14px', color: 'var(--ink2)', whiteSpace: 'nowrap' }}>{c.grade}</td>
                                 <td style={{ padding: '10px 14px' }}>
                                   <span className="font-num" style={{ fontWeight: 700, color: c.price != null ? 'var(--ink)' : 'var(--ink3)' }}>
-                                    {c.price != null ? `$${c.price.toFixed(2)}` : '—'}
+                                    {c.price != null ? fmtPrice(c.price) : '—'}
                                   </span>
                                 </td>
                                 <td className="adm-hide-mob" style={{ padding: '10px 14px' }}>

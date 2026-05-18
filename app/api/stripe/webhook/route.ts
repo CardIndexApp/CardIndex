@@ -74,7 +74,9 @@ export async function POST(req: NextRequest) {
         const priceId = sub.items.data[0]?.price.id ?? ''
         const tier = PRICE_TO_TIER[priceId] ?? 'free'
         const customerId = sub.customer as string
-        await updateProfile(customerId, tier, sub.status)
+        // Use 'canceling' when the subscription is still active but scheduled to cancel
+        const status = sub.cancel_at_period_end ? 'canceling' : sub.status
+        await updateProfile(customerId, tier, status)
         break
       }
 

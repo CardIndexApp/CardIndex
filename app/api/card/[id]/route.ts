@@ -413,6 +413,15 @@ export async function GET(
    * The outlier price is estimated as avg1d (most recent day's average) when
    * available, otherwise back-calculated from total vs the reference period.
    * Falls back to the reference average when saleCount === 1.
+   *
+   * Genuine hype / demand spikes are preserved via two guards:
+   *
+   *   Guard A — avg7d confirmation: if avg7d has also risen significantly vs
+   *   avg30d (≥ 1.5×), the price shift has been sustained across multiple days
+   *   of sales, not just one anomalous transaction. Trust it.
+   *
+   *   Guard B — sale count: if ≥ 5 sales are all pulling the average this far
+   *   from the baseline, multiple independent buyers paid the price. Trust it.
    */
   function correctOutlierPrice(tp: typeof rawTierPrice): typeof rawTierPrice {
     const { avg, avg1d, avg7d, avg30d, saleCount } = tp
@@ -425,10 +434,22 @@ export async function GET(
     const ratio = avg / reference
     if (ratio >= 0.25 && ratio <= 4) return tp
 
+    // ── Genuine-move guards ──────────────────────────────────────────────────
+    // Guard A: avg7d has also risen relative to avg30d — the elevated price is
+    // not just a single-day anomaly, it reflects several days of real sales.
+    // Threshold: avg7d ≥ 1.5× avg30d means the 7-day window independently
+    // confirms the shift, making a bad-listing explanation much less likely.
+    if (avg30d && avg7d && avg7d >= avg30d * 1.5) return tp
+
+    // Guard B: enough distinct sales to be statistically credible at the new
+    // price level. A single mystery-grab listing can't survive 5+ transactions.
+    if (saleCount >= 5) return tp
+    // ────────────────────────────────────────────────────────────────────────
+
     // Only one sale — it IS the outlier, use reference as best estimate
     if (saleCount === 1) return cleanFields({ ...tp, avg: reference }, reference)
 
-    // Multiple sales: estimate the outlier and remove it
+    // Multiple sales (2–4): estimate the outlier and remove it
     const total = avg * saleCount
     const outlierPrice = (avg1d != null && avg1d > 0)
       ? avg1d                                       // most recent day avg
@@ -458,14 +479,51 @@ export async function GET(
     return result
   }
 
-  /** Remove history points that are wildly outside the median of all points */
+  /**
+   * Remove history points that are wildly outside the dataset AND isolated
+   * (i.e. not confirmed by neighbouring months).
+   *
+   * Two-stage filter:
+   *
+   *   Stage 1 — median band: a point must be outside median/3 … median*3 to
+   *   even be considered for removal. Points within that 9× band are always kept.
+   *
+   *   Stage 2 — neighbour confirmation: if a point is outside the band but its
+   *   adjacent month(s) are also elevated (within 3× of the point itself), the
+   *   move is sustained — a genuine step-change, not a stray data point. Keep it.
+   *   Only remove the point if it is isolated (both neighbours are "normal"
+   *   relative to the median).
+   *
+   * The most recent point is never removed — it may be a new price level that
+   * hasn't yet had time to accumulate neighbouring months.
+   */
   function removeHistoryOutliers(pts: PriceHistoryPoint[]): PriceHistoryPoint[] {
     if (pts.length < 3) return pts
     const sorted = [...pts].map(p => p.avg).sort((a, b) => a - b)
     const median = sorted[Math.floor(sorted.length / 2)]
     if (median <= 0) return pts
-    // Keep only points within a 9× band around the median (median/3 … median*3)
-    return pts.filter(p => p.avg >= median / 3 && p.avg <= median * 3)
+
+    return pts.filter((p, i) => {
+      // Always keep the most recent point — may be a genuine new price level
+      if (i === pts.length - 1) return true
+
+      // Stage 1: within the 9× median band → always keep
+      if (p.avg >= median / 3 && p.avg <= median * 3) return true
+
+      // Stage 2: outside the band — check neighbours before removing.
+      // If at least one adjacent month is also elevated (within 3× of this
+      // point), treat it as a sustained shift and preserve it.
+      const prev = i > 0             ? pts[i - 1].avg : null
+      const next = i < pts.length - 1 ? pts[i + 1].avg : null
+
+      const prevConfirms = prev != null && prev > 0 && p.avg / prev >= 0.33 && p.avg / prev <= 3
+      const nextConfirms = next != null && next > 0 && p.avg / next >= 0.33 && p.avg / next <= 3
+
+      if (prevConfirms || nextConfirms) return true
+
+      // Isolated spike with no neighbour confirmation — remove
+      return false
+    })
   }
 
   // ── 3b. Data quality gate: eBay sale count → warning + optional TCGPlayer fallback ──

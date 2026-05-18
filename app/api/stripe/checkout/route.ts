@@ -48,6 +48,34 @@ export async function POST(req: NextRequest) {
       .eq('id', user.id)
   }
 
+  // Check for existing active subscriptions before creating a new one.
+  // This prevents duplicate subscriptions when a user has a cancel_at_period_end sub.
+  const existingSubs = await stripe.subscriptions.list({
+    customer: customerId,
+    status: 'active',
+    limit: 10,
+  })
+
+  for (const sub of existingSubs.data) {
+    if (sub.cancel_at_period_end) {
+      const existingPriceId = sub.items.data[0]?.price.id
+      if (existingPriceId === priceId) {
+        // Same plan — reactivate by removing the cancellation flag
+        await stripe.subscriptions.update(sub.id, { cancel_at_period_end: false })
+        await admin
+          .from('profiles')
+          .update({ subscription_status: 'active' })
+          .eq('stripe_customer_id', customerId)
+        return NextResponse.json({ url: `${appUrl}/account?reactivated=1` })
+      }
+      // Different plan (upgrade/downgrade while canceling) — fall through to new checkout
+    } else {
+      // Fully active subscription with no cancellation scheduled — don't create a duplicate.
+      // Redirect to account to manage their existing subscription.
+      return NextResponse.json({ url: `${appUrl}/account` })
+    }
+  }
+
   const session = await stripe.checkout.sessions.create({
     customer: customerId,
     mode: 'subscription',

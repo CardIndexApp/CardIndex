@@ -1,6 +1,6 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useRef, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Navbar from '@/components/Navbar'
 import { createClient } from '@/lib/supabase/client'
@@ -38,7 +38,7 @@ const S = {
   btn: { padding: '10px 20px', borderRadius: 10, border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer' } as React.CSSProperties,
 }
 
-export default function AccountPage() {
+function AccountPageInner() {
   const router = useRouter()
   const supabase = createClient()
 
@@ -66,6 +66,48 @@ export default function AccountPage() {
 
   // Billing portal
   const [portalLoading, setPortalLoading] = useState(false)
+
+  // Reactivation
+  const [reactivating, setReactivating] = useState(false)
+  const [reactivateMsg, setReactivateMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+
+  // Post-checkout / reactivation success banner
+  const searchParams = useSearchParams()
+  const [successBanner, setSuccessBanner] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (searchParams.get('upgraded') === '1') {
+      setSuccessBanner("You're now on your new plan. Welcome!")
+      // Remove the query param from the URL without triggering a navigation
+      const url = new URL(window.location.href)
+      url.searchParams.delete('upgraded')
+      window.history.replaceState({}, '', url.toString())
+    } else if (searchParams.get('reactivated') === '1') {
+      setSuccessBanner("Your subscription has been reactivated — glad to have you back!")
+      const url = new URL(window.location.href)
+      url.searchParams.delete('reactivated')
+      window.history.replaceState({}, '', url.toString())
+    }
+  }, [searchParams])
+
+  async function handleReactivate() {
+    setReactivating(true)
+    setReactivateMsg(null)
+    try {
+      const res = await fetch('/api/stripe/reactivate', { method: 'POST' })
+      const json = await res.json()
+      if (json.success) {
+        setProfile(p => p ? { ...p, subscription_status: 'active' } : p)
+        setReactivateMsg({ type: 'ok', text: 'Subscription reactivated — your plan will continue as normal.' })
+      } else {
+        setReactivateMsg({ type: 'err', text: json.error ?? 'Something went wrong. Please try again.' })
+      }
+    } catch {
+      setReactivateMsg({ type: 'err', text: 'Network error — please try again.' })
+    } finally {
+      setReactivating(false)
+    }
+  }
 
   async function openBillingPortal() {
     setPortalLoading(true)
@@ -302,6 +344,14 @@ export default function AccountPage() {
       <main style={{ paddingTop: 88, paddingBottom: 88, minHeight: '100vh' }}>
         <div className="acct-outer">
 
+          {/* Post-checkout / reactivation success banner */}
+          {successBanner && (
+            <div style={{ margin: '20px 0 0', padding: '14px 20px', borderRadius: 12, background: 'rgba(61,232,138,0.08)', border: '1px solid rgba(61,232,138,0.25)', fontSize: 13, color: 'var(--green)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+              <span>🎉 {successBanner}</span>
+              <button onClick={() => setSuccessBanner(null)} style={{ background: 'none', border: 'none', color: 'var(--green)', cursor: 'pointer', fontSize: 16, opacity: 0.6, flexShrink: 0 }}>×</button>
+            </div>
+          )}
+
           {/* Header */}
           <div style={{ marginBottom: 28, marginTop: 24 }}>
             <Link href="/" style={{ fontSize: 12, color: 'var(--ink3)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, marginBottom: 16 }}>← Back</Link>
@@ -457,13 +507,38 @@ export default function AccountPage() {
                   </div>
 
                   {tier !== 'free' && profile?.subscription_status && (
-                    <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border)', display: 'flex', gap: 24 }}>
-                      <div>
-                        <span style={S.label}>STATUS</span>
-                        <span style={{ fontSize: 13, color: profile.subscription_status === 'active' ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>
-                          {profile.subscription_status.charAt(0).toUpperCase() + profile.subscription_status.slice(1)}
-                        </span>
-                      </div>
+                    <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
+                      {profile.subscription_status === 'canceling' ? (
+                        <div style={{ background: 'rgba(232,197,71,0.06)', border: '1px solid rgba(232,197,71,0.2)', borderRadius: 12, padding: '16px 18px' }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--gold)', marginBottom: 4 }}>
+                            Your plan is set to cancel
+                          </div>
+                          <div style={{ fontSize: 13, color: 'var(--ink3)', lineHeight: 1.6, marginBottom: 14 }}>
+                            You'll keep access until the end of your current billing period. Reactivate anytime to continue without interruption.
+                          </div>
+                          {reactivateMsg && (
+                            <div style={{ marginBottom: 12, borderRadius: 8, padding: '10px 14px', background: reactivateMsg.type === 'ok' ? 'rgba(61,232,138,0.08)' : 'rgba(232,82,74,0.08)', border: `1px solid ${reactivateMsg.type === 'ok' ? 'rgba(61,232,138,0.2)' : 'rgba(232,82,74,0.25)'}`, fontSize: 13, color: reactivateMsg.type === 'ok' ? 'var(--green)' : 'var(--red)' }}>
+                              {reactivateMsg.text}
+                            </div>
+                          )}
+                          <button
+                            onClick={handleReactivate}
+                            disabled={reactivating}
+                            style={{ ...S.btn, background: 'var(--gold)', color: '#080810', opacity: reactivating ? 0.6 : 1 }}
+                          >
+                            {reactivating ? 'Reactivating…' : 'Reactivate plan'}
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', gap: 24 }}>
+                          <div>
+                            <span style={S.label}>STATUS</span>
+                            <span style={{ fontSize: 13, color: profile.subscription_status === 'active' ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>
+                              {profile.subscription_status.charAt(0).toUpperCase() + profile.subscription_status.slice(1)}
+                            </span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -617,5 +692,14 @@ export default function AccountPage() {
         </div>{/* /acct-outer */}
       </main>
     </>
+  )
+}
+
+// useSearchParams requires Suspense in the App Router
+export default function AccountPage() {
+  return (
+    <Suspense fallback={<></>}>
+      <AccountPageInner />
+    </Suspense>
   )
 }

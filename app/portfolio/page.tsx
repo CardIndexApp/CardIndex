@@ -604,27 +604,52 @@ function buildPortfolioHistory(
   const fmtDate = (ts: number) =>
     new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 
-  // Anchor points filtered by the selected window
-  const allAnchors = [
-    { label: fmtDate(now - 30 * 86_400_000), daysAgo: 30 },
-    { label: fmtDate(now - 7  * 86_400_000), daysAgo: 7  },
-    { label: 'Today',                         daysAgo: 0  },
-  ]
-  const anchors = allAnchors.filter(a => a.daysAgo <= windowDays)
-  if (anchors.length < 2) return []
-
-  return anchors.map(({ label, daysAgo }) => {
-    let value = 0
+  // Returns portfolio value at a given daysAgo, using the best available avg
+  function valueAt(daysAgo: number): number {
+    let v = 0
     for (const pos of posWithData) {
       const pd = pos.priceData!
       let price: number
-      if (daysAgo === 0)       price = pd.price
-      else if (daysAgo <= 7)   price = pd.avg7d  ?? pd.price
-      else                     price = pd.avg30d  ?? pd.avg7d ?? pd.price
-      value += price * pos.quantity
+      if (daysAgo === 0)      price = pd.price
+      else if (daysAgo <= 7)  price = pd.avg7d  ?? pd.price
+      else                    price = pd.avg30d  ?? pd.avg7d ?? pd.price
+      v += price * pos.quantity
     }
-    return { month: label, value, cost: totalCost }
-  })
+    return v
+  }
+
+  // Anchor points (oldest first) filtered to the selected window
+  const allAnchors = [
+    { daysAgo: 30 },
+    { daysAgo: 7  },
+    { daysAgo: 0  },
+  ].filter(a => a.daysAgo <= windowDays)
+
+  if (allAnchors.length < 2) return []
+
+  // Interpolate daily points between each pair of anchors so every day is
+  // a hover target, not just the two endpoints.
+  const points: { month: string; value: number; cost: number }[] = []
+
+  for (let i = 0; i < allAnchors.length - 1; i++) {
+    const from = allAnchors[i]    // older (larger daysAgo)
+    const to   = allAnchors[i + 1]
+    const span = from.daysAgo - to.daysAgo  // number of days in this segment
+    const fromVal = valueAt(from.daysAgo)
+    const toVal   = valueAt(to.daysAgo)
+
+    for (let d = 0; d < span; d++) {
+      const t = d / span
+      const daysAgo = from.daysAgo - d
+      const label = fmtDate(now - daysAgo * 86_400_000)
+      points.push({ month: label, value: fromVal + (toVal - fromVal) * t, cost: totalCost })
+    }
+  }
+
+  // Final point — today
+  points.push({ month: 'Today', value: valueAt(0), cost: totalCost })
+
+  return points
 }
 
 interface PortfolioChartProps {

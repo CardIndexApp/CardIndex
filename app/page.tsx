@@ -1,15 +1,12 @@
 import NextImage from 'next/image'
 import Link from 'next/link'
-import dynamic from 'next/dynamic'
 import Navbar from '@/components/Navbar'
+import Ticker from '@/components/Ticker'
+import EbayLogo from '@/components/EbayLogo'
+import Footer from '@/components/Footer'
 import { HomeFeaturedCard, type FeaturedCard } from '@/components/HomeFeaturedCard'
 import { HomeFAQ } from '@/components/HomeFAQ'
 import { tcgImg, ptImg } from '@/lib/img'
-
-// Lazy-load below-fold components so their JS doesn't block the main thread
-const Ticker   = dynamic(() => import('@/components/Ticker'),   { ssr: false })
-const EbayLogo = dynamic(() => import('@/components/EbayLogo'), { ssr: false })
-const Footer   = dynamic(() => import('@/components/Footer'),   { ssr: false })
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

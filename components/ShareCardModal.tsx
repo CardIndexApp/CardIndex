@@ -43,7 +43,9 @@ function scoreColor(s: number) {
 }
 function changeColor(c: number) { return c >= 0 ? '#3cb87a' : '#e05252' }
 
-function buildHtml(d: ShareCardData): string {
+type Variant = 'moving-avg' | 'score-radar'
+
+function buildHtml(d: ShareCardData, variant: Variant = 'moving-avg'): string {
   const fmt = d.fmtFn ?? ((n: number) => `$${n.toFixed(2)}`)
 
   const trend       = Math.round(d.trend       ?? 0)
@@ -88,6 +90,52 @@ function buildHtml(d: ShareCardData): string {
         <div class="badge-label">${label}</div>
         <div class="badge-value ${colClass}">${value}</div>
       </div>`
+  }
+
+  function radarSectionHtml(): string {
+    const cx = 100, cy = 100, r = 78
+    const tY  = cy - r * trend / 100
+    const lX  = cx + r * liquidity / 100
+    const csY = cy + r * consistency / 100
+    const vX  = cx - r * value / 100
+    const dataPoints = `${cx},${tY} ${lX},${cy} ${cx},${csY} ${vX},${cy}`
+    function grid(pct: number) {
+      const gr = r * pct
+      return `${cx},${cy - gr} ${cx + gr},${cy} ${cx},${cy + gr} ${cx - gr},${cy}`
+    }
+    return `
+<div class="signal-section">
+  <div class="ss-header" style="margin-bottom:16px">
+    <div class="ss-title">Score Breakdown — Radar</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:36px">
+    <svg viewBox="0 0 200 200" width="210" height="210" style="flex-shrink:0">
+      <polygon points="${grid(0.25)}" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>
+      <polygon points="${grid(0.50)}" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>
+      <polygon points="${grid(0.75)}" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>
+      <polygon points="${grid(1.00)}" fill="none" stroke="rgba(255,255,255,0.1)"  stroke-width="1"/>
+      <line x1="${cx}" y1="${cy}" x2="${cx}"      y2="${cy - r}" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+      <line x1="${cx}" y1="${cy}" x2="${cx + r}"  y2="${cy}"     stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+      <line x1="${cx}" y1="${cy}" x2="${cx}"      y2="${cy + r}" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+      <line x1="${cx}" y1="${cy}" x2="${cx - r}"  y2="${cy}"     stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+      <polygon points="${dataPoints}" fill="rgba(215,170,60,0.15)" stroke="#d7aa3c" stroke-width="1.5"/>
+      <circle cx="${cx}"  cy="${tY}"  r="3.5" fill="#d7aa3c"/>
+      <circle cx="${lX}"  cy="${cy}"  r="3.5" fill="#d7aa3c"/>
+      <circle cx="${cx}"  cy="${csY}" r="3.5" fill="#d7aa3c"/>
+      <circle cx="${vX}"  cy="${cy}"  r="3.5" fill="#d7aa3c"/>
+      <text x="${cx}"      y="${cy - r - 9}"  text-anchor="middle" font-size="12" fill="rgba(255,255,255,0.4)" font-family="Helvetica Neue,Helvetica,Arial,sans-serif">Trend</text>
+      <text x="${cx + r + 7}" y="${cy + 4}"  text-anchor="start"  font-size="12" fill="rgba(255,255,255,0.4)" font-family="Helvetica Neue,Helvetica,Arial,sans-serif">Liquidity</text>
+      <text x="${cx}"      y="${cy + r + 16}" text-anchor="middle" font-size="12" fill="rgba(255,255,255,0.4)" font-family="Helvetica Neue,Helvetica,Arial,sans-serif">Consistency</text>
+      <text x="${cx - r - 7}" y="${cy + 4}"  text-anchor="end"    font-size="12" fill="rgba(255,255,255,0.4)" font-family="Helvetica Neue,Helvetica,Arial,sans-serif">Value</text>
+    </svg>
+    <div style="flex:1">
+      ${barHtml('TREND',       trend)}
+      ${barHtml('LIQUIDITY',   liquidity)}
+      ${barHtml('CONSISTENCY', consistency)}
+      ${barHtml('VALUE',       value)}
+    </div>
+  </div>
+</div>`
   }
 
   function projHtml(label: string, price: number | undefined) {
@@ -218,6 +266,7 @@ function buildHtml(d: ShareCardData): string {
   ${badgeHtml('30D Sales',      d.salesCount30d ? String(d.salesCount30d) : '—', 'amber')}
   ${badgeHtml('Price Position', pricePos,                                         'sm')}
 </div>
+${variant === 'score-radar' ? radarSectionHtml() : `
 <div class="signal-section">
   <div class="ss-header">
     <div class="ss-title">Moving Average Signal</div>
@@ -229,7 +278,7 @@ function buildHtml(d: ShareCardData): string {
     <div class="ss-avg"><div class="ss-avg-label">7D Avg</div><div class="ss-avg-val">${d.avg7d ? fmt(d.avg7d) : '—'}</div></div>
     <div class="ss-avg"><div class="ss-avg-label">30D Avg</div><div class="ss-avg-val">${d.avg30d ? fmt(d.avg30d) : '—'}</div></div>
   </div>
-</div>
+</div>`}
 <div class="projected-section">
   <div class="proj-header">
     <div class="proj-title">Projected Price</div>
@@ -252,6 +301,7 @@ export default function ShareCardModal({
   data:    ShareCardData
   onClose: () => void
 }) {
+  const [variant, setVariant] = useState<Variant>('moving-avg')
   const [generating, setGenerating] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -274,7 +324,7 @@ export default function ShareCardModal({
         'pointer-events:none',
         'z-index:-1',
       ].join(';')
-      wrap.innerHTML = buildHtml(data)
+      wrap.innerHTML = buildHtml(data, variant)
       document.body.appendChild(wrap)
 
       // Wait for images to load
@@ -302,7 +352,7 @@ export default function ShareCardModal({
     } finally {
       setGenerating(false)
     }
-  }, [data])
+  }, [data, variant])
 
   useEffect(() => { generate() }, [generate])
 
@@ -347,6 +397,28 @@ export default function ShareCardModal({
                 width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
               }}
             >×</button>
+          </div>
+
+          {/* Variant toggle */}
+          <div style={{ display: 'flex', gap: 6 }}>
+            {([
+              { key: 'moving-avg',  label: 'Moving Avg' },
+              { key: 'score-radar', label: 'Score Radar' },
+            ] as { key: Variant; label: string }[]).map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => setVariant(key)}
+                style={{
+                  flex: 1, padding: '8px 0', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                  cursor: 'pointer', transition: 'all 0.15s',
+                  background: variant === key ? 'rgba(232,197,71,0.15)' : 'rgba(255,255,255,0.04)',
+                  border:     variant === key ? '1px solid rgba(232,197,71,0.35)' : '1px solid rgba(255,255,255,0.08)',
+                  color:      variant === key ? '#e8c547' : '#55556a',
+                }}
+              >
+                {label}
+              </button>
+            ))}
           </div>
 
           {/* Preview */}

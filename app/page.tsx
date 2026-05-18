@@ -1,31 +1,17 @@
-'use client'
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import dynamic from 'next/dynamic'
 import NextImage from 'next/image'
+import Link from 'next/link'
+import dynamic from 'next/dynamic'
 import Navbar from '@/components/Navbar'
+import { HomeFeaturedCard, type FeaturedCard } from '@/components/HomeFeaturedCard'
+import { HomeFAQ } from '@/components/HomeFAQ'
 import { tcgImg, ptImg } from '@/lib/img'
 
 // Lazy-load below-fold components so their JS doesn't block the main thread
-// during initial parse. They're never needed for LCP or FCP.
-const Ticker      = dynamic(() => import('@/components/Ticker'),   { ssr: false })
-const EbayLogo    = dynamic(() => import('@/components/EbayLogo'), { ssr: false })
-const Footer      = dynamic(() => import('@/components/Footer'),   { ssr: false })
+const Ticker   = dynamic(() => import('@/components/Ticker'),   { ssr: false })
+const EbayLogo = dynamic(() => import('@/components/EbayLogo'), { ssr: false })
+const Footer   = dynamic(() => import('@/components/Footer'),   { ssr: false })
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-
-interface FeaturedCard {
-  id: string
-  name: string
-  set: string
-  grade: string
-  price: number
-  change: number
-  score: number
-  img: string
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 interface TrendingCard {
   id: string
@@ -38,173 +24,60 @@ interface TrendingCard {
   searchedAt: string
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime()
   const mins = Math.floor(diff / 60_000)
-  if (mins < 1) return 'just now'
+  if (mins < 1)  return 'just now'
   if (mins < 60) return `${mins}m ago`
   const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
+  if (hrs < 24)  return `${hrs}h ago`
   return `${Math.floor(hrs / 24)}d ago`
 }
 
-const TRENDING_CACHE_KEY  = 'ci_trending_v1'
-const FEATURED_CACHE_KEY  = 'ci_featured_v4' // v4 = force fresh after debug logging added
-const FEATURED_TTL_MS     = 3_600_000  // 1 hour (shorter so pinned cards update faster)
-const TRENDING_TTL_MS     = 43_200_000 // 12 hours
-
-// ── FeaturedCardItem ──────────────────────────────────────────────────────────
-
-function scoreColor(s: number) {
-  return s >= 80 ? '#3de88a' : s >= 60 ? '#e8c547' : '#e8524a'
+function getBaseUrl() {
+  if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL
+  if (process.env.VERCEL_URL)          return `https://${process.env.VERCEL_URL}`
+  return 'http://localhost:3000'
 }
 
-function FeaturedCardItem({ card, priority }: { card: FeaturedCard; priority?: boolean }) {
-  const [imgErr, setImgErr] = useState(false)
-  const up = card.change >= 0
-  const url = `/card/${card.id}?grade=${encodeURIComponent(card.grade)}&name=${encodeURIComponent(card.name)}&set=${encodeURIComponent(card.set)}`
+// ── Server-side data fetching ─────────────────────────────────────────────────
 
-  // Urgency tag logic
-  let urgencyTag: { text: string; color: string } | null = null
-  if (card.change >= 10) {
-    urgencyTag = { text: 'High demand', color: 'var(--green)' }
-  } else if (card.change >= 3) {
-    urgencyTag = { text: 'Momentum building', color: 'var(--gold)' }
-  } else if (card.change < 0 && card.score >= 65) {
-    urgencyTag = { text: 'Undervalued', color: '#4a9eff' }
+async function getFeaturedCards(): Promise<FeaturedCard[]> {
+  try {
+    const res = await fetch(`${getBaseUrl()}/api/home/featured`, {
+      next: { revalidate: 300 }, // ISR: refresh at most every 5 min
+    })
+    if (!res.ok) return []
+    const { cards } = await res.json()
+    return Array.isArray(cards) ? cards : []
+  } catch {
+    return []
   }
-
-  return (
-    <a href={url} className="card-hover" style={{ display: 'flex', flexDirection: 'column', borderRadius: 16, padding: 16, background: 'var(--surface)', border: '1px solid var(--border)', textDecoration: 'none' }}>
-      {/* Image */}
-      <div style={{ position: 'relative', width: '100%', height: 180, borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)', marginBottom: 14, overflow: 'hidden', flexShrink: 0 }}>
-        {card.img && !imgErr
-          ? <NextImage
-              src={ptImg(card.img)}
-              alt={card.name}
-              fill
-              sizes="(max-width: 640px) 45vw, 220px"
-              style={{ objectFit: 'contain', padding: 8 }}
-              onError={() => setImgErr(true)}
-              priority={priority}
-            />
-          : <span style={{ fontSize: 48, position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)' }}>🃏</span>}
-      </div>
-      {/* Name / price */}
-      <div style={{ flex: 1 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="font-display" style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.3px', minHeight: 36, lineHeight: 1.3 }}>{card.name}</div>
-            <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 2 }}>{card.set}{card.set && card.grade ? ' · ' : ''}{card.grade}</div>
-          </div>
-          <div style={{ textAlign: 'right', flexShrink: 0 }}>
-            <div className="font-num" style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>${card.price.toLocaleString()}</div>
-            <div className="font-num" style={{ fontSize: 11, color: up ? 'var(--green)' : 'var(--red)' }}>
-              {up ? '▲' : '▼'} {Math.abs(card.change).toFixed(1)}%
-            </div>
-          </div>
-        </div>
-      </div>
-      {/* Urgency tag */}
-      {urgencyTag && (
-        <div style={{ marginTop: 10 }}>
-          <span style={{ fontSize: 9, padding: '2px 8px', borderRadius: 99, background: `${urgencyTag.color}1a`, border: `1px solid ${urgencyTag.color}4d`, color: urgencyTag.color, fontWeight: 600 }}>
-            {urgencyTag.text}
-          </span>
-        </div>
-      )}
-      {/* Score bar */}
-      <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-          <span style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 0.5 }}>CardIndex Score</span>
-          <span className="font-num" style={{ fontSize: 13, fontWeight: 700, color: scoreColor(card.score) }}>{card.score}</span>
-        </div>
-        <div style={{ height: 4, borderRadius: 3, background: 'var(--track)', overflow: 'hidden' }}>
-          <div style={{ height: '100%', width: `${card.score}%`, background: scoreColor(card.score), borderRadius: 3 }} />
-        </div>
-      </div>
-    </a>
-  )
 }
 
-// ── FAQ ───────────────────────────────────────────────────────────────────────
+async function getTrendingCards(): Promise<TrendingCard[]> {
+  try {
+    const res = await fetch(`${getBaseUrl()}/api/home/trending`, {
+      next: { revalidate: 43200 }, // ISR: refresh at most every 12 h
+    })
+    if (!res.ok) return []
+    const { cards } = await res.json()
+    return Array.isArray(cards) ? cards : []
+  } catch {
+    return []
+  }
+}
 
-const faqItems = [
-  {
-    q: 'What trading cards are supported?',
-    a: 'We currently focus on Pokémon TCG, with support for sports cards and other trading card games coming soon. Thousands of cards are already indexed.',
-  },
-  {
-    q: 'Is CardIndex free to use?',
-    a: 'Yes — the core features including search, price history, and CardIndex Scores are completely free. No credit card required to get started.',
-  },
-  {
-    q: 'How accurate is the price data?',
-    a: 'Prices are sourced from real completed eBay sales, updated daily. We only use verified sold listings — not asking prices or estimates.',
-  },
-]
+// ── Page ─────────────────────────────────────────────────────────────────────
 
-export default function Home() {
-  const [openFaq, setOpenFaq] = useState<number | null>(null)
-  const router = useRouter()
-
-  const [featured, setFeatured]           = useState<FeaturedCard[]>([])
-  const [featuredLoading, setFeaturedLoading] = useState(true)
-
-  const [trending, setTrending]           = useState<TrendingCard[]>([])
-  const [trendingLoading, setTrendingLoading] = useState(true)
-
-  useEffect(() => {
-    // Featured cards — 12h localStorage cache
-    try {
-      const raw = localStorage.getItem(FEATURED_CACHE_KEY)
-      if (raw) {
-        const { data, ts } = JSON.parse(raw) as { data: FeaturedCard[]; ts: number }
-        if (Date.now() - ts < FEATURED_TTL_MS && Array.isArray(data) && data.length > 0) {
-          setFeatured(data)
-          setFeaturedLoading(false)
-          return
-        }
-      }
-    } catch { /* ignore */ }
-    fetch('/api/home/featured')
-      .then(r => r.json())
-      .then(({ cards }: { cards: FeaturedCard[] }) => {
-        if (Array.isArray(cards) && cards.length > 0) {
-          setFeatured(cards)
-          try { localStorage.setItem(FEATURED_CACHE_KEY, JSON.stringify({ data: cards, ts: Date.now() })) } catch { /* full */ }
-        }
-      })
-      .catch(() => {})
-      .finally(() => setFeaturedLoading(false))
-  }, [])
-
-  useEffect(() => {
-    // Try localStorage cache first (12h TTL) so repeat visitors get instant render
-    try {
-      const raw = localStorage.getItem(TRENDING_CACHE_KEY)
-      if (raw) {
-        const { data, ts } = JSON.parse(raw) as { data: TrendingCard[]; ts: number }
-        if (Date.now() - ts < TRENDING_TTL_MS && Array.isArray(data) && data.length > 0) {
-          setTrending(data)
-          setTrendingLoading(false)
-          return
-        }
-      }
-    } catch { /* ignore parse errors */ }
-
-    // Fetch fresh data
-    fetch('/api/home/trending')
-      .then(r => r.json())
-      .then(({ cards }: { cards: TrendingCard[] }) => {
-        if (Array.isArray(cards) && cards.length > 0) {
-          setTrending(cards)
-          try { localStorage.setItem(TRENDING_CACHE_KEY, JSON.stringify({ data: cards, ts: Date.now() })) } catch { /* storage full */ }
-        }
-      })
-      .catch(() => { /* silently fail — section stays hidden */ })
-      .finally(() => setTrendingLoading(false))
-  }, [])
+export default async function Home() {
+  // Both fetches run in parallel — data is ready before the HTML is sent
+  const [featured, trending] = await Promise.all([
+    getFeaturedCards(),
+    getTrendingCards(),
+  ])
 
   return (
     <>
@@ -225,27 +98,23 @@ export default function Home() {
               Instantly see if a card is a good buy, hold, or sell — powered by real market data.
             </p>
             <div className="anim d4" style={{ marginBottom: 16 }}>
-              <button
-                onClick={() => router.push('/search')}
-                style={{ padding: '14px 40px', borderRadius: 14, background: 'var(--gold)', border: 'none', color: '#080810', fontSize: 15, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 10 }}
+              <a
+                href="/search"
+                style={{ padding: '14px 40px', borderRadius: 14, background: 'var(--gold)', border: 'none', color: '#080810', fontSize: 15, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}
               >
                 Get your first verdict free
-              </button>
+              </a>
             </div>
             <div className="anim d5" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
               <a href="/market" style={{ padding: '11px 24px', borderRadius: 12, background: 'transparent', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 14, fontWeight: 500, textDecoration: 'none' }}>Explore live market</a>
             </div>
           </div>
-
         </section>
 
         {/* Verdict Example */}
         <section style={{ padding: '0 24px 64px', display: 'flex', justifyContent: 'center' }}>
           <div style={{ width: '100%', maxWidth: 520, borderRadius: 20, padding: 28, background: 'var(--surface)', border: '1px solid var(--border2)', boxShadow: '0 8px 40px rgba(0,0,0,0.3)' }}>
-            {/* Header label */}
             <div style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 2, marginBottom: 16, textTransform: 'uppercase' }}>Example verdict</div>
-
-            {/* Card identity row */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>
               <div>
                 <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', marginBottom: 3 }}>Charizard Base Set</div>
@@ -256,14 +125,10 @@ export default function Home() {
                 <div className="font-num" style={{ fontSize: 28, fontWeight: 800, color: 'var(--green)', lineHeight: 1 }}>87</div>
               </div>
             </div>
-
-            {/* Verdict badge */}
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 99, background: 'rgba(61,232,138,0.12)', border: '1px solid rgba(61,232,138,0.3)', marginBottom: 18 }}>
               <span style={{ fontSize: 14 }}>✅</span>
               <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--green)' }}>Good time to buy</span>
             </div>
-
-            {/* Bullet points */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {['Price up 12% over the last 30 days', 'PSA 9 supply tightening — fewer listings than usual', 'Strong collector demand, not yet overvalued'].map((pt, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontSize: 13, color: 'var(--ink2)', lineHeight: 1.55 }}>
@@ -272,8 +137,6 @@ export default function Home() {
                 </div>
               ))}
             </div>
-
-            {/* Footer */}
             <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 0.5 }}>Based on 47 eBay sales · Updated today</span>
               <a href="/search" style={{ fontSize: 12, fontWeight: 600, color: 'var(--gold)', textDecoration: 'none' }}>Get yours →</a>
@@ -297,38 +160,25 @@ export default function Home() {
 
         <Ticker />
 
-        {/* Featured */}
-        <section id="featured" style={{ padding: '80px 24px', maxWidth: 1100, margin: '0 auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 40 }}>
-            <div>
-              <p style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' }}>Trending Opportunities</p>
-              <h2 style={{ fontSize: 32, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-1px' }}>🔥 Trending Opportunities</h2>
+        {/* Featured — rendered server-side, no loading spinner */}
+        {featured.length > 0 && (
+          <section id="featured" style={{ padding: '80px 24px', maxWidth: 1100, margin: '0 auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 40 }}>
+              <div>
+                <p style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' }}>Trending Opportunities</p>
+                <h2 style={{ fontSize: 32, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-1px' }}>🔥 Trending Opportunities</h2>
+              </div>
+              <a href="/market" style={{ fontSize: 13, color: 'var(--ink3)', textDecoration: 'none' }}>View market →</a>
             </div>
-            <a href="/market" style={{ fontSize: 13, color: 'var(--ink3)', textDecoration: 'none' }}>View market →</a>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16 }}>
-            {featuredLoading
-              ? Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className={i === 4 ? 'featured-card-5th' : undefined} style={{ borderRadius: 16, padding: 16, background: 'var(--surface)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    <div style={{ width: '100%', height: 180, borderRadius: 10, background: 'var(--surface2)' }} />
-                    <div style={{ height: 14, width: '70%', borderRadius: 4, background: 'var(--surface2)' }} />
-                    <div style={{ height: 10, width: '50%', borderRadius: 4, background: 'var(--surface2)' }} />
-                    <div style={{ height: 4, borderRadius: 3, background: 'var(--surface2)', marginTop: 'auto' }} />
-                  </div>
-                ))
-              : featured.length > 0
-                ? featured.map((card, i) => (
-                    // display:contents makes this div invisible to layout so <a>
-                    // is the direct grid item and stretches to equal row height.
-                    // display:none on .featured-card-5th still hides it + children.
-                    <div key={card.id + card.grade} className={i === 4 ? 'featured-card-5th' : undefined} style={{ display: 'contents' }}>
-                      <FeaturedCardItem card={card} priority={i < 2} />
-                    </div>
-                  ))
-                : null
-            }
-          </div>
-        </section>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16 }}>
+              {featured.map((card, i) => (
+                <div key={card.id + card.grade} className={i === 4 ? 'featured-card-5th' : undefined} style={{ display: 'contents' }}>
+                  <HomeFeaturedCard card={card} priority={i < 2} />
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Live Sales Data from eBay */}
         <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 24px 64px' }}>
@@ -358,61 +208,45 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Recently Searched — hidden while loading or if no data */}
-        {(trendingLoading || trending.length > 0) && (
-        <section style={{ padding: '0 24px 80px', maxWidth: 1100, margin: '0 auto' }}>
-          <div className="home-section-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24, flexWrap: 'wrap', gap: 8 }}>
-            <div>
-              <p style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' }}>Recently Searched</p>
-              <h2 style={{ fontSize: 28, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.5px' }}>Popular right now</h2>
+        {/* Recently Searched — rendered server-side */}
+        {trending.length > 0 && (
+          <section style={{ padding: '0 24px 80px', maxWidth: 1100, margin: '0 auto' }}>
+            <div className="home-section-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24, flexWrap: 'wrap', gap: 8 }}>
+              <div>
+                <p style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' }}>Recently Searched</p>
+                <h2 style={{ fontSize: 28, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.5px' }}>Popular right now</h2>
+              </div>
+              <a href="/search" style={{ fontSize: 13, color: 'var(--ink3)', textDecoration: 'none' }}>Get your verdict →</a>
             </div>
-            <a href="/search" style={{ fontSize: 13, color: 'var(--ink3)', textDecoration: 'none' }}>Get your verdict →</a>
-          </div>
-          <div style={{ borderRadius: 16, overflow: 'hidden', background: 'var(--surface)', border: '1px solid var(--border)' }}>
-            {trendingLoading
-              /* Skeleton rows while fetching */
-              ? Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 20px', borderBottom: i < 4 ? '1px solid var(--border)' : 'none' }}>
-                    <div style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--surface2)', flexShrink: 0 }} />
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      <div style={{ height: 12, width: '45%', borderRadius: 4, background: 'var(--surface2)' }} />
-                      <div style={{ height: 10, width: '30%', borderRadius: 4, background: 'var(--surface2)' }} />
+            <div style={{ borderRadius: 16, overflow: 'hidden', background: 'var(--surface)', border: '1px solid var(--border)' }}>
+              {trending.map((item, i, arr) => {
+                const up = item.change >= 0
+                const cardUrl = `/card/${item.id}?grade=${encodeURIComponent(item.grade)}&name=${encodeURIComponent(item.name)}&set=${encodeURIComponent(item.set)}`
+                return (
+                  <a key={item.id + item.grade} href={cardUrl} className="home-recent-row"
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none', textDecoration: 'none', gap: 12 }}
+                  >
+                    <div className="home-recent-left" style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0, flex: 1 }}>
+                      <div style={{ position: 'relative', width: 40, height: 40, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0 }}>
+                        {item.img && <NextImage src={ptImg(item.img)} alt={item.name} fill sizes="40px" style={{ objectFit: 'contain', padding: 3 }} />}
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.name}</div>
+                        <div style={{ fontSize: 11, color: 'var(--ink3)', whiteSpace: 'nowrap' }}>{item.set}{item.set && item.grade ? ' · ' : ''}{item.grade}</div>
+                      </div>
                     </div>
-                    <div style={{ width: 48, height: 14, borderRadius: 4, background: 'var(--surface2)' }} />
-                  </div>
-                ))
-              /* Real rows */
-              : trending.map((item, i, arr) => {
-                  const up = item.change >= 0
-                  const cardUrl = `/card/${item.id}?grade=${encodeURIComponent(item.grade)}&name=${encodeURIComponent(item.name)}&set=${encodeURIComponent(item.set)}`
-                  return (
-                    <a key={item.id + item.grade} href={cardUrl} className="home-recent-row"
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none', textDecoration: 'none', background: 'transparent', transition: 'background 0.15s', gap: 12 }}
-                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--hover-subtle)')}
-                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                    >
-                      <div className="home-recent-left" style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0, flex: 1 }}>
-                        <div style={{ position: 'relative', width: 40, height: 40, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0 }}>
-                          {item.img && <NextImage src={ptImg(item.img)} alt={item.name} fill sizes="40px" style={{ objectFit: 'contain', padding: 3 }} />}
-                        </div>
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.name}</div>
-                          <div style={{ fontSize: 11, color: 'var(--ink3)', whiteSpace: 'nowrap' }}>{item.set}{item.set && item.grade ? ' · ' : ''}{item.grade}</div>
-                        </div>
-                      </div>
-                      <div className="home-recent-right" style={{ display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
-                        <span className="home-recent-ago" style={{ fontSize: 10, color: 'var(--ink3)', textAlign: 'right' }}>{timeAgo(item.searchedAt)}</span>
-                        <span className="font-num" style={{ fontSize: 12, color: up ? 'var(--green)' : 'var(--red)', textAlign: 'right', minWidth: 48 }}>
-                          {up ? '▲' : '▼'} {Math.abs(item.change).toFixed(1)}%
-                        </span>
-                        <span className="font-num home-recent-price" style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', textAlign: 'right', minWidth: 56 }}>${item.price.toLocaleString()}</span>
-                      </div>
-                    </a>
-                  )
-                })
-            }
-          </div>
-        </section>
+                    <div className="home-recent-right" style={{ display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
+                      <span className="home-recent-ago" style={{ fontSize: 10, color: 'var(--ink3)', textAlign: 'right' }}>{timeAgo(item.searchedAt)}</span>
+                      <span className="font-num" style={{ fontSize: 12, color: up ? 'var(--green)' : 'var(--red)', textAlign: 'right', minWidth: 48 }}>
+                        {up ? '▲' : '▼'} {Math.abs(item.change).toFixed(1)}%
+                      </span>
+                      <span className="font-num home-recent-price" style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', textAlign: 'right', minWidth: 56 }}>${item.price.toLocaleString()}</span>
+                    </div>
+                  </a>
+                )
+              })}
+            </div>
+          </section>
         )}
 
         {/* How it works */}
@@ -420,30 +254,13 @@ export default function Home() {
           <div style={{ textAlign: 'center', marginBottom: 64 }}>
             <p style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10, textTransform: 'uppercase' }}>How it works</p>
             <h2 style={{ fontSize: 36, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-1px', marginBottom: 14 }}>Three steps. Clear decisions.</h2>
-            <p style={{ fontSize: 14, color: 'var(--ink2)', maxWidth: 480, margin: '0 auto', lineHeight: 1.7 }}>
-              No finance experience needed. Real market data, plain English.
-            </p>
+            <p style={{ fontSize: 14, color: 'var(--ink2)', maxWidth: 480, margin: '0 auto', lineHeight: 1.7 }}>No finance experience needed. Real market data, plain English.</p>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 2, borderRadius: 20, overflow: 'hidden', background: 'var(--border)' }}>
             {[
-              {
-                n: '01',
-                title: 'Search any card',
-                body: 'Find any Pokémon card instantly.',
-                detail: 'Pokémon TCG · More games coming soon',
-              },
-              {
-                n: '02',
-                title: 'Get the full picture',
-                body: 'See price trends, demand, and market signals in seconds.',
-                detail: 'Up to 12 months of price data',
-              },
-              {
-                n: '03',
-                title: 'Know what to do',
-                body: 'Get a clear verdict: Buy, Hold, or Sell.',
-                detail: 'Buy · Hold · Sell verdicts',
-              },
+              { n: '01', title: 'Search any card',    body: 'Find any Pokémon card instantly.',                                           detail: 'Pokémon TCG · More games coming soon' },
+              { n: '02', title: 'Get the full picture', body: 'See price trends, demand, and market signals in seconds.',                detail: 'Up to 12 months of price data' },
+              { n: '03', title: 'Know what to do',    body: 'Get a clear verdict: Buy, Hold, or Sell.',                                 detail: 'Buy · Hold · Sell verdicts' },
             ].map((step, i) => (
               <div key={i} style={{ padding: '36px 32px', background: 'var(--surface)', position: 'relative' }}>
                 <div className="font-num" style={{ fontSize: 52, fontWeight: 800, color: 'var(--gold)', letterSpacing: '-2px', lineHeight: 1, marginBottom: 20, opacity: 0.85 }}>{step.n}</div>
@@ -464,7 +281,7 @@ export default function Home() {
               <p style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10, textTransform: 'uppercase' }}>Market Verdicts</p>
               <h2 style={{ fontSize: 36, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-1px', marginBottom: 16, lineHeight: 1.1 }}>Plain English.<br />No guesswork.</h2>
               <p style={{ fontSize: 14, color: 'var(--ink2)', lineHeight: 1.8, marginBottom: 28 }}>
-                We translate complex market data into clear decisions — so you always know what to do, whether you've been collecting for 20 years or 20 minutes.
+                We translate complex market data into clear decisions — so you always know what to do, whether you&apos;ve been collecting for 20 years or 20 minutes.
               </p>
               <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 14 }}>
                 {[
@@ -479,8 +296,6 @@ export default function Home() {
                 ))}
               </ul>
             </div>
-
-            {/* Mock verdict card */}
             <div style={{ borderRadius: 20, padding: 28, background: 'var(--bg)', border: '1px solid var(--border2)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 24, paddingBottom: 20, borderBottom: '1px solid var(--border)' }}>
                 <div style={{ position: 'relative', width: 52, height: 52, borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0 }}>
@@ -491,7 +306,6 @@ export default function Home() {
                   <div style={{ fontSize: 11, color: 'var(--ink3)' }}>PSA 9 · Base Set · #4/102</div>
                 </div>
               </div>
-
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
                 <div>
                   <div style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1, marginBottom: 6, textTransform: 'uppercase' }}>CardIndex Score</div>
@@ -504,20 +318,14 @@ export default function Home() {
                   </div>
                 </div>
               </div>
-
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {[
-                  'Price up 12% over the last 30 days',
-                  'PSA 9 supply tightening — fewer listings than usual',
-                  'Strong collector demand, not yet overvalued',
-                ].map((point, i) => (
+                {['Price up 12% over the last 30 days', 'PSA 9 supply tightening — fewer listings than usual', 'Strong collector demand, not yet overvalued'].map((point, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12, color: 'var(--ink2)', lineHeight: 1.5 }}>
                     <span style={{ color: 'var(--green)', flexShrink: 0, marginTop: 1 }}>→</span>
                     {point}
                   </div>
                 ))}
               </div>
-
               <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)', fontSize: 10, color: 'var(--ink3)', letterSpacing: 0.5 }}>
                 Based on 47 eBay sales · Updated today
               </div>
@@ -528,7 +336,6 @@ export default function Home() {
         {/* Score explainer */}
         <section style={{ padding: '96px 24px', maxWidth: 1100, margin: '0 auto' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 64, alignItems: 'center' }}>
-            {/* Score visual */}
             <div style={{ borderRadius: 20, padding: 36, background: 'var(--surface)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
@@ -540,13 +347,12 @@ export default function Home() {
                   <div style={{ width: 60, height: 60, borderRadius: '50%', background: 'var(--surface)' }} />
                 </div>
               </div>
-
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {[
-                  { label: 'Price Growth', val: 91, color: 'var(--green)' },
+                  { label: 'Price Growth',     val: 91, color: 'var(--green)' },
                   { label: 'Market Liquidity', val: 78, color: 'var(--green)' },
-                  { label: 'Demand Signal', val: 85, color: 'var(--green)' },
-                  { label: 'Volatility', val: 62, color: 'var(--gold)' },
+                  { label: 'Demand Signal',    val: 85, color: 'var(--green)' },
+                  { label: 'Volatility',       val: 62, color: 'var(--gold)'  },
                 ].map((f, i) => (
                   <div key={i}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
@@ -560,19 +366,18 @@ export default function Home() {
                 ))}
               </div>
             </div>
-
             <div>
               <p style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10, textTransform: 'uppercase' }}>CardIndex Score</p>
               <h2 style={{ fontSize: 36, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-1px', marginBottom: 16, lineHeight: 1.1 }}>One number.<br />The whole story.</h2>
               <p style={{ fontSize: 14, color: 'var(--ink2)', lineHeight: 1.8, marginBottom: 28 }}>
-                The CardIndex Score is a 0–100 rating that combines four market signals into one number. A high score means a card is growing in value, has strong demand, trades frequently, and isn't wildly volatile.
+                The CardIndex Score is a 0–100 rating that combines four market signals into one number. A high score means a card is growing in value, has strong demand, trades frequently, and isn&apos;t wildly volatile.
               </p>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 {[
                   { label: 'Price Growth', desc: 'How much the price has moved recently' },
-                  { label: 'Liquidity', desc: 'How easy it is to buy or sell quickly' },
-                  { label: 'Demand', desc: 'Collector interest vs available supply' },
-                  { label: 'Volatility', desc: 'How stable or erratic the price has been' },
+                  { label: 'Liquidity',    desc: 'How easy it is to buy or sell quickly' },
+                  { label: 'Demand',       desc: 'Collector interest vs available supply' },
+                  { label: 'Volatility',   desc: 'How stable or erratic the price has been' },
                 ].map((f, i) => (
                   <div key={i} style={{ borderRadius: 12, padding: '14px 16px', background: 'var(--surface)', border: '1px solid var(--border)' }}>
                     <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 4 }}>{f.label}</div>
@@ -594,7 +399,7 @@ export default function Home() {
             {[
               { title: 'CardIndex Score', body: 'A composite 0–100 score measuring growth, liquidity, volatility, and collector demand for any card.' },
               { title: 'Market Verdicts', body: 'Plain-language analysis backed by real transaction data and trend signals. Know when to buy and sell.' },
-              { title: 'Price History', body: 'Up to 12 months of historical price data with daily snapshots, sales volume, and trend indicators.' },
+              { title: 'Price History',   body: 'Up to 12 months of historical price data with daily snapshots, sales volume, and trend indicators.' },
             ].map((f, i) => (
               <div key={i} style={{ borderRadius: 16, padding: 24, background: 'var(--surface)', border: '1px solid var(--border)' }}>
                 <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', marginBottom: 8 }}>{f.title}</div>
@@ -610,24 +415,7 @@ export default function Home() {
             <p style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10, textTransform: 'uppercase' }}>FAQ</p>
             <h2 style={{ fontSize: 32, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-1px' }}>Common questions</h2>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, borderRadius: 16, overflow: 'hidden', background: 'var(--border)' }}>
-            {faqItems.map((item, i) => (
-              <div key={i} style={{ background: 'var(--surface)' }}>
-                <button
-                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                  style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', gap: 16 }}
-                >
-                  <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{item.q}</span>
-                  <span style={{ fontSize: 16, color: 'var(--ink3)', flexShrink: 0, transition: 'transform 0.2s', transform: openFaq === i ? 'rotate(45deg)' : 'none' }}>+</span>
-                </button>
-                {openFaq === i && (
-                  <div style={{ padding: '0 24px 20px' }}>
-                    <p style={{ fontSize: 13, color: 'var(--ink2)', lineHeight: 1.75 }}>{item.a}</p>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+          <HomeFAQ />
         </section>
 
         {/* CTA */}
@@ -636,7 +424,7 @@ export default function Home() {
             <p style={{ fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 16, textTransform: 'uppercase' }}>Free to start</p>
             <h2 style={{ fontSize: 30, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-1px', marginBottom: 12 }}>Know exactly what to do with your cards.</h2>
             <p style={{ fontSize: 13, color: 'var(--ink2)', marginBottom: 28 }}>Get your first verdict free. No credit card required.</p>
-            <button onClick={() => router.push('/search')} style={{ padding: '12px 32px', borderRadius: 12, background: 'var(--gold)', color: '#080810', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}>Get your verdict →</button>
+            <a href="/search" style={{ padding: '12px 32px', borderRadius: 12, background: 'var(--gold)', color: '#080810', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 600, textDecoration: 'none', display: 'inline-block' }}>Get your verdict →</a>
           </div>
         </section>
 
@@ -645,52 +433,21 @@ export default function Home() {
 
       <style>{`
         /* Hide 5th featured card on mobile so the grid stays a clean 2×2 */
+        @media (max-width: 640px) { .featured-card-5th { display: none !important; } }
+
         @media (max-width: 640px) {
-          .featured-card-5th { display: none !important; }
+          section:first-of-type { padding-left: 16px !important; padding-right: 16px !important; }
+          .home-sales-grid { grid-template-columns: 1fr !important; }
+          .home-recent-row { padding: 12px 16px !important; gap: 10px !important; }
+          .home-recent-left { min-width: 0; flex: 1 1 0; }
+          .home-recent-right { gap: 10px !important; }
+          .home-recent-ago { display: none !important; }
+          section { padding-left: 16px !important; padding-right: 16px !important; }
+          section:last-of-type > div { padding: 32px 20px !important; }
         }
 
-        /* ── Mobile: Samsung S24+ and similar narrow viewports ── */
-        @media (max-width: 640px) {
-
-          /* Hero section: tighter padding */
-          section:first-of-type {
-            padding-left: 16px !important;
-            padding-right: 16px !important;
-          }
-
-          /* Hero sales mock: single column */
-          .home-sales-grid {
-            grid-template-columns: 1fr !important;
-          }
-
-          /* "Popular right now" rows */
-          .home-recent-row {
-            padding: 12px 16px !important;
-            gap: 10px !important;
-          }
-          .home-recent-left {
-            min-width: 0;
-            flex: 1 1 0;
-          }
-          .home-recent-right {
-            gap: 10px !important;
-          }
-          /* Hide "ago" timestamp on narrow screens */
-          .home-recent-ago {
-            display: none !important;
-          }
-
-          /* Section horizontal padding */
-          section {
-            padding-left: 16px !important;
-            padding-right: 16px !important;
-          }
-
-          /* CTA block: reduce inner padding */
-          section:last-of-type > div {
-            padding: 32px 20px !important;
-          }
-        }
+        /* CSS hover for trending rows — no JS needed */
+        .home-recent-row:hover { background: var(--hover-subtle) !important; }
       `}</style>
     </>
   )

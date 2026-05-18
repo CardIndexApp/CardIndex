@@ -144,6 +144,6 @@ export async function GET(_req: NextRequest) {
   const cards = await enrichFromCache(base)
 
   return NextResponse.json({ cards }, {
-    headers: { 'Cache-Control': 'no-cache' },
+    headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
   })
 }

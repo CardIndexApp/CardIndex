@@ -1063,8 +1063,23 @@ export default function CardPageClient() {
           const _wklyDelta = _a7 && _a30 ? _a7 - _a30 : 0
           const _p = liveData.price ?? 0
           const _tiers = liveData.all_tier_prices as Record<string, { avg: number }> | null | undefined
-          const _hist: { month: string; price: number }[] | undefined =
-            liveData.price_history?.length ? liveData.price_history : getCard(id)?.history ?? undefined
+          const _hist: { month: string; price: number }[] | undefined = (() => {
+            const real = liveData.price_history?.length
+              ? liveData.price_history
+              : getCard(id)?.history
+            if (real && real.length >= 2) return real
+            // Fallback: synthesise from moving averages so newer cards still get a chart
+            const a30 = liveData.avg30d && liveData.avg30d > 0 ? liveData.avg30d : null
+            const a7  = liveData.avg7d  && liveData.avg7d  > 0 ? liveData.avg7d  : null
+            const cur = liveData.price ?? 0
+            if (a30 && cur) {
+              const pts: { month: string; price: number }[] = [{ month: '30D Avg', price: a30 }]
+              if (a7) pts.push({ month: '7D Avg', price: a7 })
+              pts.push({ month: 'Current', price: cur })
+              return pts
+            }
+            return real?.length ? real : undefined
+          })()
           return (
             <ShareCardModal
               onClose={() => setShowShare(false)}
@@ -3390,8 +3405,22 @@ export default function CardPageClient() {
         const _wklyDelta = _a7 && _a30 ? _a7 - _a30 : 0
         const _p = liveData.price ?? 0
         const _tiers = liveData.all_tier_prices as Record<string, { avg: number }> | null | undefined
-        const _hist: { month: string; price: number }[] | undefined =
-          liveData.price_history?.length ? liveData.price_history : getCard(id)?.history ?? undefined
+        const _hist: { month: string; price: number }[] | undefined = (() => {
+          const real = liveData.price_history?.length
+            ? liveData.price_history
+            : getCard(id)?.history
+          if (real && real.length >= 2) return real
+          const a30 = liveData.avg30d && liveData.avg30d > 0 ? liveData.avg30d : null
+          const a7  = liveData.avg7d  && liveData.avg7d  > 0 ? liveData.avg7d  : null
+          const cur = liveData.price ?? 0
+          if (a30 && cur) {
+            const pts: { month: string; price: number }[] = [{ month: '30D Avg', price: a30 }]
+            if (a7) pts.push({ month: '7D Avg', price: a7 })
+            pts.push({ month: 'Current', price: cur })
+            return pts
+          }
+          return real?.length ? real : undefined
+        })()
         return (
           <ShareCardModal
             onClose={() => setShowShare(false)}

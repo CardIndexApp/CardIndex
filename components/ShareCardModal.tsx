@@ -129,7 +129,7 @@ function buildHtml(d: ShareCardData, variant: Variant = 'moving-avg'): string {
 
   function sparklineSectionHtml(): string {
     const hist = d.priceHistory
-    if (!hist || hist.length < 3) return ''
+    if (!hist || hist.length < 2) return ''
 
     const fmt = d.fmtFn ?? ((n: number) => `$${n.toFixed(2)}`)
     const prices = hist.map(h => h.price)

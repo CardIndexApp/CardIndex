@@ -244,6 +244,7 @@ function buildHtml(d: ShareCardData, variant: Variant = 'moving-avg'): string {
   .price-change { font-size:26px; font-weight:600; }
   .price-avgs { font-size:19px; font-weight:400; color:rgba(255,255,255,0.28); }
   .score-row { position:relative; z-index:2; margin:16px 56px 0; flex-shrink:0; display:flex; align-items:center; justify-content:space-between; padding:26px 28px; background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.07); border-radius:12px; }
+  .score-row-radar { display:grid !important; grid-template-columns:repeat(3,1fr); align-items:center; }
   .score-left { flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:8px; }
   .score-label { font-size:16px; font-weight:600; color:rgba(255,255,255,0.24); letter-spacing:0.12em; text-transform:uppercase; }
   .score-circle { width:124px; height:124px; border-radius:50%; border:3px solid ${scoreCol}; display:flex; flex-direction:column; align-items:center; justify-content:center; }
@@ -316,7 +317,7 @@ function buildHtml(d: ShareCardData, variant: Variant = 'moving-avg'): string {
     </div>
   </div>
 </div>
-<div class="score-row">
+<div class="score-row${variant === 'score-radar' ? ' score-row-radar' : ''}">
   <div class="score-left">
     <div class="score-label">Score</div>
     <div class="score-circle">
@@ -325,12 +326,12 @@ function buildHtml(d: ShareCardData, variant: Variant = 'moving-avg'): string {
     </div>
   </div>
   ${variant === 'score-radar'
-    ? `<div class="score-bars" style="flex:0 0 auto;width:340px;padding-left:36px">
+    ? `<div class="score-bars" style="padding-left:0;padding:0 24px;">
     ${barHtml('Trend', trend)}
     ${barHtml('Liquidity', liquidity)}
     ${barHtml('Consistency', consistency)}
     ${barHtml('Value', value)}
-  </div><div class="score-radar">${radarSvgHtml()}</div>`
+  </div><div class="score-radar" style="padding-left:0;justify-content:center;">${radarSvgHtml()}</div>`
     : `<div class="score-bars">
     ${barHtml('Trend', trend)}
     ${barHtml('Liquidity', liquidity)}

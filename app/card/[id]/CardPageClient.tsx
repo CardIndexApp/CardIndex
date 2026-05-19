@@ -1054,6 +1054,68 @@ export default function CardPageClient() {
             </div>
           </div>
         )}
+        {/* ── Portfolio modal ─────────────────────────────────────────── */}
+        {pfShowForm && (
+          <>
+            <div
+              onClick={() => { setPfShowForm(false); setPfError(null) }}
+              style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(6px)' }}
+            />
+            <div style={{ position: 'fixed', inset: 0, zIndex: 1001, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, pointerEvents: 'none' }}>
+              <div style={{ pointerEvents: 'auto', background: 'var(--surface)', border: '1px solid var(--border2)', borderRadius: 20, padding: 24, width: '100%', maxWidth: 360, boxShadow: '0 32px 80px rgba(0,0,0,0.6)' }}>
+                {/* Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+                  <div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', marginBottom: 2 }}>Add to Portfolio</div>
+                    <div style={{ fontSize: 11, color: 'var(--ink3)' }}>{displayName || urlName} · {urlGrade ?? 'Raw'}</div>
+                  </div>
+                  <button
+                    onClick={() => { setPfShowForm(false); setPfError(null) }}
+                    style={{ background: 'var(--surface2)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--ink3)', fontSize: 18, cursor: 'pointer', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                  >×</button>
+                </div>
+                {/* Price input */}
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)', letterSpacing: 0.5, marginBottom: 6 }}>PURCHASE PRICE ({currency})</div>
+                  <input
+                    type="number"
+                    value={pfPrice}
+                    onChange={e => setPfPrice(e.target.value)}
+                    placeholder="0.00"
+                    autoFocus
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border2)', fontSize: 15, color: 'var(--ink)', outline: 'none', boxSizing: 'border-box' }}
+                  />
+                </div>
+                {/* Qty input */}
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)', letterSpacing: 0.5, marginBottom: 6 }}>QUANTITY</div>
+                  <input
+                    type="number"
+                    value={pfQty}
+                    onChange={e => setPfQty(e.target.value)}
+                    min={1}
+                    placeholder="1"
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border2)', fontSize: 15, color: 'var(--ink)', outline: 'none', boxSizing: 'border-box' }}
+                  />
+                </div>
+                {pfError && <div style={{ fontSize: 12, color: '#ff6b6b', marginBottom: 12 }}>{pfError}</div>}
+                {/* Buttons */}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={() => { setPfShowForm(false); setPfError(null) }}
+                    style={{ flex: 1, padding: '12px 0', borderRadius: 12, background: 'var(--surface2)', border: '1px solid var(--border2)', fontSize: 13, fontWeight: 600, color: 'var(--ink3)', cursor: 'pointer' }}
+                  >Cancel</button>
+                  <button
+                    onClick={submitPortfolio}
+                    disabled={pfLoading}
+                    style={{ flex: 2, padding: '12px 0', borderRadius: 12, background: pfLoading ? 'rgba(232,197,71,0.4)' : 'var(--gold)', border: 'none', fontSize: 13, fontWeight: 800, color: '#08080f', cursor: pfLoading ? 'default' : 'pointer' }}
+                  >{pfLoading ? 'Adding…' : 'Add to Portfolio'}</button>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
         {/* ── Share card modal ────────────────────────────────────────── */}
         {showShare && liveData && (() => {
           const _sales = liveData.sales_count_30d ?? 0
@@ -1150,45 +1212,11 @@ export default function CardPageClient() {
                         {watchlistLoading ? '…' : watchlistAdded ? '★ Watching · Remove' : '☆ Watch'}
                       </button>
                       <button
-                        onClick={() => { setPfShowForm(f => !f); setPfError(null) }}
+                        onClick={() => { setPfShowForm(true); setPfError(null) }}
                         style={{ padding: '8px 14px', borderRadius: 10, background: pfSuccess ? 'rgba(61,232,138,0.1)' : 'var(--surface2)', border: `1.5px solid ${pfSuccess ? 'rgba(61,232,138,0.4)' : 'var(--border2)'}`, fontSize: 11, fontWeight: 600, color: pfSuccess ? 'var(--green)' : 'var(--ink2)', cursor: 'pointer', width: '100%' }}
                       >
                         {pfSuccess ? '✓ Added to Portfolio' : '＋ Portfolio'}
                       </button>
-                      {pfShowForm && (
-                        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 12, width: 200 }}>
-                          <div style={{ fontSize: 10, color: 'var(--ink3)', marginBottom: 8, fontWeight: 600, letterSpacing: 0.5 }}>ADD TO PORTFOLIO</div>
-                          <div style={{ marginBottom: 6 }}>
-                            <div style={{ fontSize: 10, color: 'var(--ink3)', marginBottom: 3 }}>Purchase price ({currency})</div>
-                            <input
-                              type="number"
-                              value={pfPrice}
-                              onChange={e => setPfPrice(e.target.value)}
-                              placeholder="0.00"
-                              style={{ width: '100%', padding: '6px 8px', borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border2)', fontSize: 12, color: 'var(--ink)', outline: 'none', boxSizing: 'border-box' }}
-                            />
-                          </div>
-                          <div style={{ marginBottom: 8 }}>
-                            <div style={{ fontSize: 10, color: 'var(--ink3)', marginBottom: 3 }}>Quantity</div>
-                            <input
-                              type="number"
-                              value={pfQty}
-                              onChange={e => setPfQty(e.target.value)}
-                              min={1}
-                              placeholder="1"
-                              style={{ width: '100%', padding: '6px 8px', borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border2)', fontSize: 12, color: 'var(--ink)', outline: 'none', boxSizing: 'border-box' }}
-                            />
-                          </div>
-                          {pfError && <div style={{ fontSize: 10, color: '#ff6b6b', marginBottom: 6 }}>{pfError}</div>}
-                          <button
-                            onClick={submitPortfolio}
-                            disabled={pfLoading}
-                            style={{ width: '100%', padding: '7px 0', borderRadius: 7, background: 'var(--gold)', border: 'none', fontSize: 12, fontWeight: 700, color: '#0f0f1c', cursor: pfLoading ? 'default' : 'pointer' }}
-                          >
-                            {pfLoading ? '…' : 'Add'}
-                          </button>
-                        </div>
-                      )}
                       {/* Compare link */}
                       {getTierLimits(userTier).compare ? (
                         <Link
@@ -3536,50 +3564,15 @@ export default function CardPageClient() {
                   )}
                   {/* Portfolio button */}
                   {isLoggedIn && (
-                    <div className="ci-no-print">
-                      <button
-                        onClick={() => { setPfShowForm(f => !f); setPfError(null) }}
-                        style={{ display: 'flex', alignItems: 'center', gap: 6, background: pfSuccess ? 'rgba(61,232,138,0.1)' : 'var(--surface2)', border: `1.5px solid ${pfSuccess ? 'rgba(61,232,138,0.4)' : 'var(--border2)'}`, borderRadius: 10, padding: '9px 14px', fontSize: 11, fontWeight: 600, color: pfSuccess ? 'var(--green)' : 'var(--ink2)', cursor: 'pointer', transition: 'all 0.2s', width: '100%' }}
-                        onMouseEnter={e => { if (!pfSuccess) { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.color = 'var(--gold)' } }}
-                        onMouseLeave={e => { if (!pfSuccess) { e.currentTarget.style.borderColor = 'var(--border2)'; e.currentTarget.style.color = 'var(--ink2)' } }}
-                      >
-                        {pfSuccess ? '✓ Added to Portfolio' : '＋ Portfolio'}
-                      </button>
-                      {pfShowForm && (
-                        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 12, marginTop: 4 }}>
-                          <div style={{ fontSize: 10, color: 'var(--ink3)', marginBottom: 8, fontWeight: 600, letterSpacing: 0.5 }}>ADD TO PORTFOLIO</div>
-                          <div style={{ marginBottom: 6 }}>
-                            <div style={{ fontSize: 10, color: 'var(--ink3)', marginBottom: 3 }}>Purchase price ({currency})</div>
-                            <input
-                              type="number"
-                              value={pfPrice}
-                              onChange={e => setPfPrice(e.target.value)}
-                              placeholder="0.00"
-                              style={{ width: '100%', padding: '6px 8px', borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border2)', fontSize: 12, color: 'var(--ink)', outline: 'none', boxSizing: 'border-box' }}
-                            />
-                          </div>
-                          <div style={{ marginBottom: 8 }}>
-                            <div style={{ fontSize: 10, color: 'var(--ink3)', marginBottom: 3 }}>Quantity</div>
-                            <input
-                              type="number"
-                              value={pfQty}
-                              onChange={e => setPfQty(e.target.value)}
-                              min={1}
-                              placeholder="1"
-                              style={{ width: '100%', padding: '6px 8px', borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border2)', fontSize: 12, color: 'var(--ink)', outline: 'none', boxSizing: 'border-box' }}
-                            />
-                          </div>
-                          {pfError && <div style={{ fontSize: 10, color: '#ff6b6b', marginBottom: 6 }}>{pfError}</div>}
-                          <button
-                            onClick={submitPortfolio}
-                            disabled={pfLoading}
-                            style={{ width: '100%', padding: '7px 0', borderRadius: 7, background: 'var(--gold)', border: 'none', fontSize: 12, fontWeight: 700, color: '#0f0f1c', cursor: pfLoading ? 'default' : 'pointer' }}
-                          >
-                            {pfLoading ? '…' : 'Add'}
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                    <button
+                      className="ci-no-print"
+                      onClick={() => { setPfShowForm(true); setPfError(null) }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, background: pfSuccess ? 'rgba(61,232,138,0.1)' : 'var(--surface2)', border: `1.5px solid ${pfSuccess ? 'rgba(61,232,138,0.4)' : 'var(--border2)'}`, borderRadius: 10, padding: '9px 14px', fontSize: 11, fontWeight: 600, color: pfSuccess ? 'var(--green)' : 'var(--ink2)', cursor: 'pointer', transition: 'all 0.2s' }}
+                      onMouseEnter={e => { if (!pfSuccess) { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.color = 'var(--gold)' } }}
+                      onMouseLeave={e => { if (!pfSuccess) { e.currentTarget.style.borderColor = 'var(--border2)'; e.currentTarget.style.color = 'var(--ink2)' } }}
+                    >
+                      {pfSuccess ? '✓ Added to Portfolio' : '＋ Portfolio'}
+                    </button>
                   )}
                   {/* Compare link */}
                   {getTierLimits(userTier).compare ? (

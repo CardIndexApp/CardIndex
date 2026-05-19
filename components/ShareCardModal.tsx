@@ -176,13 +176,13 @@ function buildHtml(d: ShareCardData, variant: Variant = 'moving-avg'): string {
   .score-num { font-size:54px; font-weight:700; color:${scoreCol}; letter-spacing:-2px; line-height:1; }
   .score-sub { font-size:14px; font-weight:600; color:${scoreCol}; opacity:0.6; letter-spacing:0.1em; text-transform:uppercase; margin-top:3px; }
   .score-bars { flex:1; padding-left:40px; }
-  .score-radar { flex:1; padding-left:28px; height:180px; display:flex; align-items:center; }
-  .sb-row { display:flex; align-items:center; gap:14px; margin-bottom:16px; }
+  .score-radar { flex:1; padding-left:20px; height:180px; display:flex; align-items:center; }
+  .sb-row { display:flex; align-items:center; gap:10px; margin-bottom:14px; }
   .sb-row:last-child { margin-bottom:0; }
-  .sb-label { font-size:20px; font-weight:600; color:rgba(255,255,255,0.55); width:150px; flex-shrink:0; }
-  .sb-bar-bg { flex:1; height:8px; background:rgba(255,255,255,0.07); border-radius:4px; overflow:hidden; }
+  .sb-label { font-size:16px; font-weight:600; color:rgba(255,255,255,0.55); width:120px; flex-shrink:0; }
+  .sb-bar-bg { flex:1; height:7px; background:rgba(255,255,255,0.07); border-radius:4px; overflow:hidden; }
   .sb-fill { height:100%; border-radius:4px; }
-  .sb-val { font-size:22px; font-weight:700; width:44px; text-align:right; flex-shrink:0; }
+  .sb-val { font-size:18px; font-weight:700; width:36px; text-align:right; flex-shrink:0; }
   .badges-grid { position:relative; z-index:2; display:grid; grid-template-columns:repeat(3,1fr); gap:12px; padding:14px 56px 0; flex-shrink:0; }
   .badge { background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.07); border-radius:10px; padding:24px 24px; }
   .badge-label { font-size:15px; font-weight:600; color:rgba(255,255,255,0.24); letter-spacing:0.08em; text-transform:uppercase; margin-bottom:10px; }
@@ -244,7 +244,12 @@ function buildHtml(d: ShareCardData, variant: Variant = 'moving-avg'): string {
     </div>
   </div>
   ${variant === 'score-radar'
-    ? `<div class="score-radar">${radarSvgHtml()}</div>`
+    ? `<div class="score-bars" style="flex:0 0 auto;width:340px;padding-left:36px">
+    ${barHtml('Trend', trend)}
+    ${barHtml('Liquidity', liquidity)}
+    ${barHtml('Consistency', consistency)}
+    ${barHtml('Value', value)}
+  </div><div class="score-radar">${radarSvgHtml()}</div>`
     : `<div class="score-bars">
     ${barHtml('Trend', trend)}
     ${barHtml('Liquidity', liquidity)}

@@ -137,8 +137,8 @@ function buildHtml(d: ShareCardData, variant: Variant = 'moving-avg'): string {
     const maxP   = Math.max(...prices)
     const range  = maxP - minP || 1
 
-    // SVG canvas: 920×90 (full width minus 2×26px section padding)
-    const W = 920, H = 90, pad = 10
+    // SVG canvas: 920×72 (full width minus 2×26px section padding)
+    const W = 920, H = 72, pad = 8
     const xStep = (W - pad * 2) / (hist.length - 1)
 
     const pts = hist.map((h, i) => {
@@ -287,8 +287,8 @@ function buildHtml(d: ShareCardData, variant: Variant = 'moving-avg'): string {
   .proj-col.up .proj-price { color:#3cb87a; }
   .proj-delta { font-size:19px; font-weight:600; color:rgba(255,255,255,0.3); }
   .proj-col.up .proj-delta { color:rgba(60,184,122,0.7); }
-  .sparkline-section { position:relative; z-index:2; margin:14px 56px 0; flex-shrink:0; background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.07); border-radius:12px; padding:20px 26px; }
-  .spark-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  .sparkline-section { position:relative; z-index:2; margin:14px 56px 0; flex-shrink:0; background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.07); border-radius:12px; padding:16px 26px; }
+  .spark-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
   .spark-title { font-size:16px; font-weight:600; color:rgba(255,255,255,0.24); letter-spacing:0.1em; text-transform:uppercase; }
   .spark-meta { display:flex; gap:20px; }
   .spark-stat { display:flex; flex-direction:column; gap:3px; }
@@ -367,7 +367,7 @@ ${variant === 'score-radar' ? '' : `
     ${projHtml('90D Forecast', d.proj90d)}
   </div>
 </div>
-${sparklineSectionHtml()}
+${variant === 'score-radar' ? sparklineSectionHtml() : ''}
 <div class="spacer"></div>
 </body></html>`
 }

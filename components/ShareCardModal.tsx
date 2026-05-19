@@ -92,8 +92,10 @@ function buildHtml(d: ShareCardData, variant: Variant = 'moving-avg'): string {
       </div>`
   }
 
-  function radarSectionHtml(): string {
-    const cx = 100, cy = 100, r = 78
+  function radarSvgHtml(): string {
+    // cx/cy sit inside a viewBox with generous label padding on all sides
+    // viewBox: x=-44 y=-26 w=288 h=252  →  44px left, 26px top, 44px right, 26px bottom
+    const cx = 100, cy = 100, r = 80
     const tY  = cy - r * trend / 100
     const lX  = cx + r * liquidity / 100
     const csY = cy + r * consistency / 100
@@ -103,39 +105,25 @@ function buildHtml(d: ShareCardData, variant: Variant = 'moving-avg'): string {
       const gr = r * pct
       return `${cx},${cy - gr} ${cx + gr},${cy} ${cx},${cy + gr} ${cx - gr},${cy}`
     }
-    return `
-<div class="signal-section">
-  <div class="ss-header" style="margin-bottom:16px">
-    <div class="ss-title">Score Breakdown — Radar</div>
-  </div>
-  <div style="display:flex;align-items:center;gap:36px">
-    <svg viewBox="0 0 200 200" width="210" height="210" style="flex-shrink:0">
+    return `<svg viewBox="-44 -26 288 252" style="width:100%;height:100%;overflow:visible">
       <polygon points="${grid(0.25)}" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>
       <polygon points="${grid(0.50)}" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>
       <polygon points="${grid(0.75)}" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>
-      <polygon points="${grid(1.00)}" fill="none" stroke="rgba(255,255,255,0.1)"  stroke-width="1"/>
-      <line x1="${cx}" y1="${cy}" x2="${cx}"      y2="${cy - r}" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
-      <line x1="${cx}" y1="${cy}" x2="${cx + r}"  y2="${cy}"     stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
-      <line x1="${cx}" y1="${cy}" x2="${cx}"      y2="${cy + r}" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
-      <line x1="${cx}" y1="${cy}" x2="${cx - r}"  y2="${cy}"     stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+      <polygon points="${grid(1.00)}" fill="none" stroke="rgba(255,255,255,0.10)" stroke-width="1"/>
+      <line x1="${cx}" y1="${cy}" x2="${cx}"     y2="${cy-r}" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+      <line x1="${cx}" y1="${cy}" x2="${cx+r}"   y2="${cy}"   stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+      <line x1="${cx}" y1="${cy}" x2="${cx}"     y2="${cy+r}" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+      <line x1="${cx}" y1="${cy}" x2="${cx-r}"   y2="${cy}"   stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
       <polygon points="${dataPoints}" fill="rgba(215,170,60,0.15)" stroke="#d7aa3c" stroke-width="1.5"/>
-      <circle cx="${cx}"  cy="${tY}"  r="3.5" fill="#d7aa3c"/>
-      <circle cx="${lX}"  cy="${cy}"  r="3.5" fill="#d7aa3c"/>
-      <circle cx="${cx}"  cy="${csY}" r="3.5" fill="#d7aa3c"/>
-      <circle cx="${vX}"  cy="${cy}"  r="3.5" fill="#d7aa3c"/>
-      <text x="${cx}"      y="${cy - r - 9}"  text-anchor="middle" font-size="12" fill="rgba(255,255,255,0.4)" font-family="Helvetica Neue,Helvetica,Arial,sans-serif">Trend</text>
-      <text x="${cx + r + 7}" y="${cy + 4}"  text-anchor="start"  font-size="12" fill="rgba(255,255,255,0.4)" font-family="Helvetica Neue,Helvetica,Arial,sans-serif">Liquidity</text>
-      <text x="${cx}"      y="${cy + r + 16}" text-anchor="middle" font-size="12" fill="rgba(255,255,255,0.4)" font-family="Helvetica Neue,Helvetica,Arial,sans-serif">Consistency</text>
-      <text x="${cx - r - 7}" y="${cy + 4}"  text-anchor="end"    font-size="12" fill="rgba(255,255,255,0.4)" font-family="Helvetica Neue,Helvetica,Arial,sans-serif">Value</text>
-    </svg>
-    <div style="flex:1">
-      ${barHtml('TREND',       trend)}
-      ${barHtml('LIQUIDITY',   liquidity)}
-      ${barHtml('CONSISTENCY', consistency)}
-      ${barHtml('VALUE',       value)}
-    </div>
-  </div>
-</div>`
+      <circle cx="${cx}"  cy="${tY}"  r="4" fill="#d7aa3c"/>
+      <circle cx="${lX}"  cy="${cy}"  r="4" fill="#d7aa3c"/>
+      <circle cx="${cx}"  cy="${csY}" r="4" fill="#d7aa3c"/>
+      <circle cx="${vX}"  cy="${cy}"  r="4" fill="#d7aa3c"/>
+      <text x="${cx}"      y="${cy-r-14}"  text-anchor="middle" font-size="13" font-weight="600" fill="rgba(255,255,255,0.45)" font-family="Helvetica Neue,Helvetica,Arial,sans-serif">Trend</text>
+      <text x="${cx+r+12}" y="${cy+5}"    text-anchor="start"  font-size="13" font-weight="600" fill="rgba(255,255,255,0.45)" font-family="Helvetica Neue,Helvetica,Arial,sans-serif">Liquidity</text>
+      <text x="${cx}"      y="${cy+r+20}" text-anchor="middle" font-size="13" font-weight="600" fill="rgba(255,255,255,0.45)" font-family="Helvetica Neue,Helvetica,Arial,sans-serif">Consistency</text>
+      <text x="${cx-r-12}" y="${cy+5}"    text-anchor="end"    font-size="13" font-weight="600" fill="rgba(255,255,255,0.45)" font-family="Helvetica Neue,Helvetica,Arial,sans-serif">Value</text>
+    </svg>`
   }
 
   function projHtml(label: string, price: number | undefined) {
@@ -188,6 +176,7 @@ function buildHtml(d: ShareCardData, variant: Variant = 'moving-avg'): string {
   .score-num { font-size:54px; font-weight:700; color:${scoreCol}; letter-spacing:-2px; line-height:1; }
   .score-sub { font-size:14px; font-weight:600; color:${scoreCol}; opacity:0.6; letter-spacing:0.1em; text-transform:uppercase; margin-top:3px; }
   .score-bars { flex:1; padding-left:40px; }
+  .score-radar { flex:1; padding-left:28px; height:180px; display:flex; align-items:center; }
   .sb-row { display:flex; align-items:center; gap:14px; margin-bottom:16px; }
   .sb-row:last-child { margin-bottom:0; }
   .sb-label { font-size:20px; font-weight:600; color:rgba(255,255,255,0.55); width:150px; flex-shrink:0; }

@@ -243,19 +243,21 @@ function buildHtml(d: ShareCardData, variant: Variant = 'moving-avg'): string {
       <div class="score-sub">${d.scoreLabel}</div>
     </div>
   </div>
-  <div class="score-bars">
+  ${variant === 'score-radar'
+    ? `<div class="score-radar">${radarSvgHtml()}</div>`
+    : `<div class="score-bars">
     ${barHtml('Trend', trend)}
     ${barHtml('Liquidity', liquidity)}
     ${barHtml('Consistency', consistency)}
     ${barHtml('Value', value)}
-  </div>
+  </div>`}
 </div>
 <div class="badges-grid">
   ${badgeHtml('Liquidity',      d.liquidityLabel ?? '—',                         d.liquidityLabel ? 'green' : '')}
   ${badgeHtml('30D Sales',      d.salesCount30d ? String(d.salesCount30d) : '—', 'amber')}
   ${badgeHtml('Price Position', pricePos,                                         'sm')}
 </div>
-${variant === 'score-radar' ? radarSectionHtml() : `
+${variant === 'score-radar' ? '' : `
 <div class="signal-section">
   <div class="ss-header">
     <div class="ss-title">Moving Average Signal</div>

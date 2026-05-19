@@ -34,6 +34,7 @@ export interface ShareCardData {
   proj30d?:      number
   proj60d?:      number
   proj90d?:      number
+  priceHistory?: { month: string; price: number }[]
   fmtFn?:        (n: number) => string
   currency?:     string
 }
@@ -126,6 +127,79 @@ function buildHtml(d: ShareCardData, variant: Variant = 'moving-avg'): string {
     </svg>`
   }
 
+  function sparklineSectionHtml(): string {
+    const hist = d.priceHistory
+    if (!hist || hist.length < 3) return ''
+
+    const fmt = d.fmtFn ?? ((n: number) => `$${n.toFixed(2)}`)
+    const prices = hist.map(h => h.price)
+    const minP   = Math.min(...prices)
+    const maxP   = Math.max(...prices)
+    const range  = maxP - minP || 1
+
+    // SVG canvas: 920×90 (full width minus 2×26px section padding)
+    const W = 920, H = 90, pad = 10
+    const xStep = (W - pad * 2) / (hist.length - 1)
+
+    const pts = hist.map((h, i) => {
+      const x = pad + i * xStep
+      const y = pad + (1 - (h.price - minP) / range) * (H - pad * 2)
+      return `${x.toFixed(1)},${y.toFixed(1)}`
+    })
+
+    const areaBottom = `${(pad + (hist.length - 1) * xStep).toFixed(1)},${H} ${pad},${H}`
+    const lineColor  = prices[prices.length - 1] >= prices[0] ? '#3cb87a' : '#e05252'
+
+    // Label every ~4th month, always show first and last
+    const labelPts = hist.map((h, i) => {
+      if (i === 0 || i === hist.length - 1 || i % Math.max(1, Math.floor(hist.length / 6)) === 0) return h
+      return null
+    })
+
+    const oldest = hist[0].month
+    const newest = hist[hist.length - 1].month
+    const allTimeHigh = Math.max(...prices)
+    const allTimeLow  = Math.min(...prices)
+
+    return `
+<div class="sparkline-section">
+  <div class="spark-header">
+    <div class="spark-title">Price History · ${hist.length}mo</div>
+    <div class="spark-meta">
+      <div class="spark-stat">
+        <div class="spark-stat-label">Period High</div>
+        <div class="spark-stat-val" style="color:#3cb87a">${fmt(allTimeHigh)}</div>
+      </div>
+      <div class="spark-stat">
+        <div class="spark-stat-label">Period Low</div>
+        <div class="spark-stat-val" style="color:#e05252">${fmt(allTimeLow)}</div>
+      </div>
+      <div class="spark-stat">
+        <div class="spark-stat-label">From</div>
+        <div class="spark-stat-val" style="color:rgba(255,255,255,0.45)">${oldest}</div>
+      </div>
+    </div>
+  </div>
+  <svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="display:block;width:100%">
+    <defs>
+      <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${lineColor}" stop-opacity="0.18"/>
+        <stop offset="100%" stop-color="${lineColor}" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <polygon points="${pts.join(' ')} ${areaBottom}" fill="url(#sparkGrad)"/>
+    <polyline points="${pts.join(' ')}" fill="none" stroke="${lineColor}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+    ${labelPts.map((h, i) => {
+      if (!h) return ''
+      const x = pad + i * xStep
+      const anchor = i === 0 ? 'start' : i === hist.length - 1 ? 'end' : 'middle'
+      return `<text x="${x.toFixed(1)}" y="${H}" text-anchor="${anchor}" font-size="10" fill="rgba(255,255,255,0.25)" font-family="Helvetica Neue,Helvetica,Arial,sans-serif">${h.month}</text>`
+    }).join('')}
+    <circle cx="${(pad + (hist.length - 1) * xStep).toFixed(1)}" cy="${(pad + (1 - (prices[prices.length - 1] - minP) / range) * (H - pad * 2)).toFixed(1)}" r="4" fill="${lineColor}"/>
+  </svg>
+</div>`
+  }
+
   function projHtml(label: string, price: number | undefined) {
     if (!price) return `
       <div class="proj-col">
@@ -213,6 +287,13 @@ function buildHtml(d: ShareCardData, variant: Variant = 'moving-avg'): string {
   .proj-col.up .proj-price { color:#3cb87a; }
   .proj-delta { font-size:19px; font-weight:600; color:rgba(255,255,255,0.3); }
   .proj-col.up .proj-delta { color:rgba(60,184,122,0.7); }
+  .sparkline-section { position:relative; z-index:2; margin:14px 56px 0; flex-shrink:0; background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.07); border-radius:12px; padding:20px 26px; }
+  .spark-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  .spark-title { font-size:16px; font-weight:600; color:rgba(255,255,255,0.24); letter-spacing:0.1em; text-transform:uppercase; }
+  .spark-meta { display:flex; gap:20px; }
+  .spark-stat { display:flex; flex-direction:column; gap:3px; }
+  .spark-stat-label { font-size:11px; font-weight:600; color:rgba(255,255,255,0.22); letter-spacing:0.08em; text-transform:uppercase; }
+  .spark-stat-val { font-size:18px; font-weight:700; color:#fff; letter-spacing:-0.3px; }
   .spacer { flex:1; min-height:20px; }
 </style></head><body>
 <div class="grid"></div><div class="glow"></div>
@@ -286,6 +367,7 @@ ${variant === 'score-radar' ? '' : `
     ${projHtml('90D Forecast', d.proj90d)}
   </div>
 </div>
+${sparklineSectionHtml()}
 <div class="spacer"></div>
 </body></html>`
 }

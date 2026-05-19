@@ -2143,9 +2143,9 @@ export default function CardPageClient() {
                                 <TileInfo id="adv-3" text="Visual breakdown of all four CardIndex score components — Trend, Liquidity, Consistency, and Value — each normalized to 100. The larger the radar shape, the stronger the overall investment profile." activeTip={activeTip} setActiveTip={setActiveTip} inline />
                               </div>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
-                                <div style={{ width: 200, height: 180, flexShrink: 0 }}>
+                                <div style={{ width: 230, height: 180, flexShrink: 0 }}>
                                   <ResponsiveContainer width="100%" height="100%">
-                                    <RadarChart cx="50%" cy="50%" outerRadius="68%" data={radarData}>
+                                    <RadarChart cx="50%" cy="50%" outerRadius="55%" data={radarData}>
                                       <PolarGrid stroke="rgba(255,255,255,0.07)" />
                                       <PolarAngleAxis dataKey="axis" tick={{ fill: '#55556a', fontSize: 10, fontFamily: 'Helvetica' }} />
                                       <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
@@ -4190,9 +4190,9 @@ export default function CardPageClient() {
                         <TileInfo id="adv-3" text="Visual breakdown of all four CardIndex score components — Trend, Liquidity, Consistency, and Value — each normalized to 100. The larger the radar shape, the stronger the overall investment profile." activeTip={activeTip} setActiveTip={setActiveTip} inline />
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
-                        <div style={{ width: 200, height: 180, flexShrink: 0 }}>
+                        <div style={{ width: 230, height: 180, flexShrink: 0 }}>
                           <ResponsiveContainer width="100%" height="100%">
-                            <RadarChart cx="50%" cy="50%" outerRadius="68%" data={radarData}>
+                            <RadarChart cx="50%" cy="50%" outerRadius="55%" data={radarData}>
                               <PolarGrid stroke="rgba(255,255,255,0.07)" />
                               <PolarAngleAxis dataKey="axis" tick={{ fill: '#55556a', fontSize: 10, fontFamily: 'Helvetica' }} />
                               <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />

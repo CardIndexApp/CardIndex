@@ -1063,6 +1063,8 @@ export default function CardPageClient() {
           const _wklyDelta = _a7 && _a30 ? _a7 - _a30 : 0
           const _p = liveData.price ?? 0
           const _tiers = liveData.all_tier_prices as Record<string, { avg: number }> | null | undefined
+          const _hist: { month: string; price: number }[] | undefined =
+            liveData.price_history?.length ? liveData.price_history : getCard(id)?.history ?? undefined
           return (
             <ShareCardModal
               onClose={() => setShowShare(false)}
@@ -1093,7 +1095,7 @@ export default function CardPageClient() {
                 proj30d:       _wklyDelta ? Math.max(0, _p + _wklyDelta * 4)  : undefined,
                 proj60d:       _wklyDelta ? Math.max(0, _p + _wklyDelta * 8)  : undefined,
                 proj90d:       _wklyDelta ? Math.max(0, _p + _wklyDelta * 12) : undefined,
-                priceHistory:  liveData.price_history?.length ? liveData.price_history : card?.history ?? undefined,
+                priceHistory:  _hist,
                 fmtFn:         fmtCurrency,
                 currency,
               }}
@@ -3388,6 +3390,8 @@ export default function CardPageClient() {
         const _wklyDelta = _a7 && _a30 ? _a7 - _a30 : 0
         const _p = liveData.price ?? 0
         const _tiers = liveData.all_tier_prices as Record<string, { avg: number }> | null | undefined
+        const _hist: { month: string; price: number }[] | undefined =
+          liveData.price_history?.length ? liveData.price_history : getCard(id)?.history ?? undefined
         return (
           <ShareCardModal
             onClose={() => setShowShare(false)}
@@ -3418,7 +3422,7 @@ export default function CardPageClient() {
               proj30d:       _wklyDelta ? Math.max(0, _p + _wklyDelta * 4)  : undefined,
               proj60d:       _wklyDelta ? Math.max(0, _p + _wklyDelta * 8)  : undefined,
               proj90d:       _wklyDelta ? Math.max(0, _p + _wklyDelta * 12) : undefined,
-              priceHistory:  liveData.price_history?.length ? liveData.price_history : card?.history ?? undefined,
+              priceHistory:  _hist,
               fmtFn:         fmtCurrency,
               currency,
             }}

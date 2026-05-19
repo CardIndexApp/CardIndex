@@ -44,7 +44,7 @@ function scoreColor(s: number) {
 }
 function changeColor(c: number) { return c >= 0 ? '#3cb87a' : '#e05252' }
 
-type Variant = 'moving-avg' | 'score-radar'
+type Variant = 'moving-avg' | 'score-radar' | 'card-art'
 
 function buildHtml(d: ShareCardData, variant: Variant = 'moving-avg'): string {
   const fmt = d.fmtFn ?? ((n: number) => `$${n.toFixed(2)}`)
@@ -388,9 +388,36 @@ export default function ShareCardModal({
     setGenerating(true)
     setPreviewUrl(null)
     try {
+      // ── Card Art: transparent PNG with rounded corners ──────────────────────
+      if (variant === 'card-art') {
+        if (!data.imageUrl) { setGenerating(false); return }
+        const img = new Image()
+        img.crossOrigin = 'anonymous'
+        img.src = data.imageUrl
+        await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = rej })
+
+        // Standard Pokémon card ratio 63:88, rendered at 2× for crispness
+        const W = 756, H = 1056, R = 36
+        const canvas = document.createElement('canvas')
+        canvas.width  = W
+        canvas.height = H
+        const ctx = canvas.getContext('2d')!
+        ctx.clearRect(0, 0, W, H)
+
+        // Clip to rounded rectangle then draw image
+        ctx.beginPath()
+        ctx.roundRect(0, 0, W, H, R)
+        ctx.clip()
+        ctx.drawImage(img, 0, 0, W, H)
+
+        setPreviewUrl(canvas.toDataURL('image/png', 1.0))
+        setGenerating(false)
+        return
+      }
+
+      // ── Data templates: html2canvas ─────────────────────────────────────────
       const html2canvas = (await import('html2canvas')).default
 
-      // Create an off-screen container sized exactly to the template
       const wrap = document.createElement('div')
       wrap.style.cssText = [
         'position:fixed',
@@ -405,7 +432,6 @@ export default function ShareCardModal({
       wrap.innerHTML = buildHtml(data, variant)
       document.body.appendChild(wrap)
 
-      // Wait for images to load
       const imgs = Array.from(wrap.querySelectorAll('img'))
       await Promise.allSettled(imgs.map(img =>
         img.complete ? Promise.resolve() : new Promise(r => {
@@ -482,6 +508,7 @@ export default function ShareCardModal({
             {([
               { key: 'moving-avg',  label: 'Moving Avg' },
               { key: 'score-radar', label: 'Score Radar' },
+              { key: 'card-art',    label: 'Card Art' },
             ] as { key: Variant; label: string }[]).map(({ key, label }) => (
               <button
                 key={key}

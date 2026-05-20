@@ -502,7 +502,7 @@ export default function ShareCardModal({
     // iOS / Web Share API path ─────────────────────────────────────────────────
     // CRITICAL: navigator.share() must be called with NO awaits before it on iOS.
     // We pre-built previewBlob during generation so we can call share() immediately.
-    if (canNativeShare && previewBlob) {
+    if (isMobile && canNativeShare && previewBlob) {
       try {
         const file = new File([previewBlob], filename, { type: 'image/png' })
         if (navigator.canShare?.({ files: [file] })) {

@@ -594,6 +594,7 @@ export default function CardPageClient() {
 
   const [apiCard, setApiCard] = useState<{ name: string; set: string; number: string; imageUrl: string; tags: string[] } | null>(null)
   const [imgError, setImgError] = useState(false)
+  const [verifiedImgUrl, setVerifiedImgUrl] = useState<string | null>(null)
   const [lightbox, setLightbox] = useState(false)
 
   // Live price data from /api/card/[id]
@@ -778,6 +779,43 @@ export default function CardPageClient() {
         .catch(() => {})
     }
   }, [card, id])
+
+  // Verify card image URL is actually loadable — prevents broken-img flash
+  // Tests each source in priority order; sets verifiedImgUrl only on success
+  useEffect(() => {
+    const rawUrls = [
+      apiCard?.imageUrl,
+      liveData?.image_url,
+      card?.imageUrl,
+    ].filter((u): u is string => !!u)
+
+    if (!rawUrls.length) { setVerifiedImgUrl(null); return }
+
+    let cancelled = false
+    setVerifiedImgUrl(null) // reset on change
+
+    ;(async () => {
+      for (const raw of rawUrls) {
+        const proxied = raw ? `/api/img?url=${encodeURIComponent(raw)}` : ''
+        if (!proxied) continue
+        try {
+          await new Promise<void>((res, rej) => {
+            const img = new Image()
+            img.onload  = () => res()
+            img.onerror = () => rej()
+            img.src = proxied
+          })
+          if (!cancelled) setVerifiedImgUrl(proxied)
+          return // stop at first success
+        } catch {
+          // try next source
+        }
+      }
+      // all sources failed — leave verifiedImgUrl as null (placeholder shows)
+    })()
+
+    return () => { cancelled = true }
+  }, [apiCard?.imageUrl, liveData?.image_url, card?.imageUrl])
 
   useEffect(() => {
     const dismiss = () => setActiveTip(null)
@@ -1190,8 +1228,8 @@ export default function CardPageClient() {
               <div style={{ padding: '18px 20px' }}>
                 <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
                   <div style={{ width: 80, height: 110, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
-                    {imageUrl && !imgError ? (
-                      <img src={tcgImg(imageUrl)} alt={displayName} onError={() => setImgError(true)} style={{ height: '100%', width: '100%', objectFit: 'contain' }} />
+                    {verifiedImgUrl ? (
+                      <img src={verifiedImgUrl} alt={displayName} style={{ height: '100%', width: '100%', objectFit: 'contain' }} />
                     ) : (
                       <span style={{ fontSize: 28 }}>🃏</span>
                     )}
@@ -3501,28 +3539,28 @@ export default function CardPageClient() {
                 {/* Image */}
                 <div
                   className="ci-card-img-wrap"
-                  onClick={() => card.imageUrl && !imgError && setLightbox(true)}
-                  title={card.imageUrl && !imgError ? 'Click to enlarge' : undefined}
-                  style={{ borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border2)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', cursor: card.imageUrl && !imgError ? 'zoom-in' : 'default', position: 'relative', transition: 'border-color 0.15s' }}
-                  onMouseEnter={e => { if (card.imageUrl && !imgError) e.currentTarget.style.borderColor = 'var(--gold)' }}
+                  onClick={() => verifiedImgUrl && setLightbox(true)}
+                  title={verifiedImgUrl ? 'Click to enlarge' : undefined}
+                  style={{ borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border2)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', cursor: verifiedImgUrl ? 'zoom-in' : 'default', position: 'relative', transition: 'border-color 0.15s' }}
+                  onMouseEnter={e => { if (verifiedImgUrl) e.currentTarget.style.borderColor = 'var(--gold)' }}
                   onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border2)' }}
                 >
-                  {card.imageUrl && !imgError ? (
-                    <img src={tcgImg(card.imageUrl)} alt={card.name} onError={() => setImgError(true)} style={{ height: '100%', width: '100%', objectFit: 'contain' }} />
+                  {verifiedImgUrl ? (
+                    <img src={verifiedImgUrl} alt={card.name} style={{ height: '100%', width: '100%', objectFit: 'contain' }} />
                   ) : (
                     <span style={{ fontSize: 40 }}>{card.emoji}</span>
                   )}
                 </div>
 
                 {/* Lightbox */}
-                {lightbox && card.imageUrl && (
+                {lightbox && verifiedImgUrl && (
                   <div
                     onClick={() => setLightbox(false)}
                     style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, cursor: 'zoom-out' }}
                   >
                     <div style={{ position: 'relative', maxWidth: 420, width: '100%' }}>
                       <img
-                        src={tcgImg(card.imageUrl)}
+                        src={verifiedImgUrl}
                         alt={card.name}
                         style={{ width: '100%', borderRadius: 16, boxShadow: '0 32px 80px rgba(0,0,0,0.8)', display: 'block' }}
                         onClick={e => e.stopPropagation()}

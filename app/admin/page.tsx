@@ -213,6 +213,111 @@ export default function AdminPage() {
   }
 
   const [scoreCircleVal, setScoreCircleVal] = useState(80)
+  const [radarVals, setRadarVals] = useState({ trend: 80, liquidity: 100, consistency: 92, value: 60 })
+
+  function barColor(v: number) { return v >= 70 ? '#3de88a' : v >= 50 ? '#e8c547' : '#e8524a' }
+
+  function downloadRadarGraph() {
+    const { trend, liquidity, consistency, value } = radarVals
+    const SCALE = 4
+    const W = 400, H = 380
+    const cx = 200, cy = 185, r = 120
+
+    const canvas = document.createElement('canvas')
+    canvas.width = W * SCALE; canvas.height = H * SCALE
+    const ctx = canvas.getContext('2d')!
+    ctx.scale(SCALE, SCALE)
+
+    function diamond(pct: number): [number, number][] {
+      const gr = r * pct
+      return [[cx, cy - gr], [cx + gr, cy], [cx, cy + gr], [cx - gr, cy]]
+    }
+    function drawPoly(pts: [number, number][], fill: string, stroke: string, lw: number) {
+      ctx.beginPath(); pts.forEach(([x, y], i) => i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)); ctx.closePath()
+      ctx.fillStyle = fill; ctx.fill()
+      ctx.strokeStyle = stroke; ctx.lineWidth = lw; ctx.stroke()
+    }
+
+    // Grid rings
+    for (const pct of [0.25, 0.5, 0.75, 1]) {
+      drawPoly(diamond(pct), 'transparent', pct === 1 ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.07)', 1)
+    }
+    // Axis lines
+    const axisStroke = 'rgba(255,255,255,0.10)'
+    ctx.strokeStyle = axisStroke; ctx.lineWidth = 1
+    ;[[cx, cy, cx, cy - r], [cx, cy, cx + r, cy], [cx, cy, cx, cy + r], [cx, cy, cx - r, cy]].forEach(([x1, y1, x2, y2]) => {
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke()
+    })
+
+    // Data polygon
+    const tY = cy - r * trend / 100, lX = cx + r * liquidity / 100
+    const csY = cy + r * consistency / 100, vX = cx - r * value / 100
+    drawPoly([[cx, tY], [lX, cy], [cx, csY], [vX, cy]], 'rgba(215,170,60,0.15)', '#d7aa3c', 2)
+
+    // Dots
+    for (const [x, y] of [[cx, tY], [lX, cy], [cx, csY], [vX, cy]] as [number, number][]) {
+      ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2)
+      ctx.fillStyle = '#d7aa3c'; ctx.fill()
+    }
+
+    // Labels
+    ctx.font = '600 16px "Helvetica Neue", Helvetica, Arial, sans-serif'
+    ctx.fillStyle = 'rgba(255,255,255,0.50)'
+    ctx.textBaseline = 'alphabetic'
+    ctx.textAlign = 'center';  ctx.fillText('Trend',       cx,       cy - r - 16)
+    ctx.textAlign = 'start';   ctx.fillText('Liquidity',   cx + r + 12, cy + 6)
+    ctx.textAlign = 'center';  ctx.fillText('Consistency', cx,       cy + r + 22)
+    ctx.textAlign = 'end';     ctx.fillText('Value',       cx - r - 12, cy + 6)
+
+    const a = document.createElement('a'); a.href = canvas.toDataURL('image/png', 1.0); a.download = 'radar-graph.png'; a.click()
+  }
+
+  function downloadScoreBars() {
+    const entries = [
+      { label: 'TREND',       val: radarVals.trend },
+      { label: 'LIQUIDITY',   val: radarVals.liquidity },
+      { label: 'CONSISTENCY', val: radarVals.consistency },
+      { label: 'VALUE',       val: radarVals.value },
+    ]
+    const SCALE = 4
+    const W = 900, ROW_H = 44, GAP = 12, PAD_Y = 10
+    const H = PAD_Y * 2 + entries.length * ROW_H + (entries.length - 1) * GAP
+    const LABEL_W = 180, VAL_W = 50, BAR_X = LABEL_W + 20, BAR_W = W - LABEL_W - VAL_W - 40
+
+    const canvas = document.createElement('canvas')
+    canvas.width = W * SCALE; canvas.height = H * SCALE
+    const ctx = canvas.getContext('2d')!
+    ctx.scale(SCALE, SCALE)
+
+    entries.forEach(({ label, val }, i) => {
+      const y = PAD_Y + i * (ROW_H + GAP)
+      const midY = y + ROW_H / 2
+      const col = barColor(val)
+
+      // Label
+      ctx.font = '700 14px "Helvetica Neue", Helvetica, Arial, sans-serif'
+      ctx.fillStyle = 'rgba(255,255,255,0.45)'
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle'
+      ctx.fillText(label, 0, midY)
+
+      // Track
+      ctx.beginPath(); ctx.roundRect(BAR_X, midY - 4, BAR_W, 8, 4)
+      ctx.fillStyle = 'rgba(255,255,255,0.07)'; ctx.fill()
+
+      // Fill
+      if (val > 0) {
+        ctx.beginPath(); ctx.roundRect(BAR_X, midY - 4, BAR_W * val / 100, 8, 4)
+        ctx.fillStyle = col; ctx.fill()
+      }
+
+      // Value
+      ctx.font = '700 18px "Helvetica Neue", Helvetica, Arial, sans-serif'
+      ctx.fillStyle = col; ctx.textAlign = 'right'
+      ctx.fillText(String(val), W, midY)
+    })
+
+    const a = document.createElement('a'); a.href = canvas.toDataURL('image/png', 1.0); a.download = 'score-bars.png'; a.click()
+  }
 
   function downloadScoreCircle(score: number) {
     const color = score >= 80 ? '#3de88a' : score >= 60 ? '#e8c547' : '#e8524a'
@@ -1397,6 +1502,107 @@ export default function AdminPage() {
                             </svg>
                             Download PNG
                           </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* Radar + Score Bars */}
+              {(() => {
+                const { trend, liquidity, consistency, value } = radarVals
+                const entries = [
+                  { key: 'trend'       as const, label: 'Trend' },
+                  { key: 'liquidity'   as const, label: 'Liquidity' },
+                  { key: 'consistency' as const, label: 'Consistency' },
+                  { key: 'value'       as const, label: 'Value' },
+                ]
+                // radar geometry (matches download fn)
+                const cx = 100, cy = 95, r = 72
+                const tY = cy - r * trend / 100, lX = cx + r * liquidity / 100
+                const csY = cy + r * consistency / 100, vX = cx - r * value / 100
+                function gridPts(pct: number) {
+                  const gr = r * pct
+                  return `${cx},${cy - gr} ${cx + gr},${cy} ${cx},${cy + gr} ${cx - gr},${cy}`
+                }
+                return (
+                  <div style={S.card}>
+                    <div style={S.head}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Spider Graph &amp; Score Bars</div>
+                        <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 3 }}>Download transparent high-res PNGs of each asset</div>
+                      </div>
+                    </div>
+                    <div style={S.body}>
+                      <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                        {/* Left: sliders */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1, minWidth: 220 }}>
+                          {entries.map(({ key, label }) => {
+                            const val = radarVals[key]
+                            const col = barColor(val)
+                            return (
+                              <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink3)', width: 90, flexShrink: 0, textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</span>
+                                <input type="range" min={0} max={100} value={val}
+                                  onChange={e => setRadarVals(v => ({ ...v, [key]: Number(e.target.value) }))}
+                                  style={{ flex: 1, accentColor: col }} />
+                                <input type="number" min={0} max={100} value={val}
+                                  onChange={e => setRadarVals(v => ({ ...v, [key]: Math.min(100, Math.max(0, Number(e.target.value))) }))}
+                                  style={{ width: 50, padding: '4px 6px', borderRadius: 6, border: '1px solid var(--border2)', background: 'var(--bg)', color: col, fontSize: 12, fontWeight: 700, textAlign: 'center' }} />
+                              </div>
+                            )
+                          })}
+                          <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                            <button onClick={downloadRadarGraph} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '8px 14px', borderRadius: 9, border: 'none', background: 'var(--gold)', color: '#08080f', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v1a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-1"/><path d="M8 2v9M5 8l3 3 3-3"/></svg>
+                              Spider Graph
+                            </button>
+                            <button onClick={downloadScoreBars} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '8px 14px', borderRadius: 9, border: 'none', background: 'var(--gold)', color: '#08080f', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v1a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-1"/><path d="M8 2v9M5 8l3 3 3-3"/></svg>
+                              Score Bars
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Right: live previews */}
+                        <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                          {/* Radar preview */}
+                          <div style={{ width: 170, height: 170, flexShrink: 0 }}>
+                            <svg viewBox="-44 -26 288 252" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
+                              {[0.25, 0.5, 0.75, 1].map(p => (
+                                <polygon key={p} points={gridPts(p)} fill="none" stroke={p === 1 ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.07)'} strokeWidth="1" />
+                              ))}
+                              {[[cx, cy, cx, cy - r], [cx, cy, cx + r, cy], [cx, cy, cx, cy + r], [cx, cy, cx - r, cy]].map(([x1, y1, x2, y2], i) => (
+                                <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(255,255,255,0.10)" strokeWidth="1" />
+                              ))}
+                              <polygon points={`${cx},${tY} ${lX},${cy} ${cx},${csY} ${vX},${cy}`} fill="rgba(215,170,60,0.15)" stroke="#d7aa3c" strokeWidth="1.5" />
+                              {[[cx, tY], [lX, cy], [cx, csY], [vX, cy]].map(([x, y], i) => (
+                                <circle key={i} cx={x} cy={y} r="4" fill="#d7aa3c" />
+                              ))}
+                              <text x={cx}       y={cy - r - 14} textAnchor="middle" fontSize="13" fontWeight="600" fill="rgba(255,255,255,0.45)" fontFamily="sans-serif">Trend</text>
+                              <text x={cx + r + 12} y={cy + 5}  textAnchor="start"  fontSize="13" fontWeight="600" fill="rgba(255,255,255,0.45)" fontFamily="sans-serif">Liquidity</text>
+                              <text x={cx}       y={cy + r + 20} textAnchor="middle" fontSize="13" fontWeight="600" fill="rgba(255,255,255,0.45)" fontFamily="sans-serif">Consistency</text>
+                              <text x={cx - r - 12} y={cy + 5}  textAnchor="end"    fontSize="13" fontWeight="600" fill="rgba(255,255,255,0.45)" fontFamily="sans-serif">Value</text>
+                            </svg>
+                          </div>
+
+                          {/* Bars preview */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, justifyContent: 'center', minWidth: 200 }}>
+                            {entries.map(({ key, label }) => {
+                              const val = radarVals[key]
+                              const col = barColor(val)
+                              return (
+                                <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                  <span style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.4)', width: 80, letterSpacing: 0.5, textTransform: 'uppercase' }}>{label}</span>
+                                  <div style={{ flex: 1, height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.07)', overflow: 'hidden' }}>
+                                    <div style={{ height: '100%', width: `${val}%`, background: col, borderRadius: 3 }} />
+                                  </div>
+                                  <span style={{ fontSize: 11, fontWeight: 700, color: col, width: 28, textAlign: 'right' }}>{val}</span>
+                                </div>
+                              )
+                            })}
+                          </div>
                         </div>
                       </div>
                     </div>

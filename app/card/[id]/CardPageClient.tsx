@@ -1145,6 +1145,7 @@ export default function CardPageClient() {
           return (
             <ShareCardModal
               onClose={() => setShowShare(false)}
+              isAdmin={isAdmin}
               data={{
                 cardName:      urlName ?? liveData.card_name ?? '',
                 setName:       urlSet  ?? liveData.set_name ?? '',
@@ -1232,8 +1233,8 @@ export default function CardPageClient() {
                           🔒 Compare — Pro
                         </Link>
                       )}
-                      {/* Share — admin only */}
-                      {isAdmin && liveData && (
+                      {/* Share — Pro+ */}
+                      {liveData && (userTier === 'pro' || isAdmin) && (
                         <button
                           onClick={() => setShowShare(true)}
                           style={{ padding: '8px 14px', borderRadius: 10, background: 'rgba(232,197,71,0.08)', border: '1.5px solid rgba(232,197,71,0.3)', fontSize: 11, fontWeight: 600, color: '#e8c547', cursor: 'pointer', width: '100%' }}
@@ -3452,6 +3453,7 @@ export default function CardPageClient() {
         return (
           <ShareCardModal
             onClose={() => setShowShare(false)}
+            isAdmin={isAdmin}
             data={{
               cardName:      urlName ?? card?.name ?? liveData.card_name ?? '',
               setName:       urlSet  ?? liveData.set_name ?? '',
@@ -3591,8 +3593,8 @@ export default function CardPageClient() {
                       🔒 Compare — Pro
                     </Link>
                   ) : null}
-                  {/* Share — admin only */}
-                  {isAdmin && liveData && (
+                  {/* Share — Pro+ */}
+                  {liveData && (userTier === 'pro' || isAdmin) && (
                     <button
                       className="ci-no-print"
                       onClick={() => setShowShare(true)}

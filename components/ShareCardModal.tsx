@@ -377,14 +377,28 @@ ${variant === 'score-radar' ? sparklineSectionHtml() : ''}
 export default function ShareCardModal({
   data,
   onClose,
+  isAdmin = false,
 }: {
-  data:    ShareCardData
-  onClose: () => void
+  data:     ShareCardData
+  onClose:  () => void
+  isAdmin?: boolean
 }) {
   const [variant, setVariant] = useState<Variant>('moving-avg')
   const [generating, setGenerating] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [isMobile, setIsMobile] = useState(false)
+  const [canNativeShare, setCanNativeShare] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const check = () => {
+      setIsMobile(window.innerWidth < 640)
+      setCanNativeShare(typeof navigator !== 'undefined' && !!navigator.share)
+    }
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
 
   const generate = useCallback(async () => {
     setGenerating(true)
@@ -462,106 +476,170 @@ export default function ShareCardModal({
 
   useEffect(() => { generate() }, [generate])
 
-  function download() {
+  async function download() {
     if (!previewUrl) return
+    const filename = `cardindex-${data.cardName.replace(/\s+/g, '-').toLowerCase()}.png`
+
+    // Try Web Share API first on mobile (opens native share sheet → Save to Photos, etc.)
+    if (canNativeShare) {
+      try {
+        const blob = await (await fetch(previewUrl)).blob()
+        const file = new File([blob], filename, { type: 'image/png' })
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: `CardIndex — ${data.cardName}` })
+          return
+        }
+      } catch (e) {
+        // User cancelled or share failed — fall through to direct download
+        if ((e as Error)?.name === 'AbortError') return
+      }
+    }
+
+    // Fallback: trigger file download
     const a = document.createElement('a')
     a.href     = previewUrl
-    a.download = `cardindex-${data.cardName.replace(/\s+/g, '-').toLowerCase()}.png`
+    a.download = filename
     a.click()
   }
 
+  const VARIANTS = [
+    { key: 'moving-avg'  as Variant, label: 'Moving Avg',   desc: 'Price averages & signal',  icon: '📈' },
+    { key: 'score-radar' as Variant, label: 'Score Radar',  desc: 'Spider graph & sparkline',  icon: '🕸️' },
+    ...(isAdmin ? [{ key: 'card-art' as Variant, label: 'Card Art', desc: 'Transparent card PNG', icon: '🃏' }] : []),
+  ]
+
+  // Reset to moving-avg if card-art is selected but user is not admin
+  useEffect(() => {
+    if (!isAdmin && variant === 'card-art') setVariant('moving-avg')
+  }, [isAdmin, variant])
+
+  const ready    = !generating && !!previewUrl
+  const btnLabel = generating
+    ? 'Generating…'
+    : canNativeShare && isMobile
+      ? 'Save / Share Image'
+      : 'Download PNG'
+
   return (
     <>
+      {/* Backdrop */}
       <div
         onClick={onClose}
-        style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(6px)' }}
+        style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.80)', backdropFilter: 'blur(6px)' }}
       />
+
+      {/* Sheet — bottom on mobile, centered on desktop */}
       <div style={{
-        position: 'fixed', inset: 0, zIndex: 1001,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: 16, pointerEvents: 'none',
+        position: 'fixed', zIndex: 1001,
+        ...(isMobile
+          ? { bottom: 0, left: 0, right: 0 }
+          : { inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, pointerEvents: 'none' }),
       }}>
         <div ref={containerRef} style={{
           pointerEvents: 'auto',
           background: '#0e0e1c', border: '1px solid rgba(255,255,255,0.08)',
-          borderRadius: 20, padding: 24, width: '100%', maxWidth: 500,
-          maxHeight: '92vh', overflowY: 'auto',
-          display: 'flex', flexDirection: 'column', gap: 16,
-          boxShadow: '0 32px 80px rgba(0,0,0,0.7)',
+          borderRadius: isMobile ? '20px 20px 0 0' : 20,
+          padding: isMobile ? '20px 20px calc(20px + env(safe-area-inset-bottom))' : 24,
+          width: isMobile ? '100%' : '100%', maxWidth: isMobile ? undefined : 500,
+          maxHeight: isMobile ? '88vh' : '92vh', overflowY: 'auto',
+          display: 'flex', flexDirection: 'column', gap: isMobile ? 14 : 16,
+          boxShadow: '0 -8px 40px rgba(0,0,0,0.6)',
         }}>
-          {/* Header */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: '#f0f0f8' }}>Share Card</div>
-              <div style={{ fontSize: 11, color: '#55556a', marginTop: 3 }}>{data.cardName} · {data.grade}</div>
+
+          {/* Drag handle (mobile only) */}
+          {isMobile && (
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: -6 }}>
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.15)' }} />
             </div>
-            <button
-              onClick={onClose}
-              style={{
-                background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
-                borderRadius: 8, color: '#9898b8', fontSize: 20, cursor: 'pointer',
-                width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-              }}
-            >×</button>
+          )}
+
+          {/* Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontSize: isMobile ? 16 : 18, fontWeight: 700, color: '#f0f0f8' }}>Save Image</div>
+              <div style={{ fontSize: 11, color: '#55556a', marginTop: 2 }}>{data.cardName} · {data.grade}</div>
+            </div>
+            <button onClick={onClose} style={{
+              background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: 8, color: '#9898b8', fontSize: 18, cursor: 'pointer',
+              width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}>×</button>
           </div>
 
-          {/* Variant toggle */}
-          <div style={{ display: 'flex', gap: 6 }}>
-            {([
-              { key: 'moving-avg',  label: 'Moving Avg' },
-              { key: 'score-radar', label: 'Score Radar' },
-              { key: 'card-art',    label: 'Card Art' },
-            ] as { key: Variant; label: string }[]).map(({ key, label }) => (
+          {/* Variant picker */}
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${VARIANTS.length}, 1fr)`, gap: 8 }}>
+            {VARIANTS.map(({ key, label, desc, icon }) => (
               <button
                 key={key}
                 onClick={() => setVariant(key)}
                 style={{
-                  flex: 1, padding: '8px 0', borderRadius: 8, fontSize: 12, fontWeight: 600,
-                  cursor: 'pointer', transition: 'all 0.15s',
-                  background: variant === key ? 'rgba(232,197,71,0.15)' : 'rgba(255,255,255,0.04)',
-                  border:     variant === key ? '1px solid rgba(232,197,71,0.35)' : '1px solid rgba(255,255,255,0.08)',
+                  padding: isMobile ? '10px 6px' : '10px 8px',
+                  borderRadius: 12, cursor: 'pointer', transition: 'all 0.15s',
+                  textAlign: 'center',
+                  background: variant === key ? 'rgba(232,197,71,0.12)' : 'rgba(255,255,255,0.03)',
+                  border:     variant === key ? '1.5px solid rgba(232,197,71,0.40)' : '1.5px solid rgba(255,255,255,0.07)',
                   color:      variant === key ? '#e8c547' : '#55556a',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
                 }}
               >
-                {label}
+                <span style={{ fontSize: 18 }}>{icon}</span>
+                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.2 }}>{label}</span>
+                {!isMobile && <span style={{ fontSize: 10, color: variant === key ? 'rgba(232,197,71,0.6)' : '#33334a', lineHeight: 1.3 }}>{desc}</span>}
               </button>
             ))}
           </div>
 
-          {/* Preview */}
+          {/* Preview — full on desktop, compact on mobile */}
           <div style={{
             borderRadius: 12, overflow: 'hidden',
             background: '#060610', border: '1px solid rgba(255,255,255,0.06)',
-            minHeight: 180, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            minHeight: isMobile ? 120 : 180,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
             {generating && (
               <div style={{ color: '#55556a', fontSize: 13, padding: 24, textAlign: 'center' }}>
-                <div style={{ marginBottom: 8 }}>Generating…</div>
-                <div style={{ fontSize: 11, color: '#33334a' }}>Rendering template</div>
+                <div style={{ marginBottom: 6, fontSize: isMobile ? 12 : 13 }}>Generating image…</div>
+                <div style={{ fontSize: 10, color: '#33334a' }}>This takes a few seconds</div>
               </div>
             )}
             {!generating && previewUrl && (
               <img
                 src={previewUrl}
                 alt="Share preview"
-                style={{ width: '100%', height: 'auto', display: 'block', maxHeight: 460, objectFit: 'contain' }}
+                style={{ width: '100%', height: 'auto', display: 'block', maxHeight: isMobile ? 260 : 440, objectFit: 'contain' }}
               />
             )}
           </div>
 
-          {/* Download */}
+          {/* Action button */}
           <button
             onClick={download}
-            disabled={generating || !previewUrl}
+            disabled={!ready}
             style={{
-              padding: '14px 0', borderRadius: 12,
-              background: generating || !previewUrl ? 'rgba(232,197,71,0.25)' : '#e8c547',
-              border: 'none', color: '#08080f', fontSize: 14, fontWeight: 800, letterSpacing: 0.5,
-              cursor: generating || !previewUrl ? 'default' : 'pointer',
+              padding: isMobile ? '15px 0' : '14px 0', borderRadius: 12,
+              background: ready ? '#e8c547' : 'rgba(232,197,71,0.20)',
+              border: 'none', color: '#08080f', fontSize: isMobile ? 15 : 14, fontWeight: 800,
+              letterSpacing: 0.4, cursor: ready ? 'pointer' : 'default',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
             }}
           >
-            {generating ? 'Generating…' : 'Download PNG (2160×2700)'}
+            {ready && (
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                {canNativeShare && isMobile
+                  ? <><path d="M8 2v9M5 8l3 3 3-3"/><path d="M3 13h10"/><path d="M11 4l-3-3-3 3"/></>
+                  : <><path d="M4 12v1a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-1"/><path d="M8 2v9M5 8l3 3 3-3"/></>
+                }
+              </svg>
+            )}
+            {btnLabel}
           </button>
+
+          {/* Hint text */}
+          {isMobile && ready && canNativeShare && (
+            <p style={{ fontSize: 11, color: '#33334a', textAlign: 'center', margin: '-6px 0 0' }}>
+              Tap Save Image → add to your Camera Roll
+            </p>
+          )}
         </div>
       </div>
     </>

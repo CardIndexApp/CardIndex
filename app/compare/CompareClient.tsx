@@ -165,6 +165,7 @@ function ComparisonTable({
   onReorder,
   showDragHandles,
   fmtPrice,
+  ratesLoading,
 }: {
   cards: CompareCard[]
   colors: string[]
@@ -172,6 +173,7 @@ function ComparisonTable({
   onReorder: (from: number, to: number) => void
   showDragHandles: boolean
   fmtPrice: (amount: number, nativeCurrency?: string | null) => string
+  ratesLoading: boolean
 }) {
   const N = cards.length
   if (!N) return null
@@ -951,6 +953,7 @@ export default function CompareClient() {
                   onReorder={reorderCards}
                   showDragHandles={!isMobile}
                   fmtPrice={fmtPrice}
+                  ratesLoading={ratesLoading}
                 />
               </div>
             </div>

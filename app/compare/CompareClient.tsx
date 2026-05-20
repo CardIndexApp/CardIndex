@@ -259,13 +259,18 @@ function ComparisonTable({
       <div style={rowGrid}>
         {cards.map((c, i) => {
           const imgSrc = c.imageUrl ? tcgImg(c.imageUrl) : null
+          const cardParams = new URLSearchParams({ name: c.name, grade: c.grade })
+          if (c.setName) cardParams.set('set', c.setName)
+          const cardHref = `/card/${c.id}?${cardParams}`
           return (
             <div key={c.id + c.grade + 'img'} {...dh(i)} style={{
               ...cs(i),
               padding: '16px 16px 12px',
               position: 'relative',
               display: 'flex',
-              justifyContent: 'center',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 10,
               minHeight: 192,
             }}>
               <button
@@ -280,6 +285,25 @@ function ComparisonTable({
                     <img src={imgSrc} alt={c.name} style={{ height: 160, width: 'auto', maxWidth: '100%', objectFit: 'contain', borderRadius: 8 }} />
                   : <div style={{ height: 160, width: 115, borderRadius: 8, background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32 }}>🃏</div>
               }
+              {!c.loading && (
+                <a
+                  href={cardHref}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                    fontSize: 11, fontWeight: 600, color: 'var(--ink3)',
+                    background: 'var(--surface2)', border: '1px solid var(--border2)',
+                    borderRadius: 7, padding: '5px 10px', textDecoration: 'none',
+                    transition: 'all 0.15s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.color = 'var(--gold)'; e.currentTarget.style.borderColor = 'rgba(232,197,71,0.4)' }}
+                  onMouseLeave={e => { e.currentTarget.style.color = 'var(--ink3)'; e.currentTarget.style.borderColor = 'var(--border2)' }}
+                >
+                  View Card
+                  <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4 12l8-8M12 4H7M12 4v5"/>
+                  </svg>
+                </a>
+              )}
             </div>
           )
         })}

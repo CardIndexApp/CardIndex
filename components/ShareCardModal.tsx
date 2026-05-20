@@ -388,6 +388,7 @@ export default function ShareCardModal({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [isMobile, setIsMobile] = useState(false)
   const [canNativeShare, setCanNativeShare] = useState(false)
+  const [isIOS, setIsIOS] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -395,6 +396,7 @@ export default function ShareCardModal({
       setIsMobile(window.innerWidth < 640)
       setCanNativeShare(typeof navigator !== 'undefined' && !!navigator.share)
     }
+    setIsIOS(/iPhone|iPad|iPod/.test(navigator.userAgent))
     check()
     window.addEventListener('resize', check)
     return () => window.removeEventListener('resize', check)
@@ -480,7 +482,7 @@ export default function ShareCardModal({
     if (!previewUrl) return
     const filename = `cardindex-${data.cardName.replace(/\s+/g, '-').toLowerCase()}.png`
 
-    // Try Web Share API first on mobile (opens native share sheet → Save to Photos, etc.)
+    // Try Web Share API first (works on iOS 15+ and modern Android)
     if (canNativeShare) {
       try {
         const blob = await (await fetch(previewUrl)).blob()
@@ -490,12 +492,19 @@ export default function ShareCardModal({
           return
         }
       } catch (e) {
-        // User cancelled or share failed — fall through to direct download
         if ((e as Error)?.name === 'AbortError') return
+        // Share failed — fall through to platform-appropriate fallback
       }
     }
 
-    // Fallback: trigger file download
+    // iOS fallback: open image full-screen so user can long-press → Save to Photos
+    // (anchor download on iOS shows a useless file viewer instead of saving)
+    if (isIOS) {
+      window.open(previewUrl, '_blank')
+      return
+    }
+
+    // Desktop / Android fallback: trigger file download via anchor
     const a = document.createElement('a')
     a.href     = previewUrl
     a.download = filename
@@ -518,7 +527,11 @@ export default function ShareCardModal({
     ? 'Generating…'
     : canNativeShare && isMobile
       ? 'Save / Share Image'
-      : 'Download PNG'
+      : isIOS && isMobile
+        ? 'Open Image to Save'
+        : 'Download PNG'
+  // On iOS without native share, guide user to long-press after opening
+  const showIOSHint = isIOS && isMobile && !canNativeShare && ready
 
   return (
     <>
@@ -627,7 +640,9 @@ export default function ShareCardModal({
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 {canNativeShare && isMobile
                   ? <><path d="M8 2v9M5 8l3 3 3-3"/><path d="M3 13h10"/><path d="M11 4l-3-3-3 3"/></>
-                  : <><path d="M4 12v1a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-1"/><path d="M8 2v9M5 8l3 3 3-3"/></>
+                  : isIOS && isMobile
+                    ? <><path d="M8 3v8M5 8l3-3 3 3"/><rect x="2" y="11" width="12" height="3" rx="1"/></>
+                    : <><path d="M4 12v1a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-1"/><path d="M8 2v9M5 8l3 3 3-3"/></>
                 }
               </svg>
             )}
@@ -637,7 +652,12 @@ export default function ShareCardModal({
           {/* Hint text */}
           {isMobile && ready && canNativeShare && (
             <p style={{ fontSize: 11, color: '#33334a', textAlign: 'center', margin: '-6px 0 0' }}>
-              Tap Save Image → add to your Camera Roll
+              Tap Save Image to add to your Camera Roll
+            </p>
+          )}
+          {showIOSHint && (
+            <p style={{ fontSize: 11, color: '#33334a', textAlign: 'center', margin: '-6px 0 0' }}>
+              Image opens full screen — long-press to Save to Photos
             </p>
           )}
         </div>

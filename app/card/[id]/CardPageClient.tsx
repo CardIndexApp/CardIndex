@@ -328,7 +328,7 @@ const PAGE_STYLES = `
 
 interface LiveData {
   price: number
-  price_change_pct: number
+  price_change_pct: number | null
   price_range_low: number
   price_range_high: number
   price_history: { month: string; price: number; volume?: number }[]
@@ -1387,8 +1387,8 @@ export default function CardPageClient() {
                         )}
                         {/* Both: % change — Standard+ only */}
                         {['standard','pro'].includes(userTier) ? (
-                          <span className="font-num" style={{ fontSize: 13, color: liveData.price_change_pct >= 0 ? 'var(--green)' : 'var(--red)', whiteSpace: 'nowrap' }}>
-                            {liveData.price_change_pct >= 0 ? '+' : ''}{liveData.price_change_pct.toFixed(1)}% (30d)
+                          <span className="font-num" style={{ fontSize: 13, color: (liveData.price_change_pct ?? 0) >= 0 ? 'var(--green)' : 'var(--red)', whiteSpace: 'nowrap' }}>
+                            {(liveData.price_change_pct ?? 0) >= 0 ? '+' : ''}{(liveData.price_change_pct ?? 0).toFixed(1)}% (30d)
                           </span>
                         ) : (
                           <Link href="/pricing" style={{ fontSize: 11, color: 'var(--gold)', textDecoration: 'none', padding: '2px 8px', borderRadius: 6, background: 'var(--gold2)', border: '1px solid rgba(232,197,71,0.25)' }}>🔒 Standard</Link>

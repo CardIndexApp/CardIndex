@@ -791,7 +791,7 @@ export default function PortfolioPage() {
   const [editPos, setEditPos] = useState<Position | null>(null)
   const [sellPos, setSellPos] = useState<Position | null>(null)
   const [showSold, setShowSold] = useState(true)
-  const [sort, setSort] = useState<SortKey>('pl')
+  const [sort, setSort] = useState<SortKey>('change24h')
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
   const [filter, setFilter] = useState<'all' | 'winning' | 'losing'>('all')
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
@@ -1105,11 +1105,12 @@ export default function PortfolioPage() {
         @media (max-width: 760px) { .pf-del-btn { display: none !important; } }
         @media (max-width: 760px) {
           .pf-row, .pf-header {
-            grid-template-columns: 1fr 88px 64px;
+            grid-template-columns: 1fr 72px 56px 48px;
             gap: 4px;
           }
           .pf-hide-mobile { display: none !important; }
           .pf-show-mobile { display: block !important; }
+          .pf-show-mobile-flex { display: flex !important; }
           .pf-row { padding: 12px 14px; min-height: 56px; }
           .pf-header { padding: 8px 14px; }
           .pf-stats-bar { grid-template-columns: repeat(2, 1fr) !important; }
@@ -1269,8 +1270,9 @@ export default function PortfolioPage() {
               <div role="button" tabIndex={0} onClick={() => handleSort('name')} onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && handleSort('name')} style={{ cursor: 'pointer', fontSize: 10, letterSpacing: 1, color: sort === 'name' ? 'var(--gold)' : 'var(--ink3)', fontWeight: sort === 'name' ? 700 : 500, display: 'flex', gap: 4, alignItems: 'center' }}>
                 CARD {sort === 'name' && <span style={{ fontSize: 9 }}>{sortDir === 'desc' ? '▼' : '▲'}</span>}
               </div>
-              {/* Mobile-only column labels (cols 2 & 3 on narrow screens) */}
+              {/* Mobile-only column labels */}
               <div className="pf-show-mobile" style={{ textAlign: 'right', fontSize: 10, letterSpacing: 1, color: 'var(--ink3)' }}>P&amp;L</div>
+              <div className="pf-show-mobile" style={{ textAlign: 'right', fontSize: 10, letterSpacing: 1, color: 'var(--ink3)' }}>24H</div>
               <div className="pf-show-mobile" />
               <SortTh label="MKT VALUE" k="current" />
               <SortTh label="P&amp;L" k="plpct" />
@@ -1388,8 +1390,8 @@ export default function PortfolioPage() {
                     </div>
                   </div>
 
-                  {/* 24h — desktop only */}
-                  <div className="pf-hide-mobile" style={{ textAlign: 'right' }}>
+                  {/* 24h — desktop + mobile */}
+                  <div style={{ textAlign: 'right' }}>
                     {pos.priceLoading ? <div style={{ width: 40, height: 12, borderRadius: 4, background: 'var(--surface2)', marginLeft: 'auto' }} className="sk-pulse" /> : <ChangePill value={changes?.c24 ?? null} />}
                   </div>
 

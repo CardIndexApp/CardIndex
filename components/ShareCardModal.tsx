@@ -137,17 +137,18 @@ function buildHtml(d: ShareCardData, variant: Variant = 'moving-avg'): string {
     const maxP   = Math.max(...prices)
     const range  = maxP - minP || 1
 
-    // SVG canvas: 920×72 (full width minus 2×26px section padding)
-    const W = 920, H = 72, pad = 8
+    // SVG canvas: 920×72 — line draws in upper zone, labels in bottom 18px
+    const W = 920, H = 72, pad = 8, labelZone = 18
+    const lineAreaH = H - pad - labelZone  // line draws between y=pad and y=(H-labelZone)
     const xStep = (W - pad * 2) / (hist.length - 1)
 
     const pts = hist.map((h, i) => {
       const x = pad + i * xStep
-      const y = pad + (1 - (h.price - minP) / range) * (H - pad * 2)
+      const y = pad + (1 - (h.price - minP) / range) * lineAreaH
       return `${x.toFixed(1)},${y.toFixed(1)}`
     })
 
-    const areaBottom = `${(pad + (hist.length - 1) * xStep).toFixed(1)},${H} ${pad},${H}`
+    const areaBottom = `${(pad + (hist.length - 1) * xStep).toFixed(1)},${H - labelZone} ${pad},${H - labelZone}`
     const lineColor  = prices[prices.length - 1] >= prices[0] ? '#3cb87a' : '#e05252'
 
     // Label every ~4th month, always show first and last
@@ -193,9 +194,9 @@ function buildHtml(d: ShareCardData, variant: Variant = 'moving-avg'): string {
       if (!h) return ''
       const x = pad + i * xStep
       const anchor = i === 0 ? 'start' : i === hist.length - 1 ? 'end' : 'middle'
-      return `<text x="${x.toFixed(1)}" y="${H}" text-anchor="${anchor}" font-size="10" fill="rgba(255,255,255,0.25)" font-family="Helvetica Neue,Helvetica,Arial,sans-serif">${h.month}</text>`
+      return `<text x="${x.toFixed(1)}" y="${H - 2}" text-anchor="${anchor}" font-size="10" fill="rgba(255,255,255,0.25)" font-family="Helvetica Neue,Helvetica,Arial,sans-serif">${h.month}</text>`
     }).join('')}
-    <circle cx="${(pad + (hist.length - 1) * xStep).toFixed(1)}" cy="${(pad + (1 - (prices[prices.length - 1] - minP) / range) * (H - pad * 2)).toFixed(1)}" r="4" fill="${lineColor}"/>
+    <circle cx="${(pad + (hist.length - 1) * xStep).toFixed(1)}" cy="${(pad + (1 - (prices[prices.length - 1] - minP) / range) * lineAreaH).toFixed(1)}" r="4" fill="${lineColor}"/>
   </svg>
 </div>`
   }

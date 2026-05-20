@@ -38,7 +38,7 @@ interface ScoreBreakdown {
 
 interface LiveData {
   price: number
-  price_change_pct: number
+  price_change_pct: number | null
   avg1d?: number | null
   avg7d?: number | null
   avg30d?: number | null
@@ -358,11 +358,13 @@ function ComparisonTable({
               ) : d ? (
                 <>
                   <div className="font-num" style={{ fontSize: 24, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px', lineHeight: 1 }}>
-                    {fmtPrice(d.price, d.currency)}
+                    {ratesLoading
+                      ? <span style={{ display: 'inline-block', width: 90, height: 24, borderRadius: 6, background: 'var(--surface2)' }} className="cmp-sk" />
+                      : fmtPrice(d.price, d.currency)}
                   </div>
                   {d.price_change_pct != null && (
                     <div className="font-num" style={{ fontSize: 12, fontWeight: 600, color: pctColor(d.price_change_pct), marginTop: 6 }}>
-                      {pctSign(d.price_change_pct)}{d.price_change_pct.toFixed(1)}% 24h
+                      {pctSign(d.price_change_pct ?? 0)}{(d.price_change_pct ?? 0).toFixed(1)}% 30d
                     </div>
                   )}
                 </>
@@ -396,7 +398,7 @@ function ComparisonTable({
           key: 'range', label: 'Price Range',
           fn: (c: CompareCard) => {
             const d = c.data
-            if (!d || d.price_range_low == null || d.price_range_high == null) return null
+            if (!d || d.price_range_low == null || d.price_range_high == null || ratesLoading) return null
             return {
               text: `${fmtPrice(d.price_range_low, d.currency)} – ${fmtPrice(d.price_range_high, d.currency)}`,
               color: 'var(--ink)',
@@ -539,7 +541,7 @@ function MultiTooltip({
 export default function CompareClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { fmtCurrency, rates, currency } = useCurrency()
+  const { fmtCurrency, rates, currency, ratesLoading } = useCurrency()
 
   // ── Price formatter — converts native-currency prices to user's preferred ──
   const fmtPrice = useCallback((amount: number, nativeCurrency?: string | null): string => {

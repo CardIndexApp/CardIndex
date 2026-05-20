@@ -985,7 +985,7 @@ export default function PortfolioPage() {
       if (sort === 'name')     return dir * a.card_name.localeCompare(b.card_name)
       if (sort === 'current')  return dir * ((bp?.price ?? 0) - (ap?.price ?? 0))
       if (sort === 'cost')     return dir * (b.purchase_price - a.purchase_price)
-      if (sort === 'change24h') return dir * ((bp?.price_change_pct ?? 0) - (ap?.price_change_pct ?? 0))
+      if (sort === 'change24h') return dir * ((ap?.price_change_pct ?? -Infinity) - (bp?.price_change_pct ?? -Infinity))
       if (sort === 'change7d') {
         const ac = ap?.avg7d  ? ((ap.price - ap.avg7d)  / ap.avg7d)  * 100 : 0
         const bc = bp?.avg7d  ? ((bp.price - bp.avg7d)  / bp.avg7d)  * 100 : 0

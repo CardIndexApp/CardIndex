@@ -159,6 +159,104 @@ export default function AdminPage() {
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // ── Content tab ───────────────────────────────────────────────────────────
+  function downloadVerdictPill(verdict: string) {
+    const v = verdict.toLowerCase()
+    const color  = v === 'buy' ? '#3de88a' : v === 'accumulate' ? '#5bc8a8' : v === 'hold' ? '#e8c547' : '#e8524a'
+    const bg     = v === 'buy' ? 'rgba(61,232,138,0.15)'  : v === 'accumulate' ? 'rgba(91,200,168,0.15)'  : v === 'hold' ? 'rgba(232,197,71,0.15)'  : 'rgba(232,82,74,0.15)'
+    const border = v === 'buy' ? 'rgba(61,232,138,0.45)'  : v === 'accumulate' ? 'rgba(91,200,168,0.45)'  : v === 'hold' ? 'rgba(232,197,71,0.45)'  : 'rgba(232,82,74,0.45)'
+
+    const SCALE = 4          // 4× for a crisp high-res export
+    const FONT  = 36         // logical px
+    const PX    = 64         // horizontal padding
+    const PY    = 32         // vertical padding
+    const R     = 999        // fully-pill radius
+
+    // Measure text at logical size then scale canvas
+    const tmp = document.createElement('canvas')
+    const tmpCtx = tmp.getContext('2d')!
+    tmpCtx.font = `800 ${FONT}px "Helvetica Neue", Helvetica, Arial, sans-serif`
+    const textW = tmpCtx.measureText(verdict.toUpperCase()).width
+
+    const W = Math.ceil(textW + PX * 2)
+    const H = FONT + PY * 2
+
+    const canvas = document.createElement('canvas')
+    canvas.width  = W * SCALE
+    canvas.height = H * SCALE
+    const ctx = canvas.getContext('2d')!
+    ctx.scale(SCALE, SCALE)
+
+    // Semi-transparent fill
+    ctx.beginPath()
+    ctx.roundRect(0, 0, W, H, R)
+    ctx.fillStyle = bg
+    ctx.fill()
+
+    // Border
+    ctx.beginPath()
+    ctx.roundRect(1.5, 1.5, W - 3, H - 3, R)
+    ctx.strokeStyle = border
+    ctx.lineWidth = 2.5
+    ctx.stroke()
+
+    // Text
+    ctx.font = `800 ${FONT}px "Helvetica Neue", Helvetica, Arial, sans-serif`
+    ctx.fillStyle = color
+    ctx.textBaseline = 'middle'
+    ctx.textAlign = 'center'
+    ctx.fillText(verdict.toUpperCase(), W / 2, H / 2)
+
+    const a = document.createElement('a')
+    a.href = canvas.toDataURL('image/png', 1.0)
+    a.download = `verdict-${v}.png`
+    a.click()
+  }
+
+  const [scoreCircleVal, setScoreCircleVal] = useState(80)
+
+  function downloadScoreCircle(score: number) {
+    const color = score >= 80 ? '#3de88a' : score >= 60 ? '#e8c547' : '#e8524a'
+    const label = score >= 80 ? 'STRONG'  : score >= 60 ? 'MODERATE' : 'WEAK'
+
+    const SCALE = 4
+    const SIZE  = 200   // logical diameter
+    const CX    = SIZE / 2
+    const CY    = SIZE / 2
+    const R     = SIZE / 2 - 6  // radius with border inset
+
+    const canvas = document.createElement('canvas')
+    canvas.width  = SIZE * SCALE
+    canvas.height = SIZE * SCALE
+    const ctx = canvas.getContext('2d')!
+    ctx.scale(SCALE, SCALE)
+
+    // Circle border
+    ctx.beginPath()
+    ctx.arc(CX, CY, R, 0, Math.PI * 2)
+    ctx.strokeStyle = color
+    ctx.lineWidth = 5
+    ctx.stroke()
+
+    // Score number
+    ctx.font = `700 72px "Helvetica Neue", Helvetica, Arial, sans-serif`
+    ctx.fillStyle = color
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'alphabetic'
+    ctx.fillText(String(Math.round(score)), CX, CY + 12)
+
+    // Label
+    ctx.font = `600 18px "Helvetica Neue", Helvetica, Arial, sans-serif`
+    ctx.fillStyle = color
+    ctx.globalAlpha = 0.6
+    ctx.fillText(label, CX, CY + 36)
+    ctx.globalAlpha = 1
+
+    const a = document.createElement('a')
+    a.href = canvas.toDataURL('image/png', 1.0)
+    a.download = `score-${Math.round(score)}.png`
+    a.click()
+  }
+
   const [topSearched, setTopSearched] = useState<TopSearchedResponse | null>(null)
   const [topSearchedLoading, setTopSearchedLoading] = useState(false)
   const [showTopSearchedModal, setShowTopSearchedModal] = useState(false)
@@ -1203,6 +1301,109 @@ export default function AdminPage() {
                 <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
               </div>
 
+              {/* Verdict Pills */}
+              <div style={S.card}>
+                <div style={S.head}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Verdict Pills</div>
+                    <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 3 }}>Download each verdict as a transparent high-res PNG overlay</div>
+                  </div>
+                </div>
+                <div style={S.body}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                    {(['Buy', 'Accumulate', 'Hold', 'Sell'] as const).map((verdict) => {
+                      const v = verdict.toLowerCase()
+                      const color  = v === 'buy' ? '#3de88a' : v === 'accumulate' ? '#5bc8a8' : v === 'hold' ? '#e8c547' : '#e8524a'
+                      const bg     = v === 'buy' ? 'rgba(61,232,138,0.1)'  : v === 'accumulate' ? 'rgba(91,200,168,0.1)'  : v === 'hold' ? 'rgba(232,197,71,0.1)'  : 'rgba(232,82,74,0.1)'
+                      const border = v === 'buy' ? 'rgba(61,232,138,0.3)'  : v === 'accumulate' ? 'rgba(91,200,168,0.3)'  : v === 'hold' ? 'rgba(232,197,71,0.3)'  : 'rgba(232,82,74,0.3)'
+                      return (
+                        <button
+                          key={verdict}
+                          onClick={() => downloadVerdictPill(verdict)}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 8,
+                            padding: '8px 18px', borderRadius: 99, border: `1px solid ${border}`,
+                            background: bg, color, cursor: 'pointer',
+                            fontSize: 12, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase',
+                          }}
+                        >
+                          {verdict}
+                          <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M4 12v1a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-1"/><path d="M8 2v9M5 8l3 3 3-3"/>
+                          </svg>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Score Circle */}
+              {(() => {
+                const score = Math.min(100, Math.max(0, scoreCircleVal || 0))
+                const color = score >= 80 ? '#3de88a' : score >= 60 ? '#e8c547' : '#e8524a'
+                const label = score >= 80 ? 'STRONG'  : score >= 60 ? 'MODERATE' : 'WEAK'
+                const bg    = score >= 80 ? 'rgba(61,232,138,0.06)' : score >= 60 ? 'rgba(232,197,71,0.06)' : 'rgba(232,82,74,0.06)'
+                return (
+                  <div style={S.card}>
+                    <div style={S.head}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Score Circle</div>
+                        <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 3 }}>Download a transparent high-res PNG of any score</div>
+                      </div>
+                    </div>
+                    <div style={S.body}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+                        {/* Live preview */}
+                        <div style={{
+                          width: 80, height: 80, borderRadius: '50%', flexShrink: 0,
+                          border: `3px solid ${color}`, background: bg,
+                          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
+                        }}>
+                          <span style={{ fontSize: 28, fontWeight: 700, color, lineHeight: 1, letterSpacing: '-1px' }}>{score}</span>
+                          <span style={{ fontSize: 8, fontWeight: 600, color, opacity: 0.6, letterSpacing: 0.5 }}>{label}</span>
+                        </div>
+                        {/* Controls */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <input
+                              type="range" min={0} max={100}
+                              value={scoreCircleVal}
+                              onChange={e => setScoreCircleVal(Number(e.target.value))}
+                              style={{ flex: 1, accentColor: color }}
+                            />
+                            <input
+                              type="number" min={0} max={100}
+                              value={scoreCircleVal}
+                              onChange={e => setScoreCircleVal(Math.min(100, Math.max(0, Number(e.target.value))))}
+                              style={{
+                                width: 60, padding: '5px 8px', borderRadius: 7,
+                                border: '1px solid var(--border2)', background: 'var(--bg)',
+                                color: 'var(--ink)', fontSize: 13, fontWeight: 700, textAlign: 'center',
+                              }}
+                            />
+                          </div>
+                          <button
+                            onClick={() => downloadScoreCircle(scoreCircleVal)}
+                            style={{
+                              alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 7,
+                              padding: '8px 18px', borderRadius: 9, border: 'none',
+                              background: 'var(--gold)', color: '#08080f',
+                              fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                            }}
+                          >
+                            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M4 12v1a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-1"/><path d="M8 2v9M5 8l3 3 3-3"/>
+                            </svg>
+                            Download PNG
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
+
               {/* Most Searched card */}
               <div style={S.card}>
                 <div style={S.head}>
@@ -1272,7 +1473,7 @@ export default function AdminPage() {
                               </div>
                             </div>
                           </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <span style={{ fontSize: 11, color: 'var(--ink3)' }}>{card.search_count} {card.search_count === 1 ? 'search' : 'searches'}</span>
                             {card.score != null && (
                               <span style={{
@@ -1282,9 +1483,20 @@ export default function AdminPage() {
                                 border: `1px solid ${card.score >= 70 ? 'rgba(61,232,138,0.2)' : card.score >= 50 ? 'rgba(215,170,60,0.2)' : 'rgba(232,82,74,0.2)'}`,
                                 padding: '2px 9px', borderRadius: 99,
                               }}>
-                                {Math.round(card.score)} {card.verdict ? `· ${card.verdict}` : ''}
+                                {Math.round(card.score)}
                               </span>
                             )}
+                            {card.verdict && (() => {
+                              const v = card.verdict.toLowerCase()
+                              const color = v === 'buy' ? '#3de88a' : v === 'accumulate' ? '#5bc8a8' : v === 'hold' ? '#e8c547' : '#e8524a'
+                              const bg    = v === 'buy' ? 'rgba(61,232,138,0.1)' : v === 'accumulate' ? 'rgba(91,200,168,0.1)' : v === 'hold' ? 'rgba(232,197,71,0.1)' : 'rgba(232,82,74,0.1)'
+                              const border= v === 'buy' ? 'rgba(61,232,138,0.25)' : v === 'accumulate' ? 'rgba(91,200,168,0.25)' : v === 'hold' ? 'rgba(232,197,71,0.25)' : 'rgba(232,82,74,0.25)'
+                              return (
+                                <span style={{ fontSize: 11, fontWeight: 700, color, background: bg, border: `1px solid ${border}`, padding: '2px 9px', borderRadius: 99, letterSpacing: 0.3, textTransform: 'uppercase' }}>
+                                  {card.verdict}
+                                </span>
+                              )
+                            })()}
                           </div>
                         </div>
                       ))}

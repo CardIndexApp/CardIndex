@@ -159,11 +159,16 @@ export default function AdminPage() {
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // ── Content tab ───────────────────────────────────────────────────────────
-  function downloadVerdictPill(verdict: string) {
+  function verdictStyle(verdict: string) {
     const v = verdict.toLowerCase()
-    const color  = v === 'buy' ? '#3de88a' : v === 'accumulate' ? '#5bc8a8' : v === 'hold' ? '#e8c547' : '#e8524a'
-    const bg     = v === 'buy' ? 'rgba(61,232,138,0.15)'  : v === 'accumulate' ? 'rgba(91,200,168,0.15)'  : v === 'hold' ? 'rgba(232,197,71,0.15)'  : 'rgba(232,82,74,0.15)'
-    const border = v === 'buy' ? 'rgba(61,232,138,0.45)'  : v === 'accumulate' ? 'rgba(91,200,168,0.45)'  : v === 'hold' ? 'rgba(232,197,71,0.45)'  : 'rgba(232,82,74,0.45)'
+    const color  = v === 'buy' ? '#3de88a' : v === 'accumulate' ? '#3de88a' : v === 'hold' ? '#e8c547' : '#e8524a'
+    const bg     = v === 'buy' ? 'rgba(61,232,138,0.15)' : v === 'accumulate' ? 'rgba(61,232,138,0.08)' : v === 'hold' ? 'rgba(232,197,71,0.15)' : 'rgba(232,82,74,0.15)'
+    const border = v === 'buy' ? 'rgba(61,232,138,0.45)' : v === 'accumulate' ? 'rgba(61,232,138,0.25)' : v === 'hold' ? 'rgba(232,197,71,0.45)' : 'rgba(232,82,74,0.45)'
+    return { color, bg, border }
+  }
+
+  function downloadVerdictPill(verdict: string) {
+    const { color, bg, border } = verdictStyle(verdict)
 
     const SCALE = 4          // 4× for a crisp high-res export
     const FONT  = 36         // logical px
@@ -208,7 +213,7 @@ export default function AdminPage() {
 
     const a = document.createElement('a')
     a.href = canvas.toDataURL('image/png', 1.0)
-    a.download = `verdict-${v}.png`
+    a.download = `verdict-${verdict.toLowerCase()}.png`
     a.click()
   }
 
@@ -1416,11 +1421,8 @@ export default function AdminPage() {
                 </div>
                 <div style={S.body}>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-                    {(['Buy', 'Accumulate', 'Hold', 'Sell'] as const).map((verdict) => {
-                      const v = verdict.toLowerCase()
-                      const color  = v === 'buy' ? '#3de88a' : v === 'accumulate' ? '#5bc8a8' : v === 'hold' ? '#e8c547' : '#e8524a'
-                      const bg     = v === 'buy' ? 'rgba(61,232,138,0.1)'  : v === 'accumulate' ? 'rgba(91,200,168,0.1)'  : v === 'hold' ? 'rgba(232,197,71,0.1)'  : 'rgba(232,82,74,0.1)'
-                      const border = v === 'buy' ? 'rgba(61,232,138,0.3)'  : v === 'accumulate' ? 'rgba(91,200,168,0.3)'  : v === 'hold' ? 'rgba(232,197,71,0.3)'  : 'rgba(232,82,74,0.3)'
+                    {(['Buy', 'Accumulate', 'Hold', 'Reduce', 'Avoid']).map((verdict) => {
+                      const { color, bg, border } = verdictStyle(verdict)
                       return (
                         <button
                           key={verdict}
@@ -1693,10 +1695,7 @@ export default function AdminPage() {
                               </span>
                             )}
                             {card.verdict && (() => {
-                              const v = card.verdict.toLowerCase()
-                              const color = v === 'buy' ? '#3de88a' : v === 'accumulate' ? '#5bc8a8' : v === 'hold' ? '#e8c547' : '#e8524a'
-                              const bg    = v === 'buy' ? 'rgba(61,232,138,0.1)' : v === 'accumulate' ? 'rgba(91,200,168,0.1)' : v === 'hold' ? 'rgba(232,197,71,0.1)' : 'rgba(232,82,74,0.1)'
-                              const border= v === 'buy' ? 'rgba(61,232,138,0.25)' : v === 'accumulate' ? 'rgba(91,200,168,0.25)' : v === 'hold' ? 'rgba(232,197,71,0.25)' : 'rgba(232,82,74,0.25)'
+                              const { color, bg, border } = verdictStyle(card.verdict)
                               return (
                                 <span style={{ fontSize: 11, fontWeight: 700, color, background: bg, border: `1px solid ${border}`, padding: '2px 9px', borderRadius: 99, letterSpacing: 0.3, textTransform: 'uppercase' }}>
                                   {card.verdict}

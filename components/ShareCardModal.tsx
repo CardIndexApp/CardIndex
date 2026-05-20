@@ -386,6 +386,7 @@ export default function ShareCardModal({
   const [variant, setVariant] = useState<Variant>('moving-avg')
   const [generating, setGenerating] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [previewBlob, setPreviewBlob] = useState<Blob | null>(null)
   const [isMobile, setIsMobile] = useState(false)
   const [canNativeShare, setCanNativeShare] = useState(false)
   const [isIOS, setIsIOS] = useState(false)
@@ -404,7 +405,8 @@ export default function ShareCardModal({
 
   const generate = useCallback(async () => {
     setGenerating(true)
-    setPreviewUrl(null)
+    setPreviewUrl(prev => { if (prev?.startsWith('blob:')) URL.revokeObjectURL(prev); return null })
+    setPreviewBlob(null)
     try {
       // ── Card Art: transparent PNG with rounded corners ──────────────────────
       if (variant === 'card-art') {
@@ -428,8 +430,14 @@ export default function ShareCardModal({
         ctx.clip()
         ctx.drawImage(img, 0, 0, W, H)
 
-        setPreviewUrl(canvas.toDataURL('image/png', 1.0))
-        setGenerating(false)
+        // Store both blob (for native share) and data URL (for preview/download)
+        canvas.toBlob(blob => {
+          if (blob) {
+            setPreviewBlob(blob)
+            setPreviewUrl(URL.createObjectURL(blob))
+          }
+          setGenerating(false)
+        }, 'image/png', 1.0)
         return
       }
 
@@ -468,7 +476,16 @@ export default function ShareCardModal({
       })
 
       document.body.removeChild(wrap)
-      setPreviewUrl(canvas.toDataURL('image/png', 1.0))
+      // Store blob for zero-await native share; derive object URL for preview
+      await new Promise<void>(resolve => {
+        canvas.toBlob(blob => {
+          if (blob) {
+            setPreviewBlob(blob)
+            setPreviewUrl(URL.createObjectURL(blob))
+          }
+          resolve()
+        }, 'image/png', 1.0)
+      })
     } catch (e) {
       console.error('ShareCard generation failed:', e)
     } finally {
@@ -482,29 +499,31 @@ export default function ShareCardModal({
     if (!previewUrl) return
     const filename = `cardindex-${data.cardName.replace(/\s+/g, '-').toLowerCase()}.png`
 
-    // Try Web Share API first (works on iOS 15+ and modern Android)
-    if (canNativeShare) {
+    // iOS / Web Share API path ─────────────────────────────────────────────────
+    // CRITICAL: navigator.share() must be called with NO awaits before it on iOS.
+    // We pre-built previewBlob during generation so we can call share() immediately.
+    if (canNativeShare && previewBlob) {
       try {
-        const blob = await (await fetch(previewUrl)).blob()
-        const file = new File([blob], filename, { type: 'image/png' })
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        const file = new File([previewBlob], filename, { type: 'image/png' })
+        if (navigator.canShare?.({ files: [file] })) {
           await navigator.share({ files: [file], title: `CardIndex — ${data.cardName}` })
           return
         }
       } catch (e) {
         if ((e as Error)?.name === 'AbortError') return
-        // Share failed — fall through to platform-appropriate fallback
+        // Share failed non-cancel — fall through to iOS or desktop fallback
       }
     }
 
-    // iOS fallback: open image full-screen so user can long-press → Save to Photos
-    // (anchor download on iOS shows a useless file viewer instead of saving)
+    // iOS fallback (share unavailable/failed): open blob URL full-screen
+    // so user can long-press the image → Save to Photos.
+    // Never use <a download> on iOS — that shows a useless file viewer.
     if (isIOS) {
       window.open(previewUrl, '_blank')
       return
     }
 
-    // Desktop / Android fallback: trigger file download via anchor
+    // Desktop / Android: standard anchor download
     const a = document.createElement('a')
     a.href     = previewUrl
     a.download = filename

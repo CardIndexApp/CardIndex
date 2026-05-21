@@ -127,18 +127,19 @@ create table if not exists public.market_constituents (
   added_at    timestamptz default now(),
   unique (card_id, grade)
 );
--- No RLS — access only via service-role key in admin API routes.
-
 -- ── Row Level Security ──────────────────────────────
 
-alter table public.profiles        enable row level security;
-alter table public.watchlists      enable row level security;
-alter table public.search_log      enable row level security;
-alter table public.portfolios      enable row level security;
-alter table public.upgrade_requests enable row level security;
--- search_cache: no direct client access — all reads/writes go through
--- server-side API routes using the service-role key (bypasses RLS intentionally).
--- Client-side Supabase client has no SELECT policy, so rows are invisible to browsers.
+alter table public.profiles          enable row level security;
+alter table public.watchlists        enable row level security;
+alter table public.search_log        enable row level security;
+alter table public.portfolios        enable row level security;
+alter table public.upgrade_requests  enable row level security;
+alter table public.search_cache      enable row level security;
+alter table public.market_constituents enable row level security;
+-- search_cache + market_constituents: RLS enabled with no anon/authenticated policies.
+-- All reads/writes go through server-side API routes using the service-role key,
+-- which bypasses RLS entirely — so no behaviour change for the app.
+-- Enabling RLS simply prevents direct anon-key access from the browser.
 
 -- Profiles: users can only see/edit their own
 create policy "profiles_select_own" on public.profiles

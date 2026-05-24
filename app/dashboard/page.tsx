@@ -6,6 +6,7 @@ import Navbar from '@/components/Navbar'
 import { createClient } from '@/lib/supabase/client'
 import { usePullToRefresh } from '@/lib/usePullToRefresh'
 import { useCurrency } from '@/lib/currency'
+import { cacheGet, cacheSet } from '@/lib/searchCache'
 
 type Tier = 'free' | 'standard' | 'pro'
 
@@ -145,13 +146,36 @@ export default function Dashboard() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.replace('/'); return }
 
+    const DASH_KEY = `dashboard:data:${user.id}`
+
+    // ── 1. Render from cache instantly ────────────────────────────────────
+    type DashCache = { profile: Profile; watchlist: WatchlistItem[]; portfolioStats: PortfolioStats }
+    const cached = cacheGet<DashCache>(DASH_KEY)
+    if (cached) {
+      setProfile(cached.profile)
+      setWatchlist(cached.watchlist)
+      setPortfolioStats(cached.portfolioStats)
+      setLoading(false)
+    }
+
+    // Recently viewed is always from localStorage — read it immediately
+    try {
+      const rvKey = `ci_rv_${user.id}`
+      const stored: RecentlyViewedItem[] = JSON.parse(localStorage.getItem(rvKey) ?? '[]')
+      setRecentlyViewed(stored.slice(0, 5))
+    } catch {
+      setRecentlyViewed([])
+    }
+
+    // ── 2. Silently refresh from server ───────────────────────────────────
     const [{ data: prof }, { data: wl }, { data: pf }] = await Promise.all([
       supabase.from('profiles').select('email, username, tier').eq('id', user.id).single(),
       supabase.from('watchlists').select('id, card_id, card_name, set_name, grade').eq('user_id', user.id).order('added_at', { ascending: false }).limit(5),
       supabase.from('portfolios').select('id, card_id, grade, purchase_price, quantity, sold, sale_price').eq('user_id', user.id),
     ])
 
-    setProfile(prof ?? { email: user.email ?? '', username: null, tier: 'free' })
+    const freshProfile: Profile = prof ?? { email: user.email ?? '', username: null, tier: 'free' }
+    setProfile(freshProfile)
     setWatchlist(wl ?? [])
 
     // Portfolio stats — pull prices from search_cache (same source as portfolio page)
@@ -192,16 +216,11 @@ export default function Dashboard() {
       }
     }
 
-    setPortfolioStats({ posCount: openPositions.length, soldCount: soldPositions.length, costBasis, currentValue, cachedCount, realizedPL })
+    const freshStats: PortfolioStats = { posCount: openPositions.length, soldCount: soldPositions.length, costBasis, currentValue, cachedCount, realizedPL }
+    setPortfolioStats(freshStats)
 
-    // Recently viewed — stored in localStorage under the user's key
-    try {
-      const rvKey = `ci_rv_${user.id}`
-      const stored: RecentlyViewedItem[] = JSON.parse(localStorage.getItem(rvKey) ?? '[]')
-      setRecentlyViewed(stored.slice(0, 5))
-    } catch {
-      setRecentlyViewed([])
-    }
+    // Save fresh data to cache for next visit
+    cacheSet<DashCache>(DASH_KEY, { profile: freshProfile, watchlist: wl ?? [], portfolioStats: freshStats })
 
     // Market snapshot — non-blocking, best-effort
     fetch('/api/market')

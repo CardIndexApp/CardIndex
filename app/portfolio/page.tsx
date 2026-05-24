@@ -861,11 +861,32 @@ export default function PortfolioPage() {
   // ── Load portfolio ────────────────────────────────────────────────────────
   const load = useCallback(async () => {
     if (!user) return
-    setListLoading(true)
+
+    // ── 1. Show cached positions instantly (stale-while-revalidate) ──────────
+    const POSITIONS_KEY = `portfolio:positions:${user.id}`
+    const cachedPositions = cacheGet<DbPosition[]>(POSITIONS_KEY)
+    if (cachedPositions) {
+      const enriched: Position[] = cachedPositions.map((p: DbPosition) => {
+        const hit = cacheGet<PriceData>(`${p.card_id}:${p.grade}`)
+        return { ...p, priceData: hit ?? null, priceLoading: !hit, priceError: null }
+      })
+      setPositions(enriched)
+      // Fetch prices for any uncached entries in the background
+      const uncached = enriched.filter(p => !p.priceData)
+      uncached.forEach((pos, i) => setTimeout(() => fetchPrice(pos), i * 600))
+    } else {
+      // No cache — show spinner on true first load
+      setListLoading(true)
+    }
+
+    // ── 2. Silently fetch fresh positions from the server ─────────────────────
     try {
       const r = await fetch('/api/portfolio')
       const json = await r.json()
-      const enriched: Position[] = (json.positions ?? []).map((p: DbPosition) => {
+      const freshPositions: DbPosition[] = json.positions ?? []
+      cacheSet(POSITIONS_KEY, freshPositions)
+
+      const enriched: Position[] = freshPositions.map((p: DbPosition) => {
         const hit = cacheGet<PriceData>(`${p.card_id}:${p.grade}`)
         return { ...p, priceData: hit ?? null, priceLoading: !hit, priceError: null }
       })
@@ -878,6 +899,11 @@ export default function PortfolioPage() {
   }, [user]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { load() }, [load])
+
+  // Bust the positions list cache after any mutation so next page load is fresh
+  function invalidatePositionsCache() {
+    if (user) cacheSet(`portfolio:positions:${user.id}`, null)
+  }
 
   // ── Add position ──────────────────────────────────────────────────────────
   async function handleAdd(payload: Partial<DbPosition>) {
@@ -892,6 +918,7 @@ export default function PortfolioPage() {
     const newPos: Position = { ...json.position, priceData: hit ?? null, priceLoading: !hit, priceError: null }
     setPositions(prev => [newPos, ...prev])
     if (!hit) setTimeout(() => fetchPrice(newPos), 100)
+    invalidatePositionsCache()
     flash('ok', 'Position added.')
   }
 
@@ -907,6 +934,7 @@ export default function PortfolioPage() {
     if (!r.ok) throw new Error(json.error ?? 'Failed to update')
     setPositions(prev => prev.map(p => p.id === editPos.id
       ? { ...p, ...json.position } : p))
+    invalidatePositionsCache()
     flash('ok', 'Position updated.')
   }
 
@@ -915,6 +943,7 @@ export default function PortfolioPage() {
     e.stopPropagation()
     setPositions(prev => prev.filter(p => p.id !== id))
     await fetch(`/api/portfolio?id=${id}`, { method: 'DELETE' })
+    invalidatePositionsCache()
     flash('ok', 'Position removed.')
   }
 
@@ -929,6 +958,7 @@ export default function PortfolioPage() {
     if (!r.ok) throw new Error(json.error ?? 'Failed to mark as sold')
     setPositions(prev => prev.map(p => p.id === pos.id
       ? { ...p, sold: true, sale_price: salePrice, sold_at: soldAt } : p))
+    invalidatePositionsCache()
     flash('ok', 'Position marked as sold.')
   }
 
@@ -943,6 +973,7 @@ export default function PortfolioPage() {
     if (!r.ok) { flash('err', json.error ?? 'Failed to reopen position.'); return }
     setPositions(prev => prev.map(p => p.id === pos.id
       ? { ...p, sold: false, sale_price: null, sold_at: null } : p))
+    invalidatePositionsCache()
     flash('ok', 'Position reopened.')
   }
 

@@ -12,6 +12,13 @@ import { tcgImg } from '@/lib/img'
 import { createClient } from '@/lib/supabase/client'
 import { useCurrency, CURRENCIES } from '@/lib/currency'
 import { getTierLimits } from '@/lib/tier'
+import { cacheSet } from '@/lib/searchCache'
+
+// Module-level session cache — persists across navigations within a tab.
+// Key: the full API URL string. Cleared automatically when the module unloads (tab close / full refresh).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const _liveDataCache = new Map<string, { data: any; ts: number }>()
+const SESSION_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
 const GRADES = [
   { key: 'Raw',    label: 'RAW',    grader: 'RAW' },
@@ -671,10 +678,21 @@ export default function CardPageClient() {
     if (urlSetSlug) params.set('set_slug', urlSetSlug)
     if (urlGame)    params.set('game', urlGame)
     if (bustCache)  params.set('bust_cache', '1')
-    fetch(`/api/card/${id}?${params.toString()}`)
+    const apiUrl = `/api/card/${id}?${params.toString()}`
+    // Check session cache first (skip for bust_cache calls)
+    if (!bustCache) {
+      const hit = _liveDataCache.get(apiUrl)
+      if (hit && Date.now() - hit.ts < SESSION_CACHE_TTL) {
+        setLiveData(hit.data)
+        setLiveLoading(false)
+        return
+      }
+    }
+    fetch(apiUrl)
       .then(async r => {
         const json = await r.json().catch(() => null)
         if (json?.data) {
+          _liveDataCache.set(apiUrl, { data: json.data, ts: Date.now() })
           setLiveData(json.data)
         } else {
           const raw: string = json?.error ?? 'Unable to load price data'
@@ -840,6 +858,7 @@ export default function CardPageClient() {
       const json = await res.json()
       setWatchlistAdded(true)
       setWatchlistItemId(json.item?.id ?? null)
+      if (userId) cacheSet(`watchlist:items:${userId}`, null)
     }
     setWatchlistLoading(false)
   }
@@ -876,6 +895,7 @@ export default function CardPageClient() {
       setPfShowForm(false)
       setPfPrice('')
       setPfQty('1')
+      if (userId) cacheSet(`portfolio:positions:${userId}`, null)
     } else {
       const j = await res.json().catch(() => ({}))
       setPfError(j.error ?? 'Failed to add to portfolio')
@@ -889,6 +909,7 @@ export default function CardPageClient() {
     setWatchlistAdded(false)
     setWatchlistItemId(null)
     setWatchlistLoading(false)
+    if (userId) cacheSet(`watchlist:items:${userId}`, null)
   }
 
   const defaultGrade = urlGrade ?? card?.grade ?? 'PSA 10'

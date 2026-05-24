@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { Suspense } from 'react'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import CardPageClient from './CardPageClient'
 import Navbar from '@/components/Navbar'
 
@@ -30,7 +30,7 @@ interface CacheMeta {
 
 async function getCardMeta(id: string, grade: string): Promise<CacheMeta | null> {
   try {
-    const supabase = await createClient()
+    const supabase = createAdminClient()
     const { data } = await supabase
       .from('search_cache')
       .select('card_name, set_name, grade, image_url, price, score, price_change_pct')

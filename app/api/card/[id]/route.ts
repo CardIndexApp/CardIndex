@@ -179,7 +179,9 @@ export async function GET(
           'low'
         ),
       }
-      return NextResponse.json({ source: 'cache', data: cachedWithWarning })
+      return NextResponse.json({ source: 'cache', data: cachedWithWarning }, {
+        headers: { 'Cache-Control': 's-maxage=600, stale-while-revalidate=3600' },
+      })
     }
   }
 
@@ -751,5 +753,7 @@ export async function GET(
     }
   }
 
-  return NextResponse.json({ source: 'live', data: record })
+  return NextResponse.json({ source: 'live', data: record }, {
+    headers: { 'Cache-Control': 's-maxage=300, stale-while-revalidate=600' },
+  })
 }

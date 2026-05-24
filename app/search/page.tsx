@@ -327,6 +327,19 @@ function SearchPageInner() {
   }, [selectedCard])
 
   // ── Handlers ──────────────────────────────────────────────────────────────
+  function cardHref(card: PtCard, grade: string) {
+    const params = new URLSearchParams({
+      grade, name: card.name, set: card.set.name,
+      number: card.cardNumber, set_slug: card.set.slug,
+    })
+    if (lang === 'jp') params.set('game', 'pokemon-japanese')
+    return `/card/${card.id}?${params}`
+  }
+
+  function prefetchCard(card: PtCard, grade = 'PSA 10') {
+    router.prefetch(cardHref(card, grade))
+  }
+
   function handleGrade(grade: string, card: PtCard) {
     setSelectedGrade(grade)
 
@@ -340,12 +353,7 @@ function SearchPageInner() {
     // Count this card view toward the anon limit before navigating
     if (isLoggedInRef.current === false) incrementAnonSearchCount()
 
-    const params = new URLSearchParams({
-      grade, name: card.name, set: card.set.name,
-      number: card.cardNumber, set_slug: card.set.slug,
-    })
-    if (lang === 'jp') params.set('game', 'pokemon-japanese')
-    router.push(`/card/${card.id}?${params}`)
+    router.push(cardHref(card, grade))
   }
 
   function handleCardClick(card: PtCard) {
@@ -516,6 +524,11 @@ function clearSearch() {
                   {/* Result row */}
                   <button
                     onClick={() => handleCardClick(card)}
+                    onMouseEnter={e => {
+                      if (!isSelected) e.currentTarget.style.borderColor = 'rgba(232,197,71,0.4)'
+                      prefetchCard(card)
+                    }}
+                    onMouseLeave={e => { if (!isSelected) e.currentTarget.style.borderColor = 'var(--border)' }}
                     style={{
                       width: '100%', display: 'flex', alignItems: 'center', gap: 14,
                       padding: '12px 14px',
@@ -527,8 +540,6 @@ function clearSearch() {
                       transition: 'border-color 0.15s',
                       minHeight: 72,   // comfortable tap target
                     }}
-                    onMouseEnter={e => { if (!isSelected) e.currentTarget.style.borderColor = 'rgba(232,197,71,0.4)' }}
-                    onMouseLeave={e => { if (!isSelected) e.currentTarget.style.borderColor = 'var(--border)' }}
                   >
                     <CardThumb src={ptImg(card.image)} alt={card.name} />
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -617,6 +628,7 @@ function clearSearch() {
                                           e.currentTarget.style.borderColor = 'var(--gold)'
                                           e.currentTarget.style.background = 'rgba(232,197,71,0.05)'
                                         }
+                                        prefetchCard(card, g.label)
                                       }}
                                       onMouseLeave={e => {
                                         if (!active) {

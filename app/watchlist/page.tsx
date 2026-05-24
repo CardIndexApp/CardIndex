@@ -267,23 +267,36 @@ export default function Watchlist() {
   // ── Fetch watchlist ───────────────────────────────────────────────────────
   const loadWatchlist = useCallback(async () => {
     if (!user) return
-    setListLoading(true)
-    try {
-      const r = await fetch('/api/watchlist')
-      const { items: raw }: { items: WatchlistItem[] } = await r.json()
+    const LIST_KEY = `watchlist:items:${user.id}`
 
-      // Hydrate from localStorage first — cached items render instantly
-      const enriched: EnrichedItem[] = (raw ?? []).map(item => {
+    // ── 1. Render from cache instantly ────────────────────────────────────
+    const cachedItems = cacheGet<WatchlistItem[]>(LIST_KEY)
+    if (cachedItems) {
+      const enriched: EnrichedItem[] = cachedItems.map(item => {
         const hit = cacheGet<PriceData>(`${item.card_id}:${item.grade}`)
         return { ...item, priceData: hit ?? null, priceLoading: !hit, priceError: null }
       })
       setItems(enriched)
-
-      // Only fetch items that weren't in the local cache
       const uncached = enriched.filter(item => !item.priceData)
-      uncached.forEach((item, i) => {
-        setTimeout(() => fetchPriceForItem(item), i * 600)
+      uncached.forEach((item, i) => setTimeout(() => fetchPriceForItem(item), i * 600))
+    } else {
+      setListLoading(true)
+    }
+
+    // ── 2. Silently refresh from server ───────────────────────────────────
+    try {
+      const r = await fetch('/api/watchlist')
+      const { items: raw }: { items: WatchlistItem[] } = await r.json()
+      const freshItems = raw ?? []
+      cacheSet(LIST_KEY, freshItems)
+
+      const enriched: EnrichedItem[] = freshItems.map(item => {
+        const hit = cacheGet<PriceData>(`${item.card_id}:${item.grade}`)
+        return { ...item, priceData: hit ?? null, priceLoading: !hit, priceError: null }
       })
+      setItems(enriched)
+      const uncached = enriched.filter(item => !item.priceData)
+      uncached.forEach((item, i) => setTimeout(() => fetchPriceForItem(item), i * 600))
     } finally {
       setListLoading(false)
     }
@@ -300,6 +313,7 @@ export default function Watchlist() {
     // Optimistic removal
     setItems(prev => prev.filter(p => p.id !== id))
     await fetch(`/api/watchlist?id=${id}`, { method: 'DELETE' })
+    if (user) cacheSet(`watchlist:items:${user.id}`, null)
   }
 
 

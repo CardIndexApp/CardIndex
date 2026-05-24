@@ -85,11 +85,13 @@ function GradePicker({
   selectedGrade,
   onGrade,
   onClose,
+  onPrefetch,
 }: {
   card: PtCard
   selectedGrade: string | null
   onGrade: (grade: string, card: PtCard) => void
   onClose: () => void
+  onPrefetch?: (grade: string) => void
 }) {
   const variant = card.variant && card.variant !== 'Normal'
     ? VARIANT_LABELS[card.variant] ?? card.variant
@@ -181,6 +183,7 @@ function GradePicker({
                   e.currentTarget.style.borderColor = 'var(--gold)'
                   e.currentTarget.style.background = 'rgba(232,197,71,0.05)'
                 }
+                if (!g.graded) onPrefetch?.(g.label)
               }}
               onMouseLeave={e => {
                 if (!g.graded && selectedGrade !== g.label) {
@@ -262,14 +265,22 @@ function SearchResultsInner() {
   }, [rawQuery, fetchPage])
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
-  const handleGrade = useCallback((grade: string, card: PtCard) => {
-    setSelectedGrade(grade)
+  const cardHref = useCallback((card: PtCard, grade: string) => {
     const params = new URLSearchParams({
       grade, name: card.name, set: card.set.name,
       number: card.cardNumber, set_slug: card.set.slug,
     })
-    router.push(`/card/${card.id}?${params}`)
-  }, [router])
+    return `/card/${card.id}?${params}`
+  }, [])
+
+  const prefetchCard = useCallback((card: PtCard, grade = 'PSA 10') => {
+    router.prefetch(cardHref(card, grade))
+  }, [router, cardHref])
+
+  const handleGrade = useCallback((grade: string, card: PtCard) => {
+    setSelectedGrade(grade)
+    router.push(cardHref(card, grade))
+  }, [router, cardHref])
 
   const handleCardClick = useCallback((card: PtCard) => {
     setSelectedCard(card)
@@ -365,6 +376,7 @@ function SearchResultsInner() {
                     <button
                       className="res-card-btn"
                       onClick={() => handleCardClick(card)}
+                      onMouseEnter={() => prefetchCard(card)}
                       style={{
                         border: `1.5px solid ${isSelected ? 'var(--gold)' : 'var(--border)'}`,
                         boxShadow: isSelected ? '0 0 0 1px rgba(232,197,71,0.2), 0 8px 24px rgba(0,0,0,0.4)' : 'none',
@@ -424,6 +436,7 @@ function SearchResultsInner() {
           selectedGrade={selectedGrade}
           onGrade={handleGrade}
           onClose={handleClose}
+          onPrefetch={grade => prefetchCard(selectedCard, grade)}
         />
       )}
 

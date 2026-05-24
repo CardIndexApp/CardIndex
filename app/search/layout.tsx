@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 
-export const dynamic = 'force-dynamic'
+// Search results are fetched entirely client-side — static shell is fine.
+export const revalidate = 3600
 export const metadata: Metadata = { title: 'Search' }
 
 export default function Layout({ children }: { children: React.ReactNode }) {

@@ -1,10 +1,17 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import Script from 'next/script'
 import './globals.css'
 import { CurrencyProvider } from '@/lib/currency'
 import { ThemeProvider } from '@/lib/theme'
 import InstallPrompt from '@/components/InstallPrompt'
 
+
+export const viewport: Viewport = {
+  themeColor: '#080810',
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',  // fills iPhone notch / Dynamic Island
+}
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://card-index.app'),
@@ -13,6 +20,12 @@ export const metadata: Metadata = {
     template: 'CardIndex | %s',
   },
   description: 'Real-time price intelligence, CardIndex scores, and market analysis for trading card collectors and investors.',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    title: 'CardIndex',
+    statusBarStyle: 'black-translucent',
+  },
   openGraph: {
     siteName: 'CardIndex',
     type: 'website',

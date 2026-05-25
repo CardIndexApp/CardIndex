@@ -390,14 +390,17 @@ export default function ShareCardModal({
   const [isMobile, setIsMobile] = useState(false)
   const [canNativeShare, setCanNativeShare] = useState(false)
   const [isIOS, setIsIOS] = useState(false)
+  const [isAndroid, setIsAndroid] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    const ua = navigator.userAgent
+    setIsIOS(/iPhone|iPad|iPod/.test(ua))
+    setIsAndroid(/Android/.test(ua))
     const check = () => {
       setIsMobile(window.innerWidth < 640)
       setCanNativeShare(typeof navigator !== 'undefined' && !!navigator.share)
     }
-    setIsIOS(/iPhone|iPad|iPod/.test(navigator.userAgent))
     check()
     window.addEventListener('resize', check)
     return () => window.removeEventListener('resize', check)
@@ -499,6 +502,17 @@ export default function ShareCardModal({
     if (!previewUrl) return
     const filename = `cardindex-${data.cardName.replace(/\s+/g, '-').toLowerCase()}.png`
 
+    // Android: skip the share sheet entirely — <a download> saves directly to
+    // the Downloads folder (visible in Photos/Gallery immediately).
+    // navigator.share on Android shows a share sheet with no "Save" option.
+    if (isAndroid) {
+      const a = document.createElement('a')
+      a.href = previewUrl
+      a.download = filename
+      a.click()
+      return
+    }
+
     // iOS / Web Share API path ─────────────────────────────────────────────────
     // CRITICAL: navigator.share() must be called with NO awaits before it on iOS.
     // We pre-built previewBlob during generation so we can call share() immediately.
@@ -511,7 +525,7 @@ export default function ShareCardModal({
         }
       } catch (e) {
         if ((e as Error)?.name === 'AbortError') return
-        // Share failed non-cancel — fall through to iOS or desktop fallback
+        // Share failed non-cancel — fall through to iOS fallback
       }
     }
 
@@ -523,7 +537,7 @@ export default function ShareCardModal({
       return
     }
 
-    // Desktop / Android: standard anchor download
+    // Desktop: standard anchor download
     const a = document.createElement('a')
     a.href     = previewUrl
     a.download = filename
@@ -544,11 +558,13 @@ export default function ShareCardModal({
   const ready    = !generating && !!previewUrl
   const btnLabel = generating
     ? 'Generating…'
-    : canNativeShare && isMobile
-      ? 'Save / Share Image'
-      : isIOS && isMobile
-        ? 'Open Image to Save'
-        : 'Download PNG'
+    : isAndroid
+      ? 'Save Image'
+      : canNativeShare && isMobile
+        ? 'Save / Share Image'
+        : isIOS && isMobile
+          ? 'Open Image to Save'
+          : 'Download PNG'
   // On iOS without native share, guide user to long-press after opening
   const showIOSHint = isIOS && isMobile && !canNativeShare && ready
 

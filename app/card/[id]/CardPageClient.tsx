@@ -624,6 +624,7 @@ export default function CardPageClient() {
   const [pfQty, setPfQty] = useState('1')
   const [pfError, setPfError] = useState<string | null>(null)
   const [pfSuccess, setPfSuccess] = useState(false)
+  const [inPortfolio, setInPortfolio] = useState(false)
 
   // Check auth
   const [userId, setUserId] = useState<string | null>(null)
@@ -661,6 +662,24 @@ export default function CardPageClient() {
           setWatchlistAdded(true)
           setWatchlistItemId(data.id)
         }
+      })
+  }, [userId, id, urlGrade, card])
+
+  // Check if card is already in portfolio (any quantity)
+  useEffect(() => {
+    if (!userId) return
+    const grade = urlGrade ?? (card ? `PSA ${card.grade.replace('PSA ', '')}` : 'PSA 10')
+    createClient()
+      .from('portfolios')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('card_id', id)
+      .eq('grade', grade)
+      .eq('sold', false)
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setInPortfolio(true)
       })
   }, [userId, id, urlGrade, card])
 
@@ -892,6 +911,7 @@ export default function CardPageClient() {
     setPfLoading(false)
     if (res.ok) {
       setPfSuccess(true)
+      setInPortfolio(true)
       setPfShowForm(false)
       setPfPrice('')
       setPfQty('1')
@@ -1273,9 +1293,9 @@ export default function CardPageClient() {
                       </button>
                       <button
                         onClick={() => { setPfShowForm(true); setPfError(null) }}
-                        style={{ padding: '8px 14px', borderRadius: 10, background: pfSuccess ? 'rgba(61,232,138,0.1)' : 'var(--surface2)', border: `1.5px solid ${pfSuccess ? 'rgba(61,232,138,0.4)' : 'var(--border2)'}`, fontSize: 11, fontWeight: 600, color: pfSuccess ? 'var(--green)' : 'var(--ink2)', cursor: 'pointer', width: '100%' }}
+                        style={{ padding: '8px 14px', borderRadius: 10, background: inPortfolio ? 'rgba(61,232,138,0.1)' : 'var(--surface2)', border: `1.5px solid ${inPortfolio ? 'rgba(61,232,138,0.4)' : 'var(--border2)'}`, fontSize: 11, fontWeight: 600, color: inPortfolio ? 'var(--green)' : 'var(--ink2)', cursor: 'pointer', width: '100%' }}
                       >
-                        {pfSuccess ? '✓ Added to Portfolio' : '＋ Portfolio'}
+                        {inPortfolio ? '✓ In Portfolio' : '＋ Portfolio'}
                       </button>
                       {/* Compare link */}
                       {getTierLimits(userTier).compare ? (
@@ -3628,11 +3648,11 @@ export default function CardPageClient() {
                     <button
                       className="ci-no-print"
                       onClick={() => { setPfShowForm(true); setPfError(null) }}
-                      style={{ display: 'flex', alignItems: 'center', gap: 6, background: pfSuccess ? 'rgba(61,232,138,0.1)' : 'var(--surface2)', border: `1.5px solid ${pfSuccess ? 'rgba(61,232,138,0.4)' : 'var(--border2)'}`, borderRadius: 10, padding: '9px 14px', fontSize: 11, fontWeight: 600, color: pfSuccess ? 'var(--green)' : 'var(--ink2)', cursor: 'pointer', transition: 'all 0.2s' }}
-                      onMouseEnter={e => { if (!pfSuccess) { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.color = 'var(--gold)' } }}
-                      onMouseLeave={e => { if (!pfSuccess) { e.currentTarget.style.borderColor = 'var(--border2)'; e.currentTarget.style.color = 'var(--ink2)' } }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, background: inPortfolio ? 'rgba(61,232,138,0.1)' : 'var(--surface2)', border: `1.5px solid ${inPortfolio ? 'rgba(61,232,138,0.4)' : 'var(--border2)'}`, borderRadius: 10, padding: '9px 14px', fontSize: 11, fontWeight: 600, color: inPortfolio ? 'var(--green)' : 'var(--ink2)', cursor: 'pointer', transition: 'all 0.2s' }}
+                      onMouseEnter={e => { if (!inPortfolio) { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.color = 'var(--gold)' } }}
+                      onMouseLeave={e => { if (!inPortfolio) { e.currentTarget.style.borderColor = 'var(--border2)'; e.currentTarget.style.color = 'var(--ink2)' } }}
                     >
-                      {pfSuccess ? '✓ Added to Portfolio' : '＋ Portfolio'}
+                      {inPortfolio ? '✓ In Portfolio' : '＋ Portfolio'}
                     </button>
                   )}
                   {/* Compare link */}

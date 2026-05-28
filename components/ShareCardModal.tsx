@@ -618,9 +618,20 @@ export default function ShareCardModal({
         const dd = ((p2[1]-p0[1])*(u1[1]-u0[1]) - (p1[1]-p0[1])*(u2[1]-u0[1])) / denom
         const e  = ((p1[1]-p0[1])*(u2[0]-u0[0]) - (p2[1]-p0[1])*(u1[0]-u0[0])) / denom
         const f  = p0[1] - dd*u0[0] - e*u0[1]
+        // Expand the clip path 1px outward from the triangle centroid so that
+        // adjacent triangles overlap by ~2px. This buries the anti-aliased
+        // fringe that ctx.clip() creates at each boundary, eliminating the
+        // visible grid-line seams on high-DPR / mobile displays.
+        const cx = (p0[0]+p1[0]+p2[0])/3, cy = (p0[1]+p1[1]+p2[1])/3
+        const expand = ([px, py]: P2): P2 => {
+          const dx = px - cx, dy = py - cy
+          const d  = Math.sqrt(dx*dx + dy*dy) || 1
+          return [px + dx/d, py + dy/d]
+        }
+        const [e0, e1, e2] = [expand(p0), expand(p1), expand(p2)]
         ctx.save()
         ctx.beginPath()
-        ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.lineTo(p2[0], p2[1])
+        ctx.moveTo(e0[0], e0[1]); ctx.lineTo(e1[0], e1[1]); ctx.lineTo(e2[0], e2[1])
         ctx.closePath(); ctx.clip()
         ctx.transform(a, dd, b, e, c, f)
         ctx.drawImage(temp, 0, 0)

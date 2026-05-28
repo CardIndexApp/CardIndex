@@ -90,27 +90,29 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     let cancelled = false
 
     async function init() {
-      const [fetchedRates] = await Promise.all([
+      const [fetchedRates, preferredCurrency] = await Promise.all([
         loadRates(),
-        // Load user preference in parallel
-        (async () => {
+        // Load user preference in parallel — return it instead of setting state here
+        (async (): Promise<CurrencyCode | null> => {
           try {
             const supabase = createClient()
             const { data: { user } } = await supabase.auth.getUser()
-            if (!user) return
+            if (!user) return null
             const { data } = await supabase
               .from('profiles')
               .select('preferred_currency')
               .eq('id', user.id)
               .single()
-            if (!cancelled && data?.preferred_currency) {
-              setCurrencyState(data.preferred_currency as CurrencyCode)
-            }
-          } catch {}
+            return (data?.preferred_currency as CurrencyCode) ?? null
+          } catch { return null }
         })(),
       ])
       if (!cancelled) {
+        // Set rates and currency together so there is never a render where
+        // currency = 'AUD' but rates = { USD: 1 } (which showed USD amounts
+        // with the wrong currency symbol).
         setRates(fetchedRates)
+        if (preferredCurrency) setCurrencyState(preferredCurrency)
         setRatesLoading(false)
       }
     }

@@ -1476,8 +1476,8 @@ export default function PortfolioPage() {
                   </div>
 
                   {soldPositions.map((pos, i) => {
-                    const saleLocal = pos.sale_price != null ? pos.sale_price * (rates[currency] ?? 1) : null
-                    const costLocal = pos.purchase_price * (rates[currency] ?? 1)
+                    const saleLocal = pos.sale_price  // USD — fmtCurrency handles conversion
+                    const costLocal = pos.purchase_price  // USD — fmtCurrency handles conversion
                     const plUSD     = pos.sale_price != null ? (pos.sale_price - pos.purchase_price) * pos.quantity : null
                     const plPct     = pos.sale_price != null && pos.purchase_price > 0
                       ? ((pos.sale_price - pos.purchase_price) / pos.purchase_price) * 100 : null

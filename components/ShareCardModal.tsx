@@ -548,7 +548,7 @@ export default function ShareCardModal({
       tCtx.clip()
       tCtx.drawImage(img, 0, 0, CW, CH)
 
-      // Flat (no rotation) — return the intermediate canvas directly
+      // Flat (no rotation) — output the intermediate canvas directly
       if (roll === 0 && tilt === 0) {
         temp.toBlob(blob => {
           if (!blob) return
@@ -562,51 +562,62 @@ export default function ShareCardModal({
         return
       }
 
-      // Step 2: perspective-project the 4 corners using roll (Y-axis) + tilt (X-axis)
-      const pad = 280
+      // Step 2: perspective-project using a dense grid of affine triangles.
+      //
+      // Two-triangle affine mapping produces visible seams and warping on text
+      // because the approximation error accumulates across the whole card.
+      // Subdividing into DIVS×DIVS cells limits each cell's z-range to
+      // ~(cardSize/DIVS)*sin(angle), making the error sub-pixel at DIVS=24.
+      //
+      //   At roll=60°, tilt=45°, DIVS=24:
+      //   Δz per cell ≈ (756/24)*sin60 + (1056/24)*sin45 ≈ 27+31 ≈ 58px
+      //   affine error ≈ (58/1800)² ≈ 0.001  (<1px at 756px width) ✓
+
+      const DIVS = 24
+      const pad  = 280
       const OW = CW + pad * 2, OH = CH + pad * 2
+
       const canvas = document.createElement('canvas')
       canvas.width = OW; canvas.height = OH
       const ctx = canvas.getContext('2d')!
       ctx.clearRect(0, 0, OW, OH)
 
-      const rollRad = (roll  * Math.PI) / 180
-      const tiltRad = (tilt  * Math.PI) / 180
-      const focal   = 1800   // perspective focal length in px
-
-      const corners3D: [number, number, number][] = [
-        [-CW / 2, -CH / 2, 0],   // TL
-        [ CW / 2, -CH / 2, 0],   // TR
-        [ CW / 2,  CH / 2, 0],   // BR
-        [-CW / 2,  CH / 2, 0],   // BL
-      ]
+      const rollRad = (roll * Math.PI) / 180
+      const tiltRad = (tilt * Math.PI) / 180
+      // Match the CSS preview exactly:
+      //   preview uses perspective(600px) on a 160px-wide card
+      //   → scale focal proportionally to the export card width (756px)
+      const focal = 600 * (CW / 160)   // ≈ 2835
+      const cosR = Math.cos(rollRad), sinR = Math.sin(rollRad)
+      const cosT = Math.cos(tiltRad), sinT = Math.sin(tiltRad)
 
       type P2 = [number, number]
-      const proj: P2[] = corners3D.map(([x, y, z]) => {
-        // Rotate around Y (roll — left/right face)
-        const x1 =  x * Math.cos(rollRad) + z * Math.sin(rollRad)
-        const z1 = -x * Math.sin(rollRad) + z * Math.cos(rollRad)
-        // Rotate around X (tilt — top/bottom lean)
-        const y2 = y * Math.cos(tiltRad) - z1 * Math.sin(tiltRad)
-        const z2 = y * Math.sin(tiltRad) + z1 * Math.cos(tiltRad)
-        // Perspective divide → place in output canvas
-        const s = focal / (focal + z2)
-        return [x1 * s + OW / 2, y2 * s + OH / 2]
-      })
 
-      // Affine-map each triangle (source quad → two screen triangles)
-      function drawTri(
-        p0: P2, p1: P2, p2: P2,
-        u0: P2, u1: P2, u2: P2,
-      ) {
-        const denom = (u2[0] - u0[0]) * (u1[1] - u0[1]) - (u1[0] - u0[0]) * (u2[1] - u0[1])
+      /** Project a source-canvas point (u, v) through the 3-D transform to screen (px, py). */
+      function project(u: number, v: number): P2 {
+        const x = u - CW / 2, y = v - CH / 2
+        // Rotate around Y (roll — positive rolls right side away from viewer)
+        const x1 =  x * cosR
+        const z1 = -x * sinR
+        // Rotate around X (tilt — positive tips top away from viewer)
+        const y2 = y * cosT - z1 * sinT
+        const z2 = y * sinT + z1 * cosT
+        // Perspective divide: scale = focal / (focal - z)
+        // (negative z = away from viewer → scale < 1 → projects smaller, which is correct)
+        const s = focal / (focal - z2)
+        return [x1 * s + OW / 2, y2 * s + OH / 2]
+      }
+
+      /** Affine-map one triangle from source→screen and blit the relevant pixels. */
+      function drawTri(p0: P2, p1: P2, p2: P2, u0: P2, u1: P2, u2: P2) {
+        const denom = (u2[0]-u0[0])*(u1[1]-u0[1]) - (u1[0]-u0[0])*(u2[1]-u0[1])
         if (Math.abs(denom) < 1e-8) return
-        const a  = ((p2[0] - p0[0]) * (u1[1] - u0[1]) - (p1[0] - p0[0]) * (u2[1] - u0[1])) / denom
-        const b  = ((p1[0] - p0[0]) * (u2[0] - u0[0]) - (p2[0] - p0[0]) * (u1[0] - u0[0])) / denom
-        const c  = p0[0] - a * u0[0] - b * u0[1]
-        const dd = ((p2[1] - p0[1]) * (u1[1] - u0[1]) - (p1[1] - p0[1]) * (u2[1] - u0[1])) / denom
-        const e  = ((p1[1] - p0[1]) * (u2[0] - u0[0]) - (p2[1] - p0[1]) * (u1[0] - u0[0])) / denom
-        const f  = p0[1] - dd * u0[0] - e * u0[1]
+        const a  = ((p2[0]-p0[0])*(u1[1]-u0[1]) - (p1[0]-p0[0])*(u2[1]-u0[1])) / denom
+        const b  = ((p1[0]-p0[0])*(u2[0]-u0[0]) - (p2[0]-p0[0])*(u1[0]-u0[0])) / denom
+        const c  = p0[0] - a*u0[0] - b*u0[1]
+        const dd = ((p2[1]-p0[1])*(u1[1]-u0[1]) - (p1[1]-p0[1])*(u2[1]-u0[1])) / denom
+        const e  = ((p1[1]-p0[1])*(u2[0]-u0[0]) - (p2[1]-p0[1])*(u1[0]-u0[0])) / denom
+        const f  = p0[1] - dd*u0[0] - e*u0[1]
         ctx.save()
         ctx.beginPath()
         ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.lineTo(p2[0], p2[1])
@@ -616,12 +627,23 @@ export default function ShareCardModal({
         ctx.restore()
       }
 
-      const [tl, tr, br, bl] = proj
-      const UL: P2 = [0, 0],  UR: P2 = [CW, 0]
-      const LR: P2 = [CW, CH], LL: P2 = [0, CH]
+      // Walk the grid — each cell projects its own 4 corners independently,
+      // so the affine error stays negligible within each tiny quad.
+      for (let row = 0; row < DIVS; row++) {
+        for (let col = 0; col < DIVS; col++) {
+          const u0 = (col     / DIVS) * CW,  v0 = (row     / DIVS) * CH
+          const u1 = ((col+1) / DIVS) * CW,  v1 = ((row+1) / DIVS) * CH
 
-      drawTri(tl, tr, br, UL, UR, LR)   // top-left → top-right → bottom-right
-      drawTri(tl, br, bl, UL, LR, LL)   // top-left → bottom-right → bottom-left
+          const p00 = project(u0, v0), p10 = project(u1, v0)
+          const p11 = project(u1, v1), p01 = project(u0, v1)
+
+          const S00: P2 = [u0, v0], S10: P2 = [u1, v0]
+          const S11: P2 = [u1, v1], S01: P2 = [u0, v1]
+
+          drawTri(p00, p10, p11, S00, S10, S11)
+          drawTri(p00, p11, p01, S00, S11, S01)
+        }
+      }
 
       canvas.toBlob(blob => {
         if (!blob) return

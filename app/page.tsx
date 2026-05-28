@@ -2,7 +2,6 @@ import NextImage from 'next/image'
 import Link from 'next/link'
 import Navbar from '@/components/Navbar'
 import Ticker from '@/components/Ticker'
-import EbayLogo from '@/components/EbayLogo'
 import Footer from '@/components/Footer'
 import { HomeFeaturedCard, type FeaturedCard } from '@/components/HomeFeaturedCard'
 import { HomeFAQ } from '@/components/HomeFAQ'
@@ -176,34 +175,6 @@ export default async function Home() {
             </div>
           </section>
         )}
-
-        {/* Live Sales Data from eBay */}
-        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 24px 64px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)', display: 'inline-block', boxShadow: '0 0 6px var(--green)' }} />
-              <span style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1 }}>LIVE</span>
-            </span>
-            <span style={{ fontSize: 12, color: 'var(--ink3)', fontWeight: 500 }}>Sales Data from</span>
-            <EbayLogo height={22} />
-          </div>
-          <div className="home-sales-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1, borderRadius: 16, overflow: 'hidden', background: 'var(--border)' }}>
-            {[
-              { card: 'Charizard Base Set', grade: 'PSA 9', price: '$4,250', delta: '+3.2%', up: true },
-              { card: 'Pikachu Illustrator', grade: 'PSA 7', price: '$38,000', delta: '+1.8%', up: true },
-              { card: 'Lugia V Alt Art', grade: 'PSA 10', price: '$680', delta: '-0.5%', up: false },
-            ].map((s, i) => (
-              <div key={i} style={{ padding: '16px 18px', background: 'var(--surface)' }}>
-                <div style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 4 }}>{s.card}</div>
-                <div style={{ fontSize: 10, color: 'var(--ink3)', marginBottom: 6, opacity: 0.6 }}>{s.grade}</div>
-                <div className="font-num" style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>{s.price}</div>
-                <div className="font-num" style={{ fontSize: 11, color: s.up ? 'var(--green)' : 'var(--red)', marginTop: 2 }}>
-                  {s.up ? '▲' : '▼'} {s.delta}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
 
         {/* Recently Searched — rendered server-side */}
         {trending.length > 0 && (

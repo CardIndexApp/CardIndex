@@ -393,6 +393,16 @@ export default function ShareCardModal({
   const [isAndroid, setIsAndroid] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
+  // 3D card-art controls (admin only)
+  const [roll,        setRoll]        = useState(0)   // Y-axis rotation  −60..60°
+  const [tilt,        setTilt]        = useState(0)   // X-axis rotation  −45..45°
+  const [downloading, setDownloading] = useState(false)
+
+  // Reset angles when leaving card-art
+  useEffect(() => {
+    if (variant !== 'card-art') { setRoll(0); setTilt(0) }
+  }, [variant])
+
   useEffect(() => {
     const ua = navigator.userAgent
     setIsIOS(/iPhone|iPad|iPod/.test(ua))
@@ -407,42 +417,13 @@ export default function ShareCardModal({
   }, [])
 
   const generate = useCallback(async () => {
+    // card-art uses a live CSS 3D preview — canvas render happens on download
+    if (variant === 'card-art') return
+
     setGenerating(true)
     setPreviewUrl(prev => { if (prev?.startsWith('blob:')) URL.revokeObjectURL(prev); return null })
     setPreviewBlob(null)
     try {
-      // ── Card Art: transparent PNG with rounded corners ──────────────────────
-      if (variant === 'card-art') {
-        if (!data.imageUrl) { setGenerating(false); return }
-        const img = new Image()
-        img.crossOrigin = 'anonymous'
-        img.src = data.imageUrl
-        await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = rej })
-
-        // Standard Pokémon card ratio 63:88, rendered at 2× for crispness
-        const W = 756, H = 1056, R = 36
-        const canvas = document.createElement('canvas')
-        canvas.width  = W
-        canvas.height = H
-        const ctx = canvas.getContext('2d')!
-        ctx.clearRect(0, 0, W, H)
-
-        // Clip to rounded rectangle then draw image
-        ctx.beginPath()
-        ctx.roundRect(0, 0, W, H, R)
-        ctx.clip()
-        ctx.drawImage(img, 0, 0, W, H)
-
-        // Store both blob (for native share) and data URL (for preview/download)
-        canvas.toBlob(blob => {
-          if (blob) {
-            setPreviewBlob(blob)
-            setPreviewUrl(URL.createObjectURL(blob))
-          }
-          setGenerating(false)
-        }, 'image/png', 1.0)
-        return
-      }
 
       // ── Data templates: html2canvas ─────────────────────────────────────────
       const html2canvas = (await import('html2canvas')).default
@@ -499,6 +480,7 @@ export default function ShareCardModal({
   useEffect(() => { generate() }, [generate])
 
   async function download() {
+    if (variant === 'card-art') { downloadCardArt(); return }
     if (!previewUrl) return
     const filename = `cardindex-${data.cardName.replace(/\s+/g, '-').toLowerCase()}.png`
 
@@ -544,6 +526,119 @@ export default function ShareCardModal({
     a.click()
   }
 
+  // ── Card-art 3D canvas export ───────────────────────────────────────────────
+  async function downloadCardArt() {
+    if (!data.imageUrl) return
+    setDownloading(true)
+    try {
+      const CW = 756, CH = 1056, R = 36
+
+      // Step 1: draw card with rounded corners onto an intermediate canvas
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      img.src = data.imageUrl
+      await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = rej })
+
+      const temp = document.createElement('canvas')
+      temp.width = CW; temp.height = CH
+      const tCtx = temp.getContext('2d')!
+      tCtx.clearRect(0, 0, CW, CH)
+      tCtx.beginPath()
+      tCtx.roundRect(0, 0, CW, CH, R)
+      tCtx.clip()
+      tCtx.drawImage(img, 0, 0, CW, CH)
+
+      // Flat (no rotation) — return the intermediate canvas directly
+      if (roll === 0 && tilt === 0) {
+        temp.toBlob(blob => {
+          if (!blob) return
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = `cardindex-${data.cardName.replace(/\s+/g, '-').toLowerCase()}.png`
+          a.click()
+          setTimeout(() => URL.revokeObjectURL(url), 2000)
+        }, 'image/png', 1.0)
+        return
+      }
+
+      // Step 2: perspective-project the 4 corners using roll (Y-axis) + tilt (X-axis)
+      const pad = 280
+      const OW = CW + pad * 2, OH = CH + pad * 2
+      const canvas = document.createElement('canvas')
+      canvas.width = OW; canvas.height = OH
+      const ctx = canvas.getContext('2d')!
+      ctx.clearRect(0, 0, OW, OH)
+
+      const rollRad = (roll  * Math.PI) / 180
+      const tiltRad = (tilt  * Math.PI) / 180
+      const focal   = 1800   // perspective focal length in px
+
+      const corners3D: [number, number, number][] = [
+        [-CW / 2, -CH / 2, 0],   // TL
+        [ CW / 2, -CH / 2, 0],   // TR
+        [ CW / 2,  CH / 2, 0],   // BR
+        [-CW / 2,  CH / 2, 0],   // BL
+      ]
+
+      type P2 = [number, number]
+      const proj: P2[] = corners3D.map(([x, y, z]) => {
+        // Rotate around Y (roll — left/right face)
+        const x1 =  x * Math.cos(rollRad) + z * Math.sin(rollRad)
+        const z1 = -x * Math.sin(rollRad) + z * Math.cos(rollRad)
+        // Rotate around X (tilt — top/bottom lean)
+        const y2 = y * Math.cos(tiltRad) - z1 * Math.sin(tiltRad)
+        const z2 = y * Math.sin(tiltRad) + z1 * Math.cos(tiltRad)
+        // Perspective divide → place in output canvas
+        const s = focal / (focal + z2)
+        return [x1 * s + OW / 2, y2 * s + OH / 2]
+      })
+
+      // Affine-map each triangle (source quad → two screen triangles)
+      function drawTri(
+        p0: P2, p1: P2, p2: P2,
+        u0: P2, u1: P2, u2: P2,
+      ) {
+        const denom = (u2[0] - u0[0]) * (u1[1] - u0[1]) - (u1[0] - u0[0]) * (u2[1] - u0[1])
+        if (Math.abs(denom) < 1e-8) return
+        const a  = ((p2[0] - p0[0]) * (u1[1] - u0[1]) - (p1[0] - p0[0]) * (u2[1] - u0[1])) / denom
+        const b  = ((p1[0] - p0[0]) * (u2[0] - u0[0]) - (p2[0] - p0[0]) * (u1[0] - u0[0])) / denom
+        const c  = p0[0] - a * u0[0] - b * u0[1]
+        const dd = ((p2[1] - p0[1]) * (u1[1] - u0[1]) - (p1[1] - p0[1]) * (u2[1] - u0[1])) / denom
+        const e  = ((p1[1] - p0[1]) * (u2[0] - u0[0]) - (p2[1] - p0[1]) * (u1[0] - u0[0])) / denom
+        const f  = p0[1] - dd * u0[0] - e * u0[1]
+        ctx.save()
+        ctx.beginPath()
+        ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.lineTo(p2[0], p2[1])
+        ctx.closePath(); ctx.clip()
+        ctx.transform(a, dd, b, e, c, f)
+        ctx.drawImage(temp, 0, 0)
+        ctx.restore()
+      }
+
+      const [tl, tr, br, bl] = proj
+      const UL: P2 = [0, 0],  UR: P2 = [CW, 0]
+      const LR: P2 = [CW, CH], LL: P2 = [0, CH]
+
+      drawTri(tl, tr, br, UL, UR, LR)   // top-left → top-right → bottom-right
+      drawTri(tl, br, bl, UL, LR, LL)   // top-left → bottom-right → bottom-left
+
+      canvas.toBlob(blob => {
+        if (!blob) return
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `cardindex-${data.cardName.replace(/\s+/g, '-').toLowerCase()}.png`
+        a.click()
+        setTimeout(() => URL.revokeObjectURL(url), 2000)
+      }, 'image/png', 1.0)
+    } catch (err) {
+      console.error('Card art export failed:', err)
+    } finally {
+      setDownloading(false)
+    }
+  }
+
   const VARIANTS = [
     { key: 'moving-avg'  as Variant, label: 'Moving Avg',   desc: 'Price averages & signal',  icon: '📈' },
     { key: 'score-radar' as Variant, label: 'Score Radar',  desc: 'Spider graph & sparkline',  icon: '🕸️' },
@@ -556,15 +651,20 @@ export default function ShareCardModal({
   }, [isAdmin, variant])
 
   const ready    = !generating && !!previewUrl
-  const btnLabel = generating
-    ? 'Generating…'
-    : isAndroid
-      ? 'Save Image'
-      : canNativeShare && isMobile
-        ? 'Save / Share Image'
-        : isIOS && isMobile
-          ? 'Open Image to Save'
-          : 'Download PNG'
+  const cardArtReady = variant === 'card-art' && !downloading && !!data.imageUrl
+  const buttonReady  = variant === 'card-art' ? cardArtReady : ready
+
+  const btnLabel = variant === 'card-art'
+    ? (downloading ? 'Rendering…' : 'Export PNG')
+    : generating
+      ? 'Generating…'
+      : isAndroid
+        ? 'Save Image'
+        : canNativeShare && isMobile
+          ? 'Save / Share Image'
+          : isIOS && isMobile
+            ? 'Open Image to Save'
+            : 'Download PNG'
   // On iOS without native share, guide user to long-press after opening
   const showIOSHint = isIOS && isMobile && !canNativeShare && ready
 
@@ -637,41 +737,117 @@ export default function ShareCardModal({
             ))}
           </div>
 
-          {/* Preview — full on desktop, compact on mobile */}
+          {/* 3D sliders — card-art + admin only */}
+          {variant === 'card-art' && isAdmin && (
+            <div style={{
+              background: 'rgba(255,255,255,0.02)',
+              border: '1px solid rgba(255,255,255,0.07)',
+              borderRadius: 12,
+              padding: '14px 16px',
+              display: 'flex', flexDirection: 'column', gap: 14,
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 10, color: '#55556a', letterSpacing: 1, textTransform: 'uppercase' as const }}>3D Transform</span>
+                {(roll !== 0 || tilt !== 0) && (
+                  <button
+                    onClick={() => { setRoll(0); setTilt(0) }}
+                    style={{ fontSize: 10, color: '#e8c547', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                  >Reset</button>
+                )}
+              </div>
+              {([
+                { label: 'Roll',  axis: 'Y-axis', value: roll,  min: -60, max: 60, set: setRoll  },
+                { label: 'Tilt',  axis: 'X-axis', value: tilt,  min: -45, max: 45, set: setTilt  },
+              ] as const).map(({ label, axis, value, min, max, set }) => (
+                <div key={label}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 7 }}>
+                    <span style={{ fontSize: 12, color: '#9898b8', fontWeight: 600 }}>
+                      {label} <span style={{ fontSize: 10, color: '#44445a', fontWeight: 400 }}>({axis})</span>
+                    </span>
+                    <span style={{ fontSize: 12, color: '#e8c547', fontWeight: 700, minWidth: 44, textAlign: 'right' as const }}>
+                      {value > 0 ? '+' : ''}{value}°
+                    </span>
+                  </div>
+                  <input
+                    type="range" min={min} max={max} value={value}
+                    onChange={e => set(Number(e.target.value))}
+                    style={{ width: '100%', accentColor: '#e8c547', cursor: 'pointer', display: 'block' }}
+                  />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3 }}>
+                    <span style={{ fontSize: 9, color: '#2e2e42' }}>{min}°</span>
+                    <span style={{ fontSize: 9, color: '#2e2e42' }}>{max}°</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Preview — CSS 3D for card-art, canvas-generated for data templates */}
           <div style={{
-            borderRadius: 12, overflow: 'hidden',
-            background: '#060610', border: '1px solid rgba(255,255,255,0.06)',
+            borderRadius: 12, overflow: variant === 'card-art' ? 'visible' : 'hidden',
+            background: variant === 'card-art' ? 'transparent' : '#060610',
+            border: variant === 'card-art' ? 'none' : '1px solid rgba(255,255,255,0.06)',
             minHeight: isMobile ? 120 : 180,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: variant === 'card-art' ? '8px 0' : 0,
           }}>
-            {generating && (
-              <div style={{ color: '#55556a', fontSize: 13, padding: 24, textAlign: 'center' }}>
-                <div style={{ marginBottom: 6, fontSize: isMobile ? 12 : 13 }}>Generating image…</div>
-                <div style={{ fontSize: 10, color: '#33334a' }}>This takes a few seconds</div>
+            {variant === 'card-art' && data.imageUrl ? (
+              /* Live CSS 3D preview — no canvas needed */
+              <div style={{ perspective: 600, perspectiveOrigin: '50% 50%' }}>
+                <img
+                  src={data.imageUrl}
+                  alt={data.cardName}
+                  style={{
+                    width: isMobile ? 130 : 160,
+                    aspectRatio: '63/88',
+                    borderRadius: isMobile ? 7 : 9,
+                    display: 'block',
+                    transform: `rotateY(${roll}deg) rotateX(${tilt}deg)`,
+                    transition: 'transform 0.04s linear',
+                    boxShadow: `${-roll * 0.6}px ${tilt * 0.4}px 40px rgba(0,0,0,0.85), 0 0 80px rgba(0,0,0,0.6)`,
+                    transformOrigin: 'center center',
+                  }}
+                />
               </div>
-            )}
-            {!generating && previewUrl && (
-              <img
-                src={previewUrl}
-                alt="Share preview"
-                style={{ width: '100%', height: 'auto', display: 'block', maxHeight: isMobile ? 260 : 440, objectFit: 'contain' }}
-              />
+            ) : (
+              <>
+                {generating && (
+                  <div style={{ color: '#55556a', fontSize: 13, padding: 24, textAlign: 'center' }}>
+                    <div style={{ marginBottom: 6, fontSize: isMobile ? 12 : 13 }}>Generating image…</div>
+                    <div style={{ fontSize: 10, color: '#33334a' }}>This takes a few seconds</div>
+                  </div>
+                )}
+                {!generating && previewUrl && (
+                  <img
+                    src={previewUrl}
+                    alt="Share preview"
+                    style={{ width: '100%', height: 'auto', display: 'block', maxHeight: isMobile ? 260 : 440, objectFit: 'contain' }}
+                  />
+                )}
+              </>
             )}
           </div>
+
+          {/* Resolution hint for card-art */}
+          {variant === 'card-art' && (
+            <p style={{ fontSize: 10, color: '#33334a', textAlign: 'center', margin: '-8px 0 0' }}>
+              Exports at 756 × 1056 px · transparent background PNG
+            </p>
+          )}
 
           {/* Action button */}
           <button
             onClick={download}
-            disabled={!ready}
+            disabled={!buttonReady}
             style={{
               padding: isMobile ? '15px 0' : '14px 0', borderRadius: 12,
-              background: ready ? '#e8c547' : 'rgba(232,197,71,0.20)',
+              background: buttonReady ? '#e8c547' : 'rgba(232,197,71,0.20)',
               border: 'none', color: '#08080f', fontSize: isMobile ? 15 : 14, fontWeight: 800,
-              letterSpacing: 0.4, cursor: ready ? 'pointer' : 'default',
+              letterSpacing: 0.4, cursor: buttonReady ? 'pointer' : 'default',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
             }}
           >
-            {ready && (
+            {buttonReady && (
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 {canNativeShare && isMobile
                   ? <><path d="M8 2v9M5 8l3 3 3-3"/><path d="M3 13h10"/><path d="M11 4l-3-3-3 3"/></>

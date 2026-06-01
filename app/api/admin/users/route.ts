@@ -3,22 +3,33 @@
  * Returns all profiles + pending upgrade requests + extended platform stats.
  * Restricted to users with is_admin = true.
  */
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
-export async function GET() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+export async function GET(req: NextRequest) {
   const admin = createAdminClient()
+
+  // ── Dual auth: Bearer token (iOS) or cookie session (browser) ────────────
+  let userId: string
+  const authHeader = req.headers.get('authorization')
+  if (authHeader?.startsWith('Bearer ')) {
+    const token = authHeader.slice(7)
+    const { data, error } = await admin.auth.getUser(token)
+    if (error || !data.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    userId = data.user.id
+  } else {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    userId = user.id
+  }
 
   // Verify admin
   const { data: caller } = await admin
     .from('profiles')
     .select('is_admin')
-    .eq('id', user.id)
+    .eq('id', userId)
     .single()
 
   if (!caller?.is_admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })

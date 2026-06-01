@@ -12,15 +12,27 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import type { Tier } from '@/lib/tier'
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const admin = createAdminClient()
+
+  // ── Dual auth: Bearer token (iOS) or cookie session (browser) ────────────
+  let userId: string
+  const authHeader = req.headers.get('authorization')
+  if (authHeader?.startsWith('Bearer ')) {
+    const token = authHeader.slice(7)
+    const { data, error } = await admin.auth.getUser(token)
+    if (error || !data.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    userId = data.user.id
+  } else {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    userId = user.id
+  }
+
   const { data: caller } = await admin
     .from('profiles')
     .select('is_admin')
-    .eq('id', user.id)
+    .eq('id', userId)
     .single()
 
   if (!caller?.is_admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -50,7 +62,7 @@ export async function POST(req: NextRequest) {
   // Mark the request as actioned
   await admin
     .from('upgrade_requests')
-    .update({ actioned_at: new Date().toISOString(), actioned_by: user.id, action })
+    .update({ actioned_at: new Date().toISOString(), actioned_by: userId, action })
     .eq('id', requestId)
 
   return NextResponse.json({ ok: true })

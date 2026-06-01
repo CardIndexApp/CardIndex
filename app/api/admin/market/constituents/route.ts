@@ -11,20 +11,32 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
-async function verifyAdmin(): Promise<{ ok: true; admin: ReturnType<typeof createAdminClient> } | { ok: false; res: ReturnType<typeof NextResponse.json> }> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { ok: false, res: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
-
+async function verifyAdmin(req: NextRequest): Promise<{ ok: true; admin: ReturnType<typeof createAdminClient> } | { ok: false; res: ReturnType<typeof NextResponse.json> }> {
   const admin = createAdminClient()
-  const { data: caller } = await admin.from('profiles').select('is_admin').eq('id', user.id).single()
+
+  // ── Dual auth: Bearer token (iOS) or cookie session (browser) ────────────
+  let userId: string
+  const authHeader = req.headers.get('authorization')
+  if (authHeader?.startsWith('Bearer ')) {
+    const token = authHeader.slice(7)
+    const { data, error } = await admin.auth.getUser(token)
+    if (error || !data.user) return { ok: false, res: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
+    userId = data.user.id
+  } else {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { ok: false, res: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
+    userId = user.id
+  }
+
+  const { data: caller } = await admin.from('profiles').select('is_admin').eq('id', userId).single()
   if (!caller?.is_admin) return { ok: false, res: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
 
   return { ok: true, admin }
 }
 
-export async function GET() {
-  const check = await verifyAdmin()
+export async function GET(req: NextRequest) {
+  const check = await verifyAdmin(req)
   if (!check.ok) return check.res
   const { admin } = check
 
@@ -62,7 +74,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const check = await verifyAdmin()
+  const check = await verifyAdmin(req)
   if (!check.ok) return check.res
   const { admin } = check
 
@@ -97,7 +109,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const check = await verifyAdmin()
+  const check = await verifyAdmin(req)
   if (!check.ok) return check.res
   const { admin } = check
 

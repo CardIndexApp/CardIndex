@@ -336,17 +336,29 @@ export async function GET(req: Request) {
       ? computeIndexMetrics(indexHistory)
       : null
 
-    // Top movers — deduplicate by card_id so same card doesn't appear twice with different grades
-    const byChange = [...allPriced]
-      .filter(r => r.price_change_pct != null)
-      .sort((a, b) => (b.price_change_pct ?? 0) - (a.price_change_pct ?? 0))
+    // Deduplicate by card_id — keep the row with the largest absolute change value.
+    // Without this, a card tracked at both Raw and PSA 10 appears twice in the list.
+    function dedupByCardId(rows: CacheRow[], pick: (a: CacheRow, b: CacheRow) => CacheRow): CacheRow[] {
+      const seen = new Map<string, CacheRow>()
+      for (const r of rows) {
+        const existing = seen.get(r.card_id)
+        seen.set(r.card_id, existing ? pick(existing, r) : r)
+      }
+      return Array.from(seen.values())
+    }
+
+    const byChange = dedupByCardId(
+      [...allPriced].filter(r => r.price_change_pct != null),
+      (a, b) => Math.abs(b.price_change_pct ?? 0) > Math.abs(a.price_change_pct ?? 0) ? b : a,
+    ).sort((a, b) => (b.price_change_pct ?? 0) - (a.price_change_pct ?? 0))
 
     const topRising  = byChange.slice(0, 10).map(r => toMover(r))
     const topFalling = [...byChange].reverse().slice(0, 10).map(r => toMover(r))
 
-    const mostTraded = [...allPriced]
-      .filter(r => (r.sales_count_30d ?? 0) > 0)
-      .sort((a, b) => (b.sales_count_30d ?? 0) - (a.sales_count_30d ?? 0))
+    const mostTraded = dedupByCardId(
+      [...allPriced].filter(r => (r.sales_count_30d ?? 0) > 0),
+      (a, b) => (b.sales_count_30d ?? 0) > (a.sales_count_30d ?? 0) ? b : a,
+    ).sort((a, b) => (b.sales_count_30d ?? 0) - (a.sales_count_30d ?? 0))
       .slice(0, 10)
       .map(r => toMover(r, true))
 

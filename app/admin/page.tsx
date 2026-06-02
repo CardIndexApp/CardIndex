@@ -1152,7 +1152,7 @@ export default function AdminPage() {
                 {/* Stats */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 16 }}>
                   {[
-                    { label: 'Index cards',   value: constituents.length, sub: 'of 100 target', color: 'var(--ink)' },
+                    { label: 'Index cards',   value: constituents.length, sub: 'of 250 target', color: 'var(--ink)' },
                     { label: 'Priced',        value: priced.length, sub: 'with live price', color: 'var(--green)' },
                     { label: 'Stale / missing', value: stale.length, sub: '> 6h old or unpriced', color: stale.length > 0 ? 'var(--gold)' : 'var(--ink3)' },
                   ].map((s, i) => (

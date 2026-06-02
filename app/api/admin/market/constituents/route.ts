@@ -90,12 +90,12 @@ export async function POST(req: NextRequest) {
   if (typeof card_name !== 'string' || card_name.length > 255)
     return NextResponse.json({ error: 'Invalid card_name' }, { status: 400 })
 
-  // Check index size cap (200 max to keep index meaningful)
+  // Check index size cap (250 max to keep index meaningful)
   const { count } = await admin
     .from('market_constituents')
     .select('*', { count: 'exact', head: true })
-  if ((count ?? 0) >= 200)
-    return NextResponse.json({ error: 'Index limit of 200 cards reached' }, { status: 400 })
+  if ((count ?? 0) >= 250)
+    return NextResponse.json({ error: 'Index limit of 250 cards reached' }, { status: 400 })
 
   const { data, error } = await admin
     .from('market_constituents')

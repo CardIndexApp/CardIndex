@@ -92,16 +92,16 @@ function SkeletonRow({ last }: { last: boolean }) {
   return (
     <div className="pf-row" style={{ borderBottom: last ? 'none' : '1px solid var(--border)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--surface2)', flexShrink: 0 }} className="sk-pulse" />
+        <div style={{ width: 40, height: 40, flexShrink: 0 }} className="skeleton" />
         <div>
-          <div style={{ width: 120, height: 12, borderRadius: 4, background: 'var(--surface2)', marginBottom: 6 }} className="sk-pulse" />
-          <div style={{ width: 75, height: 10, borderRadius: 4, background: 'var(--surface2)' }} className="sk-pulse" />
+          <div style={{ width: 120, marginBottom: 6 }} className="skeleton skeleton-text" />
+          <div style={{ width: 75 }} className="skeleton skeleton-text" />
         </div>
       </div>
       {/* 8 placeholder cells for cols 2–9 */}
       {[70, 70, 32, 68, 44, 44, 44, 48].map((w, i) => (
         <div key={i} style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <div style={{ width: w, height: 12, borderRadius: 4, background: 'var(--surface2)' }} className="sk-pulse" />
+          <div style={{ width: w }} className="skeleton skeleton-text" />
         </div>
       ))}
     </div>

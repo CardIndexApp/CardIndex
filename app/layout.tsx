@@ -4,6 +4,7 @@ import './globals.css'
 import { CurrencyProvider } from '@/lib/currency'
 import { ThemeProvider } from '@/lib/theme'
 import InstallPrompt from '@/components/InstallPrompt'
+import OfflineBanner from '@/components/OfflineBanner'
 
 
 export const viewport: Viewport = {
@@ -60,6 +61,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <ThemeProvider>
           <CurrencyProvider>
+            <OfflineBanner />
             {children}
             <InstallPrompt />
           </CurrencyProvider>

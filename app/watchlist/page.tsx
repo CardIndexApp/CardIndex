@@ -92,36 +92,36 @@ function SkeletonRow({ last }: { last: boolean }) {
     >
       {/* Card cell */}
       <div className="wl-cell-card" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{ width: 38, height: 38, borderRadius: 8, background: 'var(--surface2)', flexShrink: 0 }} className="sk-pulse" />
+        <div style={{ width: 38, height: 38, flexShrink: 0 }} className="skeleton" />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ width: 140, height: 13, borderRadius: 4, background: 'var(--surface2)' }} className="sk-pulse" />
-          <div style={{ width: 90, height: 10, borderRadius: 4, background: 'var(--surface2)' }} className="sk-pulse" />
+          <div style={{ width: 140 }} className="skeleton skeleton-text" />
+          <div style={{ width: 90 }} className="skeleton skeleton-text" />
         </div>
       </div>
       {/* Price */}
       <div className="wl-cell-price" style={{ textAlign: 'right' }}>
-        <div style={{ width: 60, height: 15, borderRadius: 4, background: 'var(--surface2)', marginLeft: 'auto' }} className="sk-pulse" />
+        <div style={{ width: 60, marginLeft: 'auto' }} className="skeleton skeleton-text" />
       </div>
       {/* Change */}
       <div className="wl-cell-change" style={{ textAlign: 'right' }}>
-        <div style={{ width: 48, height: 12, borderRadius: 4, background: 'var(--surface2)', marginLeft: 'auto' }} className="sk-pulse" />
+        <div style={{ width: 48, marginLeft: 'auto' }} className="skeleton skeleton-text" />
       </div>
       {/* Trend (desktop) */}
       <div className="wl-hide-mobile" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-        <div style={{ width: 80, height: 32, borderRadius: 4, background: 'var(--surface2)' }} className="sk-pulse" />
+        <div style={{ width: 80 }} className="skeleton skeleton-card" />
       </div>
       {/* Score (desktop) */}
       <div className="wl-hide-mobile" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-        <div style={{ width: 30, height: 15, borderRadius: 4, background: 'var(--surface2)' }} className="sk-pulse" />
-        <div style={{ width: 40, height: 3, borderRadius: 2, background: 'var(--surface2)' }} className="sk-pulse" />
+        <div style={{ width: 30 }} className="skeleton skeleton-text" />
+        <div style={{ width: 40, height: 3, borderRadius: 2 }} className="skeleton" />
       </div>
       {/* Verdict (desktop) */}
       <div className="wl-hide-mobile" style={{ display: 'flex', justifyContent: 'center' }}>
-        <div style={{ width: 70, height: 22, borderRadius: 99, background: 'var(--surface2)' }} className="sk-pulse" />
+        <div style={{ width: 70, height: 22, borderRadius: 99 }} className="skeleton" />
       </div>
       {/* Remove button placeholder */}
       <div className="wl-cell-remove" style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <div style={{ width: 28, height: 28, borderRadius: 7, background: 'var(--surface2)' }} className="sk-pulse" />
+        <div style={{ width: 28, height: 28, borderRadius: 7 }} className="skeleton" />
       </div>
     </div>
   )
@@ -417,7 +417,7 @@ export default function Watchlist() {
         <div style={{ maxWidth: 1100, margin: '0 auto', padding: '48px 24px 0' }}>
 
           {/* Header */}
-          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 32, flexWrap: 'wrap', gap: 12 }}>
+          <div className="fade-up-1" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 32, flexWrap: 'wrap', gap: 12 }}>
             <div>
               <p style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' }}>Watchlist</p>
               <h1 style={{ fontSize: 32, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-1px' }}>My Cards</h1>
@@ -788,7 +788,7 @@ export default function Watchlist() {
                       {/* Price */}
                       <div className="wl-cell-price" style={{ textAlign: 'right' }}>
                         {item.priceLoading ? (
-                          <div style={{ width: 60, height: 15, borderRadius: 4, background: 'var(--surface2)', marginLeft: 'auto' }} className="sk-pulse" />
+                          <div style={{ width: 60, marginLeft: 'auto' }} className="skeleton skeleton-text" />
                         ) : pd ? (
                           <div className="font-num" style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', lineHeight: 1 }}>
                             {fmtCurrency(pd.price)}
@@ -809,7 +809,7 @@ export default function Watchlist() {
                       {/* 24h change */}
                       <div className="wl-cell-change" style={{ textAlign: 'right' }}>
                         {item.priceLoading ? (
-                          <div style={{ width: 48, height: 12, borderRadius: 4, background: 'var(--surface2)', marginLeft: 'auto' }} className="sk-pulse" />
+                          <div style={{ width: 48, marginLeft: 'auto' }} className="skeleton skeleton-text" />
                         ) : pd ? (
                           <>
                             <div className="font-num" style={{ fontSize: 12, fontWeight: 600, color: up ? 'var(--green)' : 'var(--red)', lineHeight: 1 }}>
@@ -831,7 +831,7 @@ export default function Watchlist() {
                         {!getTierLimits(userTier).trendIndicators ? (
                           <Link href="/pricing" onClick={e => e.stopPropagation()} style={{ fontSize: 9, color: 'var(--ink3)', textDecoration: 'none', opacity: 0.6 }}>🔒</Link>
                         ) : item.priceLoading ? (
-                          <div style={{ width: 80, height: 32, borderRadius: 4, background: 'var(--surface2)' }} className="sk-pulse" />
+                          <div style={{ width: 80 }} className="skeleton skeleton-card" />
                         ) : history.length >= 2 ? (
                           <Sparkline data={history} up={up} />
                         ) : (
@@ -845,8 +845,8 @@ export default function Watchlist() {
                           <Link href="/pricing" onClick={e => e.stopPropagation()} style={{ fontSize: 9, color: 'var(--ink3)', textDecoration: 'none', opacity: 0.6 }}>🔒</Link>
                         ) : item.priceLoading ? (
                           <>
-                            <div style={{ width: 30, height: 15, borderRadius: 4, background: 'var(--surface2)' }} className="sk-pulse" />
-                            <div style={{ width: 40, height: 3, borderRadius: 2, background: 'var(--surface2)' }} className="sk-pulse" />
+                            <div style={{ width: 30 }} className="skeleton skeleton-text" />
+                            <div style={{ width: 40, height: 3, borderRadius: 2 }} className="skeleton" />
                           </>
                         ) : pd ? (
                           <>
@@ -865,7 +865,7 @@ export default function Watchlist() {
                         {!getTierLimits(userTier).trendIndicators ? (
                           <Link href="/pricing" onClick={e => e.stopPropagation()} style={{ fontSize: 9, color: 'var(--ink3)', textDecoration: 'none', opacity: 0.6 }}>🔒</Link>
                         ) : item.priceLoading ? (
-                          <div style={{ width: 70, height: 22, borderRadius: 99, background: 'var(--surface2)' }} className="sk-pulse" />
+                          <div style={{ width: 70, height: 22, borderRadius: 99 }} className="skeleton" />
                         ) : pd ? (() => {
                           const v = getVerdict(score, change)
                           return (

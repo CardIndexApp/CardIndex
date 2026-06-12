@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { ComposedChart, LineChart, Line, Area, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ReferenceArea, ReferenceLine } from 'recharts'
 import Navbar from '@/components/Navbar'
 import dynamic from 'next/dynamic'
+import Toast from '@/components/Toast'
 const ShareCardModal = dynamic(() => import('@/components/ShareCardModal'), { ssr: false })
 import { getCard, fmt, scoreColor } from '@/lib/data'
 import { tcgImg } from '@/lib/img'
@@ -626,6 +627,14 @@ export default function CardPageClient() {
   const [pfSuccess, setPfSuccess] = useState(false)
   const [inPortfolio, setInPortfolio] = useState(false)
 
+  // Toast state
+  const [toastVisible, setToastVisible] = useState(false)
+  const [toastMessage, setToastMessage] = useState('')
+  const [toastIcon, setToastIcon] = useState('✓')
+  function showToast(message: string, icon = '✓') {
+    setToastMessage(message); setToastIcon(icon); setToastVisible(true)
+  }
+
   // Check auth
   const [userId, setUserId] = useState<string | null>(null)
   const [userTier, setUserTier] = useState<string>('free')
@@ -878,6 +887,7 @@ export default function CardPageClient() {
       setWatchlistAdded(true)
       setWatchlistItemId(json.item?.id ?? null)
       if (userId) cacheSet(`watchlist:items:${userId}`, null)
+      showToast('Added to watchlist', '★')
     }
     setWatchlistLoading(false)
   }
@@ -916,6 +926,7 @@ export default function CardPageClient() {
       setPfPrice('')
       setPfQty('1')
       if (userId) cacheSet(`portfolio:positions:${userId}`, null)
+      showToast('Added to portfolio', '✓')
     } else {
       const j = await res.json().catch(() => ({}))
       setPfError(j.error ?? 'Failed to add to portfolio')
@@ -1279,7 +1290,7 @@ export default function CardPageClient() {
           <div className="ci-page-outer" style={{ maxWidth: 860, margin: '0 auto', padding: '0 16px' }}>
 
             {/* Card header */}
-            <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', overflow: 'hidden', marginTop: 24, marginBottom: 10 }}>
+            <div className="fade-up-1" style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', overflow: 'hidden', marginTop: 24, marginBottom: 10 }}>
               <div style={{ padding: '18px 20px' }}>
                 <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
                   <div style={{ width: 80, height: 110, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
@@ -1459,7 +1470,7 @@ export default function CardPageClient() {
                 )}
 
                 {/* Price summary */}
-                <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', padding: '20px', marginBottom: 10 }}>
+                <div className="fade-up-2" style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', padding: '20px', marginBottom: 10 }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'nowrap', gap: 16 }}>
                     <div style={{ minWidth: 0 }}>
                       <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', display: 'block', marginBottom: 6 }}>MARKET PRICE</span>
@@ -3741,7 +3752,7 @@ export default function CardPageClient() {
         <div style={{ maxWidth: 860, margin: '0 auto', padding: '0 16px' }}>
 
           {/* ── Card Header (with controls) ── */}
-          <div style={{ ...C, marginTop: 24 }} className="ci-card-surface">
+          <div style={{ ...C, marginTop: 24 }} className="ci-card-surface fade-up-1">
             <div style={{ ...P }}>
               <div className="ci-card-header-outer">
 
@@ -3976,7 +3987,7 @@ export default function CardPageClient() {
           </div>
 
           {/* ── CardIndex Score ── */}
-          <div style={{ ...C }} className="ci-card-surface">
+          <div style={{ ...C }} className="ci-card-surface fade-up-2">
             <div style={{ ...P }}>
               <div className="ci-score-wrap">
                 <div className="ci-score-left">
@@ -4205,7 +4216,7 @@ export default function CardPageClient() {
           {showAnalysis && userTier === 'pro' && (
             <>
               {/* 8-cell Summary Grid */}
-              <div style={{ ...C }} className="ci-card-surface">
+              <div style={{ ...C }} className="ci-card-surface fade-up-3">
                 <div className="ci-sum-grid">
                   {[
                     { label: 'VERDICT',      value: verdict.label,                                                                            sub: 'price vs market',                                                                                              valueColor: verdict.color,                                              valueSize: 15 },
@@ -5263,6 +5274,13 @@ export default function CardPageClient() {
 
         </div>
       </main>
+
+      <Toast
+        message={toastMessage}
+        icon={toastIcon}
+        visible={toastVisible}
+        onHide={() => setToastVisible(false)}
+      />
     </>
   )
 }

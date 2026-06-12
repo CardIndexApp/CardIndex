@@ -293,7 +293,7 @@ export default function Dashboard() {
         <div className="dash-content" style={{ maxWidth: 960, margin: '0 auto', padding: '0 16px', display: 'flex', flexDirection: 'column' }}>
 
           {/* ── Welcome ── */}
-          <div style={{ marginTop: 32, marginBottom: 36 }}>
+          <div className="fade-up-1" style={{ marginTop: 32, marginBottom: 36 }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
               <div>
                 <p style={{ fontSize: 11, letterSpacing: 2, color: 'var(--ink3)', marginBottom: 8 }}>WELCOME BACK</p>
@@ -311,7 +311,7 @@ export default function Dashboard() {
           </div>
 
           {/* ── Quick Actions ── */}
-          <div className="dash-quick-actions" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: portfolioStats && portfolioStats.posCount > 0 ? 16 : 32 }}>
+          <div className="dash-quick-actions fade-up-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: portfolioStats && portfolioStats.posCount > 0 ? 16 : 32 }}>
             {QUICK_ACTIONS.map(action => (
               <Link key={action.href} href={action.href}
                 className={action.href === '/account' ? 'dash-qa-account' : undefined}
@@ -345,7 +345,7 @@ export default function Dashboard() {
             // Use 2 cols when no realized, 3 when there are sold positions
             const cols          = showRealized ? '1fr 1fr 1fr' : '1fr 1fr'
             return (
-              <Link href="/portfolio" className="dash-pf-snap" style={{ textDecoration: 'none', display: 'grid', gridTemplateColumns: cols, gap: 0, marginBottom: 16, borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden', transition: 'border-color 0.15s' }}
+              <Link href="/portfolio" className="dash-pf-snap fade-up-3" style={{ textDecoration: 'none', display: 'grid', gridTemplateColumns: cols, gap: 0, marginBottom: 16, borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden', transition: 'border-color 0.15s' }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(61,232,138,0.3)' }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border2)' }}
               >
@@ -399,7 +399,7 @@ export default function Dashboard() {
           })()}
 
           {/* ── Two column: Watchlist + Market movers ── */}
-          <div className="dash-two-col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+          <div className="dash-two-col fade-up-4" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
 
             {/* Watchlist preview */}
             <div className="dash-watchlist" style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden' }}>

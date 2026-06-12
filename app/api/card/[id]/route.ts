@@ -3,7 +3,7 @@
  *
  * Returns card price data + CardIndex score via Poketrace API.
  * Primary data source: eBay sold listings. TCGPlayer used as fallback only.
- * Checks search_cache first (24h TTL), falls back to live fetch.
+ * Checks search_cache first (6h TTL), falls back to live fetch.
  *
  * Matching strategy (in order):
  *   1. TCGPlayer ID  → GET /cards?tcgplayer_ids={id}            (most accurate)
@@ -61,7 +61,7 @@ function adminClient() {
   )
 }
 
-const CACHE_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
+const CACHE_TTL_MS = 6 * 60 * 60 * 1000 // 6 hours
 
 interface PokemonTcgCardInfo {
   tcgplayerId: string | null
@@ -179,7 +179,12 @@ export async function GET(
           'low'
         ),
       }
-      return NextResponse.json({ source: 'cache', data: cachedWithWarning }, {
+      // Fall back to last_fetched when last_updated_pt is missing (pre-migration rows)
+      const cachedWithDate = cachedWithWarning.last_updated_pt ? cachedWithWarning : {
+        ...cachedWithWarning,
+        last_updated_pt: cachedWithWarning.last_fetched ?? null,
+      }
+      return NextResponse.json({ source: 'cache', data: cachedWithDate }, {
         headers: { 'Cache-Control': 's-maxage=600, stale-while-revalidate=3600' },
       })
     }
@@ -577,6 +582,35 @@ export async function GET(
 
   // Apply outlier correction to the resolved price
   tierPrice = correctOutlierPrice(tierPrice)
+
+  // ── 3c. Hybrid price: prefer avg1d for high-volume actively traded cards ──
+  //
+  // For cards with 50+ sales in 30 days, the 1-day average is a better
+  // reflection of the current market than the 30-day average, which gets
+  // dragged down by older (potentially stale) sales. We switch to avg1d when:
+  //
+  //   1. saleCount >= 50  — enough volume that a single day has multiple sales
+  //   2. avg1d exists and is > 0
+  //   3. avg1d differs from the 30d avg by more than 10% (meaningful divergence)
+  //
+  // The 30d avg is kept as avg30d for score/trend/change% calculations.
+  // We do NOT apply outlier correction again — avg1d has already passed
+  // correctOutlierPrice which guards against single-sale anomalies.
+
+  const HIGH_VOLUME_THRESHOLD = 50
+  const DIVERGENCE_THRESHOLD  = 0.10  // 10%
+
+  if (
+    tierPrice.saleCount != null &&
+    tierPrice.saleCount >= HIGH_VOLUME_THRESHOLD &&
+    tierPrice.avg1d != null &&
+    tierPrice.avg1d > 0
+  ) {
+    const divergence = Math.abs(tierPrice.avg1d - tierPrice.avg) / tierPrice.avg
+    if (divergence > DIVERGENCE_THRESHOLD) {
+      tierPrice = { ...tierPrice, avg: tierPrice.avg1d }
+    }
+  }
 
   // ── 4. Fetch price history ────────────────────────────────────────────────
   const rawHistory = await getPriceHistory(matchedCard.id, resolvedTier, '1y')

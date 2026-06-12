@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import Navbar from '@/components/Navbar'
 import AuthModal from '@/components/AuthModal'
+import { SetAlertModal } from '@/components/AlertCentre'
 import { scoreColor } from '@/lib/data'
 import { tcgImg } from '@/lib/img'
 import { createClient } from '@/lib/supabase/client'
@@ -11,6 +12,14 @@ import { useCurrency } from '@/lib/currency'
 import { usePullToRefresh } from '@/lib/usePullToRefresh'
 import { cacheGet, cacheSet } from '@/lib/searchCache'
 import { getTierLimits } from '@/lib/tier'
+
+// ── Watchlist Group types ──────────────────────────────────────────────────────
+interface WatchlistGroup {
+  id: string
+  user_id: string
+  name: string
+  created_at: string
+}
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -180,6 +189,18 @@ export default function Watchlist() {
   const [sort, setSort] = useState<SortKey>('score')
   const [filter, setFilter] = useState<Filter>('all')
 
+  // Watchlist groups (Pro)
+  const [groups, setGroups] = useState<WatchlistGroup[]>([])
+  const [activeGroupId, setActiveGroupId] = useState<string | null>(null)
+  const [showNewGroup, setShowNewGroup] = useState(false)
+  const [newGroupName, setNewGroupName] = useState('')
+
+  // Alert modal
+  const [alertItem, setAlertItem] = useState<EnrichedItem | null>(null)
+
+  // Tab: 'overview' | 'cards'
+  const [wlTab, setWlTab] = useState<'overview' | 'cards'>('cards')
+
 
   const { fmtCurrency } = useCurrency()
 
@@ -191,7 +212,17 @@ export default function Watchlist() {
       setAuthChecked(true)
       if (data.user) {
         const { data: prof } = await supabase.from('profiles').select('tier').eq('id', data.user.id).single()
-        setUserTier(prof?.tier ?? 'free')
+        const tier = prof?.tier ?? 'free'
+        setUserTier(tier)
+        // Load watchlist groups for Pro users
+        if (tier === 'pro') {
+          const { data: grps } = await supabase
+            .from('watchlist_groups')
+            .select('*')
+            .eq('user_id', data.user.id)
+            .order('created_at', { ascending: true })
+          setGroups(grps ?? [])
+        }
       }
     })
   }, [])
@@ -447,6 +478,116 @@ export default function Watchlist() {
             <SignInPrompt onSignIn={() => setShowAuthModal(true)} />
           ) : (
             <>
+              {/* ── Tabs: Overview / Cards ── */}
+              <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: 24, gap: 0 }}>
+                {(['overview', 'cards'] as const).map(t => (
+                  <button
+                    key={t}
+                    onClick={() => setWlTab(t)}
+                    style={{
+                      padding: '10px 20px', background: 'none', border: 'none', cursor: 'pointer',
+                      fontSize: 13, fontWeight: wlTab === t ? 700 : 400,
+                      color: wlTab === t ? 'var(--gold)' : 'var(--ink3)',
+                      borderBottom: `2px solid ${wlTab === t ? 'var(--gold)' : 'transparent'}`,
+                      marginBottom: -1, transition: 'all 0.15s',
+                    }}
+                  >
+                    {t.charAt(0).toUpperCase() + t.slice(1)}
+                  </button>
+                ))}
+              </div>
+
+              {/* ── Overview Tab ── */}
+              {wlTab === 'overview' && (() => {
+                const pricedItems = items.filter(i => i.priceData)
+                const totalValue  = pricedItems.reduce((s, i) => s + (i.priceData?.price ?? 0), 0)
+                const gainers = [...pricedItems].sort((a, b) => (b.priceData?.price_change_pct ?? 0) - (a.priceData?.price_change_pct ?? 0)).slice(0, 3)
+                const losers  = [...pricedItems].sort((a, b) => (a.priceData?.price_change_pct ?? 0) - (b.priceData?.price_change_pct ?? 0)).slice(0, 3).filter(i => (i.priceData?.price_change_pct ?? 0) < 0)
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    {/* Summary strip */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+                      {[
+                        { label: 'Cards Watched', value: items.length, color: 'var(--ink)' },
+                        { label: 'Rising Today',  value: rising,       color: 'var(--green)' },
+                        { label: 'Falling Today', value: falling,      color: 'var(--red)' },
+                      ].map(s => (
+                        <div key={s.label} style={{ borderRadius: 12, padding: '16px 18px', background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                          <div style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 6 }}>{s.label}</div>
+                          <div className="font-num" style={{ fontSize: 22, fontWeight: 700, color: s.color, letterSpacing: '-0.5px' }}>{s.value}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Total Value */}
+                    {totalValue > 0 && (
+                      <div style={{ borderRadius: 12, padding: '16px 18px', background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                        <div style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 6 }}>Watchlist Value</div>
+                        <div className="font-num" style={{ fontSize: 24, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px' }}>{fmtCurrency(totalValue)}</div>
+                        <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 4 }}>across {pricedItems.length} priced cards</div>
+                      </div>
+                    )}
+
+                    {/* Top Gainers */}
+                    {gainers.length > 0 && (
+                      <div style={{ borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border)', overflow: 'hidden' }}>
+                        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)' }} />
+                          <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--green)' }}>TOP GAINERS</span>
+                        </div>
+                        {gainers.map((item, i) => {
+                          const pct = item.priceData?.price_change_pct ?? 0
+                          const cardParams = new URLSearchParams({ name: item.card_name, grade: item.grade })
+                          if (item.set_name) cardParams.set('set', item.set_name)
+                          return (
+                            <Link key={item.id} href={`/card/${item.card_id}?${cardParams}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: i < gainers.length - 1 ? '1px solid var(--border)' : 'none', textDecoration: 'none', transition: 'background 0.15s' }}
+                              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
+                              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                            >
+                              <div>
+                                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{item.card_name}</div>
+                                <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>{item.grade}</div>
+                              </div>
+                              <span className="font-num" style={{ fontSize: 13, fontWeight: 700, color: 'var(--green)' }}>+{pct.toFixed(1)}%</span>
+                            </Link>
+                          )
+                        })}
+                      </div>
+                    )}
+
+                    {/* Top Losers */}
+                    {losers.length > 0 && (
+                      <div style={{ borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border)', overflow: 'hidden' }}>
+                        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--red)' }} />
+                          <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--red)' }}>TOP LOSERS</span>
+                        </div>
+                        {losers.map((item, i) => {
+                          const pct = item.priceData?.price_change_pct ?? 0
+                          const cardParams = new URLSearchParams({ name: item.card_name, grade: item.grade })
+                          if (item.set_name) cardParams.set('set', item.set_name)
+                          return (
+                            <Link key={item.id} href={`/card/${item.card_id}?${cardParams}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: i < losers.length - 1 ? '1px solid var(--border)' : 'none', textDecoration: 'none', transition: 'background 0.15s' }}
+                              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
+                              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                            >
+                              <div>
+                                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{item.card_name}</div>
+                                <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>{item.grade}</div>
+                              </div>
+                              <span className="font-num" style={{ fontSize: 13, fontWeight: 700, color: 'var(--red)' }}>{pct.toFixed(1)}%</span>
+                            </Link>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
+
+              {/* ── Cards Tab ── */}
+              {wlTab === 'cards' && (
+              <>
               {/* Summary strip */}
               {(() => {
                 const limit = getTierLimits(userTier).watchlist
@@ -488,6 +629,60 @@ export default function Watchlist() {
                   </div>
                 )
               })()}
+
+              {/* ── Watchlist Groups (Pro) ── */}
+              {userTier === 'pro' && groups.length > 0 && (
+                <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <button
+                    onClick={() => setActiveGroupId(null)}
+                    style={{ padding: '5px 14px', borderRadius: 99, border: `1px solid ${activeGroupId === null ? 'var(--gold)' : 'var(--border2)'}`, background: activeGroupId === null ? 'var(--gold2)' : 'transparent', color: activeGroupId === null ? 'var(--gold)' : 'var(--ink3)', fontSize: 12, fontWeight: activeGroupId === null ? 700 : 400, cursor: 'pointer' }}
+                  >All</button>
+                  {groups.map(g => (
+                    <button
+                      key={g.id}
+                      onClick={() => setActiveGroupId(g.id)}
+                      style={{ padding: '5px 14px', borderRadius: 99, border: `1px solid ${activeGroupId === g.id ? 'var(--gold)' : 'var(--border2)'}`, background: activeGroupId === g.id ? 'var(--gold2)' : 'transparent', color: activeGroupId === g.id ? 'var(--gold)' : 'var(--ink3)', fontSize: 12, fontWeight: activeGroupId === g.id ? 700 : 400, cursor: 'pointer' }}
+                    >{g.name}</button>
+                  ))}
+                  <button
+                    onClick={() => setShowNewGroup(true)}
+                    style={{ padding: '5px 12px', borderRadius: 99, border: '1px dashed var(--border2)', background: 'transparent', color: 'var(--ink3)', fontSize: 12, cursor: 'pointer' }}
+                  >+ New Group</button>
+                </div>
+              )}
+
+              {/* New Group modal */}
+              {showNewGroup && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+                  onClick={e => { if (e.target === e.currentTarget) { setShowNewGroup(false); setNewGroupName('') } }}>
+                  <div style={{ width: '100%', maxWidth: 360, borderRadius: 16, background: 'var(--surface)', border: '1px solid var(--border2)', padding: 24, boxShadow: '0 24px 60px rgba(0,0,0,0.6)' }}>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', marginBottom: 16 }}>New Watchlist</div>
+                    <input
+                      value={newGroupName}
+                      onChange={e => setNewGroupName(e.target.value)}
+                      placeholder="Name…"
+                      autoFocus
+                      onKeyDown={async e => {
+                        if (e.key === 'Enter' && newGroupName.trim() && user) {
+                          const { data: g } = await createClient().from('watchlist_groups').insert({ user_id: user.id, name: newGroupName.trim() }).select().single()
+                          if (g) setGroups(prev => [...prev, g])
+                          setShowNewGroup(false); setNewGroupName('')
+                        }
+                      }}
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 14, outline: 'none', boxSizing: 'border-box', marginBottom: 12 }}
+                    />
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={() => { setShowNewGroup(false); setNewGroupName('') }} style={{ flex: 1, padding: '10px 0', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border2)', fontSize: 13, color: 'var(--ink3)', cursor: 'pointer' }}>Cancel</button>
+                      <button onClick={async () => {
+                        if (!newGroupName.trim() || !user) return
+                        const { data: g } = await createClient().from('watchlist_groups').insert({ user_id: user.id, name: newGroupName.trim() }).select().single()
+                        if (g) setGroups(prev => [...prev, g])
+                        setShowNewGroup(false); setNewGroupName('')
+                      }} style={{ flex: 1, padding: '10px 0', borderRadius: 10, background: 'var(--gold)', color: '#080810', border: 'none', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Create</button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Controls */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
@@ -683,8 +878,23 @@ export default function Watchlist() {
                         )}
                       </div>
 
-                      {/* Remove */}
-                      <div className="wl-cell-remove" style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      {/* Remove + Bell */}
+                      <div className="wl-cell-remove" style={{ display: 'flex', justifyContent: 'flex-end', gap: 5 }}>
+                        {/* Bell alert button */}
+                        {!!user && (
+                          <button
+                            onClick={e => { e.preventDefault(); e.stopPropagation(); setAlertItem(item) }}
+                            style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid var(--border)', background: 'transparent', color: 'var(--ink3)', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}
+                            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.color = 'var(--gold)' }}
+                            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--ink3)' }}
+                            title="Set price alert"
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                            </svg>
+                          </button>
+                        )}
                         <button
                           onClick={e => handleRemove(e, item.id)}
                           style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid var(--border)', background: 'transparent', color: 'var(--ink3)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}
@@ -703,6 +913,8 @@ export default function Watchlist() {
               <p style={{ fontSize: 11, color: 'var(--ink3)', textAlign: 'center', marginTop: 24 }}>
                 Prices updated every 6 hours · Sort and filter to explore your collection
               </p>
+              </>
+              )}
             </>
           )}
 
@@ -710,6 +922,19 @@ export default function Watchlist() {
       </main>
 
       {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} defaultTab="signin" />}
+
+      {/* Price Alert Modal */}
+      {alertItem && (
+        <SetAlertModal
+          cardId={alertItem.card_id}
+          cardName={alertItem.card_name}
+          grade={alertItem.grade}
+          currentPrice={alertItem.priceData?.price ?? null}
+          imageUrl={alertItem.image_url}
+          onClose={() => setAlertItem(null)}
+          onSaved={() => setAlertItem(null)}
+        />
+      )}
     </>
   )
 }

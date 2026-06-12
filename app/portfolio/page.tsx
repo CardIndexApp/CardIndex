@@ -797,6 +797,16 @@ export default function PortfolioPage() {
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
   const [showChart, setShowChart] = useState(true)
 
+  // Portfolio tabs
+  const [pfTab, setPfTab] = useState<'overview' | 'positions' | 'history'>('overview')
+
+  // Portfolio groups (Pro)
+  interface PortfolioGroup { id: string; user_id: string; name: string; created_at: string }
+  const [pfGroups, setPfGroups] = useState<PortfolioGroup[]>([])
+  const [activePfGroupId, setActivePfGroupId] = useState<string | null>(null)
+  const [showNewPfGroup, setShowNewPfGroup] = useState(false)
+  const [newPfGroupName, setNewPfGroupName] = useState('')
+
   function flash(type: 'ok' | 'err', text: string) {
     setMsg({ type, text })
     setTimeout(() => setMsg(null), 3000)
@@ -808,7 +818,17 @@ export default function PortfolioPage() {
       setUser(data.user)
       if (data.user) {
         const { data: prof } = await supabase.from('profiles').select('tier').eq('id', data.user.id).single()
-        setUserTier(prof?.tier ?? 'free')
+        const tier = prof?.tier ?? 'free'
+        setUserTier(tier)
+        // Load portfolio groups for Pro users
+        if (tier === 'pro') {
+          const { data: grps } = await supabase
+            .from('portfolio_groups')
+            .select('*')
+            .eq('user_id', data.user.id)
+            .order('created_at', { ascending: true })
+          setPfGroups(grps ?? [])
+        }
       }
       setAuthChecked(true)
     })
@@ -1213,6 +1233,107 @@ export default function PortfolioPage() {
             </div>
           )}
 
+          {/* ── Portfolio Groups (Pro) ── */}
+          {userTier === 'pro' && pfGroups.length > 0 && (
+            <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <button onClick={() => setActivePfGroupId(null)} style={{ padding: '5px 14px', borderRadius: 99, border: `1px solid ${activePfGroupId === null ? 'var(--gold)' : 'var(--border2)'}`, background: activePfGroupId === null ? 'var(--gold2)' : 'transparent', color: activePfGroupId === null ? 'var(--gold)' : 'var(--ink3)', fontSize: 12, fontWeight: activePfGroupId === null ? 700 : 400, cursor: 'pointer' }}>All</button>
+              {pfGroups.map(g => (
+                <button key={g.id} onClick={() => setActivePfGroupId(g.id)} style={{ padding: '5px 14px', borderRadius: 99, border: `1px solid ${activePfGroupId === g.id ? 'var(--gold)' : 'var(--border2)'}`, background: activePfGroupId === g.id ? 'var(--gold2)' : 'transparent', color: activePfGroupId === g.id ? 'var(--gold)' : 'var(--ink3)', fontSize: 12, fontWeight: activePfGroupId === g.id ? 700 : 400, cursor: 'pointer' }}>{g.name}</button>
+              ))}
+              <button onClick={() => setShowNewPfGroup(true)} style={{ padding: '5px 12px', borderRadius: 99, border: '1px dashed var(--border2)', background: 'transparent', color: 'var(--ink3)', fontSize: 12, cursor: 'pointer' }}>+ New Portfolio</button>
+            </div>
+          )}
+
+          {showNewPfGroup && (
+            <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+              onClick={e => { if (e.target === e.currentTarget) { setShowNewPfGroup(false); setNewPfGroupName('') } }}>
+              <div style={{ width: '100%', maxWidth: 360, borderRadius: 16, background: 'var(--surface)', border: '1px solid var(--border2)', padding: 24, boxShadow: '0 24px 60px rgba(0,0,0,0.6)' }}>
+                <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', marginBottom: 16 }}>New Portfolio</div>
+                <input value={newPfGroupName} onChange={e => setNewPfGroupName(e.target.value)} placeholder="Name…" autoFocus style={{ width: '100%', padding: '10px 12px', borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 14, outline: 'none', boxSizing: 'border-box', marginBottom: 12 }} />
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => { setShowNewPfGroup(false); setNewPfGroupName('') }} style={{ flex: 1, padding: '10px 0', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border2)', fontSize: 13, color: 'var(--ink3)', cursor: 'pointer' }}>Cancel</button>
+                  <button onClick={async () => {
+                    if (!newPfGroupName.trim() || !user) return
+                    const { data: g } = await supabase.from('portfolio_groups').insert({ user_id: user.id, name: newPfGroupName.trim() }).select().single()
+                    if (g) setPfGroups(prev => [...prev, g])
+                    setShowNewPfGroup(false); setNewPfGroupName('')
+                  }} style={{ flex: 1, padding: '10px 0', borderRadius: 10, background: 'var(--gold)', color: '#080810', border: 'none', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Create</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Tabs ── */}
+          <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: 24, gap: 0 }}>
+            {(['overview', 'positions', 'history'] as const).map(t => (
+              <button key={t} onClick={() => setPfTab(t)} style={{ padding: '10px 20px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: pfTab === t ? 700 : 400, color: pfTab === t ? 'var(--gold)' : 'var(--ink3)', borderBottom: `2px solid ${pfTab === t ? 'var(--gold)' : 'transparent'}`, marginBottom: -1, transition: 'all 0.15s', textTransform: 'capitalize' }}>
+                {t}
+              </button>
+            ))}
+          </div>
+
+          {/* ── History Tab ── */}
+          {pfTab === 'history' && (() => {
+            const allPos = [...positions].sort((a, b) => new Date(b.added_at).getTime() - new Date(a.added_at).getTime())
+            return (
+              <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', overflow: 'hidden' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(160px,1fr) 70px 100px 50px 110px 100px', padding: '10px 16px', borderBottom: '1px solid var(--border)', gap: 8 }}>
+                  {['CARD', 'TYPE', 'PRICE/EA', 'QTY', 'DATE', 'REALIZED P&L'].map(h => (
+                    <div key={h} style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)' }}>{h}</div>
+                  ))}
+                </div>
+                {allPos.length === 0 ? (
+                  <div style={{ padding: '40px 20px', textAlign: 'center', fontSize: 13, color: 'var(--ink3)' }}>No transactions yet.</div>
+                ) : allPos.map((pos, i) => {
+                  const isSell = pos.sold
+                  const plUSD  = isSell && pos.sale_price != null ? (pos.sale_price - pos.purchase_price) * pos.quantity : null
+                  const plPct  = plUSD != null && pos.purchase_price > 0 ? ((pos.sale_price! - pos.purchase_price) / pos.purchase_price) * 100 : null
+                  const cardParams = new URLSearchParams({ name: pos.card_name, grade: pos.grade })
+                  if (pos.set_name) cardParams.set('set', pos.set_name)
+                  return (
+                    <div key={pos.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(160px,1fr) 70px 100px 50px 110px 100px', padding: '12px 16px', borderBottom: i < allPos.length - 1 ? '1px solid var(--border)' : 'none', gap: 8, alignItems: 'center' }}>
+                      <Link href={`/card/${pos.card_id}?${cardParams}`} style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, textDecoration: 'none' }}>
+                        <div style={{ width: 36, height: 36, borderRadius: 7, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0 }}>
+                          {pos.image_url && <img src={tcgImg(pos.image_url)} alt={pos.card_name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 3 }} />}
+                        </div>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pos.card_name}</div>
+                          <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 1 }}>{pos.grade}</div>
+                        </div>
+                      </Link>
+                      <div>
+                        <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, letterSpacing: 0.5, background: isSell ? 'rgba(232,82,74,0.1)' : 'rgba(61,232,138,0.1)', color: isSell ? 'var(--red)' : 'var(--green)', border: `1px solid ${isSell ? 'rgba(232,82,74,0.3)' : 'rgba(61,232,138,0.3)'}` }}>
+                          {isSell ? 'SELL' : 'BUY'}
+                        </span>
+                      </div>
+                      <div className="font-num" style={{ fontSize: 12, color: 'var(--ink)' }}>
+                        {fmtCurrency(isSell ? (pos.sale_price ?? pos.purchase_price) : pos.purchase_price)}
+                      </div>
+                      <div className="font-num" style={{ fontSize: 12, color: 'var(--ink2)' }}>{pos.quantity}</div>
+                      <div style={{ fontSize: 11, color: 'var(--ink3)' }}>
+                        {isSell
+                          ? pos.sold_at ? new Date(pos.sold_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' }) : '—'
+                          : pos.purchased_at ? new Date(pos.purchased_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' }) : new Date(pos.added_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })}
+                      </div>
+                      <div>
+                        {plUSD != null ? (
+                          <div className="font-num" style={{ fontSize: 12, fontWeight: 700, color: plUSD >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                            {plUSD >= 0 ? '+' : '−'}{fmtCurrency(Math.abs(plUSD))}
+                            {plPct != null && <span style={{ fontSize: 10, opacity: 0.8 }}> ({plPct.toFixed(1)}%)</span>}
+                          </div>
+                        ) : <span style={{ fontSize: 12, color: 'var(--ink3)' }}>—</span>}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })()}
+
+          {/* ── Stats bar (Overview + Positions tabs) ── */}
+          {pfTab !== 'history' && (
+          <>
+
           {/* ── Stats bar ── */}
           <div className="pf-stats-bar" style={{ display: 'grid', gridTemplateColumns: `repeat(${soldPositions.length > 0 ? 5 : 4}, 1fr)`, gap: 10, marginBottom: 24 }}>
             {[
@@ -1259,6 +1380,35 @@ export default function PortfolioPage() {
             ))}
           </div>
 
+          {/* ── Best/Worst Performers (Overview tab) ── */}
+          {pfTab === 'overview' && withData.length > 0 && (() => {
+            const sorted = [...withData].sort((a, b) => {
+              const ap = a.priceData!, bp = b.priceData!
+              return ((bp.price - b.purchase_price) / b.purchase_price) - ((ap.price - a.purchase_price) / a.purchase_price)
+            })
+            const best  = sorted[0]
+            const worst = sorted[sorted.length - 1]
+            return (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+                {[{ label: 'Best Performer', pos: best, up: true }, { label: 'Worst Performer', pos: worst, up: false }].map(({ label, pos, up }) => {
+                  if (!pos?.priceData) return null
+                  const pct = ((pos.priceData.price - pos.purchase_price) / pos.purchase_price) * 100
+                  const isActuallyUp = pct >= 0
+                  return (
+                    <div key={label} style={{ borderRadius: 12, padding: '14px 16px', background: 'var(--surface)', border: `1px solid ${isActuallyUp ? 'rgba(61,232,138,0.2)' : 'rgba(232,82,74,0.2)'}` }}>
+                      <div style={{ fontSize: 10, color: 'var(--ink3)', marginBottom: 6 }}>{label}</div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pos.card_name}</div>
+                      <div style={{ fontSize: 10, color: 'var(--ink3)', marginBottom: 4 }}>{pos.grade}</div>
+                      <div className="font-num" style={{ fontSize: 16, fontWeight: 800, color: isActuallyUp ? 'var(--green)' : 'var(--red)' }}>
+                        {isActuallyUp ? '+' : ''}{pct.toFixed(1)}%
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })()}
+
           {/* ── Performance Chart ── */}
           {openPositions.length > 0 && (
             <div style={{ marginBottom: 16 }}>
@@ -1279,7 +1429,8 @@ export default function PortfolioPage() {
             </div>
           )}
 
-          {/* ── Controls ── */}
+          {/* ── Controls (Positions tab) ── */}
+          {pfTab === 'positions' && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
             <div style={{ display: 'flex', gap: 2, borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border2)' }}>
               {(['all', 'winning', 'losing'] as const).map(f => (
@@ -1292,8 +1443,10 @@ export default function PortfolioPage() {
               {openPositions.filter(p => p.priceData).length}/{openPositions.length} prices loaded
             </div>
           </div>
+          )}
 
-          {/* ── Table ── */}
+          {/* ── Table (Positions tab) ── */}
+          {pfTab === 'positions' && (<>
           <div style={{ borderRadius: 16, overflow: 'hidden', background: 'var(--surface)', border: '1px solid var(--border)' }}>
 
             {/* Header */}
@@ -1557,9 +1710,15 @@ export default function PortfolioPage() {
             </div>
           )}
 
+          </>
+          )}
+
           <p style={{ fontSize: 11, color: 'var(--ink3)', textAlign: 'center', marginTop: 24 }}>
             Prices sourced via Poketrace · P&L based on purchase price vs current market · All values in {currency}
           </p>
+
+          </>
+          )}
 
         </div>
       </main>

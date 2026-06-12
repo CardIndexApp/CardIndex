@@ -947,6 +947,20 @@ export default function CardPageClient() {
   const [histWindow, setHistWindow] = useState<'3M' | '6M' | '12M' | 'ALL'>('ALL')
   const [gradingSvc, setGradingSvc] = useState(0)
 
+  // Population report
+  const [popReport, setPopReport] = useState<{ grades: { grade: string; population: number; grader: string }[] } | null>(null)
+  const [popLoaded, setPopLoaded] = useState(false)
+
+  useEffect(() => {
+    if (!liveData || popLoaded) return
+    setPopLoaded(true)
+    const name = urlName ?? liveData.card_name ?? ''
+    fetch(`/api/card/${id}/pop?name=${encodeURIComponent(name)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.data) setPopReport(d.data) })
+      .catch(() => {})
+  }, [liveData, popLoaded, id, urlName])
+
   // ── Report an issue ──────────────────────────────────────────────────────────
   const [reportOpen, setReportOpen]           = useState(false)
   const [reportType, setReportType]           = useState<'price_error' | 'wrong_card' | 'other' | null>(null)
@@ -1481,6 +1495,23 @@ export default function CardPageClient() {
                           <Link href="/pricing" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--ink3)', textDecoration: 'none', padding: '3px 10px', borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border2)' }}>🔒 Trend — Standard+</Link>
                         )}
                       </div>
+                      {/* Projected 30d price */}
+                      {(() => {
+                        const a7  = liveData.avg7d  && liveData.avg7d  > 0 ? liveData.avg7d  : null
+                        const a30 = liveData.avg30d && liveData.avg30d > 0 ? liveData.avg30d : null
+                        if (!a7 || !a30 || !liveData.price) return null
+                        const wklyDelta = a7 - a30
+                        const proj30 = Math.max(0, liveData.price + wklyDelta * 4)
+                        const isUp = proj30 >= liveData.price
+                        return (
+                          <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ fontSize: 11, color: 'var(--ink3)' }}>Proj. 30d:</span>
+                            <span className="font-num" style={{ fontSize: 12, fontWeight: 700, color: isUp ? 'var(--green)' : 'var(--red)' }}>
+                              {isUp ? '↑' : '↓'} {fmtCurrency(proj30)}
+                            </span>
+                          </div>
+                        )
+                      })()}
                     </div>
                     {(() => {
                       const sig = computeAnalysis(liveData)
@@ -1849,6 +1880,143 @@ export default function CardPageClient() {
                     </div>
                   )
                 })()}
+
+                {/* Market Sentiment card */}
+                {(liveData.trend || liveData.price_change_pct != null) && (() => {
+                  const change7d  = liveData.avg7d  && liveData.avg7d  > 0 ? ((liveData.price - liveData.avg7d)  / liveData.avg7d)  * 100 : null
+                  const change30d = liveData.avg30d && liveData.avg30d > 0 ? ((liveData.price - liveData.avg30d) / liveData.avg30d) * 100 : liveData.price_change_pct
+                  const trend     = liveData.trend ?? 'stable'
+                  const trendColor = trend === 'up' ? 'var(--green)' : trend === 'down' ? 'var(--red)' : 'var(--gold)'
+                  const trendBg   = trend === 'up' ? 'rgba(61,232,138,0.08)' : trend === 'down' ? 'rgba(232,82,74,0.08)' : 'rgba(232,197,71,0.08)'
+                  const trendBorder = trend === 'up' ? 'rgba(61,232,138,0.2)' : trend === 'down' ? 'rgba(232,82,74,0.2)' : 'rgba(232,197,71,0.2)'
+                  const trendIcon = trend === 'up' ? '↑' : trend === 'down' ? '↓' : '→'
+                  const conf = liveData.confidence
+                  const confDots = conf === 'high' ? '●●●' : conf === 'medium' ? '●●○' : '●○○'
+                  return (
+                    <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', padding: '18px 20px', marginBottom: 10 }}>
+                      <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', display: 'block', marginBottom: 14 }}>MARKET SENTIMENT</span>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+                        {/* Trend direction */}
+                        <div style={{ textAlign: 'center', padding: '12px 8px', borderRadius: 10, background: trendBg, border: `1px solid ${trendBorder}` }}>
+                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: trendColor, marginBottom: 8, opacity: 0.75 }}>TREND</div>
+                          <div style={{ fontSize: 20, fontWeight: 800, color: trendColor }}>{trendIcon}</div>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: trendColor, marginTop: 4, letterSpacing: 0.5 }}>
+                            {trend.charAt(0).toUpperCase() + trend.slice(1)}
+                          </div>
+                        </div>
+                        {/* 7D change */}
+                        <div style={{ textAlign: 'center', padding: '12px 8px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>7D CHANGE</div>
+                          {change7d != null ? (
+                            <div className="font-num" style={{ fontSize: 14, fontWeight: 700, color: change7d >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                              {change7d >= 0 ? '+' : ''}{change7d.toFixed(1)}%
+                            </div>
+                          ) : <div style={{ fontSize: 12, color: 'var(--ink3)' }}>—</div>}
+                        </div>
+                        {/* 30D change */}
+                        <div style={{ textAlign: 'center', padding: '12px 8px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>30D CHANGE</div>
+                          {change30d != null ? (
+                            <div className="font-num" style={{ fontSize: 14, fontWeight: 700, color: change30d >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                              {change30d >= 0 ? '+' : ''}{change30d.toFixed(1)}%
+                            </div>
+                          ) : <div style={{ fontSize: 12, color: 'var(--ink3)' }}>—</div>}
+                        </div>
+                        {/* Confidence */}
+                        <div style={{ textAlign: 'center', padding: '12px 8px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>CONFIDENCE</div>
+                          {conf ? (
+                            <>
+                              <div style={{ fontSize: 12, color: conf === 'high' ? 'var(--green)' : conf === 'medium' ? 'var(--gold)' : 'var(--ink3)', letterSpacing: 2 }}>{confDots}</div>
+                              <div style={{ fontSize: 10, color: conf === 'high' ? 'var(--green)' : conf === 'medium' ? 'var(--gold)' : 'var(--ink3)', marginTop: 4, fontWeight: 600 }}>
+                                {conf.charAt(0).toUpperCase() + conf.slice(1)}
+                              </div>
+                            </>
+                          ) : <div style={{ fontSize: 12, color: 'var(--ink3)' }}>—</div>}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })()}
+
+                {/* Population Report */}
+                <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', padding: '18px 20px', marginBottom: 10 }}>
+                  <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', display: 'block', marginBottom: 14 }}>POPULATION REPORT</span>
+                  {!popReport || popReport.grades.length === 0 ? (
+                    <div style={{ fontSize: 12, color: 'var(--ink3)', textAlign: 'center', padding: '12px 0' }}>
+                      Population data unavailable for this card
+                    </div>
+                  ) : (() => {
+                    const graders = ['PSA', 'BGS', 'CGC']
+                    const currentGrade = urlGrade ?? 'PSA 10'
+                    const currentPop = popReport.grades.find(g => g.grade.toLowerCase() === currentGrade.toLowerCase())?.population ?? null
+                    const totalPop = popReport.grades.reduce((s, g) => s + g.population, 0)
+                    const maxPop = Math.max(...popReport.grades.map(g => g.population), 1)
+
+                    return (
+                      <div>
+                        {/* Summary row */}
+                        <div style={{ display: 'grid', gridTemplateColumns: currentPop != null ? '1fr 1fr 1fr' : '1fr 1fr', gap: 8, marginBottom: 16 }}>
+                          {currentPop != null && (
+                            <div style={{ textAlign: 'center', padding: '10px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+                              <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6 }}>CURRENT GRADE</div>
+                              <div className="font-num" style={{ fontSize: 18, fontWeight: 800, color: 'var(--ink)' }}>{currentPop.toLocaleString()}</div>
+                              <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>{currentGrade}</div>
+                            </div>
+                          )}
+                          <div style={{ textAlign: 'center', padding: '10px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+                            <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6 }}>TOTAL POP</div>
+                            <div className="font-num" style={{ fontSize: 18, fontWeight: 800, color: 'var(--ink)' }}>{totalPop.toLocaleString()}</div>
+                            <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>all graders</div>
+                          </div>
+                          {currentPop != null && liveData.price > 0 && (
+                            <div style={{ textAlign: 'center', padding: '10px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+                              <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6 }}>MARKET CAP</div>
+                              <div className="font-num" style={{ fontSize: 16, fontWeight: 800, color: 'var(--gold)' }}>{fmtCurrency(liveData.price * currentPop)}</div>
+                              <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>price × pop</div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Per-grader breakdown */}
+                        {graders.map(grader => {
+                          const graderGrades = popReport.grades.filter(g => g.grader === grader).sort((a, b) => b.population - a.population)
+                          if (graderGrades.length === 0) return null
+                          return (
+                            <div key={grader} style={{ marginBottom: 12 }}>
+                              <div style={{ fontSize: 10, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>{grader} POPULATION</div>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                {graderGrades.slice(0, 6).map(g => (
+                                  <div key={g.grade} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <span style={{ fontSize: 11, color: 'var(--ink2)', width: 56, flexShrink: 0 }}>{g.grade}</span>
+                                    <div style={{ flex: 1, height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                                      <div style={{ height: '100%', width: `${(g.population / maxPop) * 100}%`, background: 'var(--blue)', borderRadius: 3, transition: 'width 0.4s ease' }} />
+                                    </div>
+                                    <span className="font-num" style={{ fontSize: 11, color: 'var(--ink3)', width: 56, textAlign: 'right', flexShrink: 0 }}>{g.population.toLocaleString()}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )
+                        })}
+
+                        {/* Cross-grader totals */}
+                        <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+                          {graders.map(grader => {
+                            const total = popReport.grades.filter(g => g.grader === grader).reduce((s, g) => s + g.population, 0)
+                            if (total === 0) return null
+                            return (
+                              <div key={grader} style={{ padding: '4px 10px', borderRadius: 99, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+                                <span style={{ fontSize: 10, color: 'var(--ink3)' }}>{grader}: </span>
+                                <span className="font-num" style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink)' }}>{total.toLocaleString()}</span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })()}
+                </div>
 
                 {/* Analysis panel */}
                 {liveData.score_breakdown && (() => {

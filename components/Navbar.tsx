@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { usePathname } from 'next/navigation'
 import AuthModal from './AuthModal'
 import UsernameSetupModal from './UsernameSetupModal'
+import { AlertBellButton, AlertCentreModal } from './AlertCentre'
 import { createClient } from '@/lib/supabase/client'
 import type { User } from '@supabase/supabase-js'
 
@@ -13,6 +14,7 @@ const NAV_LINKS_AUTHED = [
   { label: 'Compare',   href: '/compare' },
   { label: 'Watchlist', href: '/watchlist' },
   { label: 'Portfolio', href: '/portfolio' },
+  { label: 'Tools',     href: '/tools' },
 ]
 
 const NAV_LINKS_GUEST = [
@@ -41,6 +43,7 @@ export default function Navbar() {
   const [keyboardOpen, setKeyboardOpen] = useState(false)
   const [showPwResetBanner, setShowPwResetBanner] = useState(false)
   const [needsUsername, setNeedsUsername] = useState(false)
+  const [showAlerts, setShowAlerts] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
@@ -165,6 +168,7 @@ export default function Navbar() {
 
           {user ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 8 }}>
+            <AlertBellButton userId={user.id} onOpen={() => setShowAlerts(true)} />
             <div style={{ position: 'relative' }}>
               <button
                 onClick={() => setUserMenuOpen(v => !v)}
@@ -361,6 +365,7 @@ export default function Navbar() {
       )}
 
       {authModal && <AuthModal defaultTab={authModal} onClose={() => setAuthModal(null)} />}
+      {showAlerts && <AlertCentreModal onClose={() => setShowAlerts(false)} />}
 
       {/* Blocking modal for users who signed up via Google without a username */}
       {needsUsername && user && (

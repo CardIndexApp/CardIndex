@@ -1,8 +1,11 @@
 /**
  * GET /api/pt/cards?set={slug}&search=&cursor=
  * Proxy for Poketrace /cards — keeps API key server-side.
+ * Filters out sealed products and junk entries using the same logic as the web search page.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { isCardResult } from '@/lib/cardFilter'
+
 export async function GET(req: NextRequest) {
   if (!process.env.POKETRACE_API_KEY) {
     return NextResponse.json({ data: [], pagination: { hasMore: false, count: 0 } })
@@ -35,8 +38,14 @@ export async function GET(req: NextRequest) {
     })
     if (!res.ok) return NextResponse.json({ data: [], pagination: { hasMore: false, count: 0 } })
     const json = await res.json()
+
+    // Filter out sealed products and junk entries — same logic as web search page
+    const filtered = Array.isArray(json.data)
+      ? json.data.filter((card: { cardNumber?: string | null; name?: string | null }) => isCardResult(card))
+      : json.data
+
     return NextResponse.json(
-      json,
+      { ...json, data: filtered },
       { headers: { 'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=3600' } }
     )
   } catch {

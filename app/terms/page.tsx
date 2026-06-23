@@ -22,11 +22,11 @@ export default function TermsPage() {
             },
             {
               title: '2. Data Disclaimer',
-              body: `All price data, market intelligence scores, historical charts, and any other financial or valuation information displayed on CardIndex is provided for informational and display purposes only. CardIndex makes no representations or warranties about the accuracy, completeness, or reliability of this data. You should not rely on CardIndex data to make buying, selling, or investment decisions without conducting your own independent research.`,
+              body: `All price data, market intelligence scores, signals, buy/hold/sell verdicts, price projections, historical charts, and any other valuation information displayed on CardIndex is provided for informational and display purposes only. It is generated algorithmically from market data and may be inaccurate, incomplete, or out of date. CardIndex makes no representations or warranties about the accuracy, completeness, or reliability of this data. Card values can go down as well as up, and past performance is not indicative of future results. You should not rely on CardIndex data to make buying, selling, or investment decisions without conducting your own independent research.`,
             },
             {
               title: '3. No Financial Advice',
-              body: `Nothing on CardIndex constitutes financial, investment, or trading advice. CardIndex is an informational tool only. Any decisions you make regarding the purchase or sale of trading cards are made entirely at your own risk. CardIndex accepts no liability for losses arising from decisions made based on information displayed on the platform.`,
+              body: `Nothing on CardIndex — including its scores, signals, verdicts, projections, valuations, or any other content — constitutes financial, investment, or trading advice, or a recommendation to buy or sell any item. CardIndex is an informational tool only and does not take your individual circumstances into account. Any decisions you make regarding the purchase or sale of trading cards are made entirely at your own risk. CardIndex accepts no liability for losses arising from decisions made based on information displayed on the platform.`,
             },
             {
               title: '4. User Accounts',

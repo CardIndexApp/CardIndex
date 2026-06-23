@@ -7,6 +7,18 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
+/** Return the most recent of several ISO timestamps (ignores null/invalid). */
+function latestISO(...vals: (string | null | undefined)[]): string | null {
+  let bestT = -1
+  let bestStr: string | null = null
+  for (const v of vals) {
+    if (!v) continue
+    const t = new Date(v).getTime()
+    if (!isNaN(t) && t > bestT) { bestT = t; bestStr = v }
+  }
+  return bestStr
+}
+
 export async function GET(req: NextRequest) {
   const admin = createAdminClient()
 
@@ -37,7 +49,7 @@ export async function GET(req: NextRequest) {
   // ── Users ────────────────────────────────────────────────────────────────
   const { data: users, error: usersErr } = await admin
     .from('profiles')
-    .select('id, email, username, tier, subscription_status, stripe_customer_id, created_at, is_admin')
+    .select('id, email, username, tier, subscription_status, stripe_customer_id, created_at, is_admin, last_active_at, trial_ends_at')
     .order('created_at', { ascending: false })
 
   if (usersErr) return NextResponse.json({ error: usersErr.message }, { status: 500 })
@@ -54,9 +66,21 @@ export async function GET(req: NextRequest) {
   // ── Portfolio stats ───────────────────────────────────────────────────────
   const { data: portfolioRows } = await admin
     .from('portfolios')
-    .select('card_id, card_name, grade, purchase_price, quantity, user_id')
+    .select('card_id, card_name, grade, purchase_price, quantity, user_id, added_at')
 
   const rows = portfolioRows ?? []
+
+  // ── Per-user latest activity (watchlist + portfolio writes) ───────────────
+  // Used for a more accurate "last seen" than auth.last_sign_in_at, which only
+  // updates on a fresh sign-in (persistent sessions never refresh it).
+  const { data: wlActivity } = await admin
+    .from('watchlists')
+    .select('user_id, added_at')
+
+  const activityMap: Record<string, string | null> = {}
+  for (const r of [...rows, ...(wlActivity ?? [])] as { user_id: string; added_at?: string | null }[]) {
+    activityMap[r.user_id] = latestISO(activityMap[r.user_id] ?? null, r.added_at ?? null)
+  }
 
   const exactKeys = [...new Set(rows.map(r => `${r.card_id}:${r.grade}`))]
   const { data: exactCacheRows } = exactKeys.length
@@ -154,14 +178,10 @@ export async function GET(req: NextRequest) {
   const paidCount      = profileList.filter(u => u.tier !== 'free').length
   const conversionRate = profileList.length > 0 ? (paidCount / profileList.length) * 100 : 0
 
-  // Recently active users via auth.admin + per-user last_sign_in_at
-  let recentlyActive7d  = 0
-  let recentlyActive30d = 0
+  // Auth sign-in timestamps (one signal among several for "last seen")
   const lastSignInMap: Record<string, string | null> = {}
   try {
     const { data: { users: authUsers } } = await admin.auth.admin.listUsers({ perPage: 1000 })
-    recentlyActive7d  = authUsers.filter(u => u.last_sign_in_at && new Date(u.last_sign_in_at) >= sevenDaysAgo).length
-    recentlyActive30d = authUsers.filter(u => u.last_sign_in_at && new Date(u.last_sign_in_at) >= thirtyDaysAgo).length
     for (const u of authUsers) lastSignInMap[u.id] = u.last_sign_in_at ?? null
   } catch { /* non-fatal */ }
 
@@ -180,11 +200,16 @@ export async function GET(req: NextRequest) {
     admin.from('card_reports').select('*', { count: 'exact', head: true }),
   ])
 
-  // Merge last_sign_in_at into each user row
+  // Merge sign-in + derived last-active into each user row.
+  // last_active_at = most recent of sign-in, watchlist add, portfolio add.
   const usersWithLastSeen = (users ?? []).map(u => ({
     ...u,
     last_sign_in_at: lastSignInMap[u.id] ?? null,
+    last_active_at:  latestISO(u.last_active_at, lastSignInMap[u.id] ?? null, activityMap[u.id] ?? null),
   }))
+
+  const recentlyActive7d  = usersWithLastSeen.filter(u => u.last_active_at && new Date(u.last_active_at) >= sevenDaysAgo).length
+  const recentlyActive30d = usersWithLastSeen.filter(u => u.last_active_at && new Date(u.last_active_at) >= thirtyDaysAgo).length
 
   return NextResponse.json({
     users: usersWithLastSeen,

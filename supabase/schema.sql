@@ -12,15 +12,21 @@ create table if not exists public.profiles (
   stripe_customer_id      text,
   stripe_subscription_id  text,
   subscription_status     text,
-  created_at    timestamptz default now()
+  created_at    timestamptz default now(),
+  last_active_at timestamptz,  -- heartbeat: updated by the app on launch/foreground
+  trial_ends_at  timestamptz   -- 14-day Pro trial expiry, set on signup
 );
+
+-- Backfill for existing databases (schema uses create-if-not-exists above)
+alter table public.profiles add column if not exists last_active_at timestamptz;
+alter table public.profiles add column if not exists trial_ends_at  timestamptz;
 
 -- Trigger: create profile on new user signup
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
-  insert into public.profiles (id, email, username)
-  values (new.id, new.email, new.raw_user_meta_data->>'username');
+  insert into public.profiles (id, email, username, trial_ends_at)
+  values (new.id, new.email, new.raw_user_meta_data->>'username', now() + interval '14 days');
   return new;
 end;
 $$;
@@ -179,3 +185,16 @@ create policy "search_log_insert" on public.search_log
   for insert with check (auth.uid() = user_id or user_id is null);
 create policy "search_log_select_own" on public.search_log
   for select using (auth.uid() = user_id);
+
+-- Group tables: the app reads/writes these with the anon key, so they need
+-- owner-only policies (idempotent — safe to re-run).
+alter table public.watchlist_groups enable row level security;
+alter table public.portfolio_groups enable row level security;
+
+drop policy if exists "wlgroups_all_own" on public.watchlist_groups;
+create policy "wlgroups_all_own" on public.watchlist_groups
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "pfgroups_all_own" on public.portfolio_groups;
+create policy "pfgroups_all_own" on public.portfolio_groups
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);

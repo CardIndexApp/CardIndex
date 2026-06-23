@@ -22,7 +22,17 @@ interface UserRow {
   stripe_customer_id: string | null
   created_at: string
   last_sign_in_at: string | null
+  last_active_at: string | null
+  trial_ends_at: string | null
   is_admin: boolean
+}
+
+/** Whole days remaining in a trial, or null if none/expired. */
+function trialDaysLeft(iso: string | null): number | null {
+  if (!iso) return null
+  const ms = new Date(iso).getTime() - Date.now()
+  if (ms <= 0) return null
+  return Math.ceil(ms / 86400000)
 }
 
 function timeAgo(iso: string | null): string {
@@ -1096,14 +1106,27 @@ export default function AdminPage() {
                         {u.is_admin && <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 700, color: 'var(--red)', letterSpacing: 0.5 }}>ADMIN</span>}
                       </td>
                       <td className="adm-hide-mob" style={{ padding: '12px 16px', color: 'var(--ink2)' }}>{u.username ?? '—'}</td>
-                      <td style={{ padding: '12px 16px' }}>
+                      <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
                         <span style={S.pill(u.tier)}>{u.tier.toUpperCase()}</span>
+                        {(() => {
+                          const d = trialDaysLeft(u.trial_ends_at)
+                          if (d === null) {
+                            return u.trial_ends_at
+                              ? <span style={{ marginLeft: 6, fontSize: 10, color: 'var(--ink3)' }}>trial ended</span>
+                              : null
+                          }
+                          return (
+                            <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: 'var(--gold)', background: 'rgba(232,197,71,0.12)', border: '1px solid rgba(232,197,71,0.35)', borderRadius: 6, padding: '2px 6px', whiteSpace: 'nowrap' }}>
+                              {d}d trial
+                            </span>
+                          )
+                        })()}
                       </td>
                       <td className="adm-hide-mob" style={{ padding: '12px 16px', color: u.subscription_status === 'active' ? 'var(--green)' : 'var(--ink3)', fontSize: 12 }}>
                         {u.subscription_status ?? '—'}
                       </td>
-                      <td style={{ padding: '12px 16px', fontSize: 12, whiteSpace: 'nowrap', color: !u.last_sign_in_at ? 'var(--ink3)' : Date.now() - new Date(u.last_sign_in_at).getTime() < 86400000 ? 'var(--green)' : 'var(--ink2)' }}>
-                        {timeAgo(u.last_sign_in_at)}
+                      <td style={{ padding: '12px 16px', fontSize: 12, whiteSpace: 'nowrap', color: !u.last_active_at ? 'var(--ink3)' : Date.now() - new Date(u.last_active_at).getTime() < 86400000 ? 'var(--green)' : 'var(--ink2)' }}>
+                        {timeAgo(u.last_active_at)}
                       </td>
                       <td className="adm-hide-mob" style={{ padding: '12px 16px', color: 'var(--ink3)', fontSize: 12, whiteSpace: 'nowrap' }}>
                         {new Date(u.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}

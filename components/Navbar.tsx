@@ -2,7 +2,6 @@
 import Link from 'next/link'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { usePathname } from 'next/navigation'
-import AuthModal from './AuthModal'
 import UsernameSetupModal from './UsernameSetupModal'
 import { AlertBellButton, AlertCentreModal } from './AlertCentre'
 import { createClient } from '@/lib/supabase/client'
@@ -22,6 +21,10 @@ const NAV_LINKS_GUEST = [
   { label: 'Pricing', href: '/pricing' },
 ]
 
+// Web login/sign-up is hidden — CardIndex is iOS-first; guests are funnelled to
+// the App Store instead. TODO: replace with the real App Store listing URL.
+const APP_STORE_URL = 'https://apps.apple.com/app/cardindex/id000000000'
+
 async function fetchProfile(userId: string): Promise<{ username: string | null; is_admin: boolean; tier: string }> {
   const { data } = await createClient()
     .from('profiles')
@@ -33,7 +36,6 @@ async function fetchProfile(userId: string): Promise<{ username: string | null; 
 
 export default function Navbar() {
   const pathname = usePathname()
-  const [authModal, setAuthModal] = useState<'signin' | 'signup' | null>(null)
   const [open, setOpen] = useState(false)
   const [user, setUser] = useState<User | null>(null)
   const [username, setUsername] = useState<string | null>(null)
@@ -194,10 +196,7 @@ export default function Navbar() {
             </div>
             </div>
           ) : (
-            <>
-              <button onClick={() => setAuthModal('signin')} style={{ fontSize: 14, padding: '6px 12px', borderRadius: 8, color: 'var(--ink2)', background: 'none', border: 'none', cursor: 'pointer' }}>Log in</button>
-              <button onClick={() => setAuthModal('signup')} style={{ fontSize: 14, padding: '7px 16px', borderRadius: 8, background: 'var(--gold)', color: '#080810', border: 'none', cursor: 'pointer', fontWeight: 600 }}>Sign up</button>
-            </>
+            <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer" style={{ fontSize: 14, padding: '7px 16px', borderRadius: 8, background: 'var(--gold)', color: '#080810', border: 'none', cursor: 'pointer', fontWeight: 600, textDecoration: 'none' }}>Get the App</a>
           )}
         </div>
 
@@ -283,8 +282,7 @@ export default function Navbar() {
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 'auto' }}>
-            <button onClick={() => { setOpen(false); setAuthModal('signin') }} style={{ width: '100%', padding: 14, borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>Log in</button>
-            <button onClick={() => { setOpen(false); setAuthModal('signup') }} style={{ width: '100%', padding: 14, borderRadius: 12, background: 'var(--gold)', color: '#080810', border: 'none', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>Sign up — it's free</button>
+            <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)} style={{ width: '100%', padding: 14, borderRadius: 12, background: 'var(--gold)', color: '#080810', border: 'none', fontSize: 15, fontWeight: 700, cursor: 'pointer', textAlign: 'center', textDecoration: 'none' }}>Get the App</a>
           </div>
         )}
       </div>
@@ -364,7 +362,6 @@ export default function Navbar() {
         </nav>
       )}
 
-      {authModal && <AuthModal defaultTab={authModal} onClose={() => setAuthModal(null)} />}
       {showAlerts && <AlertCentreModal onClose={() => setShowAlerts(false)} />}
 
       {/* Blocking modal for users who signed up via Google without a username */}

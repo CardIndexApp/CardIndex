@@ -1,6 +1,11 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
+  // Bundle the Apple root certs into the App Store notifications function so
+  // readFileSync works in production (Vercel only ships traced files).
+  outputFileTracingIncludes: {
+    '/api/apple/notifications': ['./lib/apple-certs/**'],
+  },
   images: {
     // Allow next/image to optimise images served through our /api/img proxy.
     // Omitting `search` skips the query-string check (allows any ?url=... param).

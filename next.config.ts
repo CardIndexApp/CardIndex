@@ -23,7 +23,7 @@ const nextConfig: NextConfig = {
     minimumCacheTTL: 2592000,
     // Only generate sizes we actually use — reduces build time & cache bloat
     deviceSizes: [640, 750, 828, 1080, 1200],
-    imageSizes: [48, 64, 96, 128, 192, 256],
+    imageSizes: [48, 64, 96, 128, 192, 200, 250, 256, 280, 300, 320],
   },
   async headers() {
     return [

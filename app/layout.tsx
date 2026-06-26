@@ -56,7 +56,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             __html: `(function(){try{var t=localStorage.getItem('ci_theme');document.documentElement.setAttribute('data-theme',t==='light'?'light':'dark')}catch(e){}})()`,
           }}
         />
-        {/* Google Analytics 4 — loaded via next/script for reliable firing */}
+        {/* Early connection to GA — eliminates the DNS+TLS chain Lighthouse flags */}
+        <link rel="preconnect" href="https://www.googletagmanager.com" />
+        <link rel="preconnect" href="https://www.google-analytics.com" />
+        <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
+        <link rel="dns-prefetch" href="https://www.google-analytics.com" />
       </head>
       <body>
         <ThemeProvider>

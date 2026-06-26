@@ -46,7 +46,7 @@ const PhoneFrame = ({ src, alt, max = 250, priority = false }: { src: string; al
     <div style={{ position: 'absolute', inset: -28, background: 'radial-gradient(ellipse 75% 55% at 50% 58%, rgba(61,232,138,0.18) 0%, rgba(232,197,71,0.08) 55%, transparent 78%)', filter: 'blur(18px)', pointerEvents: 'none', zIndex: 0 }} />
     <div style={{ position: 'relative', zIndex: 1, borderRadius: max > 270 ? 38 : 30, padding: max > 270 ? 7 : 6, background: 'linear-gradient(180deg,#1c1d25,#0a0b0e)', border: '1px solid rgba(255,255,255,0.13)', boxShadow: max > 270 ? '0 40px 90px -25px rgba(0,0,0,0.8)' : '0 24px 60px -22px rgba(0,0,0,0.7)' }}>
       <div style={{ borderRadius: max > 270 ? 31 : 25, overflow: 'hidden', background: '#000' }}>
-        <NextImage src={src} alt={alt} width={max} height={Math.round(max * 19.5 / 9)} style={{ width: '100%', height: 'auto', display: 'block' }} priority={priority} />
+        <NextImage src={src} alt={alt} width={max} height={Math.round(max * 19.5 / 9)} style={{ width: '100%', height: 'auto', display: 'block' }} priority={priority} loading={priority ? undefined : 'lazy'} sizes={`${max}px`} />
       </div>
     </div>
   </div>
@@ -61,12 +61,12 @@ const HeroCard = () => (
     <div style={{ position: 'absolute', inset: -48, background: 'radial-gradient(ellipse 80% 60% at 50% 42%, rgba(232,197,71,0.30) 0%, rgba(61,232,138,0.13) 52%, transparent 72%)', filter: 'blur(26px)', pointerEvents: 'none', zIndex: 0 }} />
 
     {/* Card image — bare card art, full bleed */}
-    <div style={{ position: 'relative', zIndex: 1, borderRadius: 22, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.11)', boxShadow: '0 36px 90px -22px rgba(0,0,0,0.9)' }}>
-      <NextImage src="/screenshots/charizard-card.png" alt="Base Set Charizard" width={300} height={420} style={{ width: '100%', height: 'auto', display: 'block' }} priority />
+    <div style={{ position: 'relative', zIndex: 1, borderRadius: 22, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.11)', boxShadow: '0 36px 90px -22px rgba(0,0,0,0.9)', aspectRatio: '300/420' }}>
+      <NextImage src="/screenshots/charizard-card.png" alt="Base Set Charizard" width={300} height={420} style={{ width: '100%', height: 'auto', display: 'block' }} priority sizes="(max-width: 880px) 200px, 300px" />
     </div>
 
     {/* ── Score ring + verdict — right side, upper ── */}
-    <div className="hero-chip" style={{ position: 'absolute', top: 40, right: -138, zIndex: 2, background: 'rgba(10,11,14,0.97)', border: '1px solid rgba(61,232,138,0.18)', borderRadius: 22, padding: '14px 16px', backdropFilter: 'blur(18px)', boxShadow: '0 16px 48px -6px rgba(0,0,0,0.9), 0 0 0 1px rgba(61,232,138,0.06)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+    <div className="hero-chip" style={{ position: 'absolute', top: 40, right: -138, zIndex: 2, background: 'rgba(10,11,14,0.97)', border: '1px solid rgba(61,232,138,0.18)', borderRadius: 22, padding: '14px 16px', backdropFilter: 'blur(8px)', boxShadow: '0 16px 48px -6px rgba(0,0,0,0.9), 0 0 0 1px rgba(61,232,138,0.06)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
       <svg viewBox="0 0 90 90" width="90" height="90">
         <defs>
           <linearGradient id="heroRingGrad" x1="1" y1="0" x2="0" y2="1">
@@ -83,20 +83,20 @@ const HeroCard = () => (
     </div>
 
     {/* ── Market price — below card, left corner ── */}
-    <div className="hero-chip" style={{ position: 'absolute', bottom: -32, left: 12, zIndex: 2, background: 'rgba(10,11,14,0.97)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 18, padding: '12px 16px', backdropFilter: 'blur(18px)', boxShadow: '0 16px 48px -6px rgba(0,0,0,0.9), 0 0 0 1px rgba(255,255,255,0.03)' }}>
+    <div className="hero-chip" style={{ position: 'absolute', bottom: -32, left: 12, zIndex: 2, background: 'rgba(10,11,14,0.97)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 18, padding: '12px 16px', backdropFilter: 'blur(8px)', boxShadow: '0 16px 48px -6px rgba(0,0,0,0.9), 0 0 0 1px rgba(255,255,255,0.03)' }}>
       <div style={{ fontSize: 9, color: '#50506a', letterSpacing: 1.5, marginBottom: 5 }}>MARKET PRICE</div>
       <div style={{ fontSize: 22, fontWeight: 800, color: '#eeeef8', letterSpacing: -1, lineHeight: 1 }}>A$1,142</div>
       <div style={{ fontSize: 11, color: GREEN, marginTop: 5, fontWeight: 600 }}>↑ +47.0% (30d)</div>
     </div>
 
     {/* ── Trend — above card, right corner ── */}
-    <div className="hero-chip" style={{ position: 'absolute', top: -20, right: 12, zIndex: 2, background: 'rgba(10,11,14,0.97)', border: '1px solid rgba(61,232,138,0.22)', borderRadius: 14, padding: '9px 15px', backdropFilter: 'blur(18px)', boxShadow: '0 12px 36px -6px rgba(0,0,0,0.85), 0 0 0 1px rgba(61,232,138,0.05)' }}>
+    <div className="hero-chip" style={{ position: 'absolute', top: -20, right: 12, zIndex: 2, background: 'rgba(10,11,14,0.97)', border: '1px solid rgba(61,232,138,0.22)', borderRadius: 14, padding: '9px 15px', backdropFilter: 'blur(8px)', boxShadow: '0 12px 36px -6px rgba(0,0,0,0.85), 0 0 0 1px rgba(61,232,138,0.05)' }}>
       <div style={{ fontSize: 9, color: '#50506a', letterSpacing: 1.5, marginBottom: 3 }}>TREND</div>
       <div style={{ fontSize: 15, fontWeight: 700, color: GREEN }}>Strong ↑</div>
     </div>
 
     {/* ── Liquidity — right side, below score ring ── */}
-    <div className="hero-chip" style={{ position: 'absolute', top: 220, right: -160, zIndex: 2, width: 200, background: 'rgba(10,11,14,0.97)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 18, padding: '13px 15px', backdropFilter: 'blur(18px)', boxShadow: '0 16px 48px -6px rgba(0,0,0,0.9), 0 0 0 1px rgba(255,255,255,0.03)' }}>
+    <div className="hero-chip" style={{ position: 'absolute', top: 220, right: -160, zIndex: 2, width: 200, background: 'rgba(10,11,14,0.97)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 18, padding: '13px 15px', backdropFilter: 'blur(8px)', boxShadow: '0 16px 48px -6px rgba(0,0,0,0.9), 0 0 0 1px rgba(255,255,255,0.03)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
         <div>
           <div style={{ fontSize: 9, color: '#50506a', letterSpacing: 1.5, marginBottom: 4 }}>LIQUIDITY</div>
@@ -115,7 +115,7 @@ const HeroCard = () => (
     {/* ── MOBILE CHIPS (hidden on desktop, shown on mobile) ── */}
 
     {/* Mobile: Score ring + BUY */}
-    <div className="hero-chip-sm" style={{ display: 'none', position: 'absolute', top: 22, right: -36, zIndex: 2, background: 'rgba(10,11,14,0.97)', border: '1px solid rgba(61,232,138,0.18)', borderRadius: 16, padding: '10px 11px', backdropFilter: 'blur(18px)', boxShadow: '0 12px 36px -6px rgba(0,0,0,0.9)', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+    <div className="hero-chip-sm" style={{ display: 'none', position: 'absolute', top: 22, right: -36, zIndex: 2, background: 'rgba(10,11,14,0.97)', border: '1px solid rgba(61,232,138,0.18)', borderRadius: 16, padding: '10px 11px', backdropFilter: 'blur(8px)', boxShadow: '0 12px 36px -6px rgba(0,0,0,0.9)', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
       <svg viewBox="0 0 90 90" width="60" height="60">
         <defs>
           <linearGradient id="heroRingGradSm" x1="1" y1="0" x2="0" y2="1">
@@ -132,20 +132,20 @@ const HeroCard = () => (
     </div>
 
     {/* Mobile: Trend */}
-    <div className="hero-chip-sm" style={{ display: 'none', position: 'absolute', top: -14, right: 10, zIndex: 2, background: 'rgba(10,11,14,0.97)', border: '1px solid rgba(61,232,138,0.22)', borderRadius: 11, padding: '7px 11px', backdropFilter: 'blur(18px)', boxShadow: '0 8px 24px -4px rgba(0,0,0,0.85)' }}>
+    <div className="hero-chip-sm" style={{ display: 'none', position: 'absolute', top: -14, right: 10, zIndex: 2, background: 'rgba(10,11,14,0.97)', border: '1px solid rgba(61,232,138,0.22)', borderRadius: 11, padding: '7px 11px', backdropFilter: 'blur(8px)', boxShadow: '0 8px 24px -4px rgba(0,0,0,0.85)' }}>
       <div style={{ fontSize: 7, color: '#50506a', letterSpacing: 1.5, marginBottom: 2 }}>TREND</div>
       <div style={{ fontSize: 12, fontWeight: 700, color: GREEN }}>Strong ↑</div>
     </div>
 
     {/* Mobile: Market price */}
-    <div className="hero-chip-sm" style={{ display: 'none', position: 'absolute', bottom: -14, left: 6, zIndex: 2, background: 'rgba(10,11,14,0.97)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '9px 12px', backdropFilter: 'blur(18px)', boxShadow: '0 12px 36px -6px rgba(0,0,0,0.9)' }}>
+    <div className="hero-chip-sm" style={{ display: 'none', position: 'absolute', bottom: -14, left: 6, zIndex: 2, background: 'rgba(10,11,14,0.97)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '9px 12px', backdropFilter: 'blur(8px)', boxShadow: '0 12px 36px -6px rgba(0,0,0,0.9)' }}>
       <div style={{ fontSize: 8, color: '#50506a', letterSpacing: 1.5, marginBottom: 3 }}>MARKET PRICE</div>
       <div style={{ fontSize: 17, fontWeight: 800, color: '#eeeef8', letterSpacing: -0.5, lineHeight: 1 }}>A$1,142</div>
       <div style={{ fontSize: 9, color: GREEN, marginTop: 3, fontWeight: 600 }}>↑ +47.0% (30d)</div>
     </div>
 
     {/* Mobile: Liquidity compact */}
-    <div className="hero-chip-sm" style={{ display: 'none', position: 'absolute', left: -36, top: 105, zIndex: 2, width: 130, background: 'rgba(10,11,14,0.97)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '10px 12px', backdropFilter: 'blur(18px)', boxShadow: '0 12px 36px -6px rgba(0,0,0,0.9)' }}>
+    <div className="hero-chip-sm" style={{ display: 'none', position: 'absolute', left: -36, top: 105, zIndex: 2, width: 130, background: 'rgba(10,11,14,0.97)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '10px 12px', backdropFilter: 'blur(8px)', boxShadow: '0 12px 36px -6px rgba(0,0,0,0.9)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
         <div>
           <div style={{ fontSize: 7, color: '#50506a', letterSpacing: 1.5, marginBottom: 3 }}>LIQUIDITY</div>
@@ -463,6 +463,9 @@ export default function Home() {
 
       <style>{`
         .mobile-break { display: none; }
+        /* Stable aspect-ratio containers prevent CLS while images load */
+        .hero-phone { aspect-ratio: 300 / 500; }
+        .spotlight-phone > div { aspect-ratio: 9 / 19.5; }
         @media (max-width: 880px) {
           .hero-grid { grid-template-columns: 1fr !important; gap: 56px !important; justify-items: center; text-align: center; }
           .hero-grid p { margin-left: auto; margin-right: auto; }

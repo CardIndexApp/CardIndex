@@ -463,8 +463,7 @@ export default function Home() {
 
       <style>{`
         .mobile-break { display: none; }
-        /* Stable aspect-ratio containers prevent CLS while images load */
-        .hero-phone { aspect-ratio: 300 / 500; }
+        /* Stable aspect-ratio on spotlight phone prevents CLS while image loads */
         .spotlight-phone > div { aspect-ratio: 9 / 19.5; }
         @media (max-width: 880px) {
           .hero-grid { grid-template-columns: 1fr !important; gap: 56px !important; justify-items: center; text-align: center; }

@@ -19,24 +19,6 @@ export default function Footer() {
             </p>
           </div>
 
-          {/* Product col */}
-          <div>
-            <p style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 16, fontWeight: 600 }}>Product</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {[
-                { label: 'Market', href: '/market' },
-                { label: 'Watchlist', href: '/watchlist' },
-                { label: 'Search Cards', href: '/search' },
-                { label: 'Pricing', href: '/pricing' },
-              ].map(l => (
-                <Link key={l.href} href={l.href} style={{ fontSize: 13, color: 'var(--ink2)', textDecoration: 'none', transition: 'color 0.15s' }}
-                  onMouseEnter={e => (e.currentTarget.style.color = 'var(--ink)')}
-                  onMouseLeave={e => (e.currentTarget.style.color = 'var(--ink2)')}
-                >{l.label}</Link>
-              ))}
-            </div>
-          </div>
-
           {/* Company col */}
           <div>
             <p style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 16, fontWeight: 600 }}>Company</p>
@@ -81,7 +63,7 @@ export default function Footer() {
       <style>{`
         .footer-grid {
           display: grid;
-          grid-template-columns: 2fr 1fr 1fr 1fr;
+          grid-template-columns: 2fr 1fr 1fr;
           gap: 40px;
         }
         @media (max-width: 640px) {

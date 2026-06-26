@@ -3,16 +3,16 @@ import { useState } from 'react'
 
 const faqItems = [
   {
-    q: 'What trading cards are supported?',
-    a: 'We currently focus on Pokémon TCG, with support for sports cards and other trading card games coming soon. Thousands of cards are already indexed.',
+    q: 'Where does the data come from?',
+    a: 'CardIndex gets its data from eBay last-sold prices. On the rare occasion a card has limited sales on eBay, we switch to TCGplayer and show a dialog to let you know.',
   },
   {
-    q: 'Is CardIndex free to use?',
-    a: 'Yes — the core features including search, price history, and CardIndex Scores are completely free. No credit card required to get started.',
+    q: 'How does CardIndex decide on a verdict?',
+    a: 'CardIndex uses a proprietary formula built from price history, liquidity, risk ratings and more to land on a verdict.',
   },
   {
-    q: 'How accurate is the price data?',
-    a: 'Prices are sourced from real completed eBay sales, updated daily. We only use verified sold listings — not asking prices or estimates.',
+    q: 'What if a card sells on eBay for 200% of its value?',
+    a: 'CardIndex has built-in outlier detection: if a sale exceeds a set percentage difference, we exclude it from the calculations. If the price stabilises at that new level over time (around 3 days), we re-enter those sales into the calculations.',
   },
 ]
 

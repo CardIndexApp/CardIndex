@@ -426,7 +426,7 @@ export default function AdminPage() {
 
   const load = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { router.replace('/'); return }
+    if (!user) { router.replace('/login'); return }
 
     // Verify admin via profile — fetch via API to use service role
     const res = await fetch('/api/admin/users')

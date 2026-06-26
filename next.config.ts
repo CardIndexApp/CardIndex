@@ -12,6 +12,7 @@ const nextConfig: NextConfig = {
     // search: '**' was incorrect — Next.js 16 does exact string comparison, not glob.
     localPatterns: [
       { pathname: '/api/img' },
+      { pathname: '/screenshots/**' },
     ],
     remotePatterns: [
       { protocol: 'https', hostname: 'images.pokemontcg.io' },

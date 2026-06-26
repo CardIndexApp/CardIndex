@@ -1,355 +1,226 @@
 import NextImage from 'next/image'
-import Link from 'next/link'
 import Navbar from '@/components/Navbar'
-import Ticker from '@/components/Ticker'
 import Footer from '@/components/Footer'
-import { HomeFeaturedCard, type FeaturedCard } from '@/components/HomeFeaturedCard'
 import { HomeFAQ } from '@/components/HomeFAQ'
-import { tcgImg, ptImg } from '@/lib/img'
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// CardIndex is iOS-first — the hero/CTAs point to the App Store.
+// TODO: replace with the real App Store listing URL.
+const APP_STORE_URL = 'https://apps.apple.com/app/cardindex/id000000000'
 
-interface TrendingCard {
-  id: string
-  name: string
-  set: string
-  grade: string
-  price: number
-  change: number
-  img: string
-  searchedAt: string
+// ── Brand palette (matches the iOS app) ───────────────────────────────────────
+const GOLD = '#e8c547'
+const GOLD_HI = '#f7df74'
+const GREEN = '#3de88a'
+const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.012))'
+const CARD_BORDER = '1px solid rgba(255,255,255,0.08)'
+
+// ── Small inline icon helper (stroke style, inherits color) ───────────────────
+function Ico({ d, size = 22 }: { d: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {d.split('|').map((p, i) => <path key={i} d={p} />)}
+    </svg>
+  )
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+const AppStoreButton = ({ small = false }: { small?: boolean }) => (
+  <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer"
+    style={{ display: 'inline-flex', alignItems: 'center', gap: 10, background: '#fff', color: '#0b0c0f', padding: small ? '11px 20px' : '12px 22px', borderRadius: 14, textDecoration: 'none', boxShadow: '0 12px 30px -12px rgba(0,0,0,0.5)' }}>
+    <svg viewBox="0 0 384 512" width="23" height="23" fill="currentColor" aria-hidden="true"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z" /></svg>
+    <span style={{ textAlign: 'left', lineHeight: 1.1 }}><span style={{ display: 'block', fontSize: 9 }}>Download on the</span><span style={{ display: 'block', fontSize: 16, fontWeight: 700 }}>App Store</span></span>
+  </a>
+)
 
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime()
-  const mins = Math.floor(diff / 60_000)
-  if (mins < 1)  return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24)  return `${hrs}h ago`
-  return `${Math.floor(hrs / 24)}d ago`
-}
+const Eyebrow = ({ children }: { children: React.ReactNode }) => (
+  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 9, marginBottom: 12 }}>
+    <span style={{ width: 22, height: 1, background: `linear-gradient(90deg,transparent,${GOLD})` }} />
+    <span style={{ fontSize: 11, letterSpacing: 3, color: GOLD_HI, fontWeight: 600 }}>{children}</span>
+    <span style={{ width: 22, height: 1, background: `linear-gradient(90deg,${GOLD},transparent)` }} />
+  </div>
+)
 
-function getBaseUrl() {
-  if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL
-  if (process.env.VERCEL_URL)          return `https://${process.env.VERCEL_URL}`
-  return 'http://localhost:3000'
-}
+const PhoneFrame = ({ src, alt, max = 250, priority = false }: { src: string; alt: string; max?: number; priority?: boolean }) => (
+  <div style={{ width: '100%', maxWidth: max, margin: '0 auto', borderRadius: max > 270 ? 38 : 30, padding: max > 270 ? 7 : 6, background: 'linear-gradient(180deg,#1c1d25,#0a0b0e)', border: '1px solid rgba(255,255,255,0.13)', boxShadow: max > 270 ? '0 40px 90px -25px rgba(0,0,0,0.8), 0 0 60px -25px rgba(232,197,71,0.3)' : '0 24px 60px -22px rgba(0,0,0,0.7)' }}>
+    <div style={{ position: 'relative', aspectRatio: '9 / 19.5', borderRadius: max > 270 ? 31 : 25, overflow: 'hidden', background: '#000' }}>
+      <NextImage src={src} alt={alt} fill sizes={`${max}px`} style={{ objectFit: 'cover' }} priority={priority} />
+    </div>
+  </div>
+)
 
-// ── Server-side data fetching ─────────────────────────────────────────────────
+const FEATURES = [
+  { c: GREEN, d: 'M9 12l2 2 4-4|M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z', t: 'Verdict engine', b: 'Buy, accumulate, hold, reduce or avoid — scored from real sales.' },
+  { c: GOLD, d: 'M9 2h6a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z|M9 7h6|M9 11h6|M9 15h2', t: 'Price check', b: "Enter an asking price — see if it's a steal, fair, or overpriced." },
+  { c: GREEN, d: 'M3 3v18h18|M19 9l-5 5-4-4-3 3', t: 'Analysis', b: 'Price cycles, volatility, volume and the PSA 10 premium.' },
+  { c: GOLD, d: 'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z|M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z', t: 'Watchlists & alerts', b: 'Track cards, get pinged on price targets and verdict changes.' },
+  { c: GREEN, d: 'M2 7h20v14H2z|M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2', t: 'Portfolio', b: 'Value your collection and watch gains and losers live.' },
+  { c: GOLD, d: 'M8 3L4 7l4 4|M4 7h16|M16 21l4-4-4-4|M20 17H4', t: 'Compare & share', b: 'Put cards head-to-head and share clean verdict cards anywhere.' },
+]
 
-async function getFeaturedCards(): Promise<FeaturedCard[]> {
-  try {
-    const res = await fetch(`${getBaseUrl()}/api/home/featured`, {
-      next: { revalidate: 300 }, // ISR: refresh at most every 5 min
-    })
-    if (!res.ok) return []
-    const { cards } = await res.json()
-    return Array.isArray(cards) ? cards : []
-  } catch {
-    return []
-  }
-}
+const PLANS = [
+  { name: 'Free', price: '$0', sub: 'forever', accent: '#b8b8d0', feats: ['Card search & prices', 'Market tab', 'Recently viewed', '5-card watchlist'] },
+  { name: 'Standard', price: '$9', per: ' /mo', sub: 'or $84/yr · save 22%', accent: '#b8b8d0', feats: ['Everything in Free', '30-card watchlist', 'Price check', 'Analysis tab'] },
+  { name: 'Pro', price: '$19', per: ' /mo', sub: 'or $180/yr · save 21%', accent: GOLD, popular: true, feats: ['Everything in Standard', '100 cards · multiple lists', 'Multiple portfolios', 'Compare & share'] },
+]
 
-async function getTrendingCards(): Promise<TrendingCard[]> {
-  try {
-    const res = await fetch(`${getBaseUrl()}/api/home/trending`, {
-      next: { revalidate: 43200 }, // ISR: refresh at most every 12 h
-    })
-    if (!res.ok) return []
-    const { cards } = await res.json()
-    return Array.isArray(cards) ? cards : []
-  } catch {
-    return []
-  }
-}
+// Verdict labels + colours mirror the app's cardSignal() exactly.
+const VERDICTS = [
+  { label: 'BUY', color: '#3de88a', bg: 'rgba(61,232,138,0.12)', border: 'rgba(61,232,138,0.35)', desc: 'Strong score with momentum on its side.' },
+  { label: 'ACCUMULATE', color: '#a8e88a', bg: 'rgba(168,232,138,0.09)', border: 'rgba(168,232,138,0.25)', desc: 'Solid fundamentals — worth building a position.' },
+  { label: 'HOLD', color: '#8c8cb4', bg: 'rgba(140,140,180,0.10)', border: 'rgba(140,140,180,0.22)', desc: 'Fairly priced right now. Sit tight.' },
+  { label: 'REDUCE', color: '#e8746e', bg: 'rgba(232,82,74,0.08)', border: 'rgba(232,82,74,0.25)', desc: 'Momentum cooling — consider trimming.' },
+  { label: 'AVOID', color: '#e8524a', bg: 'rgba(232,82,74,0.10)', border: 'rgba(232,82,74,0.30)', desc: 'Weak signals. Better options elsewhere.' },
+]
 
-// ── Page ─────────────────────────────────────────────────────────────────────
-
-export default async function Home() {
-  // Both fetches run in parallel — data is ready before the HTML is sent
-  const [featured, trending] = await Promise.all([
-    getFeaturedCards(),
-    getTrendingCards(),
-  ])
-
+export default function Home() {
   return (
     <>
       <Navbar />
-      <main>
-        {/* Hero */}
-        <section className="grid-bg" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '88px 24px 0', position: 'relative', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 80% 50% at 50% 40%, rgba(232,197,71,0.06) 0%, transparent 70%)', pointerEvents: 'none' }} />
-          <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', maxWidth: 720, width: '100%' }}>
-            <div className="anim d1" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, borderRadius: 99, padding: '4px 12px', marginBottom: 32, background: 'rgba(232,197,71,0.15)', border: '1px solid rgba(232,197,71,0.4)' }}>
-              <span style={{ fontSize: 12 }}>🚀</span>
-              <span style={{ fontSize: 10, color: 'var(--gold)', letterSpacing: 1.5, fontWeight: 600 }}>50% off early access — limited spots</span>
+      {/* Always-dark, Helvetica Neue — pinned to the iOS app's exact tokens so the
+          marketing page is a faithful match (and a solid base hides the global
+          body grid; the app is flat dark with soft glows, not gridded). */}
+      <main style={{ background: '#0b0c0f', position: 'relative', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}>
+        {/* ── Hero ───────────────────────────────────────────────── */}
+        <section style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '104px 24px 64px', position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 70% 50% at 35% 38%, rgba(232,197,71,0.10) 0%, transparent 62%)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 50% 50% at 88% 62%, rgba(61,232,138,0.08) 0%, transparent 62%)', pointerEvents: 'none' }} />
+          <div className="hero-grid" style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 1040, display: 'grid', gridTemplateColumns: '1fr 300px', gap: 56, alignItems: 'center' }}>
+            <div>
+              <div className="anim d1" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, borderRadius: 99, padding: '6px 13px', marginBottom: 24, background: 'rgba(232,197,71,0.07)', border: '1px solid rgba(232,197,71,0.35)' }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: GREEN, boxShadow: `0 0 8px ${GREEN}` }} />
+                <span style={{ fontSize: 10, color: GOLD, letterSpacing: 1.5, fontWeight: 600 }}>CARD MARKET INTELLIGENCE</span>
+              </div>
+              <h1 className="anim d2" style={{ fontSize: 'clamp(38px,6vw,60px)', fontWeight: 800, lineHeight: 1.03, letterSpacing: '-2px', color: '#eeeef8', marginBottom: 18 }}>
+                Know what your cards are <span style={{ color: GOLD }}>actually</span> worth.
+              </h1>
+              <p className="anim d3" style={{ fontSize: 16, color: '#b8b8d0', maxWidth: 460, lineHeight: 1.65, marginBottom: 30 }}>
+                Live market prices, a buy/hold/avoid verdict on every card, and price checks that tell you exactly what&apos;s a fair deal — before you spend a cent.
+              </p>
+              <div className="anim d4" style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginBottom: 22 }}>
+                <AppStoreButton />
+                <a href="/market" style={{ padding: '11px 22px', borderRadius: 12, background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', color: '#eeeef8', fontSize: 14, fontWeight: 500, textDecoration: 'none' }}>Explore live market</a>
+              </div>
+              <div className="anim d5" style={{ display: 'flex', alignItems: 'center', gap: 18, fontSize: 12, color: '#50506a', flexWrap: 'wrap' }}>
+                <span><span style={{ color: GREEN }}>✓</span> Free to start</span>
+                <span><span style={{ color: GREEN }}>✓</span> 14-day Pro trial</span>
+                <span><span style={{ color: GREEN }}>✓</span> No card needed</span>
+              </div>
             </div>
-            <h1 className="anim d2" style={{ fontSize: 'clamp(40px,7vw,76px)', fontWeight: 800, lineHeight: 1, letterSpacing: '-2px', color: 'var(--ink)', marginBottom: 20 }}>
-              Stop guessing. Start investing in <span style={{ color: 'var(--gold)' }}>trading cards.</span>
-            </h1>
-            <p className="anim d3" style={{ fontSize: 17, color: 'var(--ink2)', maxWidth: 560, margin: '0 auto', lineHeight: 1.7, marginBottom: 36 }}>
-              Instantly see if a card is a good buy, hold, or sell — powered by real market data.
-            </p>
-            <div className="anim d4" style={{ marginBottom: 16 }}>
-              <a
-                href="/search"
-                style={{ padding: '14px 40px', borderRadius: 14, background: 'var(--gold)', border: 'none', color: '#080810', fontSize: 15, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}
-              >
-                Get your first verdict free
-              </a>
-            </div>
-            <div className="anim d5" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-              <a href="/market" style={{ padding: '11px 24px', borderRadius: 12, background: 'transparent', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 14, fontWeight: 500, textDecoration: 'none' }}>Explore live market</a>
+            <div className="hero-phone anim d3">
+              <PhoneFrame src="/screenshots/hero-charizard.png" alt="CardIndex verdict for a Base Set Charizard — score 80, Buy" max={300} priority />
             </div>
           </div>
         </section>
 
-        {/* Verdict Example */}
-        <section style={{ padding: '0 24px 64px', display: 'flex', justifyContent: 'center' }}>
-          <div style={{ width: '100%', maxWidth: 520, borderRadius: 20, padding: 28, background: 'var(--surface)', border: '1px solid var(--border2)', boxShadow: '0 8px 40px rgba(0,0,0,0.3)' }}>
-            <div style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 2, marginBottom: 16, textTransform: 'uppercase' }}>Example verdict</div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>
-              <div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', marginBottom: 3 }}>Charizard Base Set</div>
-                <div style={{ fontSize: 11, color: 'var(--ink3)' }}>PSA 9 · Base Set · #4/102</div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1, marginBottom: 4 }}>SCORE</div>
-                <div className="font-num" style={{ fontSize: 28, fontWeight: 800, color: 'var(--green)', lineHeight: 1 }}>87</div>
-              </div>
-            </div>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 99, background: 'rgba(61,232,138,0.12)', border: '1px solid rgba(61,232,138,0.3)', marginBottom: 18 }}>
-              <span style={{ fontSize: 14 }}>✅</span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--green)' }}>Good time to buy</span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {['Price up 12% over the last 30 days', 'PSA 9 supply tightening — fewer listings than usual', 'Strong collector demand, not yet overvalued'].map((pt, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontSize: 13, color: 'var(--ink2)', lineHeight: 1.55 }}>
-                  <span style={{ color: 'var(--green)', flexShrink: 0, fontWeight: 700 }}>•</span>
-                  {pt}
+        {/* ── Stat strip ─────────────────────────────────────────── */}
+        <div style={{ position: 'relative', borderTop: '1px solid rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(70% 140% at 50% 0%, rgba(232,197,71,0.06), transparent 70%)', pointerEvents: 'none' }} />
+          <div className="stat-strip" style={{ position: 'relative', maxWidth: 1040, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(3,1fr)' }}>
+            {[
+              { c: GOLD, d: 'M3 5h14v16H3z|M7 5V3h14v16h-2', n: '20k+', l: 'Cards tracked' },
+              { c: GREEN, d: 'M21 12a9 9 0 1 1-3-6.7L21 8|M21 3v5h-5', n: 'Daily', l: 'Price updates' },
+              { c: GOLD, d: 'M5 2v20l2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1z|M9 8h6|M9 12h6', n: 'Real sales', l: 'Behind every verdict' },
+            ].map((s, i) => (
+              <div key={s.l} style={{ padding: '26px 26px', display: 'flex', alignItems: 'center', gap: 15, borderRight: i < 2 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+                <div style={{ width: 46, height: 46, borderRadius: 13, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: s.c, background: i % 2 ? 'rgba(61,232,138,0.12)' : 'rgba(232,197,71,0.12)', border: `1px solid ${i % 2 ? 'rgba(61,232,138,0.22)' : 'rgba(232,197,71,0.22)'}` }}>
+                  <Ico d={s.d} size={23} />
                 </div>
-              ))}
-            </div>
-            <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 0.5 }}>Based on 47 eBay sales · Updated today</span>
-              <a href="/search" style={{ fontSize: 12, fontWeight: 600, color: 'var(--gold)', textDecoration: 'none' }}>Get yours →</a>
-            </div>
+                <div>
+                  <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-1px', lineHeight: 1, background: 'linear-gradient(120deg,#fff,#cdbf8e)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>{s.n}</div>
+                  <div style={{ fontSize: 12, color: '#50506a', marginTop: 6 }}>{s.l}</div>
+                </div>
+              </div>
+            ))}
           </div>
-        </section>
-
-        {/* Urgency chips */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap', padding: '0 24px 40px' }}>
-          {[
-            { icon: '🚀', text: '50% off early access — limited spots' },
-            { icon: '⚡', text: 'High demand cards trending now' },
-            { icon: '📉', text: 'Recently dropped — potential buys available' },
-          ].map(({ icon, text }) => (
-            <div key={text} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 99, background: 'var(--surface)', border: '1px solid var(--border2)', fontSize: 11, color: 'var(--ink2)', fontWeight: 500, whiteSpace: 'nowrap' }}>
-              <span>{icon}</span>
-              <span>{text}</span>
-            </div>
-          ))}
         </div>
 
-        <Ticker />
-
-        {/* Featured — rendered server-side, no loading spinner */}
-        {featured.length > 0 && (
-          <section id="featured" style={{ padding: '80px 24px', maxWidth: 1100, margin: '0 auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 40 }}>
-              <div>
-                <p style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' }}>Trending Opportunities</p>
-                <h2 style={{ fontSize: 32, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-1px' }}>🔥 Trending Opportunities</h2>
-              </div>
-              <a href="/market" style={{ fontSize: 13, color: 'var(--ink3)', textDecoration: 'none' }}>View market →</a>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16 }}>
-              {featured.map((card, i) => (
-                <div key={card.id + card.grade} className={i === 4 ? 'featured-card-5th' : undefined} style={{ display: 'contents' }}>
-                  <HomeFeaturedCard card={card} priority={i < 2} />
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Recently Searched — rendered server-side */}
-        {trending.length > 0 && (
-          <section style={{ padding: '0 24px 80px', maxWidth: 1100, margin: '0 auto' }}>
-            <div className="home-section-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24, flexWrap: 'wrap', gap: 8 }}>
-              <div>
-                <p style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' }}>Recently Searched</p>
-                <h2 style={{ fontSize: 28, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.5px' }}>Popular right now</h2>
-              </div>
-              <a href="/search" style={{ fontSize: 13, color: 'var(--ink3)', textDecoration: 'none' }}>Get your verdict →</a>
-            </div>
-            <div style={{ borderRadius: 16, overflow: 'hidden', background: 'var(--surface)', border: '1px solid var(--border)' }}>
-              {trending.map((item, i, arr) => {
-                const up = item.change >= 0
-                const cardUrl = `/card/${item.id}?grade=${encodeURIComponent(item.grade)}&name=${encodeURIComponent(item.name)}&set=${encodeURIComponent(item.set)}`
-                return (
-                  <a key={item.id + item.grade} href={cardUrl} className="home-recent-row"
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none', textDecoration: 'none', gap: 12 }}
-                  >
-                    <div className="home-recent-left" style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0, flex: 1 }}>
-                      <div style={{ position: 'relative', width: 40, height: 40, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0 }}>
-                        {item.img && <NextImage src={ptImg(item.img)} alt={item.name} fill sizes="40px" style={{ objectFit: 'contain', padding: 3 }} />}
-                      </div>
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.name}</div>
-                        <div style={{ fontSize: 11, color: 'var(--ink3)', whiteSpace: 'nowrap' }}>{item.set}{item.set && item.grade ? ' · ' : ''}{item.grade}</div>
-                      </div>
-                    </div>
-                    <div className="home-recent-right" style={{ display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
-                      <span className="home-recent-ago" style={{ fontSize: 10, color: 'var(--ink3)', textAlign: 'right' }}>{timeAgo(item.searchedAt)}</span>
-                      <span className="font-num" style={{ fontSize: 12, color: up ? 'var(--green)' : 'var(--red)', textAlign: 'right', minWidth: 48 }}>
-                        {up ? '▲' : '▼'} {Math.abs(item.change).toFixed(1)}%
-                      </span>
-                      <span className="font-num home-recent-price" style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', textAlign: 'right', minWidth: 56 }}>${item.price.toLocaleString()}</span>
-                    </div>
-                  </a>
-                )
-              })}
-            </div>
-          </section>
-        )}
-
-        {/* How it works */}
-        <section style={{ padding: '0 24px 96px', maxWidth: 1100, margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: 64 }}>
-            <p style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10, textTransform: 'uppercase' }}>How it works</p>
-            <h2 style={{ fontSize: 36, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-1px', marginBottom: 14 }}>Three steps. Clear decisions.</h2>
-            <p style={{ fontSize: 14, color: 'var(--ink2)', maxWidth: 480, margin: '0 auto', lineHeight: 1.7 }}>No finance experience needed. Real market data, plain English.</p>
+        {/* ── How it works ───────────────────────────────────────── */}
+        <section style={{ padding: '72px 24px 8px', maxWidth: 1040, margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: 36 }}>
+            <Eyebrow>HOW IT WORKS</Eyebrow>
+            <h2 style={{ fontSize: 'clamp(26px,4vw,32px)', fontWeight: 800, color: '#eeeef8', letterSpacing: '-1px' }}>From card to call in seconds</h2>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 2, borderRadius: 20, overflow: 'hidden', background: 'var(--border)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 14 }}>
             {[
-              { n: '01', title: 'Search any card',    body: 'Find any Pokémon card instantly.',                                           detail: 'Pokémon TCG · More games coming soon' },
-              { n: '02', title: 'Get the full picture', body: 'See price trends, demand, and market signals in seconds.',                detail: 'Up to 12 months of price data' },
-              { n: '03', title: 'Know what to do',    body: 'Get a clear verdict: Buy, Hold, or Sell.',                                 detail: 'Buy · Hold · Sell verdicts' },
-            ].map((step, i) => (
-              <div key={i} style={{ padding: '36px 32px', background: 'var(--surface)', position: 'relative' }}>
-                <div className="font-num" style={{ fontSize: 52, fontWeight: 800, color: 'var(--gold)', letterSpacing: '-2px', lineHeight: 1, marginBottom: 20, opacity: 0.85 }}>{step.n}</div>
-                <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--ink)', marginBottom: 10 }}>{step.title}</div>
-                <p style={{ fontSize: 13, color: 'var(--ink2)', lineHeight: 1.75, marginBottom: 16 }}>{step.body}</p>
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, borderRadius: 99, padding: '4px 12px', background: 'rgba(61,232,138,0.1)', border: '1px solid rgba(61,232,138,0.25)' }}>
-                  <span style={{ fontSize: 10, color: 'var(--green)', letterSpacing: 0.5, fontWeight: 500 }}>{step.detail}</span>
-                </div>
+              { n: '01', t: 'Search any card', b: 'Find any card and grade in seconds — thousands indexed and growing.' },
+              { n: '02', t: 'See the verdict & price', b: 'A clear buy/hold/avoid call backed by real sales, plus a price check on any listing.' },
+              { n: '03', t: 'Decide with confidence', b: 'Watch it, add it to your portfolio, or walk away — no more guessing.' },
+            ].map((s) => (
+              <div key={s.n} style={{ background: CARD_BG, border: CARD_BORDER, borderRadius: 16, padding: '24px 22px', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05)' }}>
+                <div style={{ fontSize: 44, fontWeight: 800, letterSpacing: '-2px', lineHeight: 1, marginBottom: 16, background: `linear-gradient(150deg,${GOLD_HI},#d2a61c)`, WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>{s.n}</div>
+                <div style={{ fontSize: 16, fontWeight: 600, color: '#eeeef8', marginBottom: 8 }}>{s.t}</div>
+                <p style={{ fontSize: 13, color: '#b8b8d0', lineHeight: 1.65 }}>{s.b}</p>
               </div>
             ))}
           </div>
         </section>
 
-        {/* Verdict preview */}
-        <section style={{ background: 'var(--surface)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', padding: '96px 24px' }}>
-          <div style={{ maxWidth: 1100, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 64, alignItems: 'center' }}>
-            <div>
-              <p style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10, textTransform: 'uppercase' }}>Market Verdicts</p>
-              <h2 style={{ fontSize: 36, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-1px', marginBottom: 16, lineHeight: 1.1 }}>Plain English.<br />No guesswork.</h2>
-              <p style={{ fontSize: 14, color: 'var(--ink2)', lineHeight: 1.8, marginBottom: 28 }}>
-                We translate complex market data into clear decisions — so you always know what to do, whether you&apos;ve been collecting for 20 years or 20 minutes.
-              </p>
-              <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {[
-                  'No jargon — verdicts written in plain language',
-                  'Based on real eBay sold listings, not estimates',
-                  'Updated daily so you\'re never working from stale data',
-                ].map((item, i) => (
-                  <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontSize: 13, color: 'var(--ink2)', lineHeight: 1.6 }}>
-                    <span style={{ color: 'var(--green)', flexShrink: 0, marginTop: 1, fontWeight: 700 }}>✓</span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div style={{ borderRadius: 20, padding: 28, background: 'var(--bg)', border: '1px solid var(--border2)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 24, paddingBottom: 20, borderBottom: '1px solid var(--border)' }}>
-                <div style={{ position: 'relative', width: 52, height: 52, borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0 }}>
-                  <NextImage src={tcgImg('https://images.pokemontcg.io/base1/4_hires.png')} alt="Charizard" fill sizes="52px" style={{ objectFit: 'contain' }} />
-                </div>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginBottom: 2 }}>Charizard Base Set</div>
-                  <div style={{ fontSize: 11, color: 'var(--ink3)' }}>PSA 9 · Base Set · #4/102</div>
-                </div>
+        {/* ── See it in action (real screenshots) ────────────────── */}
+        <section style={{ padding: '72px 24px 8px', maxWidth: 1100, margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: 44 }}>
+            <Eyebrow>SEE IT IN ACTION</Eyebrow>
+            <h2 style={{ fontSize: 'clamp(26px,4vw,32px)', fontWeight: 800, color: '#eeeef8', letterSpacing: '-1px' }}>A verdict, a price check, your whole collection.</h2>
+          </div>
+          <div className="shots-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 28, maxWidth: 920, margin: '0 auto' }}>
+            {[
+              { src: '/screenshots/price-check-umbreon.png', cap: 'Price-check any listing', alt: 'Price check on Umbreon VMAX showing fair value' },
+              { src: '/screenshots/portfolio.png', cap: 'Track your collection', alt: 'Portfolio overview with total return and top performers' },
+              { src: '/screenshots/analysis-dragonite.png', cap: 'Dive into the signals', alt: 'Analysis tab with score breakdown and risk rating' },
+            ].map((s) => (
+              <div key={s.src} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
+                <PhoneFrame src={s.src} alt={s.alt} max={250} />
+                <span style={{ fontSize: 13, color: '#b8b8d0', fontWeight: 500 }}>{s.cap}</span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-                <div>
-                  <div style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1, marginBottom: 6, textTransform: 'uppercase' }}>CardIndex Score</div>
-                  <div className="font-num" style={{ fontSize: 32, fontWeight: 800, color: 'var(--green)', letterSpacing: '-1px' }}>87</div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1, marginBottom: 6, textTransform: 'uppercase' }}>Verdict</div>
-                  <div style={{ display: 'inline-block', padding: '6px 16px', borderRadius: 99, background: 'rgba(61,232,138,0.12)', border: '1px solid rgba(61,232,138,0.3)', fontSize: 13, fontWeight: 700, color: 'var(--green)', letterSpacing: 0.5 }}>
-                    Good time to buy
-                  </div>
-                </div>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {['Price up 12% over the last 30 days', 'PSA 9 supply tightening — fewer listings than usual', 'Strong collector demand, not yet overvalued'].map((point, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12, color: 'var(--ink2)', lineHeight: 1.5 }}>
-                    <span style={{ color: 'var(--green)', flexShrink: 0, marginTop: 1 }}>→</span>
-                    {point}
-                  </div>
-                ))}
-              </div>
-              <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)', fontSize: 10, color: 'var(--ink3)', letterSpacing: 0.5 }}>
-                Based on 47 eBay sales · Updated today
-              </div>
-            </div>
+            ))}
           </div>
         </section>
 
-        {/* Score explainer */}
-        <section style={{ padding: '96px 24px', maxWidth: 1100, margin: '0 auto' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 64, alignItems: 'center' }}>
-            <div style={{ borderRadius: 20, padding: 36, background: 'var(--surface)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div>
-                  <div style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1, marginBottom: 6, textTransform: 'uppercase' }}>CardIndex Score</div>
-                  <div className="font-num" style={{ fontSize: 56, fontWeight: 800, color: 'var(--green)', letterSpacing: '-2px', lineHeight: 1 }}>87</div>
-                  <div style={{ fontSize: 12, color: 'var(--ink3)', marginTop: 4 }}>out of 100</div>
+        {/* ── Features ───────────────────────────────────────────── */}
+        <section style={{ padding: '72px 24px 8px', maxWidth: 1040, margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: 36 }}>
+            <Eyebrow>WHAT YOU GET</Eyebrow>
+            <h2 style={{ fontSize: 'clamp(26px,4vw,32px)', fontWeight: 800, color: '#eeeef8', letterSpacing: '-1px' }}>Everything to value a card in seconds</h2>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 14 }}>
+            {FEATURES.map((f) => (
+              <div key={f.t} style={{ background: CARD_BG, border: CARD_BORDER, borderRadius: 16, padding: 19, boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05)' }}>
+                <div style={{ width: 42, height: 42, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14, color: f.c, background: f.c === GREEN ? 'rgba(61,232,138,0.13)' : 'rgba(232,197,71,0.13)', border: `1px solid ${f.c === GREEN ? 'rgba(61,232,138,0.2)' : 'rgba(232,197,71,0.2)'}` }}>
+                  <Ico d={f.d} />
                 </div>
-                <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'conic-gradient(var(--green) 0% 87%, var(--track) 87% 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-                  <div style={{ width: 60, height: 60, borderRadius: '50%', background: 'var(--surface)' }} />
-                </div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: '#eeeef8', marginBottom: 6 }}>{f.t}</div>
+                <div style={{ fontSize: 12.5, color: '#50506a', lineHeight: 1.6 }}>{f.b}</div>
               </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ── Verdict explainer ──────────────────────────────────── */}
+        <section style={{ padding: '64px 24px 8px', maxWidth: 1040, margin: '0 auto' }}>
+          <div className="verdict-card" style={{ position: 'relative', background: 'linear-gradient(160deg,rgba(255,255,255,0.045),rgba(255,255,255,0.01))', border: CARD_BORDER, borderRadius: 18, padding: 30, display: 'grid', gridTemplateColumns: '160px 1fr', gap: 32, alignItems: 'center', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', top: -70, left: -40, width: 260, height: 260, background: 'radial-gradient(circle,rgba(61,232,138,0.12),transparent 64%)', pointerEvents: 'none' }} />
+            <svg viewBox="0 0 132 132" style={{ width: 150, height: 150, justifySelf: 'center', position: 'relative' }}>
+              <circle cx="66" cy="66" r="55" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="11" />
+              <circle cx="66" cy="66" r="55" fill="none" stroke={GREEN} strokeWidth="11" strokeLinecap="round" strokeDasharray="269 346" transform="rotate(-90 66 66)" />
+              <text x="66" y="61" textAnchor="middle" fontSize="35" fontWeight="700" fill="#eeeef8" fontFamily="Helvetica Neue,Helvetica,Arial">80</text>
+              <text x="66" y="83" textAnchor="middle" fontSize="11" letterSpacing="2" fill={GREEN} fontFamily="Helvetica Neue,Helvetica,Arial">BUY</text>
+            </svg>
+            <div style={{ position: 'relative' }}>
+              <h2 style={{ fontSize: 21, fontWeight: 700, color: '#eeeef8', marginBottom: 6, letterSpacing: '-0.5px' }}>One score. Four signals.</h2>
+              <p style={{ fontSize: 13, color: '#50506a', marginBottom: 18 }}>Every verdict is broken down so you can see exactly why.</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {[
-                  { label: 'Price Growth',     val: 91, color: 'var(--green)' },
-                  { label: 'Market Liquidity', val: 78, color: 'var(--green)' },
-                  { label: 'Demand Signal',    val: 85, color: 'var(--green)' },
-                  { label: 'Volatility',       val: 62, color: 'var(--gold)'  },
-                ].map((f, i) => (
-                  <div key={i}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-                      <span style={{ fontSize: 12, color: 'var(--ink2)' }}>{f.label}</span>
-                      <span className="font-num" style={{ fontSize: 12, color: f.color }}>{f.val}</span>
+                  { l: 'Trend', v: 'Strong', w: 84, c: GREEN },
+                  { l: 'Liquidity', v: 'High', w: 72, c: GREEN },
+                  { l: 'Consistency', v: 'Steady', w: 66, c: GOLD },
+                  { l: 'Value', v: 'Fair', w: 58, c: GOLD },
+                ].map((b) => (
+                  <div key={b.l}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 5 }}>
+                      <span style={{ color: '#b8b8d0' }}>{b.l}</span>
+                      <span style={{ color: b.c, fontWeight: 600 }}>{b.v}</span>
                     </div>
-                    <div style={{ height: 3, borderRadius: 2, background: 'var(--track)', overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${f.val}%`, background: f.color, borderRadius: 2 }} />
+                    <div style={{ height: 6, background: 'rgba(255,255,255,0.07)', borderRadius: 4, overflow: 'hidden' }}>
+                      <div style={{ height: 6, width: `${b.w}%`, background: b.c, borderRadius: 4 }} />
                     </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div>
-              <p style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10, textTransform: 'uppercase' }}>CardIndex Score</p>
-              <h2 style={{ fontSize: 36, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-1px', marginBottom: 16, lineHeight: 1.1 }}>One number.<br />The whole story.</h2>
-              <p style={{ fontSize: 14, color: 'var(--ink2)', lineHeight: 1.8, marginBottom: 28 }}>
-                The CardIndex Score is a 0–100 rating that combines four market signals into one number. A high score means a card is growing in value, has strong demand, trades frequently, and isn&apos;t wildly volatile.
-              </p>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                {[
-                  { label: 'Price Growth', desc: 'How much the price has moved recently' },
-                  { label: 'Liquidity',    desc: 'How easy it is to buy or sell quickly' },
-                  { label: 'Demand',       desc: 'Collector interest vs available supply' },
-                  { label: 'Volatility',   desc: 'How stable or erratic the price has been' },
-                ].map((f, i) => (
-                  <div key={i} style={{ borderRadius: 12, padding: '14px 16px', background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 4 }}>{f.label}</div>
-                    <div style={{ fontSize: 11, color: 'var(--ink3)', lineHeight: 1.5 }}>{f.desc}</div>
                   </div>
                 ))}
               </div>
@@ -357,42 +228,106 @@ export default async function Home() {
           </div>
         </section>
 
-        {/* Features */}
-        <section style={{ padding: '0 24px 96px', maxWidth: 1100, margin: '0 auto' }}>
-          <div style={{ marginBottom: 32 }}>
-            <p style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' }}>Tools</p>
-            <h2 style={{ fontSize: 32, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-1px' }}>Understand the market</h2>
+        {/* ── Verdict legend ─────────────────────────────────────── */}
+        <section style={{ padding: '64px 24px 8px', maxWidth: 1040, margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: 36 }}>
+            <Eyebrow>EVERY CARD, A CLEAR CALL</Eyebrow>
+            <h2 style={{ fontSize: 'clamp(26px,4vw,32px)', fontWeight: 800, color: '#eeeef8', letterSpacing: '-1px' }}>Five clear calls. No jargon.</h2>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
-            {[
-              { title: 'CardIndex Score', body: 'A composite 0–100 score measuring growth, liquidity, volatility, and collector demand for any card.' },
-              { title: 'Market Verdicts', body: 'Plain-language analysis backed by real transaction data and trend signals. Know when to buy and sell.' },
-              { title: 'Price History',   body: 'Up to 12 months of historical price data with daily snapshots, sales volume, and trend indicators.' },
-            ].map((f, i) => (
-              <div key={i} style={{ borderRadius: 16, padding: 24, background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', marginBottom: 8 }}>{f.title}</div>
-                <p style={{ fontSize: 13, color: 'var(--ink2)', lineHeight: 1.7 }}>{f.body}</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(178px,1fr))', gap: 12 }}>
+            {VERDICTS.map((v) => (
+              <div key={v.label} style={{ background: CARD_BG, border: CARD_BORDER, borderRadius: 16, padding: '22px 18px', textAlign: 'center' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 14px', borderRadius: 999, fontSize: 12, fontWeight: 600, letterSpacing: '0.09em', color: v.color, background: v.bg, border: `1px solid ${v.border}`, marginBottom: 14 }}>{v.label}</span>
+                <p style={{ fontSize: 12.5, color: '#b8b8d0', lineHeight: 1.6 }}>{v.desc}</p>
               </div>
             ))}
           </div>
         </section>
 
-        {/* FAQ */}
-        <section style={{ padding: '0 24px 96px', maxWidth: 720, margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: 48 }}>
-            <p style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 2, marginBottom: 10, textTransform: 'uppercase' }}>FAQ</p>
-            <h2 style={{ fontSize: 32, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-1px' }}>Common questions</h2>
+        {/* ── Price Check spotlight ──────────────────────────────── */}
+        <section style={{ padding: '64px 24px 8px', maxWidth: 1040, margin: '0 auto' }}>
+          <div className="spotlight-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 52, alignItems: 'center' }}>
+            <div>
+              <Eyebrow>PRICE CHECK</Eyebrow>
+              <h2 style={{ fontSize: 'clamp(26px,4vw,34px)', fontWeight: 800, color: '#eeeef8', letterSpacing: '-1px', marginBottom: 14, lineHeight: 1.1 }}>Is it a good deal? Know in one tap.</h2>
+              <p style={{ fontSize: 15, color: '#b8b8d0', lineHeight: 1.65, marginBottom: 24, maxWidth: 440 }}>
+                Type in any asking price and CardIndex tells you instantly — steal, fair, or overpriced — and re-scores the card for that exact price.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
+                {[
+                  'Compares your price against the live market',
+                  'Re-scores the card and value at your price',
+                  'Shows the fair-value range — and where it becomes a buy',
+                ].map((li) => (
+                  <div key={li} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontSize: 13.5, color: '#b8b8d0', lineHeight: 1.5 }}>
+                    <span style={{ color: GREEN, flexShrink: 0, marginTop: 1, fontWeight: 700 }}>✓</span>{li}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="spotlight-phone">
+              <PhoneFrame src="/screenshots/price-check-umbreon.png" alt="Price check on Umbreon VMAX showing fair value at your asking price" max={280} />
+            </div>
+          </div>
+        </section>
+
+        {/* ── Testimonial ────────────────────────────────────────── */}
+        <section style={{ padding: '56px 24px', maxWidth: 1040, margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', padding: '32px 24px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 18 }}>
+            <div style={{ color: GOLD, fontSize: 15, letterSpacing: 2, marginBottom: 14 }}>★★★★★</div>
+            <p style={{ fontSize: 19, fontWeight: 500, lineHeight: 1.5, maxWidth: 480, margin: '0 auto 16px', color: '#eeeef8', letterSpacing: '-0.3px' }}>
+              &ldquo;I check CardIndex before every pickup now. The price check alone has saved me hundreds.&rdquo;
+            </p>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+              <div style={{ width: 30, height: 30, borderRadius: '50%', background: `linear-gradient(150deg,${GREEN},#27b667)`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#06140d', fontSize: 12, fontWeight: 700 }}>JM</div>
+              <span style={{ fontSize: 12, color: '#50506a' }}>Jordan M. · collector, 6 years</span>
+            </div>
+          </div>
+        </section>
+
+        {/* ── Pricing ────────────────────────────────────────────── */}
+        <section style={{ padding: '8px 24px 64px', maxWidth: 1040, margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: 36 }}>
+            <h2 style={{ fontSize: 'clamp(26px,4vw,32px)', fontWeight: 800, color: '#eeeef8', letterSpacing: '-1px' }}>Simple pricing</h2>
+            <p style={{ fontSize: 13, color: '#50506a', marginTop: 6 }}>Start free. Upgrade when you&apos;re ready.</p>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 14 }}>
+            {PLANS.map((p) => (
+              <div key={p.name} style={{ position: 'relative', background: p.popular ? 'linear-gradient(165deg,rgba(232,197,71,0.14),rgba(255,255,255,0.012))' : CARD_BG, border: p.popular ? `1.5px solid rgba(232,197,71,0.7)` : CARD_BORDER, borderRadius: 16, padding: 21, boxShadow: p.popular ? '0 0 46px -12px rgba(232,197,71,0.45)' : 'none' }}>
+                {p.popular && <div style={{ position: 'absolute', top: -10, right: 17, fontSize: 10, fontWeight: 700, letterSpacing: 0.6, color: '#0b0c0f', background: `linear-gradient(150deg,${GOLD_HI},#e6c038)`, padding: '4px 11px', borderRadius: 8 }}>MOST POPULAR</div>}
+                <div style={{ fontSize: 14, fontWeight: 600, color: p.accent }}>{p.name}</div>
+                <div style={{ fontSize: 31, fontWeight: 800, margin: '9px 0 2px', letterSpacing: '-1px', color: '#eeeef8' }}>{p.price}<span style={{ fontSize: 13, color: '#50506a', fontWeight: 400 }}>{p.per ?? ''}</span></div>
+                <div style={{ fontSize: 11, color: '#50506a', marginBottom: 17 }}>{p.sub}</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {p.feats.map((f) => (
+                    <span key={f} style={{ fontSize: 12.5, color: '#b8b8d0', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ color: p.accent === GOLD ? GOLD : GREEN, flexShrink: 0 }}>✓</span>{f}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ── FAQ ────────────────────────────────────────────────── */}
+        <section style={{ padding: '0 24px 64px', maxWidth: 640, margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: 32 }}>
+            <Eyebrow>FAQ</Eyebrow>
+            <h2 style={{ fontSize: 'clamp(26px,4vw,32px)', fontWeight: 800, color: '#eeeef8', letterSpacing: '-1px' }}>Questions, answered</h2>
           </div>
           <HomeFAQ />
         </section>
 
-        {/* CTA */}
-        <section style={{ padding: '0 24px 96px' }}>
-          <div style={{ maxWidth: 600, margin: '0 auto', textAlign: 'center', borderRadius: 24, padding: 56, background: 'var(--surface)', border: '1px solid var(--border2)' }}>
-            <p style={{ fontSize: 10, color: 'var(--gold)', letterSpacing: 2, marginBottom: 16, textTransform: 'uppercase' }}>Free to start</p>
-            <h2 style={{ fontSize: 30, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-1px', marginBottom: 12 }}>Know exactly what to do with your cards.</h2>
-            <p style={{ fontSize: 13, color: 'var(--ink2)', marginBottom: 28 }}>Get your first verdict free. No credit card required.</p>
-            <a href="/search" style={{ padding: '12px 32px', borderRadius: 12, background: 'var(--gold)', color: '#080810', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 600, textDecoration: 'none', display: 'inline-block' }}>Get your verdict →</a>
+        {/* ── CTA band ───────────────────────────────────────────── */}
+        <section style={{ padding: '0 24px 80px', maxWidth: 1040, margin: '0 auto' }}>
+          <div style={{ position: 'relative', borderRadius: 18, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.09)', padding: 40, textAlign: 'center' }}>
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(120deg,rgba(232,197,71,0.13),rgba(61,232,138,0.08))', pointerEvents: 'none' }} />
+            <div style={{ position: 'relative' }}>
+              <h2 style={{ fontSize: 'clamp(22px,4vw,26px)', fontWeight: 800, color: '#eeeef8', letterSpacing: '-1px', marginBottom: 9 }}>Stop guessing. Start valuing.</h2>
+              <p style={{ fontSize: 13, color: '#b8b8d0', marginBottom: 22 }}>Get a verdict on your first card in under a minute.</p>
+              <div style={{ display: 'inline-flex' }}><AppStoreButton /></div>
+            </div>
           </div>
         </section>
 
@@ -400,22 +335,20 @@ export default async function Home() {
       </main>
 
       <style>{`
-        /* Hide 5th featured card on mobile so the grid stays a clean 2×2 */
-        @media (max-width: 640px) { .featured-card-5th { display: none !important; } }
-
-        @media (max-width: 640px) {
-          section:first-of-type { padding-left: 16px !important; padding-right: 16px !important; }
-          .home-sales-grid { grid-template-columns: 1fr !important; }
-          .home-recent-row { padding: 12px 16px !important; gap: 10px !important; }
-          .home-recent-left { min-width: 0; flex: 1 1 0; }
-          .home-recent-right { gap: 10px !important; }
-          .home-recent-ago { display: none !important; }
-          section { padding-left: 16px !important; padding-right: 16px !important; }
-          section:last-of-type > div { padding: 32px 20px !important; }
+        @media (max-width: 880px) {
+          .hero-grid { grid-template-columns: 1fr !important; gap: 44px !important; justify-items: center; text-align: center; }
+          .hero-grid p { margin-left: auto; margin-right: auto; }
+          .verdict-card { grid-template-columns: 1fr !important; gap: 22px !important; }
+          .spotlight-grid { grid-template-columns: 1fr !important; gap: 32px !important; justify-items: center; text-align: center; }
+          .spotlight-grid p { margin-left: auto; margin-right: auto; }
+          .spotlight-phone { order: -1; max-width: 280px; }
         }
-
-        /* CSS hover for trending rows — no JS needed */
-        .home-recent-row:hover { background: var(--hover-subtle) !important; }
+        @media (max-width: 760px) {
+          .shots-grid { grid-template-columns: 1fr 1fr !important; }
+          .stat-strip { grid-template-columns: 1fr !important; }
+          .stat-strip > div { border-right: none !important; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        }
+        @media (max-width: 460px) { .shots-grid { grid-template-columns: 1fr !important; max-width: 280px; margin: 0 auto; } }
       `}</style>
     </>
   )

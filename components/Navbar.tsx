@@ -17,8 +17,7 @@ const NAV_LINKS_AUTHED = [
 ]
 
 const NAV_LINKS_GUEST = [
-  { label: 'Market',  href: '/market' },
-  { label: 'Pricing', href: '/pricing' },
+  { label: 'Login', href: '/login' },
 ]
 
 // Web login/sign-up is hidden — CardIndex is iOS-first; guests are funnelled to
@@ -37,6 +36,7 @@ async function fetchProfile(userId: string): Promise<{ username: string | null; 
 export default function Navbar() {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
   const [user, setUser] = useState<User | null>(null)
   const [username, setUsername] = useState<string | null>(null)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
@@ -94,6 +94,12 @@ export default function Navbar() {
     return () => window.removeEventListener('resize', close)
   }, [])
 
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 40)
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
   // Hide bottom nav when the soft keyboard is open (iOS/Android).
   // visualViewport.height shrinks when the keyboard appears; window.innerHeight stays fixed.
   useEffect(() => {
@@ -124,15 +130,19 @@ export default function Navbar() {
     [displayName]
   )
 
+  const isHomepage = pathname === '/'
+  const transparent = isHomepage && !scrolled
+
   return (
     <>
       <nav style={{
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50,
         height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '0 24px',
-        borderBottom: '1px solid var(--border)',
-        background: 'var(--nav-bg)',
-        backdropFilter: 'blur(12px)',
+        borderBottom: transparent ? '1px solid transparent' : '1px solid var(--border)',
+        background: transparent ? 'transparent' : 'var(--nav-bg)',
+        backdropFilter: transparent ? 'none' : 'blur(12px)',
+        transition: 'background 0.3s ease, border-color 0.3s ease, backdrop-filter 0.3s ease',
       }}>
         {/* Logo */}
         <Link href={user ? '/dashboard' : '/'} onClick={() => setOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none' }}>
@@ -168,7 +178,7 @@ export default function Navbar() {
             </div>
           )}
 
-          {user ? (
+          {user && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 8 }}>
             <AlertBellButton userId={user.id} onOpen={() => setShowAlerts(true)} />
             <div style={{ position: 'relative' }}>
@@ -195,24 +205,31 @@ export default function Navbar() {
               )}
             </div>
             </div>
-          ) : (
-            <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer" style={{ fontSize: 14, padding: '7px 16px', borderRadius: 8, background: 'var(--gold)', color: '#080810', border: 'none', cursor: 'pointer', fontWeight: 600, textDecoration: 'none' }}>Get the App</a>
           )}
         </div>
 
-        {/* Hamburger */}
-        <button
-          className="nav-hamburger"
-          onClick={() => setOpen(o => !o)}
-          aria-label={open ? 'Close menu' : 'Open menu'}
-          style={{ display: 'none', width: 40, height: 40, borderRadius: 10, background: open ? 'var(--surface2)' : 'transparent', border: '1px solid var(--border)', cursor: 'pointer', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 5, padding: 0, transition: 'background 0.2s' }}
-        >
-          {[0, 1, 2].map(i => (
-            <span key={i} style={{ display: 'block', width: 18, height: 1.5, background: 'var(--ink)', borderRadius: 2, transition: 'transform 0.25s, opacity 0.25s', transformOrigin: 'center',
-              transform: open ? i === 0 ? 'translateY(6.5px) rotate(45deg)' : i === 2 ? 'translateY(-6.5px) rotate(-45deg)' : 'scaleX(0)' : 'none',
-              opacity: open && i === 1 ? 0 : 1 }} />
-          ))}
-        </button>
+        {/* Mobile guest login button */}
+        {!user && (
+          <Link href="/login" className="nav-mobile-guest" style={{ display: 'none', fontSize: 13, padding: '7px 14px', borderRadius: 8, background: 'transparent', border: '1px solid rgba(255,255,255,0.18)', color: 'var(--ink)', fontWeight: 600, textDecoration: 'none', alignItems: 'center' }}>
+            Login
+          </Link>
+        )}
+
+        {/* Hamburger (authed users on mobile only) */}
+        {user && (
+          <button
+            className="nav-hamburger"
+            onClick={() => setOpen(o => !o)}
+            aria-label={open ? 'Close menu' : 'Open menu'}
+            style={{ display: 'none', width: 40, height: 40, borderRadius: 10, background: open ? 'var(--surface2)' : 'transparent', border: '1px solid var(--border)', cursor: 'pointer', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 5, padding: 0, transition: 'background 0.2s' }}
+          >
+            {[0, 1, 2].map(i => (
+              <span key={i} style={{ display: 'block', width: 18, height: 1.5, background: 'var(--ink)', borderRadius: 2, transition: 'transform 0.25s, opacity 0.25s', transformOrigin: 'center',
+                transform: open ? i === 0 ? 'translateY(6.5px) rotate(45deg)' : i === 2 ? 'translateY(-6.5px) rotate(-45deg)' : 'scaleX(0)' : 'none',
+                opacity: open && i === 1 ? 0 : 1 }} />
+            ))}
+          </button>
+        )}
       </nav>
 
       {/* Password-reset sign-in banner */}
@@ -269,7 +286,7 @@ export default function Navbar() {
           )}
         </div>
 
-        {user ? (
+        {user && (
           <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ padding: '12px 16px', borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border)' }}>
               <div style={{ fontSize: 14, color: 'var(--ink)', fontWeight: 700, marginBottom: 2 }}>{displayName}</div>
@@ -280,10 +297,6 @@ export default function Navbar() {
             )}
             <button onClick={signOut} style={{ width: '100%', padding: 14, borderRadius: 12, background: 'rgba(232,82,74,0.1)', border: '1px solid rgba(232,82,74,0.3)', color: 'var(--red)', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Sign out</button>
           </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 'auto' }}>
-            <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)} style={{ width: '100%', padding: 14, borderRadius: 12, background: 'var(--gold)', color: '#080810', border: 'none', fontSize: 15, fontWeight: 700, cursor: 'pointer', textAlign: 'center', textDecoration: 'none' }}>Get the App</a>
-          </div>
         )}
       </div>
 
@@ -291,6 +304,7 @@ export default function Navbar() {
         @media (max-width: 640px) {
           .nav-desktop { display: none !important; }
           .nav-hamburger { display: flex !important; }
+          .nav-mobile-guest { display: flex !important; }
           /* push page content above the bottom nav */
           main { padding-bottom: calc(108px + env(safe-area-inset-bottom)) !important; }
         }

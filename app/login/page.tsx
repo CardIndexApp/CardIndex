@@ -3,12 +3,13 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-/**
- * Unlinked sign-in page. CardIndex is iOS-first, so there is no public-facing
- * login/sign-up in the nav — this route exists purely so admins (and existing
- * accounts) can sign in to reach the web admin dashboard. There is deliberately
- * no sign-up option here.
- */
+const GOLD = '#e8c547'
+const INK = '#eeeef8'
+const INK2 = '#b8b8d0'
+const INK3 = '#50506a'
+const GREEN = '#3de88a'
+const BG = '#0b0c0f'
+
 export default function LoginPage() {
   const router = useRouter()
   const supabase = createClient()
@@ -20,14 +21,11 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [sent, setSent] = useState(false)
 
-  // Admins go to /admin; existing non-admin accounts get full web app access at /dashboard.
-  // /api/admin/users is service-role gated, so a non-ok response = not an admin.
   const routeAfterAuth = async () => {
     const res = await fetch('/api/admin/users')
     router.replace(res.ok ? '/admin' : '/dashboard')
   }
 
-  // Already signed in? Route based on whether they're an admin.
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) routeAfterAuth()
@@ -61,14 +59,16 @@ export default function LoginPage() {
 
   const inputStyle: React.CSSProperties = {
     width: '100%',
-    padding: '11px 14px',
+    padding: '12px 14px',
     borderRadius: 10,
-    background: 'var(--bg)',
-    border: '1px solid var(--border2)',
-    color: 'var(--ink)',
+    background: 'rgba(255,255,255,0.04)',
+    border: '1px solid rgba(255,255,255,0.1)',
+    color: INK,
     fontSize: 14,
     outline: 'none',
     boxSizing: 'border-box',
+    fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+    transition: 'border-color 0.15s',
   }
 
   return (
@@ -78,113 +78,144 @@ export default function LoginPage() {
       alignItems: 'center',
       justifyContent: 'center',
       padding: 24,
-      background: 'var(--bg)',
+      background: BG,
+      fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+      position: 'relative',
+      overflow: 'hidden',
     }}>
+      {/* Background glow */}
+      <div style={{ position: 'absolute', top: '30%', left: '50%', transform: 'translate(-50%,-50%)', width: 600, height: 600, background: 'radial-gradient(circle, rgba(232,197,71,0.07) 0%, transparent 65%)', pointerEvents: 'none' }} />
+
       <div style={{
         width: '100%',
         maxWidth: 400,
-        borderRadius: 20,
-        background: 'var(--surface)',
-        border: '1px solid var(--border2)',
-        padding: 32,
+        position: 'relative',
       }}>
-        <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink)', marginBottom: 6 }}>
-            Card<span style={{ color: 'var(--gold)' }}>Index</span>
-          </div>
-          <p style={{ fontSize: 13, color: 'var(--ink3)', margin: 0 }}>
-            {mode === 'forgot' ? 'Reset your password' : 'Sign in to continue'}
-          </p>
-        </div>
-
-        {sent ? (
-          <div style={{
-            borderRadius: 12,
-            padding: '24px 20px',
-            background: 'rgba(61,232,138,0.06)',
-            border: '1px solid rgba(61,232,138,0.2)',
-            textAlign: 'center',
-          }}>
-            <p style={{ fontSize: 14, color: 'var(--ink2)', lineHeight: 1.7, margin: 0 }}>
-              If an account exists for {email}, a reset link is on its way.
+        {/* Card */}
+        <div style={{
+          borderRadius: 20,
+          background: 'linear-gradient(165deg, rgba(255,255,255,0.045), rgba(255,255,255,0.01))',
+          border: '1px solid rgba(232,197,71,0.3)',
+          padding: '36px 32px 32px',
+          boxShadow: '0 0 60px -16px rgba(232,197,71,0.25), 0 24px 64px rgba(0,0,0,0.5)',
+        }}>
+          {/* Logo */}
+          <div style={{ textAlign: 'center', marginBottom: 28 }}>
+            <div style={{ fontSize: 24, fontWeight: 800, color: INK, letterSpacing: '-0.5px', marginBottom: 8 }}>
+              Card<span style={{ color: GOLD }}>Index</span>
+            </div>
+            <p style={{ fontSize: 13, color: INK3, margin: 0 }}>
+              {mode === 'forgot' ? 'Reset your password' : 'Sign in to your account'}
             </p>
           </div>
-        ) : (
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div>
-              <label style={{ display: 'block', fontSize: 10, color: 'var(--ink3)', letterSpacing: 1.5, marginBottom: 7 }}>
-                EMAIL
-              </label>
-              <input
-                type="email"
-                required
-                value={email}
-                placeholder="you@example.com"
-                onChange={e => setEmail(e.target.value)}
-                style={inputStyle}
-                onFocus={e => (e.currentTarget.style.borderColor = 'var(--gold)')}
-                onBlur={e => (e.currentTarget.style.borderColor = 'var(--border2)')}
-              />
-            </div>
 
-            {mode === 'signin' && (
+          {/* Divider */}
+          <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', marginBottom: 28 }} />
+
+          {sent ? (
+            <div style={{
+              borderRadius: 12,
+              padding: '24px 20px',
+              background: 'rgba(61,232,138,0.06)',
+              border: '1px solid rgba(61,232,138,0.2)',
+              textAlign: 'center',
+            }}>
+              <div style={{ fontSize: 26, color: GREEN, marginBottom: 10 }}>✓</div>
+              <p style={{ fontSize: 14, color: INK2, lineHeight: 1.7, margin: 0 }}>
+                If an account exists for <strong style={{ color: INK }}>{email}</strong>, a reset link is on its way.
+              </p>
+              <button
+                onClick={() => { setSent(false); setMode('signin') }}
+                style={{ marginTop: 18, fontSize: 12, color: GOLD, background: 'none', border: 'none', cursor: 'pointer' }}
+              >
+                ← Back to sign in
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div>
-                <label style={{ display: 'block', fontSize: 10, color: 'var(--ink3)', letterSpacing: 1.5, marginBottom: 7 }}>
-                  PASSWORD
+                <label style={{ display: 'block', fontSize: 10, color: INK3, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 7, fontWeight: 600 }}>
+                  Email
                 </label>
                 <input
-                  type="password"
+                  type="email"
                   required
-                  value={password}
-                  placeholder="••••••••"
-                  onChange={e => setPassword(e.target.value)}
+                  value={email}
+                  placeholder="you@example.com"
+                  onChange={e => setEmail(e.target.value)}
                   style={inputStyle}
-                  onFocus={e => (e.currentTarget.style.borderColor = 'var(--gold)')}
-                  onBlur={e => (e.currentTarget.style.borderColor = 'var(--border2)')}
+                  onFocus={e => (e.currentTarget.style.borderColor = GOLD)}
+                  onBlur={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)')}
                 />
               </div>
-            )}
 
-            {error && (
-              <div style={{
-                borderRadius: 8,
-                padding: '10px 14px',
-                background: 'rgba(232,82,74,0.08)',
-                border: '1px solid rgba(232,82,74,0.25)',
-                fontSize: 12,
-                color: 'var(--red)',
-              }}>
-                {error}
-              </div>
-            )}
+              {mode === 'signin' && (
+                <div>
+                  <label style={{ display: 'block', fontSize: 10, color: INK3, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 7, fontWeight: 600 }}>
+                    Password
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    value={password}
+                    placeholder="••••••••"
+                    onChange={e => setPassword(e.target.value)}
+                    style={inputStyle}
+                    onFocus={e => (e.currentTarget.style.borderColor = GOLD)}
+                    onBlur={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)')}
+                  />
+                </div>
+              )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              style={{
-                padding: 13,
-                borderRadius: 12,
-                background: loading ? 'rgba(232,197,71,0.5)' : 'var(--gold)',
-                color: '#080810',
-                border: 'none',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                fontSize: 14,
-                fontWeight: 700,
-                marginTop: 4,
-              }}
-            >
-              {loading ? '…' : mode === 'forgot' ? 'Send reset link' : 'Sign in'}
-            </button>
+              {error && (
+                <div style={{
+                  borderRadius: 8,
+                  padding: '10px 14px',
+                  background: 'rgba(232,82,74,0.08)',
+                  border: '1px solid rgba(232,82,74,0.25)',
+                  fontSize: 12,
+                  color: '#e8524a',
+                }}>
+                  {error}
+                </div>
+              )}
 
-            <button
-              type="button"
-              onClick={() => { setError(''); setMode(mode === 'forgot' ? 'signin' : 'forgot') }}
-              style={{ fontSize: 12, color: 'var(--ink3)', background: 'none', border: 'none', cursor: 'pointer' }}
-            >
-              {mode === 'forgot' ? '← Back to sign in' : 'Forgot your password?'}
-            </button>
-          </form>
-        )}
+              <button
+                type="submit"
+                disabled={loading}
+                style={{
+                  width: '100%',
+                  padding: 13,
+                  borderRadius: 12,
+                  background: loading ? 'rgba(232,197,71,0.45)' : GOLD,
+                  color: '#080810',
+                  border: 'none',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  fontSize: 14,
+                  fontWeight: 700,
+                  marginTop: 4,
+                  transition: 'opacity 0.15s',
+                  fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+                }}
+              >
+                {loading ? '…' : mode === 'forgot' ? 'Send reset link' : 'Sign in'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setError(''); setMode(mode === 'forgot' ? 'signin' : 'forgot') }}
+                style={{ fontSize: 12, color: INK3, background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}
+              >
+                {mode === 'forgot' ? '← Back to sign in' : 'Forgot your password?'}
+              </button>
+            </form>
+          )}
+        </div>
+
+        {/* Footer note */}
+        <p style={{ textAlign: 'center', fontSize: 11, color: INK3, marginTop: 20 }}>
+          CardIndex for iOS — coming soon to the App Store.
+        </p>
       </div>
     </div>
   )

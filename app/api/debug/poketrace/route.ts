@@ -66,23 +66,32 @@ export async function GET(req: NextRequest) {
     'Content-Type': 'application/json',
   }
 
-  // ── 1. Name search ──────────────────────────────────────────────────────────
+  // ── 1. Name search (EN + JP markets) ───────────────────────────────────────
   if (name) {
-    const r = await fetch(`${BASE}/cards?search=${encodeURIComponent(name)}&limit=20`, { headers })
-    const json = await r.json()
-    results.nameSearch = {
-      status: r.status,
-      count: json.data?.length ?? 0,
-      cards: (json.data ?? []).map((c: Record<string, unknown>) => ({
-        id: c.id,
-        name: c.name,
-        set: (c.set as Record<string, unknown>)?.name,
-        setSlug: (c.set as Record<string, unknown>)?.slug,
-        cardNumber: c.cardNumber,
-        variant: c.variant,
-        topPrice: c.topPrice,
-        refs: c.refs,
-      })),
+    const [rEn, rJp] = await Promise.all([
+      fetch(`${BASE}/cards?search=${encodeURIComponent(name)}&limit=20&market=US&game=pokemon`, { headers }),
+      fetch(`${BASE}/cards?search=${encodeURIComponent(name)}&limit=20&market=EU&game=pokemon-japanese`, { headers }),
+    ])
+    const [jsonEn, jsonJp] = await Promise.all([rEn.json(), rJp.json()])
+    const summariseCards = (data: Record<string, unknown>[]) => data.map((c) => ({
+      id: c.id,
+      name: c.name,
+      set: (c.set as Record<string, unknown>)?.name,
+      setSlug: (c.set as Record<string, unknown>)?.slug,
+      cardNumber: c.cardNumber,
+      variant: c.variant,
+      topPrice: c.topPrice,
+      refs: c.refs,
+    }))
+    results.nameSearch_EN = {
+      status: rEn.status,
+      count: jsonEn.data?.length ?? 0,
+      cards: summariseCards(jsonEn.data ?? []),
+    }
+    results.nameSearch_JP = {
+      status: rJp.status,
+      count: jsonJp.data?.length ?? 0,
+      cards: summariseCards(jsonJp.data ?? []),
     }
   }
 

@@ -41,12 +41,12 @@ const Eyebrow = ({ children }: { children: React.ReactNode }) => (
   </div>
 )
 
-const PhoneFrame = ({ src, alt, max = 250, priority = false }: { src: string; alt: string; max?: number; priority?: boolean }) => (
+const PhoneFrame = ({ src, alt, max = 250, priority = false, sizes: imgSizes }: { src: string; alt: string; max?: number; priority?: boolean; sizes?: string }) => (
   <div style={{ position: 'relative', width: '100%', maxWidth: max, margin: '0 auto' }}>
     <div style={{ position: 'absolute', inset: -28, background: 'radial-gradient(ellipse 75% 55% at 50% 58%, rgba(61,232,138,0.18) 0%, rgba(232,197,71,0.08) 55%, transparent 78%)', filter: 'blur(18px)', pointerEvents: 'none', zIndex: 0 }} />
     <div style={{ position: 'relative', zIndex: 1, borderRadius: max > 270 ? 38 : 30, padding: max > 270 ? 7 : 6, background: 'linear-gradient(180deg,#1c1d25,#0a0b0e)', border: '1px solid rgba(255,255,255,0.13)', boxShadow: max > 270 ? '0 40px 90px -25px rgba(0,0,0,0.8)' : '0 24px 60px -22px rgba(0,0,0,0.7)' }}>
       <div style={{ borderRadius: max > 270 ? 31 : 25, overflow: 'hidden', background: '#000' }}>
-        <NextImage src={src} alt={alt} width={max} height={Math.round(max * 19.5 / 9)} style={{ width: '100%', height: 'auto', display: 'block' }} priority={priority} loading={priority ? undefined : 'lazy'} sizes={`${max}px`} />
+        <NextImage src={src} alt={alt} width={max} height={Math.round(max * 19.5 / 9)} style={{ width: '100%', height: 'auto', display: 'block' }} priority={priority} loading={priority ? undefined : 'lazy'} sizes={imgSizes ?? `${max}px`} />
       </div>
     </div>
   </div>
@@ -281,7 +281,7 @@ export default function Home() {
               { src: '/screenshots/analysis-dragonite.png', cap: 'Dive into the signals', alt: 'Analysis tab with score breakdown and risk rating' },
             ].map((s, i) => (
               <div key={s.src} className={i === 0 ? 'shots-last' : ''} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
-                <PhoneFrame src={s.src} alt={s.alt} max={250} />
+                <PhoneFrame src={s.src} alt={s.alt} max={250} sizes="(max-width: 460px) min(280px, calc(100vw - 48px)), (max-width: 880px) calc(50vw - 36px), 250px" />
                 <span style={{ fontSize: 13, color: '#b8b8d0', fontWeight: 500 }}>{s.cap}</span>
               </div>
             ))}
@@ -386,7 +386,7 @@ export default function Home() {
               </div>
             </div>
             <div className="spotlight-phone">
-              <PhoneFrame src="/screenshots/price-check-umbreon.png" alt="Price check on Umbreon VMAX showing fair value at your asking price" max={280} />
+              <PhoneFrame src="/screenshots/price-check-umbreon.png" alt="Price check on Umbreon VMAX showing fair value at your asking price" max={280} sizes="(max-width: 880px) 200px, 280px" />
             </div>
             {/* Mobile-only 3-icon strip below phone */}
             <div className="spotlight-icon-strip" style={{ display: 'none', gap: 10, gridColumn: '1 / -1' }}>

@@ -3,7 +3,6 @@ import Script from 'next/script'
 import './globals.css'
 import { CurrencyProvider } from '@/lib/currency'
 import { ThemeProvider } from '@/lib/theme'
-import InstallPrompt from '@/components/InstallPrompt'
 import OfflineBanner from '@/components/OfflineBanner'
 
 
@@ -67,7 +66,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <CurrencyProvider>
             <OfflineBanner />
             {children}
-            <InstallPrompt />
           </CurrencyProvider>
         </ThemeProvider>
         {/* Google Analytics 4 */}

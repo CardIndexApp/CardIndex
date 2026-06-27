@@ -21,10 +21,10 @@
     "stripe": "^22.1.0"
   },
   "browserslist": [
-    "chrome >= 87",
-    "firefox >= 78",
-    "safari >= 14",
-    "edge >= 88"
+    "chrome >= 105",
+    "firefox >= 104",
+    "safari >= 15.4",
+    "edge >= 105"
   ],
   "devDependencies": {
     "@fontsource/inter": "^5.2.8",

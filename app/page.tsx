@@ -189,6 +189,14 @@ const VERDICTS = [
 export default function Home() {
   return (
     <>
+      {/* Preload LCP hero image so browser discovers it during initial HTML parse */}
+      <link
+        rel="preload"
+        as="image"
+        href="/_next/image?url=%2Fscreenshots%2Fcharizard-card.png&w=300&q=75"
+        imageSrcSet="/_next/image?url=%2Fscreenshots%2Fcharizard-card.png&w=200&q=75 200w, /_next/image?url=%2Fscreenshots%2Fcharizard-card.png&w=300&q=75 300w"
+        imageSizes="(max-width: 880px) 200px, 300px"
+      />
       <Navbar />
       {/* Always-dark, Helvetica Neue — pinned to the iOS app's exact tokens so the
           marketing page is a faithful match (and a solid base hides the global

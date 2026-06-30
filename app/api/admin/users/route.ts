@@ -200,12 +200,24 @@ export async function GET(req: NextRequest) {
     admin.from('card_reports').select('*', { count: 'exact', head: true }),
   ])
 
+  // ── Per-user search counts ────────────────────────────────────────────────
+  const { data: searchLogRows } = await admin
+    .from('search_log')
+    .select('user_id')
+    .not('user_id', 'is', null)
+
+  const searchCountMap: Record<string, number> = {}
+  for (const row of searchLogRows ?? []) {
+    if (row.user_id) searchCountMap[row.user_id] = (searchCountMap[row.user_id] ?? 0) + 1
+  }
+
   // Merge sign-in + derived last-active into each user row.
   // last_active_at = most recent of sign-in, watchlist add, portfolio add.
   const usersWithLastSeen = (users ?? []).map(u => ({
     ...u,
     last_sign_in_at: lastSignInMap[u.id] ?? null,
     last_active_at:  latestISO(u.last_active_at, lastSignInMap[u.id] ?? null, activityMap[u.id] ?? null),
+    search_count:    searchCountMap[u.id] ?? 0,
   }))
 
   const recentlyActive7d  = usersWithLastSeen.filter(u => u.last_active_at && new Date(u.last_active_at) >= sevenDaysAgo).length

@@ -147,6 +147,15 @@ export async function GET(
     return NextResponse.json({ error: 'name param required' }, { status: 400 })
   }
 
+  // Optionally resolve the requesting user for per-user search tracking.
+  // Anonymous searches (no token) still work — user_id is nullable in search_log.
+  let searchUserId: string | null = null
+  const authHeader = req.headers.get('authorization')
+  if (authHeader?.startsWith('Bearer ')) {
+    const { data } = await adminClient().auth.getUser(authHeader.slice(7))
+    searchUserId = data.user?.id ?? null
+  }
+
   const cacheKey = `${id}:${grade}`
   const supabase = adminClient()
 
@@ -162,7 +171,7 @@ export async function GET(
     // Treat rows with missing price_history as stale so they pick up the field on next fetch
     const missingHistory = !cached.price_history || (cached.price_history as unknown[]).length === 0
     if (age < CACHE_TTL_MS && !missingHistory) {
-      await supabase.from('search_log').insert({ card_id: id, card_name: cardName, grade })
+      await supabase.from('search_log').insert({ card_id: id, card_name: cardName, grade, ...(searchUserId ? { user_id: searchUserId } : {}) })
       // Recompute warning from stored fields if not already present (pre-migration rows)
       const recomputed = cached.data_warning !== undefined ? cached : {
         ...cached,
@@ -716,7 +725,7 @@ export async function GET(
 
   const [{ error: upsertErr }] = await Promise.all([
     supabase.from('search_cache').upsert(record),
-    supabase.from('search_log').insert({ card_id: id, card_name: cardName, grade }),
+    supabase.from('search_log').insert({ card_id: id, card_name: cardName, grade, ...(searchUserId ? { user_id: searchUserId } : {}) }),
   ])
 
   if (upsertErr) {

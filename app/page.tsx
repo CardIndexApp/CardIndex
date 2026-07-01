@@ -24,7 +24,7 @@ function Ico({ d, size = 22 }: { d: string; size?: number }) {
 const AppStoreBadge = () => (
   <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', lineHeight: 0 }}>
     <img
-      src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg"
+      src="/app-store-badge.svg"
       alt="Download on the App Store"
       height={44}
       style={{ height: 44, width: 'auto' }}

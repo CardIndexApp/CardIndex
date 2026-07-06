@@ -29,10 +29,13 @@ export const metadata: Metadata = {
   openGraph: {
     siteName: 'CardIndex',
     type: 'website',
+    url: 'https://card-index.app',
+    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'CardIndex — TCG Market Intelligence' }],
   },
   twitter: {
     card: 'summary_large_image',
     site: '@cardindexapp',
+    images: ['/og-image.png'],
   },
   icons: {
     icon: [

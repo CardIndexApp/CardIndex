@@ -66,13 +66,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Description too long' }, { status: 400 })
     }
 
-    // Get user id if logged in (optional — reports allowed anonymously)
+    // Get user id — Bearer token (iOS) or cookie session (web)
     let user_id: string | null = null
-    try {
-      const userSupabase = await createUserClient()
-      const { data: { user } } = await userSupabase.auth.getUser()
-      user_id = user?.id ?? null
-    } catch { /* anonymous */ }
+    const authHeader = req.headers.get('authorization')
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.slice(7)
+      const { data } = await supabase.auth.getUser(token)
+      user_id = data.user?.id ?? null
+    } else {
+      try {
+        const userSupabase = await createUserClient()
+        const { data: { user } } = await userSupabase.auth.getUser()
+        user_id = user?.id ?? null
+      } catch { /* anonymous */ }
+    }
 
     const supabase = adminClient()
     const windowStart = new Date(Date.now() - WINDOW_MS).toISOString()

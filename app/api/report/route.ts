@@ -34,7 +34,20 @@ function adminClient() {
   )
 }
 
-const VALID_TYPES = ['price_error', 'wrong_card', 'other'] as const
+const VALID_TYPES = ['price_error', 'wrong_card', 'app_bug', 'data_issue', 'other'] as const
+const RATE_LIMIT   = 5   // max reports
+const WINDOW_MS    = 60 * 60 * 1000 // per hour
+
+// Best-effort IP rate limit for anonymous requests (resets on cold start — acceptable)
+const anonIpLog = new Map<string, number[]>()
+
+function getClientIp(req: NextRequest): string {
+  return (
+    req.headers.get('x-forwarded-for')?.split(',')[0].trim() ??
+    req.headers.get('x-real-ip') ??
+    'unknown'
+  )
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -62,6 +75,37 @@ export async function POST(req: NextRequest) {
     } catch { /* anonymous */ }
 
     const supabase = adminClient()
+    const windowStart = new Date(Date.now() - WINDOW_MS).toISOString()
+
+    if (user_id) {
+      // Authenticated: count recent reports in Supabase
+      const { count } = await supabase
+        .from('card_reports')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user_id)
+        .gte('created_at', windowStart)
+
+      if ((count ?? 0) >= RATE_LIMIT) {
+        return NextResponse.json(
+          { error: 'Too many reports. Please wait before submitting again.' },
+          { status: 429 }
+        )
+      }
+    } else {
+      // Anonymous: use in-memory IP log
+      const ip  = getClientIp(req)
+      const now = Date.now()
+      const log = (anonIpLog.get(ip) ?? []).filter(t => now - t < WINDOW_MS)
+      if (log.length >= RATE_LIMIT) {
+        return NextResponse.json(
+          { error: 'Too many reports. Please wait before submitting again.' },
+          { status: 429 }
+        )
+      }
+      log.push(now)
+      anonIpLog.set(ip, log)
+    }
+
     const { error } = await supabase.from('card_reports').insert({
       card_id,
       card_name:   card_name   ?? null,

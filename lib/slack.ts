@@ -64,6 +64,8 @@ export async function notifyReport(report: {
   const typeLabel: Record<string, string> = {
     price_error: '💸 Price error',
     wrong_card:  '🃏 Wrong card',
+    app_bug:     '🐛 App bug',
+    data_issue:  '📊 Data issue',
     other:       '❓ Other',
   }
 

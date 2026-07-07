@@ -31,11 +31,12 @@ export async function POST(req: NextRequest) {
 
   const { data: caller } = await admin
     .from('profiles')
-    .select('is_admin')
+    .select('is_admin, can_manage_tiers')
     .eq('id', callerId)
     .single()
 
   if (!caller?.is_admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if (!caller?.can_manage_tiers) return NextResponse.json({ error: 'Forbidden: tier management not permitted' }, { status: 403 })
 
   const { userId, tier } = await req.json() as { userId: string; tier: Tier }
   if (!userId || !VALID_TIERS.includes(tier)) {

@@ -103,7 +103,7 @@ interface TcgCard {
   rarity?: string
 }
 
-type AdminTab = 'users' | 'market' | 'content'
+type AdminTab = 'users' | 'market' | 'content' | 'banners'
 
 interface TopSearchedResponse {
   cards:   TopSearchedCard[]
@@ -384,6 +384,58 @@ export default function AdminPage() {
   const [showBrandModal, setShowBrandModal] = useState(false)
   const [activeStatModal, setActiveStatModal] = useState<StatCardConfig | null>(null)
 
+  // ── Banners tab ───────────────────────────────────────────────────────────
+  interface AppBanner { id: string; title: string; body: string; cta_label: string | null; cta_url: string | null; active: boolean; created_at: string }
+  const [banners, setBanners]               = useState<AppBanner[]>([])
+  const [bannersLoading, setBannersLoading] = useState(false)
+  const [bannerForm, setBannerForm]         = useState({ title: '', body: '', cta_label: '', cta_url: '' })
+  const [bannerSaving, setBannerSaving]     = useState(false)
+
+  async function loadBanners() {
+    setBannersLoading(true)
+    try {
+      const r = await fetch('/api/admin/banners')
+      if (r.ok) setBanners((await r.json()).banners ?? [])
+    } finally { setBannersLoading(false) }
+  }
+
+  async function publishBanner() {
+    if (!bannerForm.title.trim() || !bannerForm.body.trim()) return
+    setBannerSaving(true)
+    try {
+      const r = await fetch('/api/admin/banners', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bannerForm),
+      })
+      if (!r.ok) { flash('err', (await r.json()).error ?? 'Failed'); return }
+      flash('ok', 'Banner published')
+      setBannerForm({ title: '', body: '', cta_label: '', cta_url: '' })
+      loadBanners()
+    } finally { setBannerSaving(false) }
+  }
+
+  async function toggleBanner(id: string, active: boolean) {
+    const r = await fetch('/api/admin/banners', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, active }),
+    })
+    if (r.ok) { loadBanners(); flash('ok', active ? 'Banner activated' : 'Banner deactivated') }
+    else flash('err', 'Failed to update banner')
+  }
+
+  async function deleteBanner(id: string) {
+    if (!confirm('Delete this banner?')) return
+    const r = await fetch('/api/admin/banners', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    })
+    if (r.ok) { loadBanners(); flash('ok', 'Banner deleted') }
+    else flash('err', 'Failed to delete banner')
+  }
+
   // ── Pull-to-refresh ───────────────────────────────────────────────────────
   const PTR_THRESHOLD = 80 // px of pull needed to trigger
   const touchStartY   = useRef(0)
@@ -511,6 +563,10 @@ export default function AdminPage() {
       .catch(() => {})
       .finally(() => setTopSearchedLoading(false))
   }, [activeTab, topSearched])
+
+  useEffect(() => {
+    if (activeTab === 'banners') loadBanners()
+  }, [activeTab]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleCardSearchInput(val: string) {
     setCardSearch(val)
@@ -837,7 +893,7 @@ export default function AdminPage() {
 
           {/* Tab switcher */}
           <div className="adm-tabs" style={{ display: 'flex', gap: 4, marginBottom: 24, borderRadius: 10, padding: 4, background: 'var(--surface)', border: '1px solid var(--border2)', width: 'fit-content' }}>
-            {([['users', 'Users'], ['market', 'Market Index'], ['content', 'Content']] as [AdminTab, string][]).map(([tab, label]) => (
+            {([['users', 'Users'], ['market', 'Market Index'], ['content', 'Content'], ['banners', 'Banners']] as [AdminTab, string][]).map(([tab, label]) => (
               <button key={tab} onClick={() => setActiveTab(tab)} style={{
                 padding: '7px 20px', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600,
                 background: activeTab === tab ? 'var(--surface2)' : 'transparent',
@@ -1877,6 +1933,117 @@ export default function AdminPage() {
       )}
 
       {/* ── Migration SQL modal ── */}
+          {/* ── Banners tab ──────────────────────────────────────────────── */}
+          {activeTab === 'banners' && (
+            <>
+              {/* Create form */}
+              <div style={S.card}>
+                <div style={S.head}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>New banner</span>
+                  <span style={{ fontSize: 11, color: 'var(--ink3)' }}>Publishes immediately — deactivates any existing active banner</span>
+                </div>
+                <div style={{ ...S.body, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)', display: 'block', marginBottom: 6 }}>TITLE</label>
+                    <input
+                      value={bannerForm.title}
+                      onChange={e => setBannerForm(f => ({ ...f, title: e.target.value }))}
+                      placeholder="e.g. 🎉 Giveaway — win a PSA 10 Charizard"
+                      maxLength={80}
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: 8, background: 'var(--bg)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)', display: 'block', marginBottom: 6 }}>BODY</label>
+                    <textarea
+                      value={bannerForm.body}
+                      onChange={e => setBannerForm(f => ({ ...f, body: e.target.value }))}
+                      placeholder="Short description shown to users on their dashboard"
+                      maxLength={200}
+                      rows={3}
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: 8, background: 'var(--bg)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 13, outline: 'none', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                    />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)', display: 'block', marginBottom: 6 }}>BUTTON LABEL (optional)</label>
+                      <input
+                        value={bannerForm.cta_label}
+                        onChange={e => setBannerForm(f => ({ ...f, cta_label: e.target.value }))}
+                        placeholder="e.g. Enter now"
+                        maxLength={40}
+                        style={{ width: '100%', padding: '10px 14px', borderRadius: 8, background: 'var(--bg)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)', display: 'block', marginBottom: 6 }}>BUTTON URL (optional)</label>
+                      <input
+                        value={bannerForm.cta_url}
+                        onChange={e => setBannerForm(f => ({ ...f, cta_url: e.target.value }))}
+                        placeholder="https://…"
+                        maxLength={300}
+                        style={{ width: '100%', padding: '10px 14px', borderRadius: 8, background: 'var(--bg)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                  </div>
+                  <button
+                    onClick={publishBanner}
+                    disabled={bannerSaving || !bannerForm.title.trim() || !bannerForm.body.trim()}
+                    style={{ alignSelf: 'flex-start', padding: '10px 22px', borderRadius: 8, border: 'none', background: 'var(--gold)', color: 'var(--bg)', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: bannerSaving || !bannerForm.title.trim() || !bannerForm.body.trim() ? 0.5 : 1 }}
+                  >
+                    {bannerSaving ? 'Publishing…' : 'Publish banner'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Existing banners */}
+              <div style={S.card}>
+                <div style={S.head}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>All banners</span>
+                  {bannersLoading && <span style={{ fontSize: 11, color: 'var(--ink3)' }}>Loading…</span>}
+                </div>
+                <div style={S.body}>
+                  {banners.length === 0 && !bannersLoading && (
+                    <div style={{ fontSize: 13, color: 'var(--ink3)', textAlign: 'center', padding: '24px 0' }}>No banners yet</div>
+                  )}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {banners.map(b => (
+                      <div key={b.id} style={{ borderRadius: 12, padding: '14px 18px', background: 'var(--bg)', border: `1px solid ${b.active ? 'rgba(232,197,71,0.4)' : 'var(--border)'}`, display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                            {b.active && (
+                              <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: 0.5, padding: '2px 8px', borderRadius: 99, background: 'rgba(232,197,71,0.12)', color: 'var(--gold)', border: '1px solid rgba(232,197,71,0.3)' }}>LIVE</span>
+                            )}
+                            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{b.title}</span>
+                          </div>
+                          <div style={{ fontSize: 12, color: 'var(--ink2)', marginBottom: b.cta_label ? 6 : 0 }}>{b.body}</div>
+                          {b.cta_label && (
+                            <div style={{ fontSize: 11, color: 'var(--ink3)' }}>Button: <strong style={{ color: 'var(--ink2)' }}>{b.cta_label}</strong>{b.cta_url ? ` → ${b.cta_url}` : ''}</div>
+                          )}
+                          <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 6 }}>{new Date(b.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                          <button
+                            onClick={() => toggleBanner(b.id, !b.active)}
+                            style={{ padding: '6px 14px', borderRadius: 7, border: `1px solid ${b.active ? 'rgba(232,82,74,0.3)' : 'rgba(61,232,138,0.3)'}`, background: b.active ? 'rgba(232,82,74,0.08)' : 'rgba(61,232,138,0.08)', color: b.active ? 'var(--red)' : 'var(--green)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                          >
+                            {b.active ? 'Deactivate' : 'Activate'}
+                          </button>
+                          <button
+                            onClick={() => deleteBanner(b.id)}
+                            style={{ padding: '6px 12px', borderRadius: 7, border: '1px solid var(--border)', background: 'transparent', color: 'var(--ink3)', fontSize: 12, cursor: 'pointer' }}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
       {migrationSql && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
           onClick={() => setMigrationSql(null)}>

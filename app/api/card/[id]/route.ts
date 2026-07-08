@@ -40,8 +40,8 @@ function recomputeWarning(ebaySaleCount: number, ebayAvgUSD: number, currentSour
     // Already fell back to TCGPlayer — determine why
     return { data_warning: 'low_volume_tcg_fallback', data_source: 'tcgplayer' }
   }
-  if (ebaySaleCount >= 10) return { data_warning: null, data_source: 'ebay' }
-  if (ebaySaleCount >= 5)  return { data_warning: 'limited_sales', data_source: 'ebay' }
+  if (ebaySaleCount >= 30) return { data_warning: null, data_source: 'ebay' }
+  if (ebaySaleCount >= 10) return { data_warning: 'limited_sales', data_source: 'ebay' }
   if (ebayAvgUSD > 5000)   return { data_warning: 'rare_asset', data_source: 'ebay' }
   if (ebayAvgUSD >= 1000)  return { data_warning: 'high_value_limited', data_source: 'ebay' }
   return { data_warning: 'low_volume_no_fallback', data_source: 'ebay' }
@@ -563,9 +563,9 @@ export async function GET(
   let dataWarning: string | null = null
 
   if (ebayTierData) {
-    if (ebaySaleCount >= 10) {
+    if (ebaySaleCount >= 30) {
       // Normal confidence — no warning
-    } else if (ebaySaleCount >= 5) {
+    } else if (ebaySaleCount >= 10) {
       dataWarning = 'limited_sales'
     } else {
       // < 5 eBay sales — branch on price

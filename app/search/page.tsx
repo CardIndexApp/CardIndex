@@ -383,9 +383,9 @@ function clearSearch() {
 
         {/* Header */}
         <div style={{ marginBottom: 24 }}>
-          <p style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 2, marginBottom: 6 }}>SEARCH</p>
-          <h1 style={{ fontSize: 26, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px', marginBottom: 6, lineHeight: 1.1 }}>
-            Find a card
+          <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--gold)', marginBottom: 4, textTransform: 'uppercase' }}>Search</p>
+          <h1 style={{ fontSize: 26, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.5px', marginBottom: 4, lineHeight: 1.1 }}>
+            Card Search
           </h1>
           <p style={{ fontSize: 13, color: 'var(--ink3)', lineHeight: 1.5 }}>
             Type a name or add a number — e.g. <em style={{ color: 'var(--ink2)' }}>Charizard ex 6</em>
@@ -394,10 +394,10 @@ function clearSearch() {
 
         {/* Search input */}
         <div style={{ position: 'relative', marginBottom: 8 }}>
-          <div style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', zIndex: 1 }}>
+          <div style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', zIndex: 1 }}>
             {loading
-              ? <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--ink3)" strokeWidth="2" strokeLinecap="round" style={{ animation: 'srch-spin 0.7s linear infinite', display: 'block' }}><path d="M8 1a7 7 0 1 0 7 7"/></svg>
-              : <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--ink3)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}><circle cx="6.5" cy="6.5" r="4.5"/><path d="M14 14l-3-3"/></svg>
+              ? <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="var(--ink3)" strokeWidth="2" strokeLinecap="round" style={{ animation: 'srch-spin 0.7s linear infinite', display: 'block' }}><path d="M8 1a7 7 0 1 0 7 7"/></svg>
+              : <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="var(--ink3)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}><circle cx="6.5" cy="6.5" r="4.5"/><path d="M14 14l-3-3"/></svg>
             }
           </div>
           <input
@@ -414,8 +414,8 @@ function clearSearch() {
             placeholder="Pikachu · Charizard 4 · 199 Charizard ex · #17 Umbreon"
             autoFocus={!isMobile}
             style={{
-              width: '100%', padding: '15px 48px 15px 42px',
-              borderRadius: 14, background: 'var(--surface)',
+              width: '100%', padding: '18px 52px 18px 48px',
+              borderRadius: 12, background: 'var(--surface)',
               border: '1.5px solid var(--border2)', color: 'var(--ink)',
               fontSize: 16, outline: 'none', boxSizing: 'border-box',
               WebkitAppearance: 'none', appearance: 'none',
@@ -429,7 +429,7 @@ function clearSearch() {
               onClick={clearSearch}
               style={{
                 position: 'absolute', right: 0, top: 0, bottom: 0,
-                width: 48, background: 'none', border: 'none',
+                width: 52, background: 'none', border: 'none',
                 color: 'var(--ink3)', cursor: 'pointer', fontSize: 20,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}
@@ -667,6 +667,10 @@ function clearSearch() {
 
       <style>{`
         @keyframes srch-spin { to { transform: rotate(360deg); } }
+        @media (min-width: 641px) {
+          body.has-sidebar main { padding-top: 0 !important; }
+          body.has-sidebar main > * { padding-top: 48px; }
+        }
 
 /* Grade grid: 5-col desktop → 3-col mobile */
         .srch-grade-grid {

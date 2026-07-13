@@ -382,6 +382,10 @@ export default function Watchlist() {
           .wl-header > span { display: none !important; }
           .wl-header::before { content: 'CARD'; font-size: 10px; color: var(--ink3); letter-spacing: 1px; text-transform: uppercase; }
           .wl-header::after  { content: 'PRICE / CHANGE'; font-size: 10px; color: var(--ink3); letter-spacing: 1px; text-transform: uppercase; grid-column: 2; text-align: right; }
+          .wl-two-col { grid-template-columns: 1fr !important; }
+        }
+        @media (min-width: 641px) {
+          body.has-sidebar main { padding-top: 0 !important; }
         }
       `}</style>
 
@@ -419,8 +423,8 @@ export default function Watchlist() {
           {/* Header */}
           <div className="fade-up-1" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 32, flexWrap: 'wrap', gap: 12 }}>
             <div>
-              <p style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.22em', color: 'var(--gold)', marginBottom: 8, textTransform: 'uppercase' }}>Watchlist</p>
-              <h1 style={{ fontSize: 32, fontWeight: 900, color: 'var(--ink)', letterSpacing: '-1px' }}>My Cards</h1>
+              <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--gold)', marginBottom: 4, textTransform: 'uppercase' }}>Watchlist</p>
+              <h1 style={{ fontSize: 26, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.5px', margin: 0 }}>My Cards</h1>
             </div>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
               {userTier === 'pro' ? (
@@ -501,86 +505,145 @@ export default function Watchlist() {
               {wlTab === 'overview' && (() => {
                 const pricedItems = items.filter(i => i.priceData)
                 const totalValue  = pricedItems.reduce((s, i) => s + (i.priceData?.price ?? 0), 0)
-                const gainers = [...pricedItems].sort((a, b) => (b.priceData?.price_change_pct ?? 0) - (a.priceData?.price_change_pct ?? 0)).slice(0, 3)
-                const losers  = [...pricedItems].sort((a, b) => (a.priceData?.price_change_pct ?? 0) - (b.priceData?.price_change_pct ?? 0)).slice(0, 3).filter(i => (i.priceData?.price_change_pct ?? 0) < 0)
+                const gainers = [...pricedItems].sort((a, b) => (b.priceData?.price_change_pct ?? 0) - (a.priceData?.price_change_pct ?? 0)).filter(i => (i.priceData?.price_change_pct ?? 0) > 0).slice(0, 4)
+                const losers  = [...pricedItems].sort((a, b) => (a.priceData?.price_change_pct ?? 0) - (b.priceData?.price_change_pct ?? 0)).filter(i => (i.priceData?.price_change_pct ?? 0) < 0).slice(0, 4)
                 return (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                    {/* Summary strip */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+                    {/* Summary stats — large numbers */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, background: 'var(--border)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
                       {[
-                        { label: 'Cards Watched', value: items.length, color: 'var(--ink)' },
-                        { label: 'Rising Today',  value: rising,       color: 'var(--green)' },
-                        { label: 'Falling Today', value: falling,      color: 'var(--red)' },
-                      ].map(s => (
-                        <div key={s.label} style={{ borderRadius: 12, padding: '16px 18px', background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                          <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.22em', color: 'var(--ink3)', marginBottom: 6, textTransform: 'uppercase' }}>{s.label}</div>
-                          <div className="font-num" style={{ fontSize: 22, fontWeight: 900, color: s.color, letterSpacing: '-0.5px' }}>{s.value}</div>
+                        { label: 'Watching', value: items.length, color: 'var(--ink)' },
+                        { label: 'Rising Today', value: rising, color: 'var(--green)' },
+                      ].map((s, i) => (
+                        <div key={i} style={{ background: 'var(--surface)', padding: '20px 24px' }}>
+                          <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 8 }}>{s.label}</div>
+                          <div className="font-num" style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-1px', color: s.color, lineHeight: 1 }}>{s.value}</div>
+                          {i === 1 && falling > 0 && <div style={{ fontSize: 10, color: 'var(--red)', marginTop: 4 }}>{falling} falling</div>}
+                          {i === 0 && totalValue > 0 && <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 4 }}>{fmtCurrency(totalValue)} total value</div>}
                         </div>
                       ))}
                     </div>
 
-                    {/* Total Value */}
-                    {totalValue > 0 && (
-                      <div style={{ borderRadius: 12, padding: '16px 18px', background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                        <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.22em', color: 'var(--ink3)', marginBottom: 6, textTransform: 'uppercase' }}>Watchlist Value</div>
-                        <div className="font-num" style={{ fontSize: 24, fontWeight: 900, color: 'var(--ink)', letterSpacing: '-0.5px' }}>{fmtCurrency(totalValue)}</div>
-                        <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 4 }}>across {pricedItems.length} priced cards</div>
-                      </div>
-                    )}
-
-                    {/* Top Gainers */}
-                    {gainers.length > 0 && (
-                      <div style={{ borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border)', overflow: 'hidden' }}>
-                        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)' }} />
-                          <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.22em', color: 'var(--green)' }}>TOP GAINERS</span>
+                    {/* Two-col: Top Movers + Watchlists */}
+                    <div className="wl-two-col" style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: 16 }}>
+                      {/* Top Movers card */}
+                      <div style={{ borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden' }}>
+                        <div style={{ padding: '12px 16px 11px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink3)' }}>Top Movers Today</span>
+                          <button onClick={() => setWlTab('cards')} style={{ fontSize: 11, fontWeight: 600, color: 'var(--gold)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>All cards →</button>
                         </div>
-                        {gainers.map((item, i) => {
-                          const pct = item.priceData?.price_change_pct ?? 0
-                          const cardParams = new URLSearchParams({ name: item.card_name, grade: item.grade })
-                          if (item.set_name) cardParams.set('set', item.set_name)
-                          return (
-                            <Link key={item.id} href={`/card/${item.card_id}?${cardParams}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: i < gainers.length - 1 ? '1px solid var(--border)' : 'none', textDecoration: 'none', transition: 'background 0.15s' }}
-                              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+                          {/* Gainers */}
+                          <div style={{ borderRight: '1px solid var(--border)' }}>
+                            <div style={{ padding: '9px 14px 8px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)', flexShrink: 0 }} />
+                              <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--green)' }}>Gainers</span>
+                            </div>
+                            {gainers.length > 0 ? gainers.map((item, i) => {
+                              const pct = item.priceData?.price_change_pct ?? 0
+                              const cardParams = new URLSearchParams({ name: item.card_name, grade: item.grade })
+                              if (item.set_name) cardParams.set('set', item.set_name)
+                              return (
+                                <Link key={item.id} href={`/card/${item.card_id}?${cardParams}`}
+                                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: i < gainers.length - 1 ? '1px solid var(--border)' : 'none', textDecoration: 'none', background: 'transparent', transition: 'background 0.12s' }}
+                                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--hover-subtle)')}
+                                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                                >
+                                  <div style={{ width: 30, height: 42, borderRadius: 4, background: 'linear-gradient(135deg, var(--surface2) 0%, rgba(61,232,138,0.1) 100%)', border: '1px solid var(--border)', flexShrink: 0, overflow: 'hidden' }}>
+                                    {item.image_url && <img src={tcgImg(item.image_url)} alt={item.card_name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />}
+                                  </div>
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.card_name}</div>
+                                    <div style={{ fontSize: 10, color: 'var(--green)', marginTop: 2, fontWeight: 700 }}>+{pct.toFixed(1)}%</div>
+                                  </div>
+                                  {item.priceData && <div className="font-num" style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink)', flexShrink: 0 }}>{fmtCurrency(item.priceData.price)}</div>}
+                                </Link>
+                              )
+                            }) : (
+                              <div style={{ padding: '24px 14px', textAlign: 'center' as const }}>
+                                <div style={{ fontSize: 11, color: 'var(--ink3)' }}>No gainers today</div>
+                              </div>
+                            )}
+                          </div>
+                          {/* Losers */}
+                          <div>
+                            <div style={{ padding: '9px 14px 8px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--red)', flexShrink: 0 }} />
+                              <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--red)' }}>Losers</span>
+                            </div>
+                            {losers.length > 0 ? losers.map((item, i) => {
+                              const pct = item.priceData?.price_change_pct ?? 0
+                              const cardParams = new URLSearchParams({ name: item.card_name, grade: item.grade })
+                              if (item.set_name) cardParams.set('set', item.set_name)
+                              return (
+                                <Link key={item.id} href={`/card/${item.card_id}?${cardParams}`}
+                                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: i < losers.length - 1 ? '1px solid var(--border)' : 'none', textDecoration: 'none', background: 'transparent', transition: 'background 0.12s' }}
+                                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--hover-subtle)')}
+                                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                                >
+                                  <div style={{ width: 30, height: 42, borderRadius: 4, background: 'linear-gradient(135deg, var(--surface2) 0%, rgba(232,82,74,0.1) 100%)', border: '1px solid var(--border)', flexShrink: 0, overflow: 'hidden' }}>
+                                    {item.image_url && <img src={tcgImg(item.image_url)} alt={item.card_name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />}
+                                  </div>
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.card_name}</div>
+                                    <div style={{ fontSize: 10, color: 'var(--red)', marginTop: 2, fontWeight: 700 }}>{pct.toFixed(1)}%</div>
+                                  </div>
+                                  {item.priceData && <div className="font-num" style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink)', flexShrink: 0 }}>{fmtCurrency(item.priceData.price)}</div>}
+                                </Link>
+                              )
+                            }) : (
+                              <div style={{ padding: '24px 14px', textAlign: 'center' as const }}>
+                                <div style={{ fontSize: 11, color: 'var(--ink3)' }}>No losers today</div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Watchlists sidebar */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        {/* My Watchlists */}
+                        <div style={{ borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden' }}>
+                          <div style={{ padding: '12px 16px 11px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink3)' }}>My Watchlists</span>
+                            {userTier === 'pro' && <button onClick={() => setShowNewGroup(true)} style={{ fontSize: 11, fontWeight: 600, color: 'var(--gold)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>+ New</button>}
+                          </div>
+                          {groups.length > 0 ? groups.map((g, i) => (
+                            <button key={g.id} onClick={() => { setActiveGroupId(g.id); setWlTab('cards') }}
+                              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 16px', borderBottom: i < groups.length - 1 ? '1px solid var(--border)' : 'none', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left' as const, transition: 'background 0.12s' }}
+                              onMouseEnter={e => (e.currentTarget.style.background = 'var(--hover-subtle)')}
                               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                             >
                               <div>
-                                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{item.card_name}</div>
-                                <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>{item.grade}</div>
+                                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>{g.name}</div>
                               </div>
-                              <span className="font-num" style={{ fontSize: 13, fontWeight: 700, color: 'var(--green)' }}>+{pct.toFixed(1)}%</span>
-                            </Link>
-                          )
-                        })}
-                      </div>
-                    )}
-
-                    {/* Top Losers */}
-                    {losers.length > 0 && (
-                      <div style={{ borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border)', overflow: 'hidden' }}>
-                        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--red)' }} />
-                          <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.22em', color: 'var(--red)' }}>TOP LOSERS</span>
-                        </div>
-                        {losers.map((item, i) => {
-                          const pct = item.priceData?.price_change_pct ?? 0
-                          const cardParams = new URLSearchParams({ name: item.card_name, grade: item.grade })
-                          if (item.set_name) cardParams.set('set', item.set_name)
-                          return (
-                            <Link key={item.id} href={`/card/${item.card_id}?${cardParams}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: i < losers.length - 1 ? '1px solid var(--border)' : 'none', textDecoration: 'none', transition: 'background 0.15s' }}
-                              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
-                              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                            >
+                              <div style={{ fontSize: 14, color: 'var(--ink3)' }}>›</div>
+                            </button>
+                          )) : (
+                            /* Default: show all items */
+                            <div style={{ padding: '11px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                               <div>
-                                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{item.card_name}</div>
-                                <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>{item.grade}</div>
+                                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>All Cards</div>
+                                <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>{items.length} cards</div>
                               </div>
-                              <span className="font-num" style={{ fontSize: 13, fontWeight: 700, color: 'var(--red)' }}>{pct.toFixed(1)}%</span>
-                            </Link>
-                          )
-                        })}
+                              <div style={{ fontSize: 14, color: 'var(--ink3)' }}>›</div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Quick add */}
+                        <div style={{ borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border2)', padding: '14px 16px' }}>
+                          <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink3)', marginBottom: 10 }}>Quick Add</div>
+                          <Link href="/search" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 8, background: 'var(--bg)', border: '1px solid var(--border)', textDecoration: 'none', transition: 'border-color 0.12s' }}
+                            onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--gold)')}
+                            onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
+                          >
+                            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--ink3)" strokeWidth="1.6"><circle cx="7" cy="7" r="5"/><line x1="11" y1="11" x2="14.5" y2="14.5"/></svg>
+                            <span style={{ fontSize: 12, color: 'var(--ink3)' }}>Search for a card…</span>
+                          </Link>
+                        </div>
                       </div>
-                    )}
+                    </div>
                   </div>
                 )
               })()}

@@ -1164,18 +1164,25 @@ export default function PortfolioPage() {
           .pf-show-mobile-flex { display: flex !important; }
           .pf-row { padding: 12px 14px; min-height: 56px; }
           .pf-header { padding: 8px 14px; }
-          .pf-stats-bar { grid-template-columns: repeat(2, 1fr) !important; }
+          .pf-stat-grid { grid-template-columns: repeat(2, 1fr) !important; }
+        }
+        @media (min-width: 641px) {
+          body.has-sidebar main { padding-top: 0 !important; }
         }
       `}</style>
 
       <main style={{ paddingTop: 72, paddingBottom: 96, minHeight: '100vh' }}>
+
+        {/* Page header — desktop only, hidden on mobile */}
+        <div className="pf-page-header" style={{ display: 'none' }} />
+
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '48px 16px 0' }}>
 
           {/* ── Header ── */}
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 12 }}>
             <div>
-              <p style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.22em', color: 'var(--gold)', marginBottom: 8, textTransform: 'uppercase' }}>Portfolio</p>
-              <h1 style={{ fontSize: 32, fontWeight: 900, color: 'var(--ink)', letterSpacing: '-1px' }}>My Collection</h1>
+              <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--gold)', marginBottom: 4, textTransform: 'uppercase' }}>Portfolio</p>
+              <h1 style={{ fontSize: 26, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.5px', margin: 0 }}>My Cards</h1>
             </div>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
               <button
@@ -1334,29 +1341,21 @@ export default function PortfolioPage() {
           {pfTab !== 'history' && (
           <>
 
-          {/* ── Stats bar ── */}
-          <div className="pf-stats-bar" style={{ display: 'grid', gridTemplateColumns: `repeat(${soldPositions.length > 0 ? 5 : 4}, 1fr)`, gap: 10, marginBottom: 24 }}>
-            {[
+          {/* ── Stat grid ── */}
+          {(() => {
+            const statCells = [
               {
-                label: 'Market Value',
+                label: 'Total Value',
                 value: withData.length > 0 ? fmtCurrency(totalValueUSD) : '—',
                 sub: withData.length > 0
-                  ? `${openPositions.length} open${!allPriced ? ` · ${withData.length}/${openPositions.length} priced` : ''}`
+                  ? `${openPositions.length} position${openPositions.length !== 1 ? 's' : ''}${!allPriced ? ` · ${withData.length}/${openPositions.length} priced` : ''}`
                   : openPositions.length === 0 ? 'no open positions' : 'loading prices…',
                 color: withData.length > 0 ? 'var(--ink)' : 'var(--ink3)',
               },
               {
-                label: 'Cost Basis',
-                value: fmtCurrency(totalCostUSD),
-                sub: 'open positions',
-                color: 'var(--ink)',
-              },
-              {
                 label: 'Unrealized P&L',
                 value: withData.length > 0 ? fmtSigned(fmtCurrency, totalPLUSD) : '—',
-                sub: withData.length > 0
-                  ? `${pctSign(totalPLPct)}${totalPLPct.toFixed(1)}%${allPriced ? ' overall' : ` on ${withData.length}/${openPositions.length}`}`
-                  : 'loading prices…',
+                sub: withData.length > 0 ? `${pctSign(totalPLPct)}${totalPLPct.toFixed(1)}%${allPriced ? '' : ` · ${withData.length}/${openPositions.length}`}` : 'loading prices…',
                 color: withData.length > 0 ? (totalPLUSD >= 0 ? 'var(--green)' : 'var(--red)') : 'var(--ink3)',
               },
               {
@@ -1365,22 +1364,65 @@ export default function PortfolioPage() {
                 sub: '24h change',
                 color: withData.length > 0 ? (dayGainUSD >= 0 ? 'var(--green)' : 'var(--red)') : 'var(--ink3)',
               },
-              ...(soldPositions.length > 0 ? [{
+              {
                 label: 'Realized P&L',
-                value: fmtSigned(fmtCurrency, realizedPLUSD),
-                sub: `${soldPositions.length} sold position${soldPositions.length !== 1 ? 's' : ''}`,
-                color: realizedPLUSD >= 0 ? 'var(--green)' : 'var(--red)',
-              }] : []),
-            ].map((s, i) => (
-              <div key={i} style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
-                <div style={{ fontSize: 9, fontWeight: 600, color: 'var(--ink3)', letterSpacing: '0.22em', marginBottom: 8, textTransform: 'uppercase' }}>{s.label}</div>
-                <div className="font-num" style={{ fontSize: 22, fontWeight: 900, color: s.color, letterSpacing: '-0.5px', lineHeight: 1.1 }}>{s.value}</div>
-                <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 5 }}>{s.sub}</div>
+                value: soldPositions.length > 0 ? fmtSigned(fmtCurrency, realizedPLUSD) : '—',
+                sub: soldPositions.length > 0 ? `${soldPositions.length} sold position${soldPositions.length !== 1 ? 's' : ''}` : 'no closed positions',
+                color: soldPositions.length > 0 ? (realizedPLUSD >= 0 ? 'var(--green)' : 'var(--red)') : 'var(--ink3)',
+              },
+            ]
+            return (
+              <div className="pf-stat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, background: 'var(--border)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', marginBottom: 16 }}>
+                {statCells.map((s, i) => (
+                  <div key={i} style={{ background: 'var(--surface)', padding: '18px 20px' }}>
+                    <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 8 }}>{s.label}</div>
+                    <div className="font-num" style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.5px', color: s.color, lineHeight: 1, marginBottom: 4 }}>{s.value}</div>
+                    <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 4 }}>{s.sub}</div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            )
+          })()}
 
-          {/* ── Best/Worst Performers (Overview tab) ── */}
+          {/* ── Invested vs Current (overview tab) ── */}
+          {pfTab === 'overview' && withData.length > 0 && (() => {
+            const invested = totalCostUSD
+            const current  = totalValueUSD
+            const pl       = totalPLUSD
+            const plPct    = totalPLPct
+            const maxVal   = Math.max(invested, current)
+            const barPct   = maxVal > 0 ? (Math.min(invested, current) / maxVal) * 100 : 0
+            const isUp     = pl >= 0
+            return (
+              <div style={{ borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border2)', padding: '18px 20px', marginBottom: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink2)' }}>Invested vs Current Value</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 99, color: isUp ? 'var(--green)' : 'var(--red)', background: isUp ? 'rgba(61,232,138,0.1)' : 'rgba(232,82,74,0.1)', border: `1px solid ${isUp ? 'rgba(61,232,138,0.3)' : 'rgba(232,82,74,0.3)'}` }}>
+                    {isUp ? '+' : ''}{plPct.toFixed(1)}%
+                  </span>
+                </div>
+                <div style={{ height: 6, borderRadius: 3, background: 'var(--surface2)', overflow: 'hidden', marginBottom: 14 }}>
+                  <div style={{ height: '100%', width: `${barPct}%`, borderRadius: 3, background: isUp ? 'var(--green)' : 'var(--red)', transition: 'width 0.6s ease' }} />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr' }}>
+                  <div>
+                    <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 4 }}>Invested</div>
+                    <div className="font-num" style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>{fmtCurrency(invested)}</div>
+                  </div>
+                  <div style={{ textAlign: 'center' as const }}>
+                    <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 4 }}>P&amp;L</div>
+                    <div className="font-num" style={{ fontSize: 15, fontWeight: 700, color: isUp ? 'var(--green)' : 'var(--red)' }}>{fmtSigned(fmtCurrency, pl)}</div>
+                  </div>
+                  <div style={{ textAlign: 'right' as const }}>
+                    <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 4 }}>Current</div>
+                    <div className="font-num" style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>{fmtCurrency(current)}</div>
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* ── Portfolio Health + Top Performers (Overview tab) ── */}
           {pfTab === 'overview' && withData.length > 0 && (() => {
             const sorted = [...withData].sort((a, b) => {
               const ap = a.priceData!, bp = b.priceData!
@@ -1388,23 +1430,126 @@ export default function PortfolioPage() {
             })
             const best  = sorted[0]
             const worst = sorted[sorted.length - 1]
+            const winners = withData.filter(p => p.priceData && p.priceData.price >= p.purchase_price).length
+            const losers  = withData.length - winners
+            const winRate = withData.length > 0 ? (winners / withData.length) * 100 : 0
+            const uniqueSets  = new Set(openPositions.map(p => p.set_name).filter(Boolean)).size
+            const gradedCount = openPositions.filter(p => /^(PSA|BGS|CGC|ACE)\s/.test(p.grade)).length
+            const avgPlPct = withData.length > 0
+              ? withData.reduce((sum, p) => sum + ((p.priceData!.price - p.purchase_price) / p.purchase_price) * 100, 0) / withData.length
+              : 0
             return (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-                {[{ label: 'Best Performer', pos: best, up: true }, { label: 'Worst Performer', pos: worst, up: false }].map(({ label, pos, up }) => {
-                  if (!pos?.priceData) return null
-                  const pct = ((pos.priceData.price - pos.purchase_price) / pos.purchase_price) * 100
-                  const isActuallyUp = pct >= 0
-                  return (
-                    <div key={label} style={{ borderRadius: 12, padding: '14px 16px', background: 'var(--surface)', border: `1px solid ${isActuallyUp ? 'rgba(61,232,138,0.2)' : 'rgba(232,82,74,0.2)'}` }}>
-                      <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.22em', color: 'var(--ink3)', marginBottom: 6, textTransform: 'uppercase' }}>{label}</div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pos.card_name}</div>
-                      <div style={{ fontSize: 10, color: 'var(--ink3)', marginBottom: 4 }}>{pos.grade}</div>
-                      <div className="font-num" style={{ fontSize: 16, fontWeight: 900, color: isActuallyUp ? 'var(--green)' : 'var(--red)' }}>
-                        {isActuallyUp ? '+' : ''}{pct.toFixed(1)}%
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 3fr', gap: 16, marginBottom: 16 }}>
+                {/* Portfolio Health card */}
+                <div style={{ borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden' }}>
+                  <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink3)' }}>Portfolio Health</span>
+                    <span style={{ fontSize: 11, color: 'var(--ink3)' }}>{openPositions.length} positions</span>
+                  </div>
+                  {/* Cards / Sets / Graded */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', borderBottom: '1px solid var(--border)' }}>
+                    {[
+                      { num: openPositions.length, label: 'Cards' },
+                      { num: uniqueSets, label: 'Sets' },
+                      { num: gradedCount, label: 'Graded', gold: true },
+                    ].map((h, i) => (
+                      <div key={i} style={{ padding: '14px 12px', borderRight: i < 2 ? '1px solid var(--border)' : 'none', textAlign: 'center' as const }}>
+                        <div style={{ fontSize: 22, fontWeight: 800, color: h.gold ? 'var(--gold)' : 'var(--ink)', lineHeight: 1, marginBottom: 4 }}>{h.num}</div>
+                        <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', color: 'var(--ink3)', textTransform: 'uppercase' }}>{h.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* P&L box */}
+                  <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 4 }}>Total P&amp;L</div>
+                      <div className="font-num" style={{ fontSize: 16, fontWeight: 700, color: totalPLUSD >= 0 ? 'var(--green)' : 'var(--red)' }}>{fmtSigned(fmtCurrency, totalPLUSD)}</div>
+                    </div>
+                    <div style={{ textAlign: 'right' as const }}>
+                      <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 4 }}>Return</div>
+                      <div className="font-num" style={{ fontSize: 16, fontWeight: 700, color: totalPLUSD >= 0 ? 'var(--green)' : 'var(--red)' }}>{pctSign(totalPLPct)}{totalPLPct.toFixed(1)}%</div>
+                    </div>
+                  </div>
+                  {/* Win rate */}
+                  <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <div>
+                        <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 3 }}>Win Rate</div>
+                        <div className="font-num" style={{ fontSize: 16, fontWeight: 800, color: 'var(--ink)' }}>{winRate.toFixed(0)}%</div>
+                        <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>{winners}W · {losers}L</div>
+                      </div>
+                      <div style={{ textAlign: 'right' as const }}>
+                        <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 3 }}>Avg P&amp;L</div>
+                        <div className="font-num" style={{ fontSize: 16, fontWeight: 800, color: avgPlPct >= 0 ? 'var(--green)' : 'var(--red)' }}>{pctSign(avgPlPct)}{avgPlPct.toFixed(1)}%</div>
+                        <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>per position</div>
                       </div>
                     </div>
-                  )
-                })}
+                    <div style={{ height: 4, borderRadius: 2, background: 'var(--surface2)', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${winRate}%`, borderRadius: 2, background: 'var(--green)' }} />
+                    </div>
+                  </div>
+                  {/* Best / Worst */}
+                  {best?.priceData && (() => {
+                    const bestPct  = ((best.priceData.price - best.purchase_price) / best.purchase_price) * 100
+                    const worstPct = worst?.priceData ? ((worst.priceData.price - worst.purchase_price) / worst.purchase_price) * 100 : null
+                    return (
+                      <>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', borderBottom: '1px solid var(--border)' }}>
+                          <div style={{ width: 4, height: 28, borderRadius: 2, background: 'var(--green)', flexShrink: 0 }} />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', color: 'var(--ink3)', textTransform: 'uppercase' }}>Best</div>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{best.card_name}</div>
+                          </div>
+                          <div className="font-num" style={{ fontSize: 12, fontWeight: 700, color: 'var(--green)', flexShrink: 0 }}>+{bestPct.toFixed(1)}%</div>
+                        </div>
+                        {worst?.priceData && worstPct != null && worst.id !== best.id && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px' }}>
+                            <div style={{ width: 4, height: 28, borderRadius: 2, background: 'var(--red)', flexShrink: 0 }} />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', color: 'var(--ink3)', textTransform: 'uppercase' }}>Worst</div>
+                              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{worst.card_name}</div>
+                            </div>
+                            <div className="font-num" style={{ fontSize: 12, fontWeight: 700, color: 'var(--red)', flexShrink: 0 }}>{worstPct.toFixed(1)}%</div>
+                          </div>
+                        )}
+                      </>
+                    )
+                  })()}
+                </div>
+
+                {/* Top Performers card */}
+                <div style={{ borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden' }}>
+                  <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink3)' }}>Top Performers</span>
+                    <button onClick={() => setPfTab('positions')} style={{ fontSize: 11, fontWeight: 600, color: 'var(--gold)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>View all →</button>
+                  </div>
+                  {sorted.slice(0, 6).map((pos, i) => {
+                    if (!pos.priceData) return null
+                    const pct = ((pos.priceData.price - pos.purchase_price) / pos.purchase_price) * 100
+                    const isUp = pct >= 0
+                    const params = new URLSearchParams({ name: pos.card_name, grade: pos.grade })
+                    if (pos.set_name) params.set('set', pos.set_name)
+                    return (
+                      <Link key={pos.id} href={`/card/${pos.card_id}?${params}`}
+                        style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 16px', borderBottom: i < Math.min(sorted.length, 6) - 1 ? '1px solid var(--border)' : 'none', textDecoration: 'none', background: 'transparent', transition: 'background 0.12s' }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--hover-subtle)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <div style={{ width: 32, height: 44, borderRadius: 4, background: `linear-gradient(135deg, var(--surface2) 0%, rgba(${isUp ? '61,232,138' : '232,82,74'},0.1) 100%)`, border: '1px solid var(--border)', flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {pos.image_url && <img src={tcgImg(pos.image_url)} alt={pos.card_name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pos.card_name}</div>
+                          <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>{pos.grade}{pos.set_name ? ` · ${pos.set_name}` : ''}</div>
+                        </div>
+                        <div style={{ textAlign: 'right' as const, flexShrink: 0 }}>
+                          <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{fmtCurrency(pos.priceData.price)}</div>
+                          <div className="font-num" style={{ fontSize: 11, fontWeight: 700, color: isUp ? 'var(--green)' : 'var(--red)', marginTop: 2 }}>{isUp ? '+' : ''}{pct.toFixed(1)}%</div>
+                        </div>
+                      </Link>
+                    )
+                  })}
+                </div>
               </div>
             )
           })()}

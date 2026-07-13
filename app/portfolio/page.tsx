@@ -92,15 +92,15 @@ function SkeletonRow({ last }: { last: boolean }) {
   return (
     <div className="pf-row" style={{ borderBottom: last ? 'none' : '1px solid var(--border)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{ width: 40, height: 40, flexShrink: 0 }} className="skeleton" />
+        <div style={{ width: 38, height: 38, borderRadius: 8, flexShrink: 0 }} className="skeleton" />
         <div>
           <div style={{ width: 120, marginBottom: 6 }} className="skeleton skeleton-text" />
           <div style={{ width: 75 }} className="skeleton skeleton-text" />
         </div>
       </div>
-      {/* 8 placeholder cells for cols 2–9 */}
-      {[70, 70, 32, 68, 44, 44, 44, 48].map((w, i) => (
-        <div key={i} style={{ display: 'flex', justifyContent: 'flex-end' }}>
+      {/* placeholder cells for cols 2–7 */}
+      {[38, 68, 68, 68, 56, 20].map((w, i) => (
+        <div key={i} style={{ display: 'flex', justifyContent: 'center' }}>
           <div style={{ width: w }} className="skeleton skeleton-text" />
         </div>
       ))}
@@ -545,6 +545,29 @@ function ChangePill({ value }: { value: number | null }) {
       {pctSign(value)}{value.toFixed(1)}%
     </span>
   )
+}
+
+// ── Score ring ────────────────────────────────────────────────────────────────
+
+function ScoreRing({ score }: { score: number }) {
+  const offset = (1 - score / 100) * 94.25
+  const color = score >= 75 ? 'var(--green)' : score >= 50 ? 'var(--gold)' : 'var(--red)'
+  return (
+    <div style={{ width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', flexShrink: 0 }}>
+      <svg width="38" height="38" style={{ position: 'absolute', top: 0, left: 0, transform: 'rotate(-90deg)' }}>
+        <circle cx="19" cy="19" r="15" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="3" />
+        <circle cx="19" cy="19" r="15" fill="none" stroke={color} strokeWidth="3"
+          strokeDasharray="94.25" strokeDashoffset={offset} strokeLinecap="round" />
+      </svg>
+      <span style={{ position: 'relative', zIndex: 1, fontSize: 11, fontWeight: 700, color }}>{score}</span>
+    </div>
+  )
+}
+
+function verdictBadge(score: number) {
+  if (score >= 75) return <span className="badge badge-buy">BUY</span>
+  if (score >= 50) return <span className="badge badge-hold">HOLD</span>
+  return <span className="badge badge-sell">SELL</span>
 }
 
 // ── Portfolio Chart helpers ───────────────────────────────────────────────────
@@ -1134,13 +1157,13 @@ export default function PortfolioPage() {
         .sk-pulse { animation: sk-pulse 1.6s ease-in-out infinite; }
         .pf-row, .pf-header {
           display: grid;
-          grid-template-columns: minmax(180px,1fr) 110px 110px 70px 110px 72px 72px 72px 80px;
+          grid-template-columns: minmax(180px,1fr) 70px 110px 110px 110px 90px 40px;
           align-items: center;
           padding: 0 20px;
           gap: 8px;
         }
         .pf-header { padding: 10px 20px; }
-        .pf-row    { padding: 13px 20px; min-height: 64px; }
+        .pf-row    { padding: 14px 20px; min-height: 64px; }
         .pf-hide-mobile { display: block; }
         .pf-show-mobile { display: none; }
         .pf-act-btn {
@@ -1152,11 +1175,17 @@ export default function PortfolioPage() {
         }
         .pf-act-btn:hover { border-color: var(--gold); color: var(--gold); }
         .pf-act-btn.del:hover { border-color: var(--red); color: var(--red); }
-        .pf-del-btn { display: inline-flex; }
-        @media (max-width: 760px) { .pf-del-btn { display: none !important; } }
+        .badge {
+          display: inline-flex; align-items: center;
+          padding: 4px 10px; border-radius: 6px;
+          font-size: 11.5px; font-weight: 700; letter-spacing: 0.02em;
+        }
+        .badge-buy  { background: rgba(74,222,128,.12); color: #4ade80; border: 1px solid rgba(74,222,128,.3); }
+        .badge-hold { background: rgba(232,185,35,.12);  color: #e8b923; border: 1px solid rgba(232,185,35,.3); }
+        .badge-sell { background: rgba(248,113,113,.12); color: #f87171; border: 1px solid rgba(248,113,113,.3); }
         @media (max-width: 760px) {
           .pf-row, .pf-header {
-            grid-template-columns: 1fr 72px 56px 48px;
+            grid-template-columns: 1fr 100px 40px;
             gap: 4px;
           }
           .pf-hide-mobile { display: none !important; }
@@ -1181,8 +1210,8 @@ export default function PortfolioPage() {
           {/* ── Header ── */}
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 12 }}>
             <div>
-              <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--gold)', marginBottom: 4, textTransform: 'uppercase' }}>Portfolio</p>
-              <h1 style={{ fontSize: 26, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.5px', margin: 0 }}>My Cards</h1>
+              <h1 style={{ fontSize: 28, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px', margin: 0, marginBottom: 6 }}>Portfolio</h1>
+              <p style={{ fontSize: 14, color: 'var(--ink3)', margin: 0 }}>Your collection performance at a glance</p>
             </div>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
               <button
@@ -1343,41 +1372,56 @@ export default function PortfolioPage() {
 
           {/* ── Stat grid ── */}
           {(() => {
+            const bestPos = withData.length > 0 ? [...withData].sort((a, b) => {
+              const ap = ((a.priceData!.price - a.purchase_price) / a.purchase_price) * 100
+              const bp = ((b.priceData!.price - b.purchase_price) / b.purchase_price) * 100
+              return bp - ap
+            })[0] : null
+            const bestGainPct = bestPos ? ((bestPos.priceData!.price - bestPos.purchase_price) / bestPos.purchase_price) * 100 : null
+            const bestGainAbs = bestPos ? (bestPos.priceData!.price - bestPos.purchase_price) * bestPos.quantity : null
+            const avgCost = openPositions.length > 0 ? totalCostUSD / openPositions.length : 0
             const statCells = [
               {
                 label: 'Total Value',
                 value: withData.length > 0 ? fmtCurrency(totalValueUSD) : '—',
                 sub: withData.length > 0
-                  ? `${openPositions.length} position${openPositions.length !== 1 ? 's' : ''}${!allPriced ? ` · ${withData.length}/${openPositions.length} priced` : ''}`
-                  : openPositions.length === 0 ? 'no open positions' : 'loading prices…',
+                  ? `${openPositions.length} card${openPositions.length !== 1 ? 's' : ''}${!allPriced ? ` · ${withData.length}/${openPositions.length} priced` : ''}`
+                  : openPositions.length === 0 ? 'no positions yet' : 'loading…',
+                subColor: 'var(--ink3)',
                 color: withData.length > 0 ? 'var(--ink)' : 'var(--ink3)',
               },
               {
-                label: 'Unrealized P&L',
+                label: 'Total Cost',
+                value: openPositions.length > 0 ? fmtCurrency(totalCostUSD) : '—',
+                sub: openPositions.length > 0 ? `avg ${fmtCurrency(avgCost)}` : 'no positions yet',
+                subColor: 'var(--ink3)',
+                color: 'var(--ink)',
+              },
+              {
+                label: 'Unrealised P&L',
                 value: withData.length > 0 ? fmtSigned(fmtCurrency, totalPLUSD) : '—',
-                sub: withData.length > 0 ? `${pctSign(totalPLPct)}${totalPLPct.toFixed(1)}%${allPriced ? '' : ` · ${withData.length}/${openPositions.length}`}` : 'loading prices…',
+                sub: withData.length > 0 ? `${pctSign(totalPLPct)}${totalPLPct.toFixed(1)}%${allPriced ? '' : ` · ${withData.length}/${openPositions.length}`}` : 'loading…',
+                subColor: withData.length > 0 ? (totalPLUSD >= 0 ? 'var(--green)' : 'var(--red)') : 'var(--ink3)',
                 color: withData.length > 0 ? (totalPLUSD >= 0 ? 'var(--green)' : 'var(--red)') : 'var(--ink3)',
               },
               {
-                label: "Today's Gain",
-                value: withData.length > 0 ? fmtSigned(fmtCurrency, dayGainUSD) : '—',
-                sub: '24h change',
-                color: withData.length > 0 ? (dayGainUSD >= 0 ? 'var(--green)' : 'var(--red)') : 'var(--ink3)',
-              },
-              {
-                label: 'Realized P&L',
-                value: soldPositions.length > 0 ? fmtSigned(fmtCurrency, realizedPLUSD) : '—',
-                sub: soldPositions.length > 0 ? `${soldPositions.length} sold position${soldPositions.length !== 1 ? 's' : ''}` : 'no closed positions',
-                color: soldPositions.length > 0 ? (realizedPLUSD >= 0 ? 'var(--green)' : 'var(--red)') : 'var(--ink3)',
+                label: 'Best Performer',
+                value: bestPos ? bestPos.card_name : '—',
+                valueSm: true,
+                sub: bestGainAbs != null && bestGainPct != null
+                  ? `+${fmtCurrency(bestGainAbs)} (+${bestGainPct.toFixed(0)}%)`
+                  : withData.length === 0 ? 'loading…' : 'no data',
+                subColor: bestPos ? 'var(--green)' : 'var(--ink3)',
+                color: 'var(--ink)',
               },
             ]
             return (
-              <div className="pf-stat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, background: 'var(--border)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', marginBottom: 16 }}>
+              <div className="pf-stat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
                 {statCells.map((s, i) => (
-                  <div key={i} style={{ background: 'var(--surface)', padding: '18px 20px' }}>
-                    <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 8 }}>{s.label}</div>
-                    <div className="font-num" style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.5px', color: s.color, lineHeight: 1, marginBottom: 4 }}>{s.value}</div>
-                    <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 4 }}>{s.sub}</div>
+                  <div key={i} style={{ background: 'var(--surface)', border: '1px solid var(--border2)', borderRadius: 14, padding: '18px 20px' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 10 }}>{s.label}</div>
+                    <div className="font-num" style={{ fontSize: s.valueSm ? 18 : 24, fontWeight: 800, letterSpacing: '-0.5px', color: s.color, lineHeight: 1, marginBottom: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.value}</div>
+                    <div style={{ fontSize: 12.5, color: s.subColor ?? 'var(--ink3)', marginTop: 0 }}>{s.sub}</div>
                   </div>
                 ))}
               </div>
@@ -1599,18 +1643,16 @@ export default function PortfolioPage() {
               <div role="button" tabIndex={0} onClick={() => handleSort('name')} onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && handleSort('name')} style={{ cursor: 'pointer', fontSize: 10, letterSpacing: '0.22em', color: sort === 'name' ? 'var(--gold)' : 'var(--ink3)', fontWeight: sort === 'name' ? 700 : 500, display: 'flex', gap: 4, alignItems: 'center' }}>
                 CARD {sort === 'name' && <span style={{ fontSize: 9 }}>{sortDir === 'desc' ? '▼' : '▲'}</span>}
               </div>
-              {/* Mobile-only column labels */}
+              {/* Mobile-only P&L label */}
               <div className="pf-show-mobile" style={{ textAlign: 'right', fontSize: 10, letterSpacing: '0.22em', color: 'var(--ink3)' }}>P&amp;L</div>
-              <div className="pf-show-mobile" style={{ textAlign: 'right', fontSize: 10, letterSpacing: '0.22em', color: 'var(--ink3)' }}>24H</div>
               <div className="pf-show-mobile" />
-              <SortTh label="MKT VALUE" k="current" />
+              {/* Desktop columns */}
+              <div className="pf-hide-mobile" style={{ fontSize: 10, letterSpacing: '0.22em', color: 'var(--ink3)', textAlign: 'center' }}>SCORE</div>
+              <SortTh label="PAID" k="cost" />
+              <SortTh label="VALUE" k="current" />
               <SortTh label="P&amp;L" k="plpct" />
-              <div className="pf-hide-mobile" style={{ textAlign: 'right', fontSize: 10, letterSpacing: '0.22em', color: 'var(--ink3)' }}>QTY</div>
-              <SortTh label="COST/EA" k="cost" />
-              <SortTh label="24H" k="change24h" />
-              <SortTh label="7D" k="change7d" />
-              <SortTh label="30D" k="change30d" />
-              <div className="pf-hide-mobile" />
+              <div className="pf-hide-mobile" style={{ fontSize: 10, letterSpacing: '0.22em', color: 'var(--ink3)' }}>VERDICT</div>
+              <div />
             </div>
 
             {/* Loading skeletons */}
@@ -1658,86 +1700,91 @@ export default function PortfolioPage() {
                   onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.015)')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
-                  {/* Card info */}
+                  {/* Col 1: Card */}
                   <Link href={`/card/${pos.card_id}?${cardParams}`} style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, textDecoration: 'none' }}>
-                    <div style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0 }}>
+                    <div style={{ width: 38, height: 38, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0 }}>
                       {pos.image_url && <img src={tcgImg(pos.image_url)} alt={pos.card_name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 3 }} />}
                     </div>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pos.card_name}</div>
                       <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>
                         {pos.set_name ? `${pos.set_name} · ` : ''}{pos.grade}
-                        {pos.purchased_at && <span style={{ opacity: 0.55 }}> · {new Date(pos.purchased_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })}</span>}
-                      </div>
-                      {/* Current price shown in card cell on mobile */}
-                      <div className="pf-show-mobile" style={{ fontSize: 11, color: 'var(--ink2)', marginTop: 3, fontWeight: 600 }}>
-                        {pd ? fmtCurrency(pd.price) : pos.priceLoading ? '…' : '—'}
-                        {pos.quantity > 1 && pd && <span style={{ color: 'var(--ink3)', fontWeight: 400 }}> × {pos.quantity}</span>}
                       </div>
                     </div>
                   </Link>
 
-                  {/* Current (desktop col 2, hidden on mobile — shown in card cell instead) */}
+                  {/* Col 2: Score ring — desktop only; mobile shows P&L */}
+                  <div className="pf-hide-mobile" style={{ display: 'flex', justifyContent: 'center' }}>
+                    {pos.priceLoading ? (
+                      <div style={{ width: 38, height: 38, borderRadius: '50%' }} className="sk-pulse" />
+                    ) : pd?.score != null ? (
+                      <ScoreRing score={pd.score} />
+                    ) : pos.priceError ? (
+                      <button onClick={() => fetchPrice(pos, true)} style={{ fontSize: 9, color: 'var(--ink3)', background: 'var(--surface2)', border: '1px solid var(--border2)', borderRadius: 4, padding: '2px 7px', cursor: 'pointer' }}>↺</button>
+                    ) : <span style={{ fontSize: 12, color: 'var(--ink3)' }}>—</span>}
+                  </div>
+
+                  {/* Mobile P&L (replaces score on mobile) */}
+                  <div className="pf-show-mobile" style={{ textAlign: 'right' }}>
+                    {pos.priceLoading ? (
+                      <div style={{ width: 56, height: 13, borderRadius: 4, background: 'var(--surface2)', marginLeft: 'auto' }} className="sk-pulse" />
+                    ) : plTotalUSD != null ? (
+                      <>
+                        <div className="font-num" style={{ fontSize: 12, fontWeight: 700, color: isUp ? 'var(--green)' : 'var(--red)' }}>{fmtSigned(fmtCurrency, plTotalUSD)}</div>
+                        <div className="font-num" style={{ fontSize: 10, color: isUp ? 'var(--green)' : 'var(--red)', opacity: 0.8, marginTop: 2 }}>{fmtPct(plPct)}</div>
+                      </>
+                    ) : <span style={{ fontSize: 12, color: 'var(--ink3)' }}>—</span>}
+                  </div>
+
+                  {/* Col 3: Paid — desktop only */}
+                  <div className="pf-hide-mobile" style={{ textAlign: 'right' }}>
+                    <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{fmtCurrency(costUSD)}</div>
+                    {pos.quantity > 1 && <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>× {pos.quantity}</div>}
+                  </div>
+
+                  {/* Col 4: Value — desktop only */}
                   <div className="pf-hide-mobile" style={{ textAlign: 'right' }}>
                     {pos.priceLoading ? (
                       <div style={{ width: 56, height: 13, borderRadius: 4, background: 'var(--surface2)', marginLeft: 'auto' }} className="sk-pulse" />
                     ) : pd ? (
-                      <>
-                        <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{fmtCurrency(pd.price)}</div>
-                        {pos.quantity > 1 && <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>× {pos.quantity}</div>}
-                      </>
-                    ) : pos.priceError ? (
-                      <button onClick={() => fetchPrice(pos, true)} style={{ fontSize: 9, color: 'var(--ink3)', background: 'var(--surface2)', border: '1px solid var(--border2)', borderRadius: 4, padding: '2px 7px', cursor: 'pointer' }}>↺ retry</button>
+                      <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{fmtCurrency(pd.price)}</div>
                     ) : <span style={{ fontSize: 12, color: 'var(--ink3)' }}>—</span>}
                   </div>
 
-                  {/* P&L — shown on mobile too */}
-                  <div style={{ textAlign: 'right' }}>
+                  {/* Col 5: P&L — desktop only */}
+                  <div className="pf-hide-mobile" style={{ textAlign: 'right' }}>
                     {pos.priceLoading ? (
                       <div style={{ width: 60, height: 13, borderRadius: 4, background: 'var(--surface2)', marginLeft: 'auto' }} className="sk-pulse" />
                     ) : plTotalUSD != null ? (
                       <>
-                        <div className="font-num" style={{ fontSize: 12, fontWeight: 700, color: isUp ? 'var(--green)' : 'var(--red)' }}>
-                          {fmtSigned(fmtCurrency, plTotalUSD)}
-                        </div>
-                        <div className="font-num" style={{ fontSize: 10, color: isUp ? 'var(--green)' : 'var(--red)', opacity: 0.8, marginTop: 2 }}>
-                          {fmtPct(plPct)}
-                        </div>
+                        <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: isUp ? 'var(--green)' : 'var(--red)' }}>{fmtSigned(fmtCurrency, plTotalUSD)}</div>
+                        <div className="font-num" style={{ fontSize: 10, color: isUp ? 'var(--green)' : 'var(--red)', opacity: 0.8, marginTop: 2 }}>{fmtPct(plPct)}</div>
                       </>
                     ) : <span style={{ fontSize: 12, color: 'var(--ink3)' }}>—</span>}
                   </div>
 
-                  {/* Qty — desktop only */}
-                  <div className="pf-hide-mobile" style={{ textAlign: 'right' }}>
-                    <span className="font-num" style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{pos.quantity}</span>
+                  {/* Col 6: Verdict badge — desktop only */}
+                  <div className="pf-hide-mobile">
+                    {pos.priceLoading ? (
+                      <div style={{ width: 44, height: 22, borderRadius: 6 }} className="sk-pulse" />
+                    ) : pd?.score != null ? (
+                      verdictBadge(pd.score)
+                    ) : <span style={{ fontSize: 12, color: 'var(--ink3)' }}>—</span>}
                   </div>
 
-                  {/* Cost/card — desktop only */}
-                  <div className="pf-hide-mobile" style={{ textAlign: 'right' }}>
-                    <div className="font-num" style={{ fontSize: 12, color: 'var(--ink2)' }}>
-                      {fmtCurrency(costUSD)}<span style={{ fontSize: 9, fontWeight: 400, color: 'var(--ink3)', marginLeft: 2 }}>avg</span>
-                    </div>
-                  </div>
-
-                  {/* 24h — desktop + mobile */}
-                  <div style={{ textAlign: 'right' }}>
-                    {pos.priceLoading ? <div style={{ width: 40, height: 12, borderRadius: 4, background: 'var(--surface2)', marginLeft: 'auto' }} className="sk-pulse" /> : <ChangePill value={changes?.c24 ?? null} />}
-                  </div>
-
-                  {/* 7d — desktop only */}
-                  <div className="pf-hide-mobile" style={{ textAlign: 'right' }}>
-                    {pos.priceLoading ? <div style={{ width: 40, height: 12, borderRadius: 4, background: 'var(--surface2)', marginLeft: 'auto' }} className="sk-pulse" /> : <ChangePill value={changes?.c7 ?? null} />}
-                  </div>
-
-                  {/* 30d — desktop only */}
-                  <div className="pf-hide-mobile" style={{ textAlign: 'right' }}>
-                    {pos.priceLoading ? <div style={{ width: 40, height: 12, borderRadius: 4, background: 'var(--surface2)', marginLeft: 'auto' }} className="sk-pulse" /> : <ChangePill value={changes?.c30 ?? null} />}
-                  </div>
-
-                  {/* Actions */}
-                  <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end', alignItems: 'center' }}>
-                    <button className="pf-act-btn" onClick={() => setEditPos(pos)} title="Edit position">Edit</button>
-                    <button className="pf-act-btn del pf-del-btn" onClick={e => handleRemove(e, pos.id)} title="Remove position">✕</button>
+                  {/* Col 7: Dots menu */}
+                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                    <button
+                      onClick={() => setEditPos(pos)}
+                      title="Edit position"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink3)', padding: '4px', display: 'flex', alignItems: 'center', transition: 'color 0.15s' }}
+                      onMouseEnter={e => (e.currentTarget.style.color = 'var(--ink)')}
+                      onMouseLeave={e => (e.currentTarget.style.color = 'var(--ink3)')}
+                    >
+                      <svg viewBox="0 0 24 24" fill="currentColor" stroke="none" width="16" height="16">
+                        <circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/>
+                      </svg>
+                    </button>
                   </div>
                 </div>
               )

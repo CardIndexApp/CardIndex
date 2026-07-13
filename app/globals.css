@@ -71,29 +71,7 @@ body {
 .font-num { font-family: Helvetica Neue, Helvetica, Arial, sans-serif; font-weight: 700; }
 
 .grid-bg {
-  background-image:
-    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
-  background-size: 48px 48px;
-}
-
-[data-theme="light"] .grid-bg {
-  background-image:
-    linear-gradient(rgba(0,0,0,0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0,0,0,0.04) 1px, transparent 1px);
-}
-
-/* Apply grid-bg to body automatically */
-body {
-  background-image:
-    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
-  background-size: 48px 48px;
-}
-[data-theme="light"] body {
-  background-image:
-    linear-gradient(rgba(0,0,0,0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0,0,0,0.04) 1px, transparent 1px);
+  background-image: none;
 }
 
 @keyframes ticker {

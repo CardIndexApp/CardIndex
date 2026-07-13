@@ -296,8 +296,8 @@ export default function Dashboard() {
           <div className="fade-up-1" style={{ marginTop: 32, marginBottom: 36 }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
               <div>
-                <p style={{ fontSize: 11, letterSpacing: 2, color: 'var(--ink3)', marginBottom: 8 }}>WELCOME BACK</p>
-                <h1 className="font-display" style={{ fontSize: 'clamp(26px, 4vw, 38px)', fontWeight: 800, color: 'var(--ink)', letterSpacing: '-1px', lineHeight: 1.1 }}>
+                <p style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.22em', color: 'var(--ink3)', marginBottom: 8, textTransform: 'uppercase' }}>WELCOME BACK</p>
+                <h1 className="font-display" style={{ fontSize: 'clamp(26px, 4vw, 38px)', fontWeight: 900, color: 'var(--ink)', letterSpacing: '-1px', lineHeight: 1.1 }}>
                   {displayName}
                 </h1>
               </div>
@@ -351,11 +351,11 @@ export default function Dashboard() {
               >
                 {/* Market Value */}
                 <div style={{ padding: '14px 20px', borderRight: '1px solid var(--border)' }}>
-                  <div style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', marginBottom: 5, fontWeight: 600 }}>MARKET VALUE</div>
+                  <div style={{ fontSize: 9, letterSpacing: '0.22em', color: 'var(--ink3)', marginBottom: 5, fontWeight: 600 }}>MARKET VALUE</div>
                   {hasPrices ? (
-                    <div className="font-num" style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)' }}>{fmtCurrency(valueUSD)}</div>
+                    <div className="font-num" style={{ fontSize: 20, fontWeight: 900, color: 'var(--ink)' }}>{fmtCurrency(valueUSD)}</div>
                   ) : (
-                    <div className="font-num" style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink3)' }}>—</div>
+                    <div className="font-num" style={{ fontSize: 20, fontWeight: 900, color: 'var(--ink3)' }}>—</div>
                   )}
                   <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 3 }}>
                     {portfolioStats.posCount} open
@@ -364,10 +364,10 @@ export default function Dashboard() {
                 </div>
                 {/* Unrealized P&L */}
                 <div style={{ padding: '14px 20px', borderRight: showRealized ? '1px solid var(--border)' : undefined }}>
-                  <div style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', marginBottom: 5, fontWeight: 600 }}>UNREALIZED P&amp;L</div>
+                  <div style={{ fontSize: 9, letterSpacing: '0.22em', color: 'var(--ink3)', marginBottom: 5, fontWeight: 600 }}>UNREALIZED P&amp;L</div>
                   {unrealizedUSD != null ? (
                     <>
-                      <div className="font-num" style={{ fontSize: 20, fontWeight: 700, color: unrealizedPos ? 'var(--green)' : '#ff6b6b' }}>
+                      <div className="font-num" style={{ fontSize: 20, fontWeight: 900, color: unrealizedPos ? 'var(--green)' : '#ff6b6b' }}>
                         {unrealizedPos ? '+' : '−'}{fmtCurrency(Math.abs(unrealizedUSD))}
                       </div>
                       <div style={{ fontSize: 10, color: unrealizedPos ? 'var(--green)' : '#ff6b6b', marginTop: 3, opacity: 0.8 }}>
@@ -377,7 +377,7 @@ export default function Dashboard() {
                     </>
                   ) : (
                     <>
-                      <div className="font-num" style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink3)' }}>—</div>
+                      <div className="font-num" style={{ fontSize: 20, fontWeight: 900, color: 'var(--ink3)' }}>—</div>
                       <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 3 }}>visit portfolio to load</div>
                     </>
                   )}
@@ -385,8 +385,8 @@ export default function Dashboard() {
                 {/* Realized P&L — only shown when there are sold positions */}
                 {showRealized && (
                   <div style={{ padding: '14px 20px' }}>
-                    <div style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', marginBottom: 5, fontWeight: 600 }}>REALIZED P&amp;L</div>
-                    <div className="font-num" style={{ fontSize: 20, fontWeight: 700, color: realizedPos ? 'var(--green)' : '#ff6b6b' }}>
+                    <div style={{ fontSize: 9, letterSpacing: '0.22em', color: 'var(--ink3)', marginBottom: 5, fontWeight: 600 }}>REALIZED P&amp;L</div>
+                    <div className="font-num" style={{ fontSize: 20, fontWeight: 900, color: realizedPos ? 'var(--green)' : '#ff6b6b' }}>
                       {realizedPos ? '+' : '−'}{fmtCurrency(Math.abs(realizedUSD))}
                     </div>
                     <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 3 }}>
@@ -404,7 +404,7 @@ export default function Dashboard() {
             {/* Watchlist preview */}
             <div className="dash-watchlist" style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden' }}>
               <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>My Watchlist</span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>My Watchlist</span>
                 <Link href="/watchlist" style={{ fontSize: 11, color: 'var(--gold)', textDecoration: 'none' }}>View all →</Link>
               </div>
               {watchlist.length === 0 ? (
@@ -464,7 +464,7 @@ export default function Dashboard() {
                   {/* Header */}
                   <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Market Snapshot</span>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>Market Snapshot</span>
                       {marketSnap && (
                         <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 99, color: sigColor, background: `${sigColor}18`, border: `1px solid ${sigColor}44` }}>
                           {SIGNAL_LABEL[sig]}
@@ -477,12 +477,12 @@ export default function Dashboard() {
                   {/* Index metrics strip */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', borderBottom: '1px solid var(--border)' }}>
                     {[
-                      { label: 'CI Index', value: marketSnap?.level != null ? <span className="font-num" style={{ fontSize: 16, fontWeight: 800, color: 'var(--gold)' }}>{marketSnap.level.toFixed(2)}</span> : <span style={{ fontSize: 13, color: 'var(--ink3)' }}>—</span> },
+                      { label: 'CI Index', value: marketSnap?.level != null ? <span className="font-num" style={{ fontSize: 16, fontWeight: 900, color: 'var(--gold)' }}>{marketSnap.level.toFixed(2)}</span> : <span style={{ fontSize: 13, color: 'var(--ink3)' }}>—</span> },
                       { label: '7d change', value: <Chg v={marketSnap?.change7d} /> },
                       { label: '30d change', value: <Chg v={marketSnap?.change30d} /> },
                     ].map(({ label, value }, i) => (
                       <div key={i} style={{ padding: '12px 16px', borderRight: i < 2 ? '1px solid var(--border)' : 'none' }}>
-                        <div style={{ fontSize: 9, color: 'var(--ink3)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 5 }}>{label}</div>
+                        <div style={{ fontSize: 9, color: 'var(--ink3)', letterSpacing: '0.22em', fontWeight: 600, textTransform: 'uppercase', marginBottom: 5 }}>{label}</div>
                         {value}
                       </div>
                     ))}
@@ -533,7 +533,7 @@ export default function Dashboard() {
           {/* ── Recently Viewed ── */}
           <div className="dash-recently-searched" style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden', marginBottom: 12 }}>
             <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Recently Searched</span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>Recently Searched</span>
               <Link href="/search" style={{ fontSize: 11, color: 'var(--gold)', textDecoration: 'none' }}>Search cards →</Link>
             </div>
             {recentlyViewed.length === 0 ? (

@@ -53,6 +53,11 @@ const SIDEBAR_NAV = [
     icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M5 3l-3 3 3 3M15 17l3-3-3-3M2 6h16M2 14h16"/></svg>,
     proOnly: true,
   },
+  {
+    label: 'Admin', href: '/admin',
+    icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M10 2l1.8 3.6L16 6.4l-3 2.9.7 4.1L10 11.5l-3.7 1.9.7-4.1-3-2.9 4.2-.8z"/></svg>,
+    adminOnly: true,
+  },
 ]
 
 async function fetchProfile(userId: string): Promise<{ username: string | null; is_admin: boolean; tier: string }> {
@@ -280,7 +285,7 @@ export default function Navbar() {
 
           {/* Nav items */}
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {SIDEBAR_NAV.filter(item => !item.proOnly || userTier === 'pro').map(item => {
+            {SIDEBAR_NAV.filter(item => (!item.proOnly || userTier === 'pro') && (!item.adminOnly || isAdmin)).map(item => {
               const active = pathname === item.href || pathname.startsWith(item.href + '/')
               return (
                 <Link key={item.href} href={item.href} style={{

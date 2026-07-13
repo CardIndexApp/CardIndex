@@ -419,8 +419,8 @@ export default function Watchlist() {
           {/* Header */}
           <div className="fade-up-1" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 32, flexWrap: 'wrap', gap: 12 }}>
             <div>
-              <p style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' }}>Watchlist</p>
-              <h1 style={{ fontSize: 32, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-1px' }}>My Cards</h1>
+              <p style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.22em', color: 'var(--gold)', marginBottom: 8, textTransform: 'uppercase' }}>Watchlist</p>
+              <h1 style={{ fontSize: 32, fontWeight: 900, color: 'var(--ink)', letterSpacing: '-1px' }}>My Cards</h1>
             </div>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
               {userTier === 'pro' ? (
@@ -513,8 +513,8 @@ export default function Watchlist() {
                         { label: 'Falling Today', value: falling,      color: 'var(--red)' },
                       ].map(s => (
                         <div key={s.label} style={{ borderRadius: 12, padding: '16px 18px', background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                          <div style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 6 }}>{s.label}</div>
-                          <div className="font-num" style={{ fontSize: 22, fontWeight: 700, color: s.color, letterSpacing: '-0.5px' }}>{s.value}</div>
+                          <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.22em', color: 'var(--ink3)', marginBottom: 6, textTransform: 'uppercase' }}>{s.label}</div>
+                          <div className="font-num" style={{ fontSize: 22, fontWeight: 900, color: s.color, letterSpacing: '-0.5px' }}>{s.value}</div>
                         </div>
                       ))}
                     </div>
@@ -522,8 +522,8 @@ export default function Watchlist() {
                     {/* Total Value */}
                     {totalValue > 0 && (
                       <div style={{ borderRadius: 12, padding: '16px 18px', background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                        <div style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 6 }}>Watchlist Value</div>
-                        <div className="font-num" style={{ fontSize: 24, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px' }}>{fmtCurrency(totalValue)}</div>
+                        <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.22em', color: 'var(--ink3)', marginBottom: 6, textTransform: 'uppercase' }}>Watchlist Value</div>
+                        <div className="font-num" style={{ fontSize: 24, fontWeight: 900, color: 'var(--ink)', letterSpacing: '-0.5px' }}>{fmtCurrency(totalValue)}</div>
                         <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 4 }}>across {pricedItems.length} priced cards</div>
                       </div>
                     )}
@@ -533,7 +533,7 @@ export default function Watchlist() {
                       <div style={{ borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border)', overflow: 'hidden' }}>
                         <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
                           <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)' }} />
-                          <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--green)' }}>TOP GAINERS</span>
+                          <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.22em', color: 'var(--green)' }}>TOP GAINERS</span>
                         </div>
                         {gainers.map((item, i) => {
                           const pct = item.priceData?.price_change_pct ?? 0
@@ -560,7 +560,7 @@ export default function Watchlist() {
                       <div style={{ borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border)', overflow: 'hidden' }}>
                         <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
                           <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--red)' }} />
-                          <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--red)' }}>TOP LOSERS</span>
+                          <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.22em', color: 'var(--red)' }}>TOP LOSERS</span>
                         </div>
                         {losers.map((item, i) => {
                           const pct = item.priceData?.price_change_pct ?? 0
@@ -599,8 +599,8 @@ export default function Watchlist() {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 28 }}>
                     {/* Capacity tile */}
                     <div style={{ borderRadius: 12, padding: '16px 18px', background: 'var(--surface)', border: `1px solid ${atLimit ? 'rgba(232,82,74,0.3)' : nearLimit ? 'rgba(232,197,71,0.25)' : 'var(--border)'}` }}>
-                      <div style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 6 }}>Cards watched</div>
-                      <div className="font-num" style={{ fontSize: 22, fontWeight: 700, color: atLimit ? 'var(--red)' : nearLimit ? 'var(--gold)' : 'var(--ink)', letterSpacing: '-0.5px' }}>
+                      <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.22em', color: 'var(--ink3)', marginBottom: 6, textTransform: 'uppercase' }}>Cards watched</div>
+                      <div className="font-num" style={{ fontSize: 22, fontWeight: 900, color: atLimit ? 'var(--red)' : nearLimit ? 'var(--gold)' : 'var(--ink)', letterSpacing: '-0.5px' }}>
                         {used}<span style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink3)' }}> / {limit}</span>
                       </div>
                       <div style={{ marginTop: 6, height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
@@ -616,13 +616,13 @@ export default function Watchlist() {
                     </div>
                     {/* Rising */}
                     <div style={{ borderRadius: 12, padding: '16px 18px', background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                      <div style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 6 }}>Rising today</div>
+                      <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.22em', color: 'var(--ink3)', marginBottom: 6, textTransform: 'uppercase' }}>Rising today</div>
                       <div className="font-num" style={{ fontSize: 22, fontWeight: 700, color: 'var(--green)', letterSpacing: '-0.5px' }}>{rising}</div>
                       <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 3 }}>cards up</div>
                     </div>
                     {/* Falling */}
                     <div style={{ borderRadius: 12, padding: '16px 18px', background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                      <div style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 6 }}>Falling today</div>
+                      <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.22em', color: 'var(--ink3)', marginBottom: 6, textTransform: 'uppercase' }}>Falling today</div>
                       <div className="font-num" style={{ fontSize: 22, fontWeight: 700, color: 'var(--red)', letterSpacing: '-0.5px' }}>{falling}</div>
                       <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 3 }}>cards down</div>
                     </div>
@@ -711,12 +711,12 @@ export default function Watchlist() {
               <div style={{ borderRadius: 16, overflow: 'hidden', background: 'var(--surface)', border: '1px solid var(--border)' }}>
                 {/* Table header */}
                 <div className="wl-header" style={{ borderBottom: '1px solid var(--border)' }}>
-                  <span style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1, textTransform: 'uppercase' }}>Card</span>
-                  <span style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1, textTransform: 'uppercase', textAlign: 'right' }}>Price</span>
-                  <span style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1, textTransform: 'uppercase', textAlign: 'right' }}>24h Change</span>
-                  <span className="wl-hide-mobile" style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center' }}>30d Trend</span>
-                  <span className="wl-hide-mobile" style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center' }}>Score</span>
-                  <span className="wl-hide-mobile" style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center' }}>Verdict</span>
+                  <span style={{ fontSize: 9, fontWeight: 600, color: 'var(--ink3)', letterSpacing: '0.22em', textTransform: 'uppercase' }}>Card</span>
+                  <span style={{ fontSize: 9, fontWeight: 600, color: 'var(--ink3)', letterSpacing: '0.22em', textTransform: 'uppercase' as const, textAlign: 'right' as const }}>Price</span>
+                  <span style={{ fontSize: 9, fontWeight: 600, color: 'var(--ink3)', letterSpacing: '0.22em', textTransform: 'uppercase' as const, textAlign: 'right' as const }}>24h Change</span>
+                  <span className="wl-hide-mobile" style={{ fontSize: 9, fontWeight: 600, color: 'var(--ink3)', letterSpacing: '0.22em', textTransform: 'uppercase' as const, textAlign: 'center' as const }}>30d Trend</span>
+                  <span className="wl-hide-mobile" style={{ fontSize: 9, fontWeight: 600, color: 'var(--ink3)', letterSpacing: '0.22em', textTransform: 'uppercase' as const, textAlign: 'center' as const }}>Score</span>
+                  <span className="wl-hide-mobile" style={{ fontSize: 9, fontWeight: 600, color: 'var(--ink3)', letterSpacing: '0.22em', textTransform: 'uppercase' as const, textAlign: 'center' as const }}>Verdict</span>
                   <span />
                 </div>
 

@@ -500,7 +500,7 @@ function SellModal({ position, onClose, onSell, currency, rates, fmtCurrency }: 
           {/* Live P&L preview */}
           {plUSD != null && !isNaN(plUSD) && (
             <div style={{ borderRadius: 10, padding: '12px 14px', background: plUSD >= 0 ? 'rgba(61,232,138,0.06)' : 'rgba(232,82,74,0.06)', border: `1px solid ${plUSD >= 0 ? 'rgba(61,232,138,0.2)' : 'rgba(232,82,74,0.2)'}` }}>
-              <div style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1, marginBottom: 6 }}>REALIZED P&amp;L</div>
+              <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.22em', color: 'var(--ink3)', marginBottom: 6, textTransform: 'uppercase' }}>REALIZED P&amp;L</div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
                 <span className="font-num" style={{ fontSize: 18, fontWeight: 700, color: plUSD >= 0 ? 'var(--green)' : 'var(--red)' }}>
                   {plUSD >= 0 ? '+' : '−'}{fmtCurrency(Math.abs(plUSD))}
@@ -728,7 +728,7 @@ function PortfolioChart({ positions, fmtCurrency }: PortfolioChartProps) {
       {/* Chart header row */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-          <span className="font-num" style={{ fontSize: 20, fontWeight: 800, color: 'var(--ink)' }}>{fmtCurrency(latestValue)}</span>
+          <span className="font-num" style={{ fontSize: 20, fontWeight: 900, color: 'var(--ink)' }}>{fmtCurrency(latestValue)}</span>
           <span className="font-num" style={{ fontSize: 13, fontWeight: 600, color: isUp ? 'var(--green)' : 'var(--red)' }}>
             {isUp ? '+' : ''}{totalChange.toFixed(1)}% over period
           </span>
@@ -1070,7 +1070,7 @@ export default function PortfolioPage() {
         onClick={() => handleSort(k)}
         onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && handleSort(k)}
         className="pf-hide-mobile"
-        style={{ cursor: 'pointer', fontSize: 10, letterSpacing: 1, color: active ? 'var(--gold)' : 'var(--ink3)', fontWeight: active ? 700 : 500, display: 'flex', alignItems: 'center', justifyContent: right ? 'flex-end' : 'flex-start', gap: 4 }}
+        style={{ cursor: 'pointer', fontSize: 10, letterSpacing: '0.22em', color: active ? 'var(--gold)' : 'var(--ink3)', fontWeight: active ? 700 : 500, display: 'flex', alignItems: 'center', justifyContent: right ? 'flex-end' : 'flex-start', gap: 4 }}
       >
         {label}
         {active && <span style={{ fontSize: 9 }}>{sortDir === 'desc' ? '▼' : '▲'}</span>}
@@ -1174,8 +1174,8 @@ export default function PortfolioPage() {
           {/* ── Header ── */}
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 12 }}>
             <div>
-              <p style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' }}>Portfolio</p>
-              <h1 style={{ fontSize: 32, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-1px' }}>My Collection</h1>
+              <p style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.22em', color: 'var(--gold)', marginBottom: 8, textTransform: 'uppercase' }}>Portfolio</p>
+              <h1 style={{ fontSize: 32, fontWeight: 900, color: 'var(--ink)', letterSpacing: '-1px' }}>My Collection</h1>
             </div>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
               <button
@@ -1279,7 +1279,7 @@ export default function PortfolioPage() {
               <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', overflow: 'hidden' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'minmax(160px,1fr) 70px 100px 50px 110px 100px', padding: '10px 16px', borderBottom: '1px solid var(--border)', gap: 8 }}>
                   {['CARD', 'TYPE', 'PRICE/EA', 'QTY', 'DATE', 'REALIZED P&L'].map(h => (
-                    <div key={h} style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)' }}>{h}</div>
+                    <div key={h} style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.22em', color: 'var(--ink3)' }}>{h}</div>
                   ))}
                 </div>
                 {allPos.length === 0 ? (
@@ -1373,8 +1373,8 @@ export default function PortfolioPage() {
               }] : []),
             ].map((s, i) => (
               <div key={i} style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
-                <div style={{ fontSize: 10, color: 'var(--ink3)', letterSpacing: 1, marginBottom: 8, textTransform: 'uppercase' }}>{s.label}</div>
-                <div className="font-num" style={{ fontSize: 22, fontWeight: 800, color: s.color, letterSpacing: '-0.5px', lineHeight: 1.1 }}>{s.value}</div>
+                <div style={{ fontSize: 9, fontWeight: 600, color: 'var(--ink3)', letterSpacing: '0.22em', marginBottom: 8, textTransform: 'uppercase' }}>{s.label}</div>
+                <div className="font-num" style={{ fontSize: 22, fontWeight: 900, color: s.color, letterSpacing: '-0.5px', lineHeight: 1.1 }}>{s.value}</div>
                 <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 5 }}>{s.sub}</div>
               </div>
             ))}
@@ -1396,10 +1396,10 @@ export default function PortfolioPage() {
                   const isActuallyUp = pct >= 0
                   return (
                     <div key={label} style={{ borderRadius: 12, padding: '14px 16px', background: 'var(--surface)', border: `1px solid ${isActuallyUp ? 'rgba(61,232,138,0.2)' : 'rgba(232,82,74,0.2)'}` }}>
-                      <div style={{ fontSize: 10, color: 'var(--ink3)', marginBottom: 6 }}>{label}</div>
+                      <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.22em', color: 'var(--ink3)', marginBottom: 6, textTransform: 'uppercase' }}>{label}</div>
                       <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pos.card_name}</div>
                       <div style={{ fontSize: 10, color: 'var(--ink3)', marginBottom: 4 }}>{pos.grade}</div>
-                      <div className="font-num" style={{ fontSize: 16, fontWeight: 800, color: isActuallyUp ? 'var(--green)' : 'var(--red)' }}>
+                      <div className="font-num" style={{ fontSize: 16, fontWeight: 900, color: isActuallyUp ? 'var(--green)' : 'var(--red)' }}>
                         {isActuallyUp ? '+' : ''}{pct.toFixed(1)}%
                       </div>
                     </div>
@@ -1451,16 +1451,16 @@ export default function PortfolioPage() {
 
             {/* Header */}
             <div className="pf-header" style={{ borderBottom: '1px solid var(--border)' }}>
-              <div role="button" tabIndex={0} onClick={() => handleSort('name')} onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && handleSort('name')} style={{ cursor: 'pointer', fontSize: 10, letterSpacing: 1, color: sort === 'name' ? 'var(--gold)' : 'var(--ink3)', fontWeight: sort === 'name' ? 700 : 500, display: 'flex', gap: 4, alignItems: 'center' }}>
+              <div role="button" tabIndex={0} onClick={() => handleSort('name')} onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && handleSort('name')} style={{ cursor: 'pointer', fontSize: 10, letterSpacing: '0.22em', color: sort === 'name' ? 'var(--gold)' : 'var(--ink3)', fontWeight: sort === 'name' ? 700 : 500, display: 'flex', gap: 4, alignItems: 'center' }}>
                 CARD {sort === 'name' && <span style={{ fontSize: 9 }}>{sortDir === 'desc' ? '▼' : '▲'}</span>}
               </div>
               {/* Mobile-only column labels */}
-              <div className="pf-show-mobile" style={{ textAlign: 'right', fontSize: 10, letterSpacing: 1, color: 'var(--ink3)' }}>P&amp;L</div>
-              <div className="pf-show-mobile" style={{ textAlign: 'right', fontSize: 10, letterSpacing: 1, color: 'var(--ink3)' }}>24H</div>
+              <div className="pf-show-mobile" style={{ textAlign: 'right', fontSize: 10, letterSpacing: '0.22em', color: 'var(--ink3)' }}>P&amp;L</div>
+              <div className="pf-show-mobile" style={{ textAlign: 'right', fontSize: 10, letterSpacing: '0.22em', color: 'var(--ink3)' }}>24H</div>
               <div className="pf-show-mobile" />
               <SortTh label="MKT VALUE" k="current" />
               <SortTh label="P&amp;L" k="plpct" />
-              <div className="pf-hide-mobile" style={{ textAlign: 'right', fontSize: 10, letterSpacing: 1, color: 'var(--ink3)' }}>QTY</div>
+              <div className="pf-hide-mobile" style={{ textAlign: 'right', fontSize: 10, letterSpacing: '0.22em', color: 'var(--ink3)' }}>QTY</div>
               <SortTh label="COST/EA" k="cost" />
               <SortTh label="24H" k="change24h" />
               <SortTh label="7D" k="change7d" />
@@ -1619,12 +1619,12 @@ export default function PortfolioPage() {
                 <div style={{ borderRadius: 16, overflow: 'hidden', background: 'var(--surface)', border: '1px solid var(--border)' }}>
                   {/* Sold table header */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'minmax(160px,1fr) 50px 100px 100px 110px 90px 80px', alignItems: 'center', padding: '10px 20px', borderBottom: '1px solid var(--border)', gap: 8 }}>
-                    <div style={{ fontSize: 10, letterSpacing: 1, color: 'var(--ink3)' }}>CARD</div>
-                    <div style={{ fontSize: 10, letterSpacing: 1, color: 'var(--ink3)', textAlign: 'right' }}>QTY</div>
-                    <div style={{ fontSize: 10, letterSpacing: 1, color: 'var(--ink3)', textAlign: 'right' }}>AVG COST</div>
-                    <div style={{ fontSize: 10, letterSpacing: 1, color: 'var(--ink3)', textAlign: 'right' }}>SOLD AT</div>
-                    <div style={{ fontSize: 10, letterSpacing: 1, color: 'var(--ink3)', textAlign: 'right' }}>REALIZED P&amp;L</div>
-                    <div style={{ fontSize: 10, letterSpacing: 1, color: 'var(--ink3)', textAlign: 'right' }}>DATE SOLD</div>
+                    <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.22em', color: 'var(--ink3)' }}>CARD</div>
+                    <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.22em', color: 'var(--ink3)', textAlign: 'right' }}>QTY</div>
+                    <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.22em', color: 'var(--ink3)', textAlign: 'right' }}>AVG COST</div>
+                    <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.22em', color: 'var(--ink3)', textAlign: 'right' }}>SOLD AT</div>
+                    <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.22em', color: 'var(--ink3)', textAlign: 'right' }}>REALIZED P&amp;L</div>
+                    <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.22em', color: 'var(--ink3)', textAlign: 'right' }}>DATE SOLD</div>
                     <div />
                   </div>
 

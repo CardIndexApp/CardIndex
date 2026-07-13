@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CardIndex — Alerts</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#060d14;--surface:#0d1620;--surface2:#151f2c;--accent:#22d3ee;--orange:#fb923c;--green:#4ade80;--red:#f87171;--ink:#e8f4ff;--ink2:#7ba8c8;--ink3:#3d5870;--border:rgba(34,211,238,0.08);--border2:rgba(34,211,238,0.15)}
+body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;font-size:14px;line-height:1.4;min-height:100vh;display:flex;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+.sidebar{width:240px;min-height:100vh;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;position:sticky;top:0;height:100vh}
+.sidebar-logo{padding:24px 22px 20px;font-size:22px;font-weight:800;letter-spacing:-0.5px;border-bottom:1px solid var(--border)}
+.logo-c{color:var(--ink)}.logo-i{color:var(--accent)}
+.sidebar-nav{flex:1;padding:12px 10px;display:flex;flex-direction:column;gap:2px}
+.nav-item{display:flex;align-items:center;gap:11px;padding:11px 14px;border-radius:10px;color:var(--ink3);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s}
+.nav-item:hover{background:var(--surface2);color:var(--ink2)}
+.nav-item.active{background:rgba(34,211,238,0.1);color:var(--accent);font-weight:600}
+.nav-item svg{flex-shrink:0}
+.sidebar-footer{padding:16px 18px 20px;border-top:1px solid var(--border);display:flex;align-items:center;gap:11px}
+.user-avatar{width:34px;height:34px;border-radius:50%;background:rgba(34,211,238,0.1);border:1.5px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--accent);flex-shrink:0}
+.user-name{font-size:13px;font-weight:600;color:var(--ink)}.user-plan{font-size:11px;color:var(--ink3);margin-top:1px}
+.main{flex:1;min-width:0;overflow-y:auto}
+.page-header{padding:36px 40px 32px}
+.page-title{font-size:32px;font-weight:700;letter-spacing:-.5px;color:var(--ink);margin-bottom:6px}
+.page-sub{font-size:14px;color:var(--ink3)}
+.content{padding:0 40px 48px}
+.table-wrap{background:var(--surface);border:1px solid var(--border2);border-radius:16px;overflow:hidden}
+.table-header{display:grid;grid-template-columns:2fr 1.6fr 120px 100px 90px 36px;gap:12px;padding:12px 20px;border-bottom:1px solid var(--border);align-items:center}
+.th{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3)}
+.table-row{display:grid;grid-template-columns:2fr 1.6fr 120px 100px 90px 36px;gap:12px;padding:16px 20px;border-bottom:1px solid var(--border);align-items:center;transition:background .12s;cursor:pointer}
+.table-row:last-child{border-bottom:none}
+.table-row:hover{background:rgba(34,211,238,0.03)}
+.card-cell{display:flex;align-items:center;gap:14px}
+.thumb{width:42px;height:58px;border-radius:7px;flex-shrink:0}
+.card-name{font-size:14px;font-weight:600;color:var(--ink)}
+.card-type{font-size:11px;color:var(--ink3);margin-top:3px}
+.condition{font-size:13px;color:var(--ink2)}
+.status-badge{display:inline-flex;align-items:center;padding:5px 12px;border-radius:7px;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+.status-badge.triggered{background:rgba(248,113,113,0.15);color:var(--red);border:1px solid rgba(248,113,113,0.3)}
+.status-badge.watching{background:rgba(34,211,238,0.08);color:var(--ink3);border:1px solid var(--border2)}
+.status-badge.snoozed{background:rgba(34,211,238,0.04);color:var(--ink3);border:1px solid var(--border)}
+.trigger-time{font-size:13px;color:var(--ink3)}
+.toggle-wrap{display:flex;align-items:center;gap:10px}
+.toggle{width:40px;height:22px;border-radius:11px;position:relative;flex-shrink:0;cursor:pointer}
+.toggle.on{background:var(--green)}
+.toggle.off{background:rgba(34,211,238,0.12)}
+.toggle::after{content:'';position:absolute;top:3px;width:16px;height:16px;background:#fff;border-radius:50%;transition:left .2s}
+.toggle.on::after{left:21px}
+.toggle.off::after{left:3px}
+.more-btn{width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:6px;color:var(--ink3);cursor:pointer;font-size:16px;letter-spacing:.08em}
+.more-btn:hover{background:var(--surface2);color:var(--ink2)}
+</style>
+</head>
+<body>
+<aside class="sidebar">
+  <div class="sidebar-logo"><span class="logo-c">Card</span><span class="logo-i">Index</span></div>
+  <nav class="sidebar-nav">
+    <a href="dashboard.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1" y="1" width="6" height="6" rx="1.5"/><rect x="9" y="1" width="6" height="6" rx="1.5"/><rect x="1" y="9" width="6" height="6" rx="1.5"/><rect x="9" y="9" width="6" height="6" rx="1.5"/></svg>Dashboard</a>
+    <a href="portfolio.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1" y="10" width="3" height="5" rx=".5"/><rect x="6" y="6" width="3" height="9" rx=".5"/><rect x="11" y="2" width="3" height="13" rx=".5"/></svg>Portfolio</a>
+    <a href="watchlist.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 2l1.5 3 3.5.5-2.5 2.5.6 3.5L8 10l-3.1 1.5.6-3.5L3 5.5l3.5-.5z"/></svg>Watchlist</a>
+    <a href="alerts.html" class="nav-item active"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 2a5 5 0 0 1 5 5v2.5l1 1.5H2l1-1.5V7a5 5 0 0 1 5-5z"/><path d="M6.5 13a1.5 1.5 0 0 0 3 0"/></svg>Alerts</a>
+    <a href="search.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="6.5" cy="6.5" r="4.5"/><path d="M14 14l-3-3"/></svg>Search</a>
+    <a href="compare.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 8h10M10 5l3 3-3 3"/><path d="M6 5H3"/></svg>Compare</a>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="user-avatar">J</div>
+    <div><div class="user-name">Jackson</div><div class="user-plan">Pro Plan</div></div>
+  </div>
+</aside>
+<main class="main">
+  <div class="page-header">
+    <div class="page-title">Alerts</div>
+    <div class="page-sub">8 active · 2 triggered today</div>
+  </div>
+  <div class="content">
+    <div class="table-wrap">
+      <div class="table-header">
+        <div class="th">Card</div><div class="th">Condition</div><div class="th">Status</div><div class="th">Triggered</div><div class="th">Active</div><div></div>
+      </div>
+      <div class="table-row">
+        <div class="card-cell"><div class="thumb" style="background:linear-gradient(160deg,#5a1000,#c83800)"></div><div><div class="card-name">Charizard 1st Ed.</div><div class="card-type">Price Threshold</div></div></div>
+        <div class="condition">Price ≥ A$9,000</div>
+        <div><span class="status-badge triggered">Triggered</span></div>
+        <div class="trigger-time">2h ago</div>
+        <div class="toggle-wrap"><div class="toggle on"></div></div>
+        <div class="more-btn">···</div>
+      </div>
+      <div class="table-row">
+        <div class="card-cell"><div class="thumb" style="background:linear-gradient(160deg,#003070,#0055cc)"></div><div><div class="card-name">M Mewtwo EX Full Art</div><div class="card-type">Verdict Change</div></div></div>
+        <div class="condition">Verdict → BUY</div>
+        <div><span class="status-badge triggered">Triggered</span></div>
+        <div class="trigger-time">5h ago</div>
+        <div class="toggle-wrap"><div class="toggle on"></div></div>
+        <div class="more-btn">···</div>
+      </div>
+      <div class="table-row">
+        <div class="card-cell"><div class="thumb" style="background:linear-gradient(160deg,#2e0055,#6600bb)"></div><div><div class="card-name">Umbreon VMAX Alt Art</div><div class="card-type">Score Alert</div></div></div>
+        <div class="condition">Score drops below 55</div>
+        <div><span class="status-badge watching">Watching</span></div>
+        <div class="trigger-time">Never</div>
+        <div class="toggle-wrap"><div class="toggle on"></div></div>
+        <div class="more-btn">···</div>
+      </div>
+      <div class="table-row" style="opacity:.65">
+        <div class="card-cell"><div class="thumb" style="background:linear-gradient(160deg,#0e3300,#1e6600)"></div><div><div class="card-name">Rayquaza Gold Star</div><div class="card-type">Price Threshold · Snoozed</div></div></div>
+        <div class="condition">Price ≥ A$4,000</div>
+        <div><span class="status-badge snoozed">Snoozed</span></div>
+        <div class="trigger-time">3d ago</div>
+        <div class="toggle-wrap"><div class="toggle off"></div></div>
+        <div class="more-btn">···</div>
+      </div>
+    </div>
+  </div>
+</main>
+</body>
+</html>

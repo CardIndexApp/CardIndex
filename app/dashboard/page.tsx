@@ -315,6 +315,11 @@ export default function Dashboard() {
 
         <div className="dash-content" style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 24px 0', display: 'flex', flexDirection: 'column', gap: 16 }}>
 
+          {/* ── Page title ── */}
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.01em', color: 'var(--ink)' }}>Dashboard</div>
+          </div>
+
           {/* ── Stat tiles ── */}
           {(() => {
             const hasPrices = (portfolioStats?.cachedCount ?? 0) > 0
@@ -324,7 +329,7 @@ export default function Dashboard() {
 
             const wlSub = groupsCount > 0 ? `across ${groupsCount} collection${groupsCount !== 1 ? 's' : ''}` : 'in watchlist'
             const alertSub = firedAlerts.length > 0 ? `${firedAlerts.length} triggered today` : 'none triggered'
-            const alertSubColor = firedAlerts.length > 0 ? 'var(--gold)' : 'var(--ink3)'
+            const alertSubColor = firedAlerts.length > 0 ? 'var(--red)' : 'var(--ink3)'
             const gainersVal = marketSnap?.risingCount ?? 0
             const gainersColor = gainersVal > 0 ? 'var(--green)' : 'var(--ink)'
 
@@ -396,7 +401,7 @@ export default function Dashboard() {
           })()}
 
           {/* ── Two-col: Movers table + right sidebar ── */}
-          <div className="dash-two-col" style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: 16, alignItems: 'start' }}>
+          <div className="dash-two-col" style={{ display: 'grid', gridTemplateColumns: '1.7fr 1fr', gap: 16, alignItems: 'start' }}>
 
             {/* TOP MOVERS TODAY — table layout */}
             <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden' }}>
@@ -432,8 +437,8 @@ export default function Dashboard() {
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-                      <div style={{ width: 40, height: 56, borderRadius: 5, background: item.image_url ? 'var(--surface2)' : gradients[i % gradients.length], border: '1px solid var(--border)', flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {item.image_url && <img src={tcgImg(item.image_url)} alt={item.card_name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />}
+                      <div style={{ width: 38, height: 38, borderRadius: 8, background: item.image_url ? 'var(--surface2)' : gradients[i % gradients.length], border: '1px solid var(--border)', flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {item.image_url && <img src={tcgImg(item.image_url)} alt={item.card_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                       </div>
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.card_name}</div>
@@ -454,7 +459,7 @@ export default function Dashboard() {
               }) : Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 90px 80px 52px', alignItems: 'center', gap: 8, padding: '11px 18px', borderBottom: i < 4 ? '1px solid var(--border)' : 'none' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{ width: 40, height: 56, borderRadius: 5, background: 'var(--surface2)', flexShrink: 0 }} />
+                    <div style={{ width: 38, height: 38, borderRadius: 8, background: 'var(--surface2)', flexShrink: 0 }} />
                     <div>
                       <div style={{ height: 13, width: 120, borderRadius: 3, background: 'var(--surface2)', marginBottom: 6 }} />
                       <div style={{ height: 10, width: 70, borderRadius: 3, background: 'var(--surface2)' }} />

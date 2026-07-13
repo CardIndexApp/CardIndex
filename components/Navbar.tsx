@@ -293,11 +293,11 @@ export default function Navbar() {
                   display: 'flex', alignItems: 'center', gap: 12,
                   fontSize: 15, fontWeight: active ? 600 : 500,
                   color: active ? 'var(--ink)' : 'var(--ink3)',
-                  background: active ? 'var(--hover-subtle)' : 'transparent',
+                  background: active ? 'var(--surface2)' : 'transparent',
                   textDecoration: 'none',
                   transition: 'color 0.15s, background 0.15s',
                 }}>
-                  <span style={{ color: active ? 'var(--gold)' : 'inherit', display: 'flex' }}>{item.icon}</span>
+                  <span style={{ color: active ? 'var(--ink)' : 'var(--ink3)', display: 'flex' }}>{item.icon}</span>
                   {item.label}
                 </Link>
               )

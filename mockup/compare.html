@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CardIndex — Compare</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#060d14;--surface:#0d1620;--surface2:#151f2c;--accent:#22d3ee;--orange:#fb923c;--green:#4ade80;--red:#f87171;--blue:#818cf8;--ink:#e8f4ff;--ink2:#7ba8c8;--ink3:#3d5870;--border:rgba(34,211,238,0.08);--border2:rgba(34,211,238,0.15)}
+body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;font-size:14px;line-height:1.4;min-height:100vh;display:flex;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+.sidebar{width:220px;min-height:100vh;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;position:sticky;top:0;height:100vh}
+.sidebar-logo{padding:22px 20px 18px;font-size:20px;font-weight:700;letter-spacing:-0.3px;border-bottom:1px solid var(--border)}
+.logo-c{color:var(--ink)}.logo-i{color:var(--accent)}
+.sidebar-nav{flex:1;padding:10px 8px;display:flex;flex-direction:column;gap:2px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;color:var(--ink3);font-size:13px;font-weight:500;cursor:pointer}
+.nav-item:hover{background:var(--surface2);color:var(--ink2)}
+.nav-item.active{background:rgba(34,211,238,0.1);color:var(--accent)}
+.nav-item svg{flex-shrink:0}
+.sidebar-footer{padding:14px 16px 18px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.user-avatar{width:32px;height:32px;border-radius:50%;background:rgba(34,211,238,0.1);border:1.5px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--accent);flex-shrink:0}
+.user-name{font-size:13px;font-weight:600;color:var(--ink2)}.user-plan{font-size:11px;color:var(--ink3)}
+.main{flex:1;min-width:0;display:flex;flex-direction:column;overflow-y:auto}
+.page-header{padding:28px 32px 20px;border-bottom:1px solid var(--border)}
+.page-label{font-size:10px;font-weight:700;letter-spacing:.12em;color:var(--accent);margin-bottom:4px;text-transform:uppercase}
+.page-title{font-size:26px;font-weight:700;letter-spacing:-.5px;color:var(--ink)}
+.content{max-width:1060px;margin:0 auto;padding:28px 32px 48px;display:flex;flex-direction:column;gap:20px;width:100%}
+.card-pickers{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.picker{background:var(--surface);border:1px solid var(--border2);border-radius:14px;overflow:hidden}
+.picker-header{padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.picker-label{font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3)}
+.picker-color{width:8px;height:8px;border-radius:50%}
+.picker-body{padding:16px 18px;display:flex;align-items:center;gap:14px}
+.card-thumb{border-radius:8px;flex-shrink:0}
+.card-name{font-size:15px;font-weight:700;color:var(--ink)}
+.card-sub{font-size:12px;color:var(--ink3);margin-top:3px}
+.card-price{font-size:22px;font-weight:800;color:var(--ink);letter-spacing:-.5px;margin-top:8px}
+.card-chg{font-size:13px;font-weight:700;margin-top:3px}
+.card-chg.green{color:var(--green)}.card-chg.red{color:var(--red)}
+.compare-table{background:var(--surface);border:1px solid var(--border2);border-radius:14px;overflow:hidden}
+.compare-header{display:grid;grid-template-columns:1fr 1fr 1fr;border-bottom:1px solid var(--border)}
+.compare-col-label{padding:12px 20px;font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3)}
+.compare-col-label.center{text-align:center}
+.compare-row{display:grid;grid-template-columns:1fr 1fr 1fr;border-bottom:1px solid var(--border);align-items:center}
+.compare-row:last-child{border-bottom:none}
+.compare-row:hover{background:rgba(34,211,238,0.03)}
+.compare-metric{padding:14px 20px;font-size:12px;color:var(--ink3);font-weight:600}
+.compare-val{padding:14px 20px;font-size:14px;font-weight:700;color:var(--ink);text-align:center}
+.compare-val.green{color:var(--green)}.compare-val.red{color:var(--red)}.compare-val.orange{color:var(--orange)}.compare-val.blue{color:var(--blue)}
+.winner-dot{width:5px;height:5px;border-radius:50%;background:var(--accent);display:inline-block;margin-left:6px;vertical-align:middle}
+.score-row{display:flex;align-items:center;justify-content:center;gap:8px}
+.score-num{font-size:22px;font-weight:800}
+.score-num.green{color:var(--green)}.score-num.orange{color:var(--orange)}
+.verdict{display:inline-flex;align-items:center;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+.verdict.buy{background:rgba(74,222,128,0.1);color:var(--green);border:1px solid rgba(74,222,128,0.25)}
+.verdict.hold{background:rgba(251,146,60,0.1);color:var(--orange);border:1px solid rgba(251,146,60,0.25)}
+.chart-card{background:var(--surface);border:1px solid var(--border2);border-radius:14px;overflow:hidden}
+.chart-header{padding:12px 18px 11px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.chart-header-label{font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3)}
+.period-pills{display:flex;gap:4px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:3px}
+.period-pill{padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;color:var(--ink3);cursor:pointer}
+.period-pill.active{background:rgba(34,211,238,0.12);color:var(--accent)}
+.chart-area{padding:20px 20px 10px;height:180px;position:relative;overflow:hidden}
+.chart-svg{width:100%;height:100%}
+.chart-legend{display:flex;gap:20px;padding:12px 20px;border-top:1px solid var(--border)}
+.legend-item{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--ink2)}
+.legend-dot{width:10px;height:3px;border-radius:2px;flex-shrink:0}
+</style>
+</head>
+<body>
+<aside class="sidebar">
+  <div class="sidebar-logo"><span class="logo-c">Card</span><span class="logo-i">Index</span></div>
+  <nav class="sidebar-nav">
+    <a href="dashboard.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1" y="1" width="6" height="6" rx="1.5"/><rect x="9" y="1" width="6" height="6" rx="1.5"/><rect x="1" y="9" width="6" height="6" rx="1.5"/><rect x="9" y="9" width="6" height="6" rx="1.5"/></svg>Dashboard</a>
+    <a href="portfolio.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1" y="10" width="3" height="5" rx=".5"/><rect x="6" y="6" width="3" height="9" rx=".5"/><rect x="11" y="2" width="3" height="13" rx=".5"/></svg>Portfolio</a>
+    <a href="watchlist.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 2l1.5 3 3.5.5-2.5 2.5.6 3.5L8 10l-3.1 1.5.6-3.5L3 5.5l3.5-.5z"/></svg>Watchlist</a>
+    <a href="alerts.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 2a5 5 0 0 1 5 5v2.5l1 1.5H2l1-1.5V7a5 5 0 0 1 5-5z"/><path d="M6.5 13a1.5 1.5 0 0 0 3 0"/></svg>Alerts</a>
+    <a href="search.html" class="nav-item"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="6.5" cy="6.5" r="4.5"/><path d="M14 14l-3-3"/></svg>Search</a>
+    <a href="compare.html" class="nav-item active"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 8h10M10 5l3 3-3 3"/><path d="M6 5H3"/></svg>Compare</a>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="user-avatar">J</div>
+    <div><div class="user-name">Jackson</div><div class="user-plan">Pro Plan</div></div>
+  </div>
+</aside>
+<main class="main">
+  <div class="page-header"><div class="page-label">Compare</div><div class="page-title">Card Compare</div></div>
+  <div class="content">
+    <div class="card-pickers">
+      <div class="picker">
+        <div class="picker-header"><div class="picker-color" style="background:var(--accent)"></div><span class="picker-label">Card A</span></div>
+        <div class="picker-body">
+          <div class="card-thumb" style="width:56px;height:78px;background:linear-gradient(135deg,#8b2000,#e84800)"></div>
+          <div><div class="card-name">Charizard 1st Ed.</div><div class="card-sub">Base Set · Raw</div><div class="card-price">A$9,200</div><div class="card-chg green">+18.4% (7d)</div></div>
+        </div>
+      </div>
+      <div class="picker">
+        <div class="picker-header"><div class="picker-color" style="background:var(--blue)"></div><span class="picker-label">Card B</span></div>
+        <div class="picker-body">
+          <div class="card-thumb" style="width:56px;height:78px;background:linear-gradient(135deg,#3d0066,#7800cc)"></div>
+          <div><div class="card-name">Umbreon VMAX Alt Art</div><div class="card-sub">Evolving Skies · CGC 9</div><div class="card-price">A$580</div><div class="card-chg red">−4.2% (7d)</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header">
+        <span class="chart-header-label">Price History</span>
+        <div class="period-pills"><div class="period-pill">7D</div><div class="period-pill active">30D</div><div class="period-pill">90D</div><div class="period-pill">1Y</div></div>
+      </div>
+      <div class="chart-area">
+        <svg class="chart-svg" viewBox="0 0 800 160" preserveAspectRatio="none">
+          <polyline points="0,120 100,105 200,95 300,80 400,70 500,55 600,45 700,30 800,20" fill="none" stroke="#22d3ee" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+          <polygon points="0,120 100,105 200,95 300,80 400,70 500,55 600,45 700,30 800,20 800,160 0,160" fill="url(#cyanGrad)" opacity="0.08"/>
+          <polyline points="0,80 100,75 200,85 300,90 400,80 500,95 600,100 700,110 800,120" fill="none" stroke="#818cf8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+          <polygon points="0,80 100,75 200,85 300,90 400,80 500,95 600,100 700,110 800,120 800,160 0,160" fill="url(#blueGrad)" opacity="0.06"/>
+          <defs>
+            <linearGradient id="cyanGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#22d3ee"/><stop offset="100%" stop-color="#22d3ee" stop-opacity="0"/></linearGradient>
+            <linearGradient id="blueGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#818cf8"/><stop offset="100%" stop-color="#818cf8" stop-opacity="0"/></linearGradient>
+          </defs>
+        </svg>
+      </div>
+      <div class="chart-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div>Charizard 1st Ed.</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div>Umbreon VMAX Alt Art</div>
+      </div>
+    </div>
+    <div class="compare-table">
+      <div class="compare-header">
+        <div class="compare-col-label">Metric</div>
+        <div class="compare-col-label center" style="color:var(--accent)">Charizard 1st Ed.</div>
+        <div class="compare-col-label center" style="color:var(--blue)">Umbreon VMAX Alt Art</div>
+      </div>
+      <div class="compare-row"><div class="compare-metric">Current Price</div><div class="compare-val">A$9,200 <span class="winner-dot"></span></div><div class="compare-val">A$580</div></div>
+      <div class="compare-row"><div class="compare-metric">7D Change</div><div class="compare-val green">+18.4% <span class="winner-dot"></span></div><div class="compare-val red">−4.2%</div></div>
+      <div class="compare-row"><div class="compare-metric">30D Change</div><div class="compare-val green">+31.2% <span class="winner-dot"></span></div><div class="compare-val red">−8.6%</div></div>
+      <div class="compare-row"><div class="compare-metric">Score</div><div class="compare-val"><div class="score-row"><span class="score-num green">92</span></div></div><div class="compare-val"><div class="score-row"><span class="score-num orange">61</span></div></div></div>
+      <div class="compare-row"><div class="compare-metric">Verdict</div><div class="compare-val"><span class="verdict buy">BUY</span></div><div class="compare-val"><span class="verdict hold">HOLD</span></div></div>
+      <div class="compare-row"><div class="compare-metric">52W High</div><div class="compare-val">A$9,800 <span class="winner-dot"></span></div><div class="compare-val">A$920</div></div>
+      <div class="compare-row"><div class="compare-metric">52W Low</div><div class="compare-val">A$6,200</div><div class="compare-val">A$440 <span class="winner-dot"></span></div></div>
+      <div class="compare-row"><div class="compare-metric">Volatility (30D)</div><div class="compare-val orange">Medium</div><div class="compare-val red">High <span class="winner-dot"></span></div></div>
+      <div class="compare-row"><div class="compare-metric">Grade</div><div class="compare-val">Raw</div><div class="compare-val">CGC 9</div></div>
+      <div class="compare-row"><div class="compare-metric">Set</div><div class="compare-val" style="font-size:12px">Base Set</div><div class="compare-val" style="font-size:12px">Evolving Skies</div></div>
+    </div>
+  </div>
+</main>
+</body>
+</html>

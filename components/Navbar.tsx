@@ -24,6 +24,37 @@ const NAV_LINKS_GUEST = [
 // the App Store instead. TODO: replace with the real App Store listing URL.
 const APP_STORE_URL = 'https://apps.apple.com/app/cardindex/id000000000'
 
+// Pages that get the desktop sidebar instead of the top nav bar
+const SIDEBAR_PATHS = ['/dashboard', '/portfolio', '/watchlist', '/search', '/compare', '/market', '/card/', '/admin']
+
+const SIDEBAR_NAV = [
+  {
+    label: 'Dashboard', href: '/dashboard',
+    icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="7" height="7" rx="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5"/></svg>,
+  },
+  {
+    label: 'Portfolio', href: '/portfolio',
+    icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="13" width="4" height="6" rx="0.5"/><rect x="8" y="8" width="4" height="11" rx="0.5"/><rect x="14" y="3" width="4" height="16" rx="0.5"/></svg>,
+  },
+  {
+    label: 'Watchlist', href: '/watchlist',
+    icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M10 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4L10 14.4l-4.8 2.5.9-5.4L2.2 7.7l5.4-.8z"/></svg>,
+  },
+  {
+    label: 'Market', href: '/market',
+    icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><polyline points="2 14 7 8 11 11 18 4"/><polyline points="14 4 18 4 18 8"/></svg>,
+  },
+  {
+    label: 'Search', href: '/search',
+    icon: <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><circle cx="6.5" cy="6.5" r="4.5"/><path d="M14 14l-3-3"/></svg>,
+  },
+  {
+    label: 'Compare', href: '/compare',
+    icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M5 3l-3 3 3 3M15 17l3-3-3-3M2 6h16M2 14h16"/></svg>,
+    proOnly: true,
+  },
+]
+
 async function fetchProfile(userId: string): Promise<{ username: string | null; is_admin: boolean; tier: string }> {
   const { data } = await createClient()
     .from('profiles')
@@ -132,10 +163,16 @@ export default function Navbar() {
 
   const isHomepage = pathname === '/'
   const transparent = isHomepage && !scrolled
+  const showSidebar = !!user && SIDEBAR_PATHS.some(p => pathname.startsWith(p))
+
+  useEffect(() => {
+    document.body.classList.toggle('has-sidebar', showSidebar)
+    return () => document.body.classList.remove('has-sidebar')
+  }, [showSidebar])
 
   return (
     <>
-      <nav style={{
+      <nav className="top-nav-bar" style={{
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50,
         height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '0 24px',
@@ -225,6 +262,99 @@ export default function Navbar() {
         )}
       </nav>
 
+      {/* ── Desktop sidebar (authenticated app pages only) ── */}
+      {showSidebar && (
+        <aside className="app-sidebar" style={{
+          position: 'fixed', left: 0, top: 0, bottom: 0, width: 220,
+          background: 'var(--surface)',
+          borderRight: '1px solid var(--border)',
+          zIndex: 50,
+          display: 'flex', flexDirection: 'column',
+          padding: '28px 0',
+        }}>
+          {/* Wordmark */}
+          <Link href="/dashboard" style={{ padding: '0 24px 32px', fontSize: 22, fontWeight: 700, letterSpacing: '-0.3px', textDecoration: 'none', display: 'block' }}>
+            <span style={{ color: 'var(--ink)' }}>Card</span>
+            <span style={{ color: 'var(--gold)' }}>Index</span>
+          </Link>
+
+          {/* Nav items */}
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {SIDEBAR_NAV.filter(item => !item.proOnly || userTier === 'pro').map(item => {
+              const active = pathname === item.href || pathname.startsWith(item.href + '/')
+              return (
+                <Link key={item.href} href={item.href} style={{
+                  padding: '11px 24px',
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  fontSize: 15, fontWeight: active ? 600 : 500,
+                  color: active ? 'var(--ink)' : 'var(--ink3)',
+                  background: active ? 'var(--hover-subtle)' : 'transparent',
+                  textDecoration: 'none',
+                  transition: 'color 0.15s, background 0.15s',
+                }}>
+                  <span style={{ color: active ? 'var(--gold)' : 'inherit', display: 'flex' }}>{item.icon}</span>
+                  {item.label}
+                </Link>
+              )
+            })}
+
+            {/* Alerts — opens modal */}
+            <button onClick={() => setShowAlerts(true)} style={{
+              padding: '11px 24px', display: 'flex', alignItems: 'center', gap: 12,
+              fontSize: 15, fontWeight: 500, color: 'var(--ink3)',
+              background: 'none', border: 'none', cursor: 'pointer',
+              transition: 'color 0.15s',
+            }}>
+              <span style={{ display: 'flex' }}>
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10 2a6 6 0 0 1 6 6c0 3.5 1.5 5 1.5 5h-15S3 11.5 3 8a6 6 0 0 1 6-6z"/>
+                  <path d="M8.5 17.5a1.5 1.5 0 0 0 3 0"/>
+                </svg>
+              </span>
+              Alerts
+            </button>
+          </div>
+
+          {/* User footer */}
+          <div style={{ marginTop: 'auto', padding: '0 24px', position: 'relative' }}>
+            <button
+              onClick={() => setUserMenuOpen(v => !v)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                width: '100%', padding: '12px 0',
+                background: 'none', border: 'none', borderTop: '1px solid var(--border)',
+                cursor: 'pointer', textAlign: 'left',
+              }}
+            >
+              <div style={{
+                width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+                background: 'var(--gold2)', border: '1.5px solid var(--gold)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 13, fontWeight: 700, color: 'var(--gold)',
+              }}>{initials}</div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName}</div>
+                <div style={{ fontSize: 12, color: 'var(--ink3)', textTransform: 'capitalize' }}>{userTier} plan</div>
+              </div>
+            </button>
+            {userMenuOpen && (
+              <div style={{ position: 'absolute', left: '100%', bottom: 0, marginLeft: 8, width: 200, borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden', boxShadow: '0 16px 40px var(--shadow-lg)', zIndex: 60 }}>
+                <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 700, marginBottom: 2 }}>{displayName}</div>
+                  <div style={{ fontSize: 11, color: 'var(--ink3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.email}</div>
+                </div>
+                <Link href="/account" onClick={() => setUserMenuOpen(false)} style={{ display: 'block', padding: '10px 16px', fontSize: 13, color: 'var(--ink2)', textDecoration: 'none' }}>Account settings</Link>
+                <Link href="/pricing" onClick={() => setUserMenuOpen(false)} style={{ display: 'block', padding: '10px 16px', fontSize: 13, color: 'var(--ink2)', textDecoration: 'none' }}>Upgrade plan</Link>
+                {isAdmin && (
+                  <Link href="/admin" onClick={() => setUserMenuOpen(false)} style={{ display: 'block', padding: '10px 16px', fontSize: 13, color: 'var(--red)', textDecoration: 'none', borderTop: '1px solid var(--border)', fontWeight: 600 }}>⚙ Admin</Link>
+                )}
+                <button onClick={signOut} style={{ width: '100%', padding: '10px 16px', textAlign: 'left', fontSize: 13, color: 'var(--red)', background: 'none', border: 'none', cursor: 'pointer', borderTop: '1px solid var(--border)' }}>Sign out</button>
+              </div>
+            )}
+          </div>
+        </aside>
+      )}
+
       {/* Password-reset sign-in banner */}
       {showPwResetBanner && (
         <div style={{
@@ -300,10 +430,17 @@ export default function Navbar() {
           .nav-mobile-guest { display: flex !important; }
           /* push page content above the bottom nav */
           main { padding-bottom: calc(108px + env(safe-area-inset-bottom)) !important; }
+          .app-sidebar { display: none !important; }
         }
         @media (min-width: 641px) {
           .nav-drawer { display: none !important; }
           .bottom-nav { display: none !important; }
+          /* When sidebar is active, hide the top nav bar and shift content */
+          body.has-sidebar .top-nav-bar { display: none !important; }
+          body.has-sidebar main {
+            margin-left: 220px;
+            padding-top: 40px !important;
+          }
         }
       `}</style>
 

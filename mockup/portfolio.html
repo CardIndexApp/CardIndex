@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CardIndex — Portfolio</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ── Sidebar ─────────────────────────────────────────────────────────── -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <span class="logo-card">Card</span><span class="logo-index">Index</span>
+  </div>
+  <nav class="sidebar-nav">
+    <a href="dashboard.html" class="nav-item">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+        <rect x="1" y="1" width="6" height="6" rx="1.5"/><rect x="9" y="1" width="6" height="6" rx="1.5"/>
+        <rect x="1" y="9" width="6" height="6" rx="1.5"/><rect x="9" y="9" width="6" height="6" rx="1.5"/>
+      </svg>
+      Dashboard
+    </a>
+    <a href="portfolio.html" class="nav-item active">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+        <rect x="1" y="9" width="3" height="6" rx="1"/><rect x="6" y="5" width="3" height="10" rx="1"/>
+        <rect x="11" y="2" width="3" height="13" rx="1"/>
+      </svg>
+      Portfolio
+    </a>
+    <a href="watchlist.html" class="nav-item">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+        <polygon points="8,1.5 10.1,5.8 14.9,6.5 11.5,9.8 12.3,14.5 8,12.3 3.7,14.5 4.5,9.8 1.1,6.5 5.9,5.8"/>
+      </svg>
+      Watchlist
+    </a>
+    <a href="search.html" class="nav-item">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+        <circle cx="7" cy="7" r="5"/><line x1="11" y1="11" x2="14.5" y2="14.5"/>
+      </svg>
+      Search
+    </a>
+    <a href="compare.html" class="nav-item">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+        <polyline points="1,8 5,4 5,12"/><polyline points="15,8 11,4 11,12"/>
+        <line x1="5" y1="8" x2="11" y2="8"/>
+      </svg>
+      Compare
+    </a>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="user-avatar">JV</div>
+    <span class="sidebar-username">My Account</span>
+  </div>
+</aside>
+
+<!-- ── Main ───────────────────────────────────────────────────────────── -->
+<main class="main">
+  <div class="page-header">
+    <div>
+      <div class="page-label">Portfolio</div>
+      <h1 class="page-title">My Cards</h1>
+    </div>
+    <div class="header-actions">
+      <div class="icon-btn">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+          <path d="M8 1a5 5 0 0 1 5 5c0 3.5 1.5 4.5 1.5 5H1.5C1.5 10.5 3 9.5 3 6a5 5 0 0 1 5-5z"/>
+          <path d="M6.5 13.5a1.5 1.5 0 0 0 3 0"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ── Summary stats grid ────────────────────────────────────── -->
+    <div class="stat-grid">
+      <div class="stat-cell">
+        <div class="stat-label">Total Value</div>
+        <div class="stat-value">A$2,191.66</div>
+        <div class="stat-sub">46 positions</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-label">Unrealized P&L</div>
+        <div class="stat-value green">+A$494.98</div>
+        <div class="stat-sub green">+29.2%</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-label">Today's Gain</div>
+        <div class="stat-value green">+A$18.87</div>
+        <div class="stat-sub green">+0.87%</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-label">Realized P&L</div>
+        <div class="stat-value green">+A$433.71</div>
+        <div class="stat-sub">closed positions</div>
+      </div>
+    </div>
+
+    <!-- ── Invested vs Current ───────────────────────────────────── -->
+    <div class="card">
+      <div class="invested-section">
+        <div class="invested-header">
+          <span class="invested-label">Invested vs Current Value</span>
+          <span class="badge green">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <polyline points="1,9 4,3 7,6 9,1"/>
+            </svg>
+            +29.2%
+          </span>
+        </div>
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill" style="width:78%"></div>
+        </div>
+        <div class="invested-numbers">
+          <div>
+            <div class="invested-num-label">Invested</div>
+            <div class="invested-num-value">A$1,696.68</div>
+          </div>
+          <div style="text-align:center">
+            <div class="invested-num-label">P&L</div>
+            <div class="invested-num-value green">+A$494.98</div>
+          </div>
+          <div style="text-align:right">
+            <div class="invested-num-label">Current</div>
+            <div class="invested-num-value">A$2,191.66</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Two-col: Health + Portfolio List ─────────────────────── -->
+    <div class="two-col" style="grid-template-columns:2fr 3fr">
+
+      <!-- Portfolio Health -->
+      <div class="card" style="overflow:hidden">
+        <div class="card-header">
+          <span class="card-header-label">Portfolio Health</span>
+          <span style="font-size:11px;color:var(--ink3)">46 positions</span>
+        </div>
+        <div class="health-stats-row">
+          <div class="health-stat-cell">
+            <div class="health-stat-num">46</div>
+            <div class="health-stat-label">Cards</div>
+          </div>
+          <div class="health-stat-cell">
+            <div class="health-stat-num">25</div>
+            <div class="health-stat-label">Sets</div>
+          </div>
+          <div class="health-stat-cell">
+            <div class="health-stat-num gold">2</div>
+            <div class="health-stat-label">Graded</div>
+          </div>
+        </div>
+        <div class="health-pnl">
+          <div>
+            <div class="health-pnl-label">Total P&L</div>
+            <div class="health-pnl-value">A$477.91</div>
+          </div>
+          <div>
+            <div class="health-pnl-return-label">Return</div>
+            <div class="health-pnl-return">+28.5%</div>
+          </div>
+        </div>
+        <div class="health-metrics">
+          <div class="health-metric">
+            <div class="health-metric-label">Win Rate</div>
+            <div class="health-metric-value">78%</div>
+            <div class="health-metric-sub" style="color:var(--ink3)">36W · 10L</div>
+            <div class="win-bar-track"><div class="win-bar-fill" style="width:78%"></div></div>
+          </div>
+          <div class="health-metric">
+            <div class="health-metric-label">Avg P&L</div>
+            <div class="health-metric-value">+344.3%</div>
+            <div class="health-metric-sub">per position</div>
+          </div>
+        </div>
+        <div class="health-mini-stats">
+          <div class="health-mini-cell">
+            <div class="health-mini-value">+187%</div>
+            <div class="health-mini-label">CAGR</div>
+          </div>
+          <div class="health-mini-cell">
+            <div class="health-mini-value" style="color:var(--ink2)">2mo</div>
+            <div class="health-mini-label">Avg Hold</div>
+          </div>
+          <div class="health-mini-cell">
+            <div class="health-mini-value">+A$41</div>
+            <div class="health-mini-label">7D Chg</div>
+          </div>
+          <div class="health-mini-cell">
+            <div class="health-mini-value">+A$2.44</div>
+            <div class="health-mini-label">30D Chg</div>
+          </div>
+        </div>
+        <div class="best-worst-row">
+          <div class="best-worst-indicator" style="background:var(--green)"></div>
+          <div>
+            <div class="best-worst-label">Best</div>
+            <div class="best-worst-name">Suicune EB Games</div>
+          </div>
+          <div class="best-worst-pct" style="color:var(--green)">+9233%</div>
+        </div>
+        <div class="best-worst-row" style="border-top:1px solid var(--border)">
+          <div class="best-worst-indicator" style="background:var(--red)"></div>
+          <div>
+            <div class="best-worst-label">Worst</div>
+            <div class="best-worst-name">Cyndaquil (56)</div>
+          </div>
+          <div class="best-worst-pct" style="color:var(--red)">-55.4%</div>
+        </div>
+      </div>
+
+      <!-- My Portfolios -->
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-header-label">My Portfolios</span>
+            <span class="card-header-action">+ New</span>
+          </div>
+          <div class="portfolio-list-item">
+            <div>
+              <div class="portfolio-item-name">Personal Portfolio</div>
+              <div class="portfolio-item-sub">38 cards · A$1,820.40</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px">
+              <span class="badge green">+A$412.20</span>
+              <svg class="chevron" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="5,3 9,7 5,11"/></svg>
+            </div>
+          </div>
+          <div class="portfolio-list-item">
+            <div>
+              <div class="portfolio-item-name">Graded</div>
+              <div class="portfolio-item-sub">8 cards · A$371.26</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px">
+              <span class="badge green">+A$82.78</span>
+              <svg class="chevron" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="5,3 9,7 5,11"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Top Performers -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-header-label">Top Performers</span>
+            <a href="#" class="card-header-action">View all →</a>
+          </div>
+          <div class="mover-row">
+            <div class="card-thumb" style="background:linear-gradient(135deg,#1a6e6e,#2aa0a0)"></div>
+            <div class="mover-info">
+              <div class="mover-name">Suicune EB Games Exclusive</div>
+              <div class="mover-sub">PSA 10 · Personal Portfolio</div>
+            </div>
+            <div class="mover-right">
+              <div class="mover-price">A$188.00</div>
+              <div class="mover-change green">+9233.3%</div>
+            </div>
+          </div>
+          <div class="mover-row">
+            <div class="card-thumb" style="background:linear-gradient(135deg,#6e4a1a,#b07a2a)"></div>
+            <div class="mover-info">
+              <div class="mover-name">Charizard Base Set Holo</div>
+              <div class="mover-sub">PSA 10 · Personal Portfolio</div>
+            </div>
+            <div class="mover-right">
+              <div class="mover-price">A$4,200.00</div>
+              <div class="mover-change green">+840.0%</div>
+            </div>
+          </div>
+          <div class="mover-row">
+            <div class="card-thumb" style="background:linear-gradient(135deg,#1a3a6e,#2d5aa0)"></div>
+            <div class="mover-info">
+              <div class="mover-name">Pikachu Red Cheeks</div>
+              <div class="mover-sub">Raw · Personal Portfolio</div>
+            </div>
+            <div class="mover-right">
+              <div class="mover-price">A$101.72</div>
+              <div class="mover-change green">+310.2%</div>
+            </div>
+          </div>
+          <div class="mover-row">
+            <div class="card-thumb" style="background:linear-gradient(135deg,#2a6e3a,#3d9a52)"></div>
+            <div class="mover-info">
+              <div class="mover-name">Venusaur Base Set Holo</div>
+              <div class="mover-sub">Raw · Personal Portfolio</div>
+            </div>
+            <div class="mover-right">
+              <div class="mover-price">A$220.00</div>
+              <div class="mover-change green">+175.0%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</main>
+
+</body>
+</html>

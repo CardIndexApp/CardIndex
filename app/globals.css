@@ -179,10 +179,10 @@ body {
 .wl-row,
 .wl-header {
   display: grid;
-  grid-template-columns: 1fr 110px 130px 100px 80px 90px 36px;
+  grid-template-columns: minmax(180px,1fr) 70px 110px 90px 90px 90px 36px;
   align-items: center;
   padding: 14px 20px;
-  gap: 0;
+  gap: 8px;
 }
 .wl-header { padding: 10px 20px; }
 

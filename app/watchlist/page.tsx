@@ -4,7 +4,6 @@ import Link from 'next/link'
 import Navbar from '@/components/Navbar'
 import AuthModal from '@/components/AuthModal'
 import { SetAlertModal } from '@/components/AlertCentre'
-import { scoreColor } from '@/lib/data'
 import { tcgImg } from '@/lib/img'
 import { createClient } from '@/lib/supabase/client'
 import type { User } from '@supabase/supabase-js'
@@ -54,72 +53,63 @@ interface EnrichedItem extends WatchlistItem {
 type SortKey = 'price' | 'change' | 'score' | 'name'
 type Filter = 'all' | 'up' | 'down'
 
-// ── Verdict ───────────────────────────────────────────────────────────────────
+// ── Score ring ────────────────────────────────────────────────────────────────
 
-function getVerdict(score: number, change: number): { label: string; color: string; bg: string; border: string } {
-  if (score >= 70 && change >= -2)  return { label: 'BUY',        color: '#3de88a', bg: 'rgba(61,232,138,0.12)',  border: 'rgba(61,232,138,0.35)' }
-  if (score >= 55 && change >= -5)  return { label: 'ACCUMULATE', color: '#a8e88a', bg: 'rgba(168,232,138,0.08)', border: 'rgba(168,232,138,0.25)' }
-  if (score >= 40 && change > -15)  return { label: 'HOLD',       color: '#8c8cb4', bg: 'rgba(140,140,180,0.08)', border: 'rgba(140,140,180,0.2)'  }
-  return                                     { label: 'SELL',       color: '#e8524a', bg: 'rgba(232,82,74,0.10)',  border: 'rgba(232,82,74,0.3)'   }
+function ScoreRing({ score }: { score: number }) {
+  const offset = (1 - score / 100) * 94.25
+  const color = score >= 75 ? 'var(--green)' : score >= 50 ? 'var(--gold)' : 'var(--red)'
+  return (
+    <div style={{ width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', flexShrink: 0 }}>
+      <svg width="38" height="38" style={{ position: 'absolute', top: 0, left: 0, transform: 'rotate(-90deg)' }}>
+        <circle cx="19" cy="19" r="15" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="3" />
+        <circle cx="19" cy="19" r="15" fill="none" stroke={color} strokeWidth="3"
+          strokeDasharray="94.25" strokeDashoffset={offset} strokeLinecap="round" />
+      </svg>
+      <span style={{ position: 'relative', zIndex: 1, fontSize: 11, fontWeight: 700, color }}>{score}</span>
+    </div>
+  )
 }
 
-// ── Sparkline ─────────────────────────────────────────────────────────────────
-
-function Sparkline({ data, up }: { data: number[]; up: boolean }) {
-  const w = 80, h = 32
-  const min = Math.min(...data), max = Math.max(...data)
-  const range = max - min || 1
-  const pts = data.map((v, i) => {
-    const x = (i / (data.length - 1)) * w
-    const y = h - ((v - min) / range) * h
-    return `${x},${y}`
-  }).join(' ')
-  const color = up ? '#3de88a' : '#e8524a'
-  return (
-    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: 'block' }}>
-      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" opacity="0.8" />
-    </svg>
-  )
+function VerdictBadge({ score }: { score: number }) {
+  if (score >= 75) return <span className="wl-badge wl-badge-buy">BUY</span>
+  if (score >= 50) return <span className="wl-badge wl-badge-hold">HOLD</span>
+  return <span className="wl-badge wl-badge-sell">SELL</span>
 }
 
 // ── Skeleton ──────────────────────────────────────────────────────────────────
 
 function SkeletonRow({ last }: { last: boolean }) {
   return (
-    <div
-      className="wl-row"
-      style={{ borderBottom: last ? 'none' : '1px solid var(--border)' }}
-    >
+    <div className="wl-row" style={{ borderBottom: last ? 'none' : '1px solid var(--border)' }}>
       {/* Card cell */}
       <div className="wl-cell-card" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{ width: 38, height: 38, flexShrink: 0 }} className="skeleton" />
+        <div style={{ width: 38, height: 38, borderRadius: 8, flexShrink: 0 }} className="skeleton" />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <div style={{ width: 140 }} className="skeleton skeleton-text" />
           <div style={{ width: 90 }} className="skeleton skeleton-text" />
         </div>
       </div>
+      {/* Score ring (desktop) */}
+      <div className="wl-hide-mobile" style={{ display: 'flex', justifyContent: 'center' }}>
+        <div style={{ width: 38, height: 38, borderRadius: '50%' }} className="skeleton" />
+      </div>
       {/* Price */}
       <div className="wl-cell-price" style={{ textAlign: 'right' }}>
         <div style={{ width: 60, marginLeft: 'auto' }} className="skeleton skeleton-text" />
       </div>
-      {/* Change */}
-      <div className="wl-cell-change" style={{ textAlign: 'right' }}>
+      {/* 7D change (desktop) */}
+      <div className="wl-hide-mobile" style={{ textAlign: 'right' }}>
         <div style={{ width: 48, marginLeft: 'auto' }} className="skeleton skeleton-text" />
       </div>
-      {/* Trend (desktop) */}
-      <div className="wl-hide-mobile" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-        <div style={{ width: 80 }} className="skeleton skeleton-card" />
-      </div>
-      {/* Score (desktop) */}
-      <div className="wl-hide-mobile" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-        <div style={{ width: 30 }} className="skeleton skeleton-text" />
-        <div style={{ width: 40, height: 3, borderRadius: 2 }} className="skeleton" />
+      {/* 30D change (desktop) */}
+      <div className="wl-hide-mobile" style={{ textAlign: 'right' }}>
+        <div style={{ width: 48, marginLeft: 'auto' }} className="skeleton skeleton-text" />
       </div>
       {/* Verdict (desktop) */}
       <div className="wl-hide-mobile" style={{ display: 'flex', justifyContent: 'center' }}>
-        <div style={{ width: 70, height: 22, borderRadius: 99 }} className="skeleton" />
+        <div style={{ width: 52, height: 22, borderRadius: 6 }} className="skeleton" />
       </div>
-      {/* Remove button placeholder */}
+      {/* Remove placeholder */}
       <div className="wl-cell-remove" style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <div style={{ width: 28, height: 28, borderRadius: 7 }} className="skeleton" />
       </div>
@@ -377,11 +367,18 @@ export default function Watchlist() {
           50% { opacity: 0.4; }
         }
         .sk-pulse { animation: sk-pulse 1.6s ease-in-out infinite; }
-
+        .wl-badge {
+          display: inline-flex; align-items: center;
+          padding: 4px 10px; border-radius: 6px;
+          font-size: 11.5px; font-weight: 700; letter-spacing: 0.02em;
+        }
+        .wl-badge-buy  { background: rgba(74,222,128,.12); color: #4ade80; border: 1px solid rgba(74,222,128,.3); }
+        .wl-badge-hold { background: rgba(232,185,35,.12);  color: #e8b923; border: 1px solid rgba(232,185,35,.3); }
+        .wl-badge-sell { background: rgba(248,113,113,.12); color: #f87171; border: 1px solid rgba(248,113,113,.3); }
         @media (max-width: 640px) {
           .wl-header > span { display: none !important; }
           .wl-header::before { content: 'CARD'; font-size: 10px; color: var(--ink3); letter-spacing: 1px; text-transform: uppercase; }
-          .wl-header::after  { content: 'PRICE / CHANGE'; font-size: 10px; color: var(--ink3); letter-spacing: 1px; text-transform: uppercase; grid-column: 2; text-align: right; }
+          .wl-header::after  { content: 'PRICE'; font-size: 10px; color: var(--ink3); letter-spacing: 1px; text-transform: uppercase; grid-column: 2; text-align: right; }
           .wl-two-col { grid-template-columns: 1fr !important; }
         }
         @media (min-width: 641px) {
@@ -423,8 +420,10 @@ export default function Watchlist() {
           {/* Header */}
           <div className="fade-up-1" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 32, flexWrap: 'wrap', gap: 12 }}>
             <div>
-              <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--gold)', marginBottom: 4, textTransform: 'uppercase' }}>Watchlist</p>
-              <h1 style={{ fontSize: 26, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.5px', margin: 0 }}>My Cards</h1>
+              <h1 style={{ fontSize: 28, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px', margin: 0, marginBottom: 6 }}>Watchlist</h1>
+              <p style={{ fontSize: 14, color: 'var(--ink3)', margin: 0 }}>
+                Tracking {items.length} card{items.length !== 1 ? 's' : ''}{groups.length > 0 ? ` across ${groups.length} list${groups.length !== 1 ? 's' : ''}` : ''}
+              </p>
             </div>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
               {userTier === 'pro' ? (
@@ -775,10 +774,10 @@ export default function Watchlist() {
                 {/* Table header */}
                 <div className="wl-header" style={{ borderBottom: '1px solid var(--border)' }}>
                   <span style={{ fontSize: 9, fontWeight: 600, color: 'var(--ink3)', letterSpacing: '0.22em', textTransform: 'uppercase' }}>Card</span>
-                  <span style={{ fontSize: 9, fontWeight: 600, color: 'var(--ink3)', letterSpacing: '0.22em', textTransform: 'uppercase' as const, textAlign: 'right' as const }}>Price</span>
-                  <span style={{ fontSize: 9, fontWeight: 600, color: 'var(--ink3)', letterSpacing: '0.22em', textTransform: 'uppercase' as const, textAlign: 'right' as const }}>24h Change</span>
-                  <span className="wl-hide-mobile" style={{ fontSize: 9, fontWeight: 600, color: 'var(--ink3)', letterSpacing: '0.22em', textTransform: 'uppercase' as const, textAlign: 'center' as const }}>30d Trend</span>
                   <span className="wl-hide-mobile" style={{ fontSize: 9, fontWeight: 600, color: 'var(--ink3)', letterSpacing: '0.22em', textTransform: 'uppercase' as const, textAlign: 'center' as const }}>Score</span>
+                  <span style={{ fontSize: 9, fontWeight: 600, color: 'var(--ink3)', letterSpacing: '0.22em', textTransform: 'uppercase' as const, textAlign: 'right' as const }}>Price</span>
+                  <span className="wl-hide-mobile" style={{ fontSize: 9, fontWeight: 600, color: 'var(--ink3)', letterSpacing: '0.22em', textTransform: 'uppercase' as const, textAlign: 'right' as const }}>7D Chg</span>
+                  <span className="wl-hide-mobile" style={{ fontSize: 9, fontWeight: 600, color: 'var(--ink3)', letterSpacing: '0.22em', textTransform: 'uppercase' as const, textAlign: 'right' as const }}>30D Chg</span>
                   <span className="wl-hide-mobile" style={{ fontSize: 9, fontWeight: 600, color: 'var(--ink3)', letterSpacing: '0.22em', textTransform: 'uppercase' as const, textAlign: 'center' as const }}>Verdict</span>
                   <span />
                 </div>
@@ -809,9 +808,9 @@ export default function Watchlist() {
                   const change = pd?.price_change_pct ?? 0
                   const up = change >= 0
                   const score = pd?.score ?? 0
-                  const history = pd?.price_history?.map(h => h.price) ?? []
+                  const c7  = pd?.avg7d  ? ((pd.price - pd.avg7d)  / pd.avg7d)  * 100 : null
+                  const c30 = pd?.avg30d ? ((pd.price - pd.avg30d) / pd.avg30d) * 100 : null
 
-                  // Build card page URL with params so live data loads correctly
                   const cardParams = new URLSearchParams({ name: item.card_name, grade: item.grade })
                   if (item.set_name) cardParams.set('set', item.set_name)
                   const cardHref = `/card/${item.card_id}?${cardParams.toString()}`
@@ -825,129 +824,95 @@ export default function Watchlist() {
                       onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
                       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                     >
-                      {/* Card info */}
+                      {/* Col 1: Card */}
                       <div className="wl-cell-card" style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                         <div style={{ width: 38, height: 38, borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0 }}>
                           {item.image_url && (
-                            <img
-                              src={tcgImg(item.image_url)}
-                              alt={item.card_name}
-                              style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 3 }}
-                            />
+                            <img src={tcgImg(item.image_url)} alt={item.card_name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 3 }} />
                           )}
                         </div>
                         <div style={{ minWidth: 0 }}>
-                          <div className="wl-card-name font-num" style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <div className="wl-card-name" style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {item.card_name}
                           </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
-                            {item.set_name && <span style={{ fontSize: 10, color: 'var(--ink3)' }}>{item.set_name}</span>}
-                            {item.set_name && <span style={{ fontSize: 10, color: 'var(--border2)' }}>·</span>}
-                            <span style={{ fontSize: 10, color: 'var(--ink3)' }}>{item.grade}</span>
+                          <div style={{ fontSize: 10, color: 'var(--ink3)' }}>
+                            {item.set_name ? `${item.set_name} · ` : ''}{item.grade}
                           </div>
                         </div>
                       </div>
 
-                      {/* Price */}
+                      {/* Col 2: Score ring (desktop only) */}
+                      <div className="wl-hide-mobile" style={{ display: 'flex', justifyContent: 'center' }}>
+                        {!getTierLimits(userTier).trendIndicators ? (
+                          <Link href="/pricing" onClick={e => e.stopPropagation()} style={{ fontSize: 9, color: 'var(--ink3)', textDecoration: 'none', opacity: 0.6 }}>🔒</Link>
+                        ) : item.priceLoading ? (
+                          <div style={{ width: 38, height: 38, borderRadius: '50%' }} className="skeleton" />
+                        ) : pd ? (
+                          <ScoreRing score={score} />
+                        ) : (
+                          <span style={{ fontSize: 11, color: 'var(--ink3)' }}>—</span>
+                        )}
+                      </div>
+
+                      {/* Col 3: Price */}
                       <div className="wl-cell-price" style={{ textAlign: 'right' }}>
                         {item.priceLoading ? (
                           <div style={{ width: 60, marginLeft: 'auto' }} className="skeleton skeleton-text" />
                         ) : pd ? (
-                          <div className="font-num" style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', lineHeight: 1 }}>
-                            {fmtCurrency(pd.price)}
-                          </div>
+                          <>
+                            <div className="font-num" style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', lineHeight: 1 }}>{fmtCurrency(pd.price)}</div>
+                            <div className="font-num wl-cell-change" style={{ fontSize: 11, color: up ? 'var(--green)' : 'var(--red)', marginTop: 2 }}>
+                              {up ? '+' : ''}{change.toFixed(1)}%
+                            </div>
+                          </>
                         ) : item.priceError ? (
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
                             <span style={{ fontSize: 10, color: 'var(--red)', opacity: 0.8 }}>{item.priceError}</span>
-                            <button
-                              onClick={e => { e.preventDefault(); e.stopPropagation(); retryItem(item) }}
-                              style={{ fontSize: 9, color: 'var(--ink3)', background: 'var(--surface2)', border: '1px solid var(--border2)', borderRadius: 4, padding: '2px 6px', cursor: 'pointer', letterSpacing: 0.5 }}
-                            >↺ retry</button>
+                            <button onClick={e => { e.preventDefault(); e.stopPropagation(); retryItem(item) }}
+                              style={{ fontSize: 9, color: 'var(--ink3)', background: 'var(--surface2)', border: '1px solid var(--border2)', borderRadius: 4, padding: '2px 6px', cursor: 'pointer' }}>↺ retry</button>
                           </div>
-                        ) : (
-                          <span style={{ fontSize: 11, color: 'var(--ink3)' }}>—</span>
-                        )}
+                        ) : <span style={{ fontSize: 11, color: 'var(--ink3)' }}>—</span>}
                       </div>
 
-                      {/* 24h change */}
-                      <div className="wl-cell-change" style={{ textAlign: 'right' }}>
+                      {/* Col 4: 7D change (desktop only) */}
+                      <div className="wl-hide-mobile" style={{ textAlign: 'right' }}>
                         {item.priceLoading ? (
                           <div style={{ width: 48, marginLeft: 'auto' }} className="skeleton skeleton-text" />
-                        ) : pd ? (
-                          <>
-                            <div className="font-num" style={{ fontSize: 12, fontWeight: 600, color: up ? 'var(--green)' : 'var(--red)', lineHeight: 1 }}>
-                              {up ? '+' : ''}{change.toFixed(1)}%
-                            </div>
-                            <div className="font-num" style={{ fontSize: 10, color: up ? 'var(--green)' : 'var(--red)', opacity: 0.65, marginTop: 2 }}>
-                              {up ? '+' : ''}{fmtCurrency(Math.abs(pd.price * change / 100))}
-                            </div>
-                          </>
-                        ) : item.priceError ? (
-                          <span style={{ fontSize: 11, color: 'var(--ink3)' }}>—</span>
-                        ) : (
-                          <span style={{ fontSize: 11, color: 'var(--ink3)' }}>—</span>
-                        )}
+                        ) : c7 != null ? (
+                          <span className="font-num" style={{ fontSize: 13, fontWeight: 600, color: c7 >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                            {c7 >= 0 ? '+' : ''}{c7.toFixed(1)}%
+                          </span>
+                        ) : <span style={{ fontSize: 12, color: 'var(--ink3)' }}>—</span>}
                       </div>
 
-                      {/* Sparkline — Standard+ */}
+                      {/* Col 5: 30D change (desktop only) */}
+                      <div className="wl-hide-mobile" style={{ textAlign: 'right' }}>
+                        {item.priceLoading ? (
+                          <div style={{ width: 48, marginLeft: 'auto' }} className="skeleton skeleton-text" />
+                        ) : c30 != null ? (
+                          <span className="font-num" style={{ fontSize: 13, fontWeight: 600, color: c30 >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                            {c30 >= 0 ? '+' : ''}{c30.toFixed(1)}%
+                          </span>
+                        ) : <span style={{ fontSize: 12, color: 'var(--ink3)' }}>—</span>}
+                      </div>
+
+                      {/* Col 6: Verdict (desktop only) */}
                       <div className="wl-hide-mobile" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                         {!getTierLimits(userTier).trendIndicators ? (
                           <Link href="/pricing" onClick={e => e.stopPropagation()} style={{ fontSize: 9, color: 'var(--ink3)', textDecoration: 'none', opacity: 0.6 }}>🔒</Link>
                         ) : item.priceLoading ? (
-                          <div style={{ width: 80 }} className="skeleton skeleton-card" />
-                        ) : history.length >= 2 ? (
-                          <Sparkline data={history} up={up} />
-                        ) : (
-                          <span style={{ fontSize: 11, color: 'var(--ink3)' }}>—</span>
-                        )}
-                      </div>
-
-                      {/* Score — Standard+ */}
-                      <div className="wl-hide-mobile" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                        {!getTierLimits(userTier).trendIndicators ? (
-                          <Link href="/pricing" onClick={e => e.stopPropagation()} style={{ fontSize: 9, color: 'var(--ink3)', textDecoration: 'none', opacity: 0.6 }}>🔒</Link>
-                        ) : item.priceLoading ? (
-                          <>
-                            <div style={{ width: 30 }} className="skeleton skeleton-text" />
-                            <div style={{ width: 40, height: 3, borderRadius: 2 }} className="skeleton" />
-                          </>
+                          <div style={{ width: 52, height: 22, borderRadius: 6 }} className="skeleton" />
                         ) : pd ? (
-                          <>
-                            <span className="font-num" style={{ fontSize: 15, fontWeight: 700, color: scoreColor(score) }}>{score}</span>
-                            <div style={{ width: 40, height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-                              <div style={{ height: '100%', width: `${score}%`, background: scoreColor(score), borderRadius: 2 }} />
-                            </div>
-                          </>
-                        ) : (
-                          <span style={{ fontSize: 11, color: 'var(--ink3)' }}>—</span>
-                        )}
+                          <VerdictBadge score={score} />
+                        ) : <span style={{ fontSize: 11, color: 'var(--ink3)' }}>—</span>}
                       </div>
 
-                      {/* Verdict — Standard+ */}
-                      <div className="wl-hide-mobile" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                        {!getTierLimits(userTier).trendIndicators ? (
-                          <Link href="/pricing" onClick={e => e.stopPropagation()} style={{ fontSize: 9, color: 'var(--ink3)', textDecoration: 'none', opacity: 0.6 }}>🔒</Link>
-                        ) : item.priceLoading ? (
-                          <div style={{ width: 70, height: 22, borderRadius: 99 }} className="skeleton" />
-                        ) : pd ? (() => {
-                          const v = getVerdict(score, change)
-                          return (
-                            <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: 0.8, padding: '4px 10px', borderRadius: 99, background: v.bg, border: `1px solid ${v.border}`, color: v.color, whiteSpace: 'nowrap' }}>
-                              {v.label}
-                            </span>
-                          )
-                        })() : (
-                          <span style={{ fontSize: 11, color: 'var(--ink3)' }}>—</span>
-                        )}
-                      </div>
-
-                      {/* Remove + Bell */}
+                      {/* Col 7: Bell + Remove */}
                       <div className="wl-cell-remove" style={{ display: 'flex', justifyContent: 'flex-end', gap: 5 }}>
-                        {/* Bell alert button */}
                         {!!user && (
                           <button
                             onClick={e => { e.preventDefault(); e.stopPropagation(); setAlertItem(item) }}
-                            style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid var(--border)', background: 'transparent', color: 'var(--ink3)', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}
+                            style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid var(--border)', background: 'transparent', color: 'var(--ink3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}
                             onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.color = 'var(--gold)' }}
                             onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--ink3)' }}
                             title="Set price alert"
@@ -964,9 +929,7 @@ export default function Watchlist() {
                           onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--red)'; e.currentTarget.style.color = 'var(--red)' }}
                           onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--ink3)' }}
                           title="Remove from watchlist"
-                        >
-                          ×
-                        </button>
+                        >×</button>
                       </div>
                     </Link>
                   )

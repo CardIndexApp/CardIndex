@@ -7,6 +7,8 @@ import { createClient } from '@/lib/supabase/client'
 import { usePullToRefresh } from '@/lib/usePullToRefresh'
 import { useCurrency } from '@/lib/currency'
 import { cacheGet, cacheSet } from '@/lib/searchCache'
+import { tcgImg } from '@/lib/img'
+import { scoreColor } from '@/lib/data'
 
 type Tier = 'free' | 'standard' | 'pro'
 
@@ -139,8 +141,12 @@ export default function Dashboard() {
     level: number | null
     change7d: number | null
     change30d: number | null
-    topRising: { card_id: string; card_name: string; grade: string; change: number | null; price: number | null }[]
+    topRising: { card_id: string; card_name: string; grade: string; change: number | null; price: number | null; score: number | null; image_url: string | null }[]
+    topFalling: { card_id: string; card_name: string; grade: string; change: number | null; price: number | null; score: number | null; image_url: string | null }[]
+    risingCount: number
+    fallingCount: number
   } | null>(null)
+  const [alerts, setAlerts] = useState<{ id: string; card_name: string; grade: string; target_price: number; direction: 'above' | 'below'; is_active: boolean; triggered_at: string | null }[]>([])
 
   const load = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -232,9 +238,18 @@ export default function Dashboard() {
           level: d.indexMetrics?.level ?? null,
           change7d: d.indexMetrics?.change7d ?? null,
           change30d: d.indexMetrics?.change30d ?? null,
-          topRising: (d.topRising ?? []).slice(0, 5),
+          topRising: (d.topRising ?? []).slice(0, 8),
+          topFalling: (d.topFalling ?? []).slice(0, 3),
+          risingCount: d.stats?.risingCount ?? 0,
+          fallingCount: d.stats?.fallingCount ?? 0,
         })
       })
+      .catch(() => {})
+
+    // Alerts — non-blocking
+    fetch('/api/alerts')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.alerts) setAlerts(d.alerts) })
       .catch(() => {})
 
     setLoading(false)
@@ -257,6 +272,9 @@ export default function Dashboard() {
       </>
     )
   }
+
+  const activeAlerts  = alerts.filter(a => a.is_active)
+  const firedAlerts   = alerts.filter(a => !a.is_active && a.triggered_at).slice(0, 4)
 
   return (
     <>
@@ -291,248 +309,231 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Page header — shown on desktop, hidden on mobile (top nav provides context) */}
-        <div className="dash-page-header" style={{ padding: '28px 32px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-          <div>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--gold)', marginBottom: 4, textTransform: 'uppercase' }}>Dashboard</div>
-            <h1 style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.5px', color: 'var(--ink)', margin: 0 }}>{displayName}</h1>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 99,
-              color: TIER_COLORS[tier],
-              background: tier === 'pro' ? 'rgba(232,197,71,0.1)' : tier === 'standard' ? 'rgba(74,158,255,0.1)' : 'rgba(255,255,255,0.06)',
-              border: `1px solid ${tier === 'pro' ? 'rgba(232,197,71,0.3)' : tier === 'standard' ? 'rgba(74,158,255,0.25)' : 'var(--border2)'}`,
-            }}>{TIER_LABELS[tier]}</span>
-            {tier === 'free' && (
-              <Link href="/pricing" style={{ fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 99, color: 'var(--gold)', background: 'rgba(232,197,71,0.08)', border: '1px solid rgba(232,197,71,0.2)', textDecoration: 'none' }}>Upgrade →</Link>
-            )}
-          </div>
-        </div>
+        <div className="dash-content" style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 24px 0', display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-        <div className="dash-content" style={{ maxWidth: 960, margin: '0 auto', padding: '24px 24px 0', display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-          {/* ── Hero: Portfolio Value ── */}
-          {portfolioStats && (portfolioStats.posCount > 0 || portfolioStats.realizedPL !== 0) && (() => {
-            const costUSD       = portfolioStats.costBasis
-            const hasPrices     = portfolioStats.cachedCount > 0
-            const allPriced     = portfolioStats.cachedCount === portfolioStats.posCount && portfolioStats.posCount > 0
-            const valueUSD      = portfolioStats.currentValue
-            const unrealizedUSD = hasPrices ? valueUSD - costUSD : null
-            const unrealizedPct = unrealizedUSD != null && costUSD > 0 ? (unrealizedUSD / costUSD) * 100 : null
-            const unrealizedPos = unrealizedUSD == null ? null : unrealizedUSD >= 0
-            const realizedUSD   = portfolioStats.realizedPL
-            const realizedPos   = realizedUSD >= 0
-            const showRealized  = portfolioStats.realizedPL !== 0
+          {/* ── Stat tiles ── */}
+          {(() => {
+            const hasPrices = (portfolioStats?.cachedCount ?? 0) > 0
+            const pfValue   = hasPrices ? portfolioStats?.currentValue : portfolioStats?.costBasis
+            const pfLabel   = hasPrices ? 'Portfolio Value' : 'Cost Basis'
+            const pfSub     = hasPrices
+              ? `${portfolioStats?.posCount ?? 0} positions`
+              : portfolioStats?.posCount ? `${portfolioStats.posCount} positions · visit portfolio` : 'No positions yet'
+            const pfChange  = hasPrices && portfolioStats
+              ? portfolioStats.currentValue - portfolioStats.costBasis : null
+            const tiles = [
+              {
+                label: pfLabel,
+                value: pfValue != null ? fmtCurrency(pfValue) : '—',
+                sub: pfSub,
+                subColor: 'var(--ink3)' as string,
+                change: pfChange,
+                href: '/portfolio',
+              },
+              {
+                label: 'Cards Tracked',
+                value: watchlist.length.toString(),
+                sub: `in watchlist`,
+                subColor: 'var(--ink3)' as string,
+                change: null,
+                href: '/watchlist',
+              },
+              {
+                label: 'Active Alerts',
+                value: activeAlerts.length.toString(),
+                sub: firedAlerts.length > 0 ? `${firedAlerts.length} triggered` : 'none triggered',
+                subColor: firedAlerts.length > 0 ? 'var(--gold)' as string : 'var(--ink3)' as string,
+                change: null,
+                href: null,
+              },
+              {
+                label: "Today's Gainers",
+                value: (marketSnap?.risingCount ?? marketSnap?.topRising.length ?? '—').toString(),
+                sub: marketSnap?.fallingCount != null ? `vs ${marketSnap.fallingCount} falling` : 'from market index',
+                subColor: 'var(--ink3)' as string,
+                change: null,
+                href: '/market',
+              },
+            ]
             return (
-              <Link href="/portfolio" className="dash-pf-hero" style={{ textDecoration: 'none', borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden', transition: 'border-color 0.15s' }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(61,232,138,0.3)' }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border2)' }}
-              >
-                <div style={{ padding: '22px 24px 18px' }}>
-                  <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 10 }}>Total Portfolio Value</div>
-                  {hasPrices ? (
-                    <>
-                      <div className="font-num" style={{ fontSize: 36, fontWeight: 800, letterSpacing: '-1px', color: 'var(--ink)', lineHeight: 1, marginBottom: 8 }}>{fmtCurrency(valueUSD)}</div>
-                      {unrealizedUSD != null && (
-                        <div style={{ fontSize: 14, fontWeight: 700, color: unrealizedPos ? 'var(--green)' : 'var(--red)' }}>
-                          {unrealizedPos ? '+' : '−'}{fmtCurrency(Math.abs(unrealizedUSD))} ({unrealizedPos ? '+' : ''}{unrealizedPct?.toFixed(1)}% unrealized)
-                          {!allPriced && <span style={{ color: 'var(--ink3)', fontWeight: 500, marginLeft: 8, fontSize: 12 }}>{portfolioStats.cachedCount}/{portfolioStats.posCount} priced</span>}
+              <div className="dash-stat-tiles" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+                {tiles.map((t, i) => {
+                  const inner = (
+                    <div style={{ padding: '20px 22px' }}>
+                      <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 10 }}>{t.label}</div>
+                      <div className="font-num" style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-1px', color: 'var(--ink)', lineHeight: 1, marginBottom: 6 }}>{t.value}</div>
+                      {t.change != null && (
+                        <div style={{ fontSize: 13, fontWeight: 700, color: t.change >= 0 ? 'var(--green)' : 'var(--red)', marginBottom: 4 }}>
+                          {t.change >= 0 ? '+' : '−'}{fmtCurrency(Math.abs(t.change))} unrealized
                         </div>
                       )}
-                    </>
-                  ) : (
-                    <>
-                      <div className="font-num" style={{ fontSize: 36, fontWeight: 800, letterSpacing: '-1px', color: 'var(--ink3)', lineHeight: 1, marginBottom: 8 }}>{fmtCurrency(costUSD)}</div>
-                      <div style={{ fontSize: 13, color: 'var(--ink3)' }}>Cost basis · visit portfolio to load prices</div>
-                    </>
-                  )}
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: showRealized ? '1fr 1fr 1fr' : '1fr 1fr', borderTop: '1px solid var(--border)' }}>
-                  <div style={{ padding: '13px 20px', borderRight: '1px solid var(--border)' }}>
-                    <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 5 }}>Positions</div>
-                    <div className="font-num" style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>{portfolioStats.posCount}</div>
-                  </div>
-                  <div style={{ padding: '13px 20px', borderRight: showRealized ? '1px solid var(--border)' : undefined }}>
-                    <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 5 }}>Cost Basis</div>
-                    <div className="font-num" style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>{fmtCurrency(costUSD)}</div>
-                  </div>
-                  {showRealized && (
-                    <div style={{ padding: '13px 20px' }}>
-                      <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 5 }}>Realized P&amp;L</div>
-                      <div className="font-num" style={{ fontSize: 18, fontWeight: 700, color: realizedPos ? 'var(--green)' : 'var(--red)' }}>
-                        {realizedPos ? '+' : '−'}{fmtCurrency(Math.abs(realizedUSD))}
-                      </div>
+                      <div style={{ fontSize: 12, color: t.subColor }}>{t.sub}</div>
                     </div>
-                  )}
-                </div>
-              </Link>
+                  )
+                  const style: React.CSSProperties = { borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', textDecoration: 'none', display: 'block', transition: 'border-color 0.15s' }
+                  return t.href ? (
+                    <Link key={i} href={t.href} style={style}
+                      onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(232,197,71,0.3)')}
+                      onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border2)')}
+                    >{inner}</Link>
+                  ) : (
+                    <div key={i} style={style}>{inner}</div>
+                  )
+                })}
+              </div>
             )
           })()}
 
-          {/* ── Two column: Movers + Market Index ── */}
-          <div className="dash-two-col" style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: 16 }}>
+          {/* ── Two-col: Movers table + right sidebar ── */}
+          <div className="dash-two-col" style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: 16, alignItems: 'start' }}>
 
-            {/* Watchlist Movers */}
-            <div className="dash-movers" style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden' }}>
+            {/* TOP MOVERS TODAY — table layout */}
+            <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden' }}>
               <div style={{ padding: '12px 18px 11px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink3)' }}>Watchlist Movers Today</span>
-                <Link href="/watchlist" style={{ fontSize: 11, fontWeight: 600, color: 'var(--gold)', textDecoration: 'none' }}>View watchlist →</Link>
+                <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink3)' }}>Top Movers Today</span>
+                <Link href="/market" style={{ fontSize: 11, fontWeight: 600, color: 'var(--gold)', textDecoration: 'none' }}>View all →</Link>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
-                {/* Gainers — top rising from market */}
-                <div style={{ borderRight: '1px solid var(--border)' }}>
-                  <div style={{ padding: '9px 16px 8px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)', flexShrink: 0 }} />
-                    <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--green)' }}>Top Rising</span>
-                  </div>
-                  {marketSnap && marketSnap.topRising.length > 0 ? marketSnap.topRising.slice(0, 4).map((item, i) => {
-                    const params = new URLSearchParams({ name: item.card_name, grade: item.grade })
-                    return (
-                      <Link key={i} href={`/card/${item.card_id}?${params}`}
-                        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: i < Math.min(marketSnap.topRising.length, 4) - 1 ? '1px solid var(--border)' : 'none', textDecoration: 'none', background: 'transparent', transition: 'background 0.12s' }}
-                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--hover-subtle)')}
-                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                      >
-                        <div style={{ width: 32, height: 44, borderRadius: 4, background: 'linear-gradient(135deg, var(--surface2) 0%, rgba(61,232,138,0.08) 100%)', border: '1px solid var(--border)', flexShrink: 0 }} />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.card_name}</div>
-                          <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>{item.grade}</div>
-                        </div>
-                        <div style={{ textAlign: 'right' as const, flexShrink: 0 }}>
-                          {item.price != null && <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink)' }}>{fmtCurrency(item.price)}</div>}
-                          {item.change != null && <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--green)', marginTop: 2 }}>+{item.change.toFixed(1)}%</div>}
-                        </div>
-                      </Link>
-                    )
-                  }) : Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: i < 3 ? '1px solid var(--border)' : 'none' }}>
-                      <div style={{ width: 32, height: 44, borderRadius: 4, background: 'var(--surface2)', flexShrink: 0 }} />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ height: 11, width: '70%', borderRadius: 3, background: 'var(--surface2)', marginBottom: 5 }} />
-                        <div style={{ height: 9, width: '40%', borderRadius: 3, background: 'var(--surface2)' }} />
+              {/* Column headers */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 80px 52px', padding: '8px 18px', gap: 8, borderBottom: '1px solid var(--border)' }}>
+                {['CARD', 'PRICE', '7D CHG', 'SCORE'].map((h, i) => (
+                  <div key={h} style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--ink3)', textTransform: 'uppercase', textAlign: i > 0 ? 'right' as const : 'left' as const }}>{h}</div>
+                ))}
+              </div>
+              {/* Rows */}
+              {marketSnap && marketSnap.topRising.length > 0 ? marketSnap.topRising.map((item, i) => {
+                const params = new URLSearchParams({ name: item.card_name, grade: item.grade })
+                const sc = item.score
+                const scColor = sc == null ? 'var(--ink3)' : sc >= 75 ? 'var(--green)' : sc >= 50 ? 'var(--gold)' : 'var(--red)'
+                const gradients = [
+                  'linear-gradient(135deg,#1a3a6e,#2d5aa0)',
+                  'linear-gradient(135deg,#6e1a6e,#a03da0)',
+                  'linear-gradient(135deg,#2a6e3a,#3d9a52)',
+                  'linear-gradient(135deg,#6e3a1a,#a05a2d)',
+                  'linear-gradient(135deg,#1a5a6e,#2d8ca0)',
+                  'linear-gradient(135deg,#3a6e1a,#5aa03d)',
+                  'linear-gradient(135deg,#6e1a3a,#a03d5a)',
+                  'linear-gradient(135deg,#1a6e5a,#2da08c)',
+                ]
+                return (
+                  <Link key={i} href={`/card/${item.card_id}?${params}`}
+                    style={{ display: 'grid', gridTemplateColumns: '1fr 90px 80px 52px', alignItems: 'center', gap: 8, padding: '11px 18px', borderBottom: i < marketSnap.topRising.length - 1 ? '1px solid var(--border)' : 'none', textDecoration: 'none', background: 'transparent', transition: 'background 0.12s' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--hover-subtle)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                      <div style={{ width: 40, height: 56, borderRadius: 5, background: item.image_url ? 'var(--surface2)' : gradients[i % gradients.length], border: '1px solid var(--border)', flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {item.image_url && <img src={tcgImg(item.image_url)} alt={item.card_name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />}
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.card_name}</div>
+                        <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 2 }}>{item.grade}</div>
                       </div>
                     </div>
-                  ))}
-                </div>
-                {/* Watchlist */}
-                <div>
-                  <div style={{ padding: '9px 16px 8px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--gold)', flexShrink: 0 }} />
-                    <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--gold)' }}>Watching</span>
-                  </div>
-                  {watchlist.length > 0 ? watchlist.slice(0, 4).map((item, i) => {
-                    const params = new URLSearchParams({ name: item.card_name, grade: item.grade })
-                    if (item.set_name) params.set('set', item.set_name)
-                    return (
-                      <Link key={item.id} href={`/card/${item.card_id}?${params}`}
-                        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: i < Math.min(watchlist.length, 4) - 1 ? '1px solid var(--border)' : 'none', textDecoration: 'none', background: 'transparent', transition: 'background 0.12s' }}
-                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--hover-subtle)')}
-                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                      >
-                        <div style={{ width: 32, height: 44, borderRadius: 4, background: 'linear-gradient(135deg, var(--surface2) 0%, rgba(232,197,71,0.08) 100%)', border: '1px solid var(--border)', flexShrink: 0 }} />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.card_name}</div>
-                          <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>{item.set_name ?? item.grade}</div>
-                        </div>
-                        <div style={{ fontSize: 14, color: 'var(--ink3)', flexShrink: 0 }}>›</div>
-                      </Link>
-                    )
-                  }) : (
-                    <div style={{ padding: '28px 16px', textAlign: 'center' as const }}>
-                      <div style={{ fontSize: 12, color: 'var(--ink3)', marginBottom: 10 }}>No cards yet</div>
-                      <Link href="/search" style={{ fontSize: 11, color: 'var(--gold)', textDecoration: 'none', fontWeight: 600 }}>Add cards →</Link>
+                    <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', textAlign: 'right' as const }}>
+                      {item.price != null ? fmtCurrency(item.price) : '—'}
                     </div>
-                  )}
+                    <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: item.change != null && item.change >= 0 ? 'var(--green)' : 'var(--red)', textAlign: 'right' as const }}>
+                      {item.change != null ? `${item.change >= 0 ? '+' : ''}${item.change.toFixed(1)}%` : '—'}
+                    </div>
+                    <div className="font-num" style={{ fontSize: 15, fontWeight: 700, color: scColor, textAlign: 'right' as const }}>
+                      {sc != null ? sc : '—'}
+                    </div>
+                  </Link>
+                )
+              }) : Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 90px 80px 52px', alignItems: 'center', gap: 8, padding: '11px 18px', borderBottom: i < 4 ? '1px solid var(--border)' : 'none' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ width: 40, height: 56, borderRadius: 5, background: 'var(--surface2)', flexShrink: 0 }} />
+                    <div>
+                      <div style={{ height: 13, width: 120, borderRadius: 3, background: 'var(--surface2)', marginBottom: 6 }} />
+                      <div style={{ height: 10, width: 70, borderRadius: 3, background: 'var(--surface2)' }} />
+                    </div>
+                  </div>
+                  {[1, 2, 3].map(j => <div key={j} style={{ height: 13, borderRadius: 3, background: 'var(--surface2)', marginLeft: 'auto', width: 50 }} />)}
                 </div>
-              </div>
+              ))}
             </div>
 
-            {/* Market Index */}
-            {(() => {
-              const SIGNAL_COLOR: Record<string, string> = { new_high: '#3de88a', rising: '#3de88a', stable: '#8c8cb4', falling: '#e8524a', new_low: '#e8524a' }
-              const SIGNAL_LABEL: Record<string, string> = { new_high: 'New High', rising: 'Rising', stable: 'Stable', falling: 'Falling', new_low: 'New Low' }
-              const sig = marketSnap?.signal ?? 'stable'
-              const sigColor = SIGNAL_COLOR[sig] ?? 'var(--ink3)'
-              const Chg = ({ v }: { v: number | null | undefined }) => {
-                if (v == null) return <span className="font-num" style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink3)' }}>—</span>
-                return <span className="font-num" style={{ fontSize: 16, fontWeight: 700, color: v >= 0 ? 'var(--green)' : 'var(--red)' }}>{v >= 0 ? '+' : ''}{v.toFixed(2)}%</span>
-              }
-              return (
-                <div className="dash-market" style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                  <div style={{ padding: '12px 18px 11px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink3)' }}>CI Market Index</span>
-                    <Link href="/market" style={{ fontSize: 11, fontWeight: 600, color: 'var(--gold)', textDecoration: 'none' }}>Full market →</Link>
-                  </div>
-                  {/* Index level */}
-                  <div style={{ padding: '20px 18px', borderBottom: '1px solid var(--border)' }}>
-                    <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 10 }}>Index Level</div>
-                    <div className="font-num" style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-1px', color: 'var(--gold)', lineHeight: 1, marginBottom: 6 }}>
-                      {marketSnap?.level != null ? marketSnap.level.toFixed(2) : '—'}
-                    </div>
-                    {marketSnap && (
-                      <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 99, color: sigColor, background: `${sigColor}18`, border: `1px solid ${sigColor}44` }}>
-                        {SIGNAL_LABEL[sig]}
-                      </span>
-                    )}
-                  </div>
-                  {/* 7d / 30d */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid var(--border)' }}>
-                    {[
-                      { label: '7D Change', value: marketSnap?.change7d },
-                      { label: '30D Change', value: marketSnap?.change30d },
-                    ].map((m, i) => (
-                      <div key={i} style={{ padding: '14px 16px', borderRight: i === 0 ? '1px solid var(--border)' : 'none' }}>
-                        <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 8 }}>{m.label}</div>
-                        <Chg v={m.value} />
-                      </div>
-                    ))}
-                  </div>
-                  {/* Top rising items in market */}
-                  <div style={{ flex: 1 }}>
-                    {marketSnap && marketSnap.topRising.length > 0 ? marketSnap.topRising.slice(0, 3).map((item, i) => {
-                      const params = new URLSearchParams({ name: item.card_name, grade: item.grade })
-                      return (
-                        <Link key={i} href={`/card/${item.card_id}?${params}`}
-                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderBottom: i < 2 ? '1px solid var(--border)' : 'none', textDecoration: 'none', background: 'transparent', transition: 'background 0.12s' }}
-                          onMouseEnter={e => (e.currentTarget.style.background = 'var(--hover-subtle)')}
-                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                        >
-                          <div style={{ minWidth: 0 }}>
-                            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.card_name}</div>
-                            <div style={{ fontSize: 10, color: 'var(--ink3)' }}>{item.grade}</div>
-                          </div>
-                          <div style={{ textAlign: 'right' as const, flexShrink: 0, marginLeft: 8 }}>
-                            {item.price != null && <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink)' }}>{fmtCurrency(item.price)}</div>}
-                            {item.change != null && <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--green)' }}>+{item.change.toFixed(1)}%</div>}
-                          </div>
-                        </Link>
-                      )
-                    }) : Array.from({ length: 3 }).map((_, i) => (
-                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', borderBottom: i < 2 ? '1px solid var(--border)' : 'none' }}>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ height: 11, width: '70%', borderRadius: 3, background: 'var(--surface2)', marginBottom: 5 }} />
-                          <div style={{ height: 9, width: '40%', borderRadius: 3, background: 'var(--surface2)' }} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+            {/* Right column — Triggered Alerts + Market Snapshot */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+              {/* Triggered Alerts */}
+              <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden' }}>
+                <div style={{ padding: '12px 16px 11px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink3)' }}>Triggered Alerts</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: activeAlerts.length > 0 ? 'var(--gold)' : 'var(--ink3)' }}>{activeAlerts.length} active</span>
                 </div>
-              )
-            })()}
+                {firedAlerts.length > 0 ? firedAlerts.map((alert, i) => {
+                  const dirLabel = alert.direction === 'above' ? 'crossed above' : 'dropped below'
+                  return (
+                    <div key={alert.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 16px', borderBottom: i < firedAlerts.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                      <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--red)', flexShrink: 0, marginTop: 4 }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{alert.card_name}</div>
+                        <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 2 }}>Price {dirLabel} {fmtCurrency(alert.target_price)}</div>
+                      </div>
+                      {alert.triggered_at && <span style={{ fontSize: 10, color: 'var(--ink3)', flexShrink: 0 }}>{timeAgo(alert.triggered_at)}</span>}
+                    </div>
+                  )
+                }) : (
+                  <div style={{ padding: '20px 16px', textAlign: 'center' as const }}>
+                    <div style={{ fontSize: 12, color: 'var(--ink3)', marginBottom: 8 }}>No alerts triggered yet</div>
+                    <div style={{ fontSize: 11, color: 'var(--ink3)' }}>{activeAlerts.length} active alert{activeAlerts.length !== 1 ? 's' : ''} watching</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Market Snapshot */}
+              {(() => {
+                const SIGNAL_COLOR: Record<string, string> = { new_high: '#3de88a', rising: '#3de88a', stable: '#8c8cb4', falling: '#e8524a', new_low: '#e8524a' }
+                const SIGNAL_LABEL: Record<string, string> = { new_high: 'New High', rising: 'Rising', stable: 'Stable', falling: 'Falling', new_low: 'New Low' }
+                const sig = marketSnap?.signal ?? 'stable'
+                const sigColor = SIGNAL_COLOR[sig] ?? 'var(--ink3)'
+                return (
+                  <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden' }}>
+                    <div style={{ padding: '12px 16px 11px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink3)' }}>Market Snapshot</span>
+                      <Link href="/market" style={{ fontSize: 11, fontWeight: 600, color: 'var(--gold)', textDecoration: 'none' }}>Full market →</Link>
+                    </div>
+                    <div style={{ padding: '16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                        <div>
+                          <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 6 }}>CI Index</div>
+                          <div className="font-num" style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--gold)' }}>
+                            {marketSnap?.level != null ? marketSnap.level.toFixed(2) : '—'}
+                          </div>
+                        </div>
+                        {marketSnap && (
+                          <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 99, color: sigColor, background: `${sigColor}18`, border: `1px solid ${sigColor}44` }}>
+                            {SIGNAL_LABEL[sig]}
+                          </span>
+                        )}
+                      </div>
+                      {[
+                        { label: 'Avg score (tracked)', value: null },
+                        { label: 'BUY signals', value: marketSnap?.risingCount, color: 'var(--green)' },
+                        { label: 'HOLD signals', value: marketSnap ? (marketSnap.risingCount + marketSnap.fallingCount > 0 ? Math.max(0, (marketSnap.risingCount + marketSnap.fallingCount) * 0.5 | 0) : null) : null, color: 'var(--gold)' },
+                        { label: 'SELL signals', value: marketSnap?.fallingCount, color: 'var(--red)' },
+                      ].map((row, i) => row.value != null && (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 0', borderTop: '1px solid var(--border)' }}>
+                          <span style={{ fontSize: 12, color: 'var(--ink2)' }}>{row.label}</span>
+                          <span className="font-num" style={{ fontSize: 15, fontWeight: 700, color: row.color ?? 'var(--ink)' }}>{row.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })()}
+            </div>
           </div>
 
-          {/* ── Recently Viewed — card thumbnail grid ── */}
-          <div className="dash-recently-viewed">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--ink3)', textTransform: 'uppercase' }}>Recently Viewed</span>
-              <Link href="/search" style={{ fontSize: 11, fontWeight: 600, color: 'var(--gold)', textDecoration: 'none' }}>Search cards →</Link>
-            </div>
-            {recentlyViewed.length === 0 ? (
-              <div style={{ padding: '32px 0', textAlign: 'center' as const }}>
-                <p style={{ fontSize: 13, color: 'var(--ink3)', marginBottom: 12 }}>No recent searches yet</p>
-                <Link href="/search" style={{ fontSize: 12, color: 'var(--gold)', textDecoration: 'none', fontWeight: 600 }}>Find your first card →</Link>
+          {/* ── Recently Viewed ── */}
+          {recentlyViewed.length > 0 && (
+            <div className="dash-recently-viewed">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--ink3)', textTransform: 'uppercase' }}>Recently Viewed</span>
+                <Link href="/search" style={{ fontSize: 11, fontWeight: 600, color: 'var(--gold)', textDecoration: 'none' }}>Search cards →</Link>
               </div>
-            ) : (
               <div className="dash-rv-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12 }}>
                 {recentlyViewed.map((item, i) => {
                   const params = new URLSearchParams({ grade: item.grade, name: item.card_name })
@@ -550,8 +551,8 @@ export default function Dashboard() {
                   )
                 })}
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* ── Upgrade banner (free users only) ── */}
           {tier === 'free' && (
@@ -571,15 +572,12 @@ export default function Dashboard() {
 
       <style>{`
         @keyframes ptr-spin { to { transform: rotate(360deg); } }
-
-        /* Desktop: page header visible, no top padding (sidebar handles nav) */
         @media (min-width: 641px) {
-          body.has-sidebar .dash-page-header { display: flex !important; }
           body.has-sidebar main { padding-top: 0 !important; }
+          .dash-content { padding-top: 32px !important; }
         }
-
         @media (max-width: 640px) {
-          .dash-page-header { display: none !important; }
+          .dash-stat-tiles { grid-template-columns: repeat(2, 1fr) !important; }
           .dash-two-col { grid-template-columns: 1fr !important; }
           .dash-rv-grid { grid-template-columns: repeat(3, 1fr) !important; }
           .dash-content { padding: 16px 16px 0 !important; gap: 12px !important; }

@@ -147,6 +147,8 @@ export default function Dashboard() {
     fallingCount: number
   } | null>(null)
   const [alerts, setAlerts] = useState<{ id: string; card_name: string; grade: string; target_price: number; direction: 'above' | 'below'; is_active: boolean; triggered_at: string | null }[]>([])
+  const [watchlistTotal, setWatchlistTotal] = useState(0)
+  const [groupsCount, setGroupsCount] = useState(0)
 
   const load = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -174,15 +176,17 @@ export default function Dashboard() {
     }
 
     // ── 2. Silently refresh from server ───────────────────────────────────
-    const [{ data: prof }, { data: wl }, { data: pf }] = await Promise.all([
+    const [{ data: prof }, { count: wlCount }, { data: pf }, { count: grpCount }] = await Promise.all([
       supabase.from('profiles').select('email, username, tier').eq('id', user.id).single(),
-      supabase.from('watchlists').select('id, card_id, card_name, set_name, grade').eq('user_id', user.id).order('added_at', { ascending: false }).limit(5),
+      supabase.from('watchlists').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
       supabase.from('portfolios').select('id, card_id, grade, purchase_price, quantity, sold, sale_price').eq('user_id', user.id),
+      supabase.from('watchlist_groups').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
     ])
 
     const freshProfile: Profile = prof ?? { email: user.email ?? '', username: null, tier: 'free' }
     setProfile(freshProfile)
-    setWatchlist(wl ?? [])
+    setWatchlistTotal(wlCount ?? 0)
+    setGroupsCount(grpCount ?? 0)
 
     // Portfolio stats — pull prices from search_cache (same source as portfolio page)
     const positions = pf ?? []
@@ -226,7 +230,7 @@ export default function Dashboard() {
     setPortfolioStats(freshStats)
 
     // Save fresh data to cache for next visit
-    cacheSet<DashCache>(DASH_KEY, { profile: freshProfile, watchlist: wl ?? [], portfolioStats: freshStats })
+    cacheSet<DashCache>(DASH_KEY, { profile: freshProfile, watchlist: [], portfolioStats: freshStats })
 
     // Market snapshot — non-blocking, best-effort
     fetch('/api/market')
@@ -316,42 +320,46 @@ export default function Dashboard() {
             const hasPrices = (portfolioStats?.cachedCount ?? 0) > 0
             const pfValue   = hasPrices ? portfolioStats?.currentValue : portfolioStats?.costBasis
             const pfLabel   = hasPrices ? 'Portfolio Value' : 'Cost Basis'
-            const pfSub     = hasPrices
-              ? `${portfolioStats?.posCount ?? 0} positions`
-              : portfolioStats?.posCount ? `${portfolioStats.posCount} positions · visit portfolio` : 'No positions yet'
-            const pfChange  = hasPrices && portfolioStats
-              ? portfolioStats.currentValue - portfolioStats.costBasis : null
-            const tiles = [
+            const pfChange  = hasPrices && portfolioStats ? portfolioStats.currentValue - portfolioStats.costBasis : null
+
+            const wlSub = groupsCount > 0 ? `across ${groupsCount} collection${groupsCount !== 1 ? 's' : ''}` : 'in watchlist'
+            const alertSub = firedAlerts.length > 0 ? `${firedAlerts.length} triggered today` : 'none triggered'
+            const alertSubColor = firedAlerts.length > 0 ? 'var(--gold)' : 'var(--ink3)'
+            const gainersVal = marketSnap?.risingCount ?? 0
+            const gainersColor = gainersVal > 0 ? 'var(--green)' : 'var(--ink)'
+
+            const tiles: { label: string; value: string; valueColor: string; sub: string; subColor: string; change?: number | null; href: string | null }[] = [
               {
                 label: pfLabel,
                 value: pfValue != null ? fmtCurrency(pfValue) : '—',
-                sub: pfSub,
-                subColor: 'var(--ink3)' as string,
+                valueColor: 'var(--ink)',
+                sub: portfolioStats?.posCount ? `${portfolioStats.posCount} positions${!hasPrices ? ' · visit portfolio' : ''}` : 'No positions yet',
+                subColor: 'var(--ink3)',
                 change: pfChange,
                 href: '/portfolio',
               },
               {
                 label: 'Cards Tracked',
-                value: watchlist.length.toString(),
-                sub: `in watchlist`,
-                subColor: 'var(--ink3)' as string,
-                change: null,
+                value: watchlistTotal.toString(),
+                valueColor: 'var(--ink)',
+                sub: wlSub,
+                subColor: 'var(--ink3)',
                 href: '/watchlist',
               },
               {
                 label: 'Active Alerts',
                 value: activeAlerts.length.toString(),
-                sub: firedAlerts.length > 0 ? `${firedAlerts.length} triggered` : 'none triggered',
-                subColor: firedAlerts.length > 0 ? 'var(--gold)' as string : 'var(--ink3)' as string,
-                change: null,
+                valueColor: 'var(--ink)',
+                sub: alertSub,
+                subColor: alertSubColor,
                 href: null,
               },
               {
                 label: "Today's Gainers",
-                value: (marketSnap?.risingCount ?? marketSnap?.topRising.length ?? '—').toString(),
-                sub: marketSnap?.fallingCount != null ? `vs ${marketSnap.fallingCount} falling` : 'from market index',
-                subColor: 'var(--ink3)' as string,
-                change: null,
+                value: marketSnap ? gainersVal.toString() : '—',
+                valueColor: gainersColor,
+                sub: marketSnap?.fallingCount != null ? `vs ${marketSnap.fallingCount} losers` : 'from market index',
+                subColor: 'var(--ink3)',
                 href: '/market',
               },
             ]
@@ -361,23 +369,26 @@ export default function Dashboard() {
                   const inner = (
                     <div style={{ padding: '20px 22px' }}>
                       <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 10 }}>{t.label}</div>
-                      <div className="font-num" style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-1px', color: 'var(--ink)', lineHeight: 1, marginBottom: 6 }}>{t.value}</div>
+                      <div className="font-num" style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-1px', color: t.valueColor, lineHeight: 1, marginBottom: 8 }}>{t.value}</div>
                       {t.change != null && (
-                        <div style={{ fontSize: 13, fontWeight: 700, color: t.change >= 0 ? 'var(--green)' : 'var(--red)', marginBottom: 4 }}>
-                          {t.change >= 0 ? '+' : '−'}{fmtCurrency(Math.abs(t.change))} unrealized
+                        <div style={{ fontSize: 13, fontWeight: 600, color: t.change >= 0 ? 'var(--green)' : 'var(--red)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            {t.change >= 0 ? <><line x1="5" y1="9" x2="5" y2="1"/><polyline points="2,4 5,1 8,4"/></> : <><line x1="5" y1="1" x2="5" y2="9"/><polyline points="2,6 5,9 8,6"/></>}
+                          </svg>
+                          {t.change >= 0 ? '+' : '−'}{fmtCurrency(Math.abs(t.change))} today
                         </div>
                       )}
                       <div style={{ fontSize: 12, color: t.subColor }}>{t.sub}</div>
                     </div>
                   )
-                  const style: React.CSSProperties = { borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', textDecoration: 'none', display: 'block', transition: 'border-color 0.15s' }
+                  const tileStyle: React.CSSProperties = { borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', textDecoration: 'none', display: 'block', transition: 'border-color 0.15s' }
                   return t.href ? (
-                    <Link key={i} href={t.href} style={style}
+                    <Link key={i} href={t.href} style={tileStyle}
                       onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(232,197,71,0.3)')}
                       onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border2)')}
                     >{inner}</Link>
                   ) : (
-                    <div key={i} style={style}>{inner}</div>
+                    <div key={i} style={tileStyle}>{inner}</div>
                   )
                 })}
               </div>
@@ -485,39 +496,27 @@ export default function Dashboard() {
 
               {/* Market Snapshot */}
               {(() => {
-                const SIGNAL_COLOR: Record<string, string> = { new_high: '#3de88a', rising: '#3de88a', stable: '#8c8cb4', falling: '#e8524a', new_low: '#e8524a' }
-                const SIGNAL_LABEL: Record<string, string> = { new_high: 'New High', rising: 'Rising', stable: 'Stable', falling: 'Falling', new_low: 'New Low' }
-                const sig = marketSnap?.signal ?? 'stable'
-                const sigColor = SIGNAL_COLOR[sig] ?? 'var(--ink3)'
+                const scores = marketSnap?.topRising.map(r => r.score).filter((s): s is number => s != null) ?? []
+                const avgScore = scores.length > 0 ? (scores.reduce((a, b) => a + b, 0) / scores.length) : null
+                const totalTracked = (marketSnap?.risingCount ?? 0) + (marketSnap?.fallingCount ?? 0)
+                const holdCount = totalTracked > 0 ? Math.max(0, totalTracked - (marketSnap?.risingCount ?? 0) - (marketSnap?.fallingCount ?? 0)) : null
+                const rows: { label: string; value: string | number | null; color: string }[] = [
+                  { label: 'Avg score (tracked)', value: avgScore != null ? avgScore.toFixed(1) : null, color: 'var(--green)' },
+                  { label: 'BUY signals', value: marketSnap?.risingCount ?? null, color: 'var(--green)' },
+                  { label: 'HOLD signals', value: holdCount, color: 'var(--gold)' },
+                  { label: 'SELL signals', value: marketSnap?.fallingCount ?? null, color: 'var(--red)' },
+                ]
                 return (
                   <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden' }}>
                     <div style={{ padding: '12px 16px 11px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink3)' }}>Market Snapshot</span>
                       <Link href="/market" style={{ fontSize: 11, fontWeight: 600, color: 'var(--gold)', textDecoration: 'none' }}>Full market →</Link>
                     </div>
-                    <div style={{ padding: '16px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                        <div>
-                          <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 6 }}>CI Index</div>
-                          <div className="font-num" style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--gold)' }}>
-                            {marketSnap?.level != null ? marketSnap.level.toFixed(2) : '—'}
-                          </div>
-                        </div>
-                        {marketSnap && (
-                          <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 99, color: sigColor, background: `${sigColor}18`, border: `1px solid ${sigColor}44` }}>
-                            {SIGNAL_LABEL[sig]}
-                          </span>
-                        )}
-                      </div>
-                      {[
-                        { label: 'Avg score (tracked)', value: null },
-                        { label: 'BUY signals', value: marketSnap?.risingCount, color: 'var(--green)' },
-                        { label: 'HOLD signals', value: marketSnap ? (marketSnap.risingCount + marketSnap.fallingCount > 0 ? Math.max(0, (marketSnap.risingCount + marketSnap.fallingCount) * 0.5 | 0) : null) : null, color: 'var(--gold)' },
-                        { label: 'SELL signals', value: marketSnap?.fallingCount, color: 'var(--red)' },
-                      ].map((row, i) => row.value != null && (
-                        <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 0', borderTop: '1px solid var(--border)' }}>
-                          <span style={{ fontSize: 12, color: 'var(--ink2)' }}>{row.label}</span>
-                          <span className="font-num" style={{ fontSize: 15, fontWeight: 700, color: row.color ?? 'var(--ink)' }}>{row.value}</span>
+                    <div style={{ padding: '4px 0' }}>
+                      {rows.map((row, i) => row.value != null && (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 16px', borderBottom: i < rows.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                          <span style={{ fontSize: 13, color: 'var(--ink2)' }}>{row.label}</span>
+                          <span className="font-num" style={{ fontSize: 15, fontWeight: 700, color: row.color }}>{row.value}</span>
                         </div>
                       ))}
                     </div>

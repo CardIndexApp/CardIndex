@@ -383,12 +383,11 @@ function clearSearch() {
 
         {/* Header */}
         <div style={{ marginBottom: 24 }}>
-          <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--gold)', marginBottom: 4, textTransform: 'uppercase' }}>Search</p>
-          <h1 style={{ fontSize: 26, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.5px', marginBottom: 4, lineHeight: 1.1 }}>
-            Card Search
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px', marginBottom: 6, lineHeight: 1.1 }}>
+            Search
           </h1>
-          <p style={{ fontSize: 13, color: 'var(--ink3)', lineHeight: 1.5 }}>
-            Type a name or add a number — e.g. <em style={{ color: 'var(--ink2)' }}>Charizard ex 6</em>
+          <p style={{ fontSize: 14, color: 'var(--ink3)' }}>
+            Find cards by name, set, or Pokémon
           </p>
         </div>
 
@@ -446,17 +445,17 @@ function clearSearch() {
         )}
 
         {/* EN / JP language toggle */}
-        <div style={{ display: 'flex', gap: 6, marginBottom: 8, marginTop: showHint ? 8 : 4 }}>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 8, marginTop: showHint ? 8 : 4 }}>
           {(['en', 'jp'] as const).map(l => (
             <button
               key={l}
               onClick={() => setLang(l)}
               style={{
-                padding: '5px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
-                border: `1px solid ${lang === l ? 'var(--gold)' : 'var(--border2)'}`,
-                background: lang === l ? 'rgba(232,197,71,0.1)' : 'transparent',
-                color: lang === l ? 'var(--gold)' : 'var(--ink3)',
-                cursor: 'pointer', letterSpacing: 0.5, transition: 'all 0.15s',
+                padding: '8px 16px', borderRadius: 10, fontSize: 13.5, fontWeight: 600,
+                border: `1px solid ${lang === l ? 'rgba(232,185,35,0.4)' : '#232327'}`,
+                background: lang === l ? 'rgba(232,185,35,0.1)' : '#131316',
+                color: lang === l ? 'var(--gold)' : 'var(--ink2)',
+                cursor: 'pointer', transition: 'all 0.15s',
               }}
             >
               {l === 'en' ? '🇺🇸 English' : '🇯🇵 Japanese'}
@@ -497,7 +496,7 @@ function clearSearch() {
         {/* Results list */}
         {!blocked && displayResults.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: showHint ? 0 : 16 }}>
-            <p style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 4, paddingLeft: 2 }}>
+            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', color: '#6b6b72', textTransform: 'uppercase', marginBottom: 4, paddingLeft: 2 }}>
               {results.length} result{results.length !== 1 ? 's' : ''}
             </p>
 

@@ -293,12 +293,12 @@ export default function Navbar() {
                     padding: '11px 24px',
                     display: 'flex', alignItems: 'center', gap: 12,
                     fontSize: 15, fontWeight: active ? 600 : 500,
-                    color: active ? 'var(--ink)' : 'var(--ink3)',
-                    background: active ? 'var(--surface2)' : 'transparent',
+                    color: active ? 'var(--gold)' : 'var(--ink3)',
+                    background: active ? 'rgba(232,197,71,0.08)' : 'transparent',
                     textDecoration: 'none',
                     transition: 'color 0.15s, background 0.15s',
                   }}>
-                    <span style={{ color: active ? 'var(--ink)' : 'var(--ink3)', display: 'flex' }}>{item.icon}</span>
+                    <span style={{ color: active ? 'var(--gold)' : 'var(--ink3)', display: 'flex' }}>{item.icon}</span>
                     {item.label}
                   </Link>
                   {item.href === '/watchlist' && (
@@ -493,13 +493,20 @@ export default function Navbar() {
             <span style={{ fontSize: 10, color: pathname === '/search' ? 'var(--gold)' : 'var(--nav-inactive)', fontWeight: pathname === '/search' ? 700 : 400, letterSpacing: 0.1 }}>Search</span>
           </div>
 
-          {/* Account */}
-          <Link href="/account" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, textDecoration: 'none', color: pathname === '/account' ? 'var(--gold)' : 'var(--nav-inactive)', paddingBottom: 8 }}>
-            <svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={pathname === '/account' ? 2 : 1.6} strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="10" cy="6" r="3.5"/>
-              <path d="M3 18c0-3.9 3.1-7 7-7s7 3.1 7 7"/>
+          {/* Watchlist */}
+          <Link href="/watchlist" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, textDecoration: 'none', color: pathname === '/watchlist' ? 'var(--gold)' : 'var(--nav-inactive)', paddingBottom: 8 }}>
+            <svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={pathname === '/watchlist' ? 2 : 1.6} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4L10 14.4l-4.8 2.5.9-5.4L2.2 7.7l5.4-.8z"/>
             </svg>
-            <span style={{ fontSize: 10, fontWeight: pathname === '/account' ? 700 : 400, letterSpacing: 0.1 }}>Account</span>
+            <span style={{ fontSize: 10, fontWeight: pathname === '/watchlist' ? 700 : 400, letterSpacing: 0.1 }}>Watchlist</span>
+          </Link>
+
+          {/* Compare */}
+          <Link href="/compare" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, textDecoration: 'none', color: pathname === '/compare' ? 'var(--gold)' : 'var(--nav-inactive)', paddingBottom: 8 }}>
+            <svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={pathname === '/compare' ? 2 : 1.6} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5 3l-3 3 3 3M15 17l3-3-3-3M2 6h16M2 14h16"/>
+            </svg>
+            <span style={{ fontSize: 10, fontWeight: pathname === '/compare' ? 700 : 400, letterSpacing: 0.1 }}>Compare</span>
           </Link>
         </nav>
       )}

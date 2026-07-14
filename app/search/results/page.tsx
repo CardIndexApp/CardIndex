@@ -227,6 +227,8 @@ function SearchResultsInner() {
   const [hasMore, setHasMore]           = useState(false)
   const [loadingMore, setLoadingMore]   = useState(false)
 
+  const SESSION_KEY = `search-results:${rawQuery}`
+
   // ── Fetch page ───────────────────────────────────────────────────────────────
   const fetchPage = useCallback(async (searchCursor?: string) => {
     const params = new URLSearchParams({ search: name, limit: '50' })
@@ -257,12 +259,49 @@ function SearchResultsInner() {
     setHasMore(json.pagination?.hasMore ?? false)
   }, [name, number])
 
-  // Initial fetch
+  // ── Restore from sessionStorage on back-navigation, otherwise fresh fetch ──
   useEffect(() => {
     if (!name) { setLoading(false); return }
+    try {
+      const saved = sessionStorage.getItem(SESSION_KEY)
+      if (saved) {
+        const { results: r, nextCursor: nc, hasMore: hm, scrollY: sy } = JSON.parse(saved)
+        setResults(r)
+        setNextCursor(nc)
+        setHasMore(hm)
+        setLoading(false)
+        requestAnimationFrame(() => window.scrollTo({ top: sy ?? 0, behavior: 'instant' }))
+        return
+      }
+    } catch { /* ignore */ }
     setLoading(true)
     fetchPage().finally(() => setLoading(false))
-  }, [rawQuery, fetchPage])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawQuery])
+
+  // Save state to sessionStorage whenever results change
+  useEffect(() => {
+    if (results.length === 0) return
+    try {
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify({ results, nextCursor, hasMore, scrollY: window.scrollY }))
+    } catch { /* ignore */ }
+  }, [SESSION_KEY, results, nextCursor, hasMore])
+
+  // Update saved scroll position on scroll
+  useEffect(() => {
+    const onScroll = () => {
+      if (results.length === 0) return
+      try {
+        const saved = sessionStorage.getItem(SESSION_KEY)
+        if (saved) {
+          const parsed = JSON.parse(saved)
+          sessionStorage.setItem(SESSION_KEY, JSON.stringify({ ...parsed, scrollY: window.scrollY }))
+        }
+      } catch { /* ignore */ }
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [SESSION_KEY, results.length])
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
   const cardHref = useCallback((card: PtCard, grade: string) => {

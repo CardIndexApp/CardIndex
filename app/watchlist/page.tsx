@@ -32,6 +32,7 @@ interface WatchlistItem {
   card_number: string | null
   image_url: string | null
   added_at: string
+  watchlist_group_id: string | null
 }
 
 interface PriceData {
@@ -341,6 +342,7 @@ export default function Watchlist() {
   // ── Derived lists ─────────────────────────────────────────────────────────
   const visible = items
     .filter(item => {
+      if (activeGroupId && item.watchlist_group_id !== activeGroupId) return false
       if (filter === 'all') return true
       const change = item.priceData?.price_change_pct ?? 0
       return filter === 'up' ? change >= 0 : change < 0

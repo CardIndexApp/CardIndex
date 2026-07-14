@@ -14,9 +14,10 @@ export default function LoginPage() {
   const router = useRouter()
   const supabase = createClient()
 
-  const [mode, setMode] = useState<'signin' | 'forgot'>('signin')
+  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [sent, setSent] = useState(false)
@@ -42,6 +43,24 @@ export default function LoginPage() {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/auth/reset-password`,
       })
+      setLoading(false)
+      if (error) setError(error.message)
+      else setSent(true)
+      return
+    }
+
+    if (mode === 'signup') {
+      if (password !== confirm) {
+        setError('Passwords do not match')
+        setLoading(false)
+        return
+      }
+      if (password.length < 8) {
+        setError('Password must be at least 8 characters')
+        setLoading(false)
+        return
+      }
+      const { error } = await supabase.auth.signUp({ email, password })
       setLoading(false)
       if (error) setError(error.message)
       else setSent(true)
@@ -105,7 +124,7 @@ export default function LoginPage() {
               Card<span style={{ color: GOLD }}>Index</span>
             </div>
             <p style={{ fontSize: 13, color: INK3, margin: 0 }}>
-              {mode === 'forgot' ? 'Reset your password' : 'Sign in to your account'}
+              {mode === 'forgot' ? 'Reset your password' : mode === 'signup' ? 'Create your account' : 'Sign in to your account'}
             </p>
           </div>
 
@@ -122,10 +141,13 @@ export default function LoginPage() {
             }}>
               <div style={{ fontSize: 26, color: GREEN, marginBottom: 10 }}>✓</div>
               <p style={{ fontSize: 14, color: INK2, lineHeight: 1.7, margin: 0 }}>
-                If an account exists for <strong style={{ color: INK }}>{email}</strong>, a reset link is on its way.
+                {mode === 'signup'
+                  ? <>Check your inbox — we sent a confirmation link to <strong style={{ color: INK }}>{email}</strong>.</>
+                  : <>If an account exists for <strong style={{ color: INK }}>{email}</strong>, a reset link is on its way.</>
+                }
               </p>
               <button
-                onClick={() => { setSent(false); setMode('signin') }}
+                onClick={() => { setSent(false); setMode('signin'); setConfirm('') }}
                 style={{ marginTop: 18, fontSize: 12, color: GOLD, background: 'none', border: 'none', cursor: 'pointer' }}
               >
                 ← Back to sign in
@@ -149,7 +171,7 @@ export default function LoginPage() {
                 />
               </div>
 
-              {mode === 'signin' && (
+              {mode !== 'forgot' && (
                 <div>
                   <label style={{ display: 'block', fontSize: 10, color: INK3, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 7, fontWeight: 600 }}>
                     Password
@@ -160,6 +182,24 @@ export default function LoginPage() {
                     value={password}
                     placeholder="••••••••"
                     onChange={e => setPassword(e.target.value)}
+                    style={inputStyle}
+                    onFocus={e => (e.currentTarget.style.borderColor = GOLD)}
+                    onBlur={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)')}
+                  />
+                </div>
+              )}
+
+              {mode === 'signup' && (
+                <div>
+                  <label style={{ display: 'block', fontSize: 10, color: INK3, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 7, fontWeight: 600 }}>
+                    Confirm Password
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    value={confirm}
+                    placeholder="••••••••"
+                    onChange={e => setConfirm(e.target.value)}
                     style={inputStyle}
                     onFocus={e => (e.currentTarget.style.borderColor = GOLD)}
                     onBlur={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)')}
@@ -198,23 +238,49 @@ export default function LoginPage() {
                   fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
                 }}
               >
-                {loading ? '…' : mode === 'forgot' ? 'Send reset link' : 'Sign in'}
+                {loading ? '…' : mode === 'forgot' ? 'Send reset link' : mode === 'signup' ? 'Create account' : 'Sign in'}
               </button>
 
-              <button
-                type="button"
-                onClick={() => { setError(''); setMode(mode === 'forgot' ? 'signin' : 'forgot') }}
-                style={{ fontSize: 12, color: INK3, background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}
-              >
-                {mode === 'forgot' ? '← Back to sign in' : 'Forgot your password?'}
-              </button>
+              {mode === 'signin' && (
+                <button
+                  type="button"
+                  onClick={() => { setError(''); setMode('forgot') }}
+                  style={{ fontSize: 12, color: INK3, background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}
+                >
+                  Forgot your password?
+                </button>
+              )}
+
+              {mode === 'forgot' && (
+                <button
+                  type="button"
+                  onClick={() => { setError(''); setMode('signin') }}
+                  style={{ fontSize: 12, color: INK3, background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}
+                >
+                  ← Back to sign in
+                </button>
+              )}
             </form>
+          )}
+
+          {/* Sign in / Sign up toggle */}
+          {!sent && mode !== 'forgot' && (
+            <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid rgba(255,255,255,0.06)', textAlign: 'center' }}>
+              <span style={{ fontSize: 13, color: INK3 }}>
+                {mode === 'signup' ? 'Already have an account? ' : "Don't have an account? "}
+              </span>
+              <button
+                onClick={() => { setError(''); setConfirm(''); setPassword(''); setMode(mode === 'signup' ? 'signin' : 'signup') }}
+                style={{ fontSize: 13, color: GOLD, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}
+              >
+                {mode === 'signup' ? 'Sign in' : 'Sign up'}
+              </button>
+            </div>
           )}
         </div>
 
-        {/* Footer note */}
         <p style={{ textAlign: 'center', fontSize: 11, color: INK3, marginTop: 20 }}>
-          CardIndex for iOS — coming soon to the App Store.
+          Also available on iOS — CardIndex for iPhone
         </p>
       </div>
     </div>

@@ -1933,10 +1933,6 @@ export default function PortfolioPage() {
           </>
           )}
 
-          <p style={{ fontSize: 11, color: 'var(--ink3)', textAlign: 'center', marginTop: 24 }}>
-            Prices sourced via Poketrace · P&L based on purchase price vs current market · All values in {currency}
-          </p>
-
           </>
           )}
 

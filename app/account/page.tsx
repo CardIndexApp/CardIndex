@@ -30,12 +30,12 @@ const NAV_SECTIONS = [
 ]
 
 const S = {
-  card: { borderRadius: 16, background: 'var(--surface)', border: '1px solid var(--border2)', marginBottom: 12, overflow: 'hidden' } as React.CSSProperties,
-  cardHead: { padding: '18px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' } as React.CSSProperties,
-  cardBody: { padding: '24px' } as React.CSSProperties,
-  label: { fontSize: 10, letterSpacing: 2, color: 'var(--ink3)', marginBottom: 8, display: 'block' } as React.CSSProperties,
-  input: { width: '100%', padding: '11px 14px', borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 14, outline: 'none' } as React.CSSProperties,
-  btn: { padding: '10px 20px', borderRadius: 10, border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer' } as React.CSSProperties,
+  card: { borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', marginBottom: 20, overflow: 'hidden' } as React.CSSProperties,
+  cardHead: { padding: '26px 30px 18px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 0 } as React.CSSProperties,
+  cardBody: { padding: '20px 30px 26px' } as React.CSSProperties,
+  label: { fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 8, display: 'block' } as React.CSSProperties,
+  input: { width: '100%', padding: '13px 16px', borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--border2)', color: 'var(--ink)', fontSize: 14, outline: 'none', fontFamily: 'inherit' } as React.CSSProperties,
+  btn: { padding: '12px 20px', borderRadius: 10, border: 'none', fontSize: 14, fontWeight: 700, cursor: 'pointer' } as React.CSSProperties,
 }
 
 function AccountPageInner() {
@@ -271,12 +271,12 @@ function AccountPageInner() {
           display: block;
           width: 100%;
           text-align: left;
-          padding: 9px 14px;
-          border-radius: 9px;
+          padding: 11px 14px;
+          border-radius: 10px;
           border: none;
           background: transparent;
           color: var(--ink3);
-          font-size: 13px;
+          font-size: 14px;
           font-weight: 500;
           cursor: pointer;
           transition: background 0.12s, color 0.12s;
@@ -291,7 +291,7 @@ function AccountPageInner() {
         .acct-outer { max-width: 940px; margin: 0 auto; padding: 0 16px; }
         .acct-layout { display: flex; gap: 32px; align-items: flex-start; }
         .acct-sidebar {
-          width: 172px;
+          width: 220px;
           flex-shrink: 0;
           position: sticky;
           top: 96px;
@@ -300,11 +300,13 @@ function AccountPageInner() {
           gap: 2px;
         }
         .acct-sidebar-label {
-          font-size: 10px;
-          letter-spacing: 1.8px;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.08em;
           color: var(--ink3);
+          text-transform: uppercase;
           padding: 0 14px;
-          margin-bottom: 6px;
+          margin-bottom: 14px;
         }
         .acct-pills { display: none; }
         .acct-content { flex: 1; min-width: 0; max-width: 640px; }
@@ -375,23 +377,23 @@ function AccountPageInner() {
               {/* ── Profile ── */}
               <div id="profile" style={S.card}>
                 <div style={S.cardHead}>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Profile</span>
+                  <span style={{ fontSize: 17, fontWeight: 700, color: 'var(--ink)' }}>Profile</span>
                   <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 20, background: tier === 'free' ? 'var(--surface2)' : tier === 'pro' ? 'var(--gold2)' : 'rgba(74,158,255,0.1)', color: TIER_COLORS[tier], border: `1px solid ${tier === 'pro' ? 'rgba(232,197,71,0.3)' : tier === 'standard' ? 'rgba(74,158,255,0.3)' : 'var(--border2)'}`, fontWeight: 700 }}>
                     {TIER_LABELS[tier]}
                   </span>
                 </div>
                 <div style={S.cardBody}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 24 }}>
+                  <div style={{ display: 'flex', gap: 60, paddingBottom: 20, marginBottom: 20, borderBottom: '1px solid var(--border)' }}>
                     <div>
-                      <span style={S.label}>EMAIL</span>
-                      <div style={{ fontSize: 14, color: 'var(--ink)', fontWeight: 500 }}>{profile?.email}</div>
+                      <span style={S.label}>Email</span>
+                      <div style={{ fontSize: 15, color: 'var(--ink)', fontWeight: 600 }}>{profile?.email}</div>
                     </div>
                     <div>
-                      <span style={S.label}>MEMBER SINCE</span>
-                      <div style={{ fontSize: 14, color: 'var(--ink)', fontWeight: 500 }}>{memberSince}</div>
+                      <span style={S.label}>Member Since</span>
+                      <div style={{ fontSize: 15, color: 'var(--ink)', fontWeight: 600 }}>{memberSince}</div>
                     </div>
                   </div>
-                  <div style={{ paddingTop: 20, borderTop: '1px solid var(--border)' }}>
+                  <div>
                     <form onSubmit={handleUsernameChange} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                       <div>
                         <label style={S.label}>USERNAME</label>
@@ -424,7 +426,7 @@ function AccountPageInner() {
               {/* ── Change Password ── */}
               <div id="password" style={S.card}>
                 <div style={S.cardHead}>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Change Password</span>
+                  <span style={{ fontSize: 17, fontWeight: 700, color: 'var(--ink)' }}>Change Password</span>
                 </div>
                 <div style={S.cardBody}>
                   <form onSubmit={handlePasswordChange} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -472,7 +474,7 @@ function AccountPageInner() {
               {/* ── Plan & Billing ── */}
               <div id="billing" style={S.card}>
                 <div style={S.cardHead}>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Plan & Billing</span>
+                  <span style={{ fontSize: 17, fontWeight: 700, color: 'var(--ink)' }}>Plan & Billing</span>
                 </div>
                 <div style={S.cardBody}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
@@ -547,7 +549,7 @@ function AccountPageInner() {
               {/* ── Display & Currency ── */}
               <div id="display" style={S.card}>
                 <div style={S.cardHead}>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Display & Currency</span>
+                  <span style={{ fontSize: 17, fontWeight: 700, color: 'var(--ink)' }}>Display & Currency</span>
                   {!ratesLoading && currency !== 'USD' && (
                     <span style={{ fontSize: 11, color: 'var(--ink3)' }}>
                       1 USD = {(rates[currency] ?? 1).toLocaleString('en-US', { maximumFractionDigits: 4 })} {currency}
@@ -652,7 +654,7 @@ function AccountPageInner() {
               {/* ── Danger Zone ── */}
               <div id="danger" style={{ ...S.card, border: '1px solid rgba(232,82,74,0.25)', marginTop: 24 }}>
                 <div style={{ ...S.cardHead, borderBottom: '1px solid rgba(232,82,74,0.15)' }}>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--red)' }}>Danger Zone</span>
+                  <span style={{ fontSize: 17, fontWeight: 700, color: 'var(--red)' }}>Danger Zone</span>
                 </div>
                 <div style={S.cardBody}>
                   <p style={{ fontSize: 13, color: 'var(--ink3)', lineHeight: 1.7, marginBottom: 20 }}>

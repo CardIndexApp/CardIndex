@@ -24,7 +24,7 @@ const NAV_LINKS_GUEST = [
 const APP_STORE_URL = 'https://apps.apple.com/app/cardindex/id000000000'
 
 // Pages that get the desktop sidebar instead of the top nav bar
-const SIDEBAR_PATHS = ['/dashboard', '/portfolio', '/watchlist', '/search', '/compare', '/card/', '/admin']
+const SIDEBAR_PATHS = ['/dashboard', '/portfolio', '/watchlist', '/alerts', '/search', '/compare', '/card/', '/admin']
 
 const SIDEBAR_NAV = [
   {
@@ -38,6 +38,10 @@ const SIDEBAR_NAV = [
   {
     label: 'Watchlist', href: '/watchlist',
     icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M10 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4L10 14.4l-4.8 2.5.9-5.4L2.2 7.7l5.4-.8z"/></svg>,
+  },
+  {
+    label: 'Alerts', href: '/alerts',
+    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>,
   },
   {
     label: 'Search', href: '/search',

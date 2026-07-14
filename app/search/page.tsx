@@ -393,7 +393,7 @@ function clearSearch() {
 
         {/* Search input */}
         <div style={{ position: 'relative', marginBottom: 8 }}>
-          <div style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', zIndex: 1 }}>
+          <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 1 }}>
             {loading
               ? <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="var(--ink3)" strokeWidth="2" strokeLinecap="round" style={{ animation: 'srch-spin 0.7s linear infinite', display: 'block' }}><path d="M8 1a7 7 0 1 0 7 7"/></svg>
               : <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="var(--ink3)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}><circle cx="6.5" cy="6.5" r="4.5"/><path d="M14 14l-3-3"/></svg>

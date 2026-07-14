@@ -699,18 +699,18 @@ export default function Watchlist() {
                 <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <button
                     onClick={() => setActiveGroupId(null)}
-                    style={{ padding: '5px 14px', borderRadius: 99, border: `1px solid ${activeGroupId === null ? 'var(--gold)' : 'var(--border2)'}`, background: activeGroupId === null ? 'var(--gold2)' : 'transparent', color: activeGroupId === null ? 'var(--gold)' : 'var(--ink3)', fontSize: 12, fontWeight: activeGroupId === null ? 700 : 400, cursor: 'pointer' }}
+                    style={{ padding: '5px 14px', borderRadius: 10, border: `1px solid ${activeGroupId === null ? 'var(--gold)' : 'var(--border2)'}`, background: activeGroupId === null ? 'var(--gold2)' : 'transparent', color: activeGroupId === null ? 'var(--gold)' : 'var(--ink3)', fontSize: 12, fontWeight: activeGroupId === null ? 700 : 400, cursor: 'pointer' }}
                   >All</button>
                   {groups.map(g => (
                     <button
                       key={g.id}
                       onClick={() => setActiveGroupId(g.id)}
-                      style={{ padding: '5px 14px', borderRadius: 99, border: `1px solid ${activeGroupId === g.id ? 'var(--gold)' : 'var(--border2)'}`, background: activeGroupId === g.id ? 'var(--gold2)' : 'transparent', color: activeGroupId === g.id ? 'var(--gold)' : 'var(--ink3)', fontSize: 12, fontWeight: activeGroupId === g.id ? 700 : 400, cursor: 'pointer' }}
+                      style={{ padding: '5px 14px', borderRadius: 10, border: `1px solid ${activeGroupId === g.id ? 'var(--gold)' : 'var(--border2)'}`, background: activeGroupId === g.id ? 'var(--gold2)' : 'transparent', color: activeGroupId === g.id ? 'var(--gold)' : 'var(--ink3)', fontSize: 12, fontWeight: activeGroupId === g.id ? 700 : 400, cursor: 'pointer' }}
                     >{g.name}</button>
                   ))}
                   <button
                     onClick={() => setShowNewGroup(true)}
-                    style={{ padding: '5px 12px', borderRadius: 99, border: '1px dashed var(--border2)', background: 'transparent', color: 'var(--ink3)', fontSize: 12, cursor: 'pointer' }}
+                    style={{ padding: '5px 12px', borderRadius: 10, border: '1px dashed var(--border2)', background: 'transparent', color: 'var(--ink3)', fontSize: 12, cursor: 'pointer' }}
                   >+ New Group</button>
                 </div>
               )}

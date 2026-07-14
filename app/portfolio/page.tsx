@@ -1300,11 +1300,11 @@ export default function PortfolioPage() {
           {/* ── Portfolio Groups (Pro) ── */}
           {userTier === 'pro' && pfGroups.length > 0 && (
             <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <button onClick={() => setActivePfGroupId(null)} style={{ padding: '5px 14px', borderRadius: 99, border: `1px solid ${activePfGroupId === null ? 'var(--gold)' : 'var(--border2)'}`, background: activePfGroupId === null ? 'var(--gold2)' : 'transparent', color: activePfGroupId === null ? 'var(--gold)' : 'var(--ink3)', fontSize: 12, fontWeight: activePfGroupId === null ? 700 : 400, cursor: 'pointer' }}>All</button>
+              <button onClick={() => setActivePfGroupId(null)} style={{ padding: '5px 14px', borderRadius: 10, border: `1px solid ${activePfGroupId === null ? 'var(--gold)' : 'var(--border2)'}`, background: activePfGroupId === null ? 'var(--gold2)' : 'transparent', color: activePfGroupId === null ? 'var(--gold)' : 'var(--ink3)', fontSize: 12, fontWeight: activePfGroupId === null ? 700 : 400, cursor: 'pointer' }}>All</button>
               {pfGroups.map(g => (
-                <button key={g.id} onClick={() => setActivePfGroupId(g.id)} style={{ padding: '5px 14px', borderRadius: 99, border: `1px solid ${activePfGroupId === g.id ? 'var(--gold)' : 'var(--border2)'}`, background: activePfGroupId === g.id ? 'var(--gold2)' : 'transparent', color: activePfGroupId === g.id ? 'var(--gold)' : 'var(--ink3)', fontSize: 12, fontWeight: activePfGroupId === g.id ? 700 : 400, cursor: 'pointer' }}>{g.name}</button>
+                <button key={g.id} onClick={() => setActivePfGroupId(g.id)} style={{ padding: '5px 14px', borderRadius: 10, border: `1px solid ${activePfGroupId === g.id ? 'var(--gold)' : 'var(--border2)'}`, background: activePfGroupId === g.id ? 'var(--gold2)' : 'transparent', color: activePfGroupId === g.id ? 'var(--gold)' : 'var(--ink3)', fontSize: 12, fontWeight: activePfGroupId === g.id ? 700 : 400, cursor: 'pointer' }}>{g.name}</button>
               ))}
-              <button onClick={() => setShowNewPfGroup(true)} style={{ padding: '5px 12px', borderRadius: 99, border: '1px dashed var(--border2)', background: 'transparent', color: 'var(--ink3)', fontSize: 12, cursor: 'pointer' }}>+ New Portfolio</button>
+              <button onClick={() => setShowNewPfGroup(true)} style={{ padding: '5px 12px', borderRadius: 10, border: '1px dashed var(--border2)', background: 'transparent', color: 'var(--ink3)', fontSize: 12, cursor: 'pointer' }}>+ New Portfolio</button>
             </div>
           )}
 

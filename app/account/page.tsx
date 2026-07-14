@@ -126,6 +126,11 @@ function AccountPageInner() {
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [deleteError, setDeleteError] = useState('')
 
+  useEffect(() => {
+    document.body.classList.add('has-sidebar')
+    return () => document.body.classList.remove('has-sidebar')
+  }, [])
+
   // Intersection observer for active nav highlight
   const observerRef = useRef<IntersectionObserver | null>(null)
   useEffect(() => {
@@ -343,22 +348,22 @@ function AccountPageInner() {
         }
       `}</style>
 
-      <main style={{ paddingTop: 88, paddingBottom: 88, minHeight: '100vh' }}>
+      <main style={{ paddingTop: 72, paddingBottom: 88, minHeight: '100vh' }}>
+        <style>{`body.has-sidebar main { padding-top: 0 !important; }`}</style>
         <div className="acct-outer">
 
           {/* Post-checkout / reactivation success banner */}
           {successBanner && (
-            <div style={{ margin: '20px 0 0', padding: '14px 20px', borderRadius: 12, background: 'rgba(61,232,138,0.08)', border: '1px solid rgba(61,232,138,0.25)', fontSize: 13, color: 'var(--green)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+            <div style={{ margin: '0 0 20px', padding: '14px 20px', borderRadius: 12, background: 'rgba(61,232,138,0.08)', border: '1px solid rgba(61,232,138,0.25)', fontSize: 13, color: 'var(--green)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
               <span>🎉 {successBanner}</span>
               <button onClick={() => setSuccessBanner(null)} style={{ background: 'none', border: 'none', color: 'var(--green)', cursor: 'pointer', fontSize: 16, opacity: 0.6, flexShrink: 0 }}>×</button>
             </div>
           )}
 
           {/* Header */}
-          <div style={{ marginBottom: 28, marginTop: 24 }}>
-            <Link href="/" style={{ fontSize: 12, color: 'var(--ink3)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, marginBottom: 16 }}>← Back</Link>
+          <div style={{ marginBottom: 28 }}>
             <h1 className="font-display" style={{ fontSize: 28, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px' }}>Account</h1>
-            <p style={{ fontSize: 14, color: 'var(--ink3)', marginTop: 4 }}>Manage your profile, plan, and security settings.</p>
+            <p style={{ fontSize: 14, color: 'var(--ink3)', marginTop: 6 }}>Manage your profile, plan, and security settings.</p>
           </div>
 
           {/* Mobile pill nav */}

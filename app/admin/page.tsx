@@ -25,6 +25,7 @@ interface UserRow {
   last_active_at: string | null
   trial_ends_at: string | null
   is_admin: boolean
+  search_count: number
 }
 
 /** Whole days remaining in a trial, or null if none/expired. */
@@ -1157,6 +1158,7 @@ export default function AdminPage() {
                       { label: 'Status',      cls: 'adm-hide-mob' },
                       { label: 'Last seen',   cls: '' },
                       { label: 'Joined',      cls: 'adm-hide-mob' },
+                      { label: 'Searches',    cls: 'adm-hide-mob' },
                       { label: 'Change Tier', cls: '' },
                     ].map(({ label, cls }) => (
                       <th key={label} className={cls} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 10, letterSpacing: 1, color: 'var(--ink3)', fontWeight: 600, whiteSpace: 'nowrap' }}>{label.toUpperCase()}</th>
@@ -1195,6 +1197,9 @@ export default function AdminPage() {
                       </td>
                       <td className="adm-hide-mob" style={{ padding: '12px 16px', color: 'var(--ink3)', fontSize: 12, whiteSpace: 'nowrap' }}>
                         {new Date(u.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </td>
+                      <td className="adm-hide-mob" style={{ padding: '12px 16px', color: 'var(--ink)', fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                        {(u.search_count ?? 0).toLocaleString()}
                       </td>
                       <td style={{ padding: '12px 16px' }}>
                         <div className="adm-tier-btns" style={{ display: 'flex', gap: 6 }}>

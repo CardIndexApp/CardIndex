@@ -238,7 +238,7 @@ export function AlertCentreModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', padding: '64px 16px 0' }}
+      style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
       <div style={{ width: '100%', maxWidth: 380, borderRadius: 20, background: 'var(--surface)', border: '1px solid var(--border2)', boxShadow: '0 24px 60px rgba(0,0,0,0.6)', maxHeight: 'calc(100vh - 80px)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>

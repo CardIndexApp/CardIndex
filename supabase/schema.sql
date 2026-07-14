@@ -107,7 +107,11 @@ create table if not exists public.portfolios (
   quantity       integer not null default 1 check (quantity >= 1 and quantity <= 9999),
   purchased_at   date,
   added_at       timestamptz default now(),
-  notes          text check (char_length(notes) <= 2000)
+  notes          text check (char_length(notes) <= 2000),
+  sold           boolean not null default false,
+  sale_price     numeric,
+  sold_at        date,
+  pf_group_id    uuid references public.portfolio_groups(id) on delete set null
 );
 
 -- Upgrade requests (manual tier upgrade queue)

@@ -9,7 +9,6 @@ import type { User } from '@supabase/supabase-js'
 
 const NAV_LINKS_AUTHED = [
   { label: 'Dashboard', href: '/dashboard' },
-  { label: 'Market',    href: '/market' },
   { label: 'Compare',   href: '/compare' },
   { label: 'Watchlist', href: '/watchlist' },
   { label: 'Portfolio', href: '/portfolio' },
@@ -25,7 +24,7 @@ const NAV_LINKS_GUEST = [
 const APP_STORE_URL = 'https://apps.apple.com/app/cardindex/id000000000'
 
 // Pages that get the desktop sidebar instead of the top nav bar
-const SIDEBAR_PATHS = ['/dashboard', '/portfolio', '/watchlist', '/search', '/compare', '/market', '/card/', '/admin']
+const SIDEBAR_PATHS = ['/dashboard', '/portfolio', '/watchlist', '/search', '/compare', '/card/', '/admin']
 
 const SIDEBAR_NAV = [
   {
@@ -39,10 +38,6 @@ const SIDEBAR_NAV = [
   {
     label: 'Watchlist', href: '/watchlist',
     icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M10 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4L10 14.4l-4.8 2.5.9-5.4L2.2 7.7l5.4-.8z"/></svg>,
-  },
-  {
-    label: 'Market', href: '/market',
-    icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><polyline points="2 14 7 8 11 11 18 4"/><polyline points="14 4 18 4 18 8"/></svg>,
   },
   {
     label: 'Search', href: '/search',
@@ -490,15 +485,6 @@ export default function Navbar() {
             </Link>
             <span style={{ fontSize: 10, color: pathname === '/search' ? 'var(--gold)' : 'var(--nav-inactive)', fontWeight: pathname === '/search' ? 700 : 400, letterSpacing: 0.1 }}>Search</span>
           </div>
-
-          {/* Market */}
-          <Link href="/market" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, textDecoration: 'none', color: pathname === '/market' ? 'var(--gold)' : 'var(--nav-inactive)', paddingBottom: 8 }}>
-            <svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={pathname === '/market' ? 2 : 1.6} strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="2 14 7 8 11 11 18 4"/>
-              <polyline points="14 4 18 4 18 8"/>
-            </svg>
-            <span style={{ fontSize: 10, fontWeight: pathname === '/market' ? 700 : 400, letterSpacing: 0.1 }}>Market</span>
-          </Link>
 
           {/* Account */}
           <Link href="/account" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, textDecoration: 'none', color: pathname === '/account' ? 'var(--gold)' : 'var(--nav-inactive)', paddingBottom: 8 }}>

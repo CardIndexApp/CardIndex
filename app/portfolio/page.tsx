@@ -28,6 +28,7 @@ interface DbPosition {
   sold: boolean
   sale_price: number | null  // USD
   sold_at: string | null
+  pf_group_id: string | null
 }
 
 interface PriceData {
@@ -119,9 +120,10 @@ interface ModalProps {
   onSave: (payload: Partial<DbPosition>) => Promise<void>
   currency: CurrencyCode
   rates: Record<string, number>
+  pfGroups?: Array<{ id: string; name: string }>
 }
 
-function PositionModal({ mode, editPosition, onClose, onSave, onRemove, onMarkSold, currency, rates }: ModalProps) {
+function PositionModal({ mode, editPosition, onClose, onSave, onRemove, onMarkSold, currency, rates, pfGroups = [] }: ModalProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
@@ -132,6 +134,7 @@ function PositionModal({ mode, editPosition, onClose, onSave, onRemove, onMarkSo
   )
   const [qtyInput, setQtyInput] = useState(String(editPosition?.quantity ?? 1))
   const [dateInput, setDateInput] = useState(editPosition?.purchased_at?.slice(0, 10) ?? '')
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(editPosition?.pf_group_id ?? null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -176,9 +179,10 @@ function PositionModal({ mode, editPosition, onClose, onSave, onRemove, onMarkSo
           purchase_price: priceUSD,
           quantity: qty,
           purchased_at: dateInput || null,
+          pf_group_id: selectedGroupId,
         })
       } else {
-        await onSave({ purchase_price: priceUSD, quantity: qty, purchased_at: dateInput || null })
+        await onSave({ purchase_price: priceUSD, quantity: qty, purchased_at: dateInput || null, pf_group_id: selectedGroupId })
       }
       onClose()
     } catch (err) {
@@ -351,6 +355,26 @@ function PositionModal({ mode, editPosition, onClose, onSave, onRemove, onMarkSo
               onBlur={e => (e.currentTarget.style.borderColor = 'var(--border2)')}
             />
           </div>
+
+          {pfGroups.length > 0 && (
+            <div>
+              <label style={{ display: 'block', fontSize: 10, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>
+                PORTFOLIO <span style={{ opacity: 0.5 }}>(optional)</span>
+              </label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                <button type="button" onClick={() => setSelectedGroupId(null)}
+                  style={{ padding: '5px 12px', borderRadius: 8, border: `1px solid ${selectedGroupId === null ? 'var(--gold)' : 'var(--border2)'}`, background: selectedGroupId === null ? 'var(--gold2)' : 'transparent', color: selectedGroupId === null ? 'var(--gold)' : 'var(--ink3)', fontSize: 12, cursor: 'pointer', fontWeight: selectedGroupId === null ? 700 : 400 }}>
+                  None
+                </button>
+                {pfGroups.map(g => (
+                  <button key={g.id} type="button" onClick={() => setSelectedGroupId(g.id)}
+                    style={{ padding: '5px 12px', borderRadius: 8, border: `1px solid ${selectedGroupId === g.id ? 'var(--gold)' : 'var(--border2)'}`, background: selectedGroupId === g.id ? 'var(--gold2)' : 'transparent', color: selectedGroupId === g.id ? 'var(--gold)' : 'var(--ink3)', fontSize: 12, cursor: 'pointer', fontWeight: selectedGroupId === g.id ? 700 : 400 }}>
+                    {g.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {error && (
             <div style={{ borderRadius: 8, padding: '10px 14px', background: 'rgba(232,82,74,0.08)', border: '1px solid rgba(232,82,74,0.25)', fontSize: 13, color: 'var(--red)' }}>
@@ -1029,13 +1053,17 @@ export default function PortfolioPage() {
   // ── Derived ───────────────────────────────────────────────────────────────
   const openPositions    = positions.filter(p => !p.sold)
   const soldPositions    = positions.filter(p => p.sold)
-  const withData         = openPositions.filter(p => p.priceData)
+  // Portfolio group filter — null = show all
+  const visiblePositions = activePfGroupId
+    ? openPositions.filter(p => p.pf_group_id === activePfGroupId)
+    : openPositions
+  const withData         = visiblePositions.filter(p => p.priceData)
 
-  const totalCostUSD     = openPositions.reduce((s, p) => s + p.purchase_price * p.quantity, 0)
+  const totalCostUSD     = visiblePositions.reduce((s, p) => s + p.purchase_price * p.quantity, 0)
   // Only include positions that have loaded market prices — no fallback to purchase price
   const pricedCostUSD    = withData.reduce((s, p) => s + p.purchase_price * p.quantity, 0)
   const totalValueUSD    = withData.reduce((s, p) => s + p.priceData!.price * p.quantity, 0)
-  const allPriced        = withData.length === openPositions.length && openPositions.length > 0
+  const allPriced        = withData.length === visiblePositions.length && visiblePositions.length > 0
   const totalPLUSD       = totalValueUSD - pricedCostUSD
   const totalPLPct       = pricedCostUSD > 0 ? (totalPLUSD / pricedCostUSD) * 100 : 0
   const dayGainUSD       = withData.reduce((s, p) => {
@@ -1046,7 +1074,7 @@ export default function PortfolioPage() {
   const realizedPLUSD    = soldPositions.reduce((s, p) =>
     p.sale_price != null ? s + (p.sale_price - p.purchase_price) * p.quantity : s, 0)
 
-  const filtered = openPositions
+  const filtered = visiblePositions
     .filter(p => {
       if (filter === 'all') return true
       if (!p.priceData) return false
@@ -1272,11 +1300,11 @@ export default function PortfolioPage() {
           {/* ── Portfolio Groups (Pro) ── */}
           {userTier === 'pro' && pfGroups.length > 0 && (
             <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <button onClick={() => setActivePfGroupId(null)} style={{ padding: '5px 14px', borderRadius: 99, border: `1px solid ${activePfGroupId === null ? 'var(--gold)' : 'var(--border2)'}`, background: activePfGroupId === null ? 'var(--gold2)' : 'transparent', color: activePfGroupId === null ? 'var(--gold)' : 'var(--ink3)', fontSize: 12, fontWeight: activePfGroupId === null ? 700 : 400, cursor: 'pointer' }}>All</button>
+              <button onClick={() => setActivePfGroupId(null)} style={{ padding: '5px 14px', borderRadius: 10, border: `1px solid ${activePfGroupId === null ? 'var(--gold)' : 'var(--border2)'}`, background: activePfGroupId === null ? 'var(--gold2)' : 'transparent', color: activePfGroupId === null ? 'var(--gold)' : 'var(--ink3)', fontSize: 12, fontWeight: activePfGroupId === null ? 700 : 400, cursor: 'pointer' }}>All</button>
               {pfGroups.map(g => (
-                <button key={g.id} onClick={() => setActivePfGroupId(g.id)} style={{ padding: '5px 14px', borderRadius: 99, border: `1px solid ${activePfGroupId === g.id ? 'var(--gold)' : 'var(--border2)'}`, background: activePfGroupId === g.id ? 'var(--gold2)' : 'transparent', color: activePfGroupId === g.id ? 'var(--gold)' : 'var(--ink3)', fontSize: 12, fontWeight: activePfGroupId === g.id ? 700 : 400, cursor: 'pointer' }}>{g.name}</button>
+                <button key={g.id} onClick={() => setActivePfGroupId(g.id)} style={{ padding: '5px 14px', borderRadius: 10, border: `1px solid ${activePfGroupId === g.id ? 'var(--gold)' : 'var(--border2)'}`, background: activePfGroupId === g.id ? 'var(--gold2)' : 'transparent', color: activePfGroupId === g.id ? 'var(--gold)' : 'var(--ink3)', fontSize: 12, fontWeight: activePfGroupId === g.id ? 700 : 400, cursor: 'pointer' }}>{g.name}</button>
               ))}
-              <button onClick={() => setShowNewPfGroup(true)} style={{ padding: '5px 12px', borderRadius: 99, border: '1px dashed var(--border2)', background: 'transparent', color: 'var(--ink3)', fontSize: 12, cursor: 'pointer' }}>+ New Portfolio</button>
+              <button onClick={() => setShowNewPfGroup(true)} style={{ padding: '5px 12px', borderRadius: 10, border: '1px dashed var(--border2)', background: 'transparent', color: 'var(--ink3)', fontSize: 12, cursor: 'pointer' }}>+ New Portfolio</button>
             </div>
           )}
 
@@ -1379,28 +1407,28 @@ export default function PortfolioPage() {
             })[0] : null
             const bestGainPct = bestPos ? ((bestPos.priceData!.price - bestPos.purchase_price) / bestPos.purchase_price) * 100 : null
             const bestGainAbs = bestPos ? (bestPos.priceData!.price - bestPos.purchase_price) * bestPos.quantity : null
-            const avgCost = openPositions.length > 0 ? totalCostUSD / openPositions.length : 0
+            const avgCost = visiblePositions.length > 0 ? totalCostUSD / visiblePositions.length : 0
             const statCells = [
               {
                 label: 'Total Value',
                 value: withData.length > 0 ? fmtCurrency(totalValueUSD) : '—',
                 sub: withData.length > 0
-                  ? `${openPositions.length} card${openPositions.length !== 1 ? 's' : ''}${!allPriced ? ` · ${withData.length}/${openPositions.length} priced` : ''}`
-                  : openPositions.length === 0 ? 'no positions yet' : 'loading…',
+                  ? `${visiblePositions.length} card${visiblePositions.length !== 1 ? 's' : ''}${!allPriced ? ` · ${withData.length}/${visiblePositions.length} priced` : ''}`
+                  : visiblePositions.length === 0 ? 'no positions yet' : 'loading…',
                 subColor: 'var(--ink3)',
                 color: withData.length > 0 ? 'var(--ink)' : 'var(--ink3)',
               },
               {
                 label: 'Total Cost',
-                value: openPositions.length > 0 ? fmtCurrency(totalCostUSD) : '—',
-                sub: openPositions.length > 0 ? `avg ${fmtCurrency(avgCost)}` : 'no positions yet',
+                value: visiblePositions.length > 0 ? fmtCurrency(totalCostUSD) : '—',
+                sub: visiblePositions.length > 0 ? `avg ${fmtCurrency(avgCost)}` : 'no positions yet',
                 subColor: 'var(--ink3)',
                 color: 'var(--ink)',
               },
               {
                 label: 'Unrealised P&L',
                 value: withData.length > 0 ? fmtSigned(fmtCurrency, totalPLUSD) : '—',
-                sub: withData.length > 0 ? `${pctSign(totalPLPct)}${totalPLPct.toFixed(1)}%${allPriced ? '' : ` · ${withData.length}/${openPositions.length}`}` : 'loading…',
+                sub: withData.length > 0 ? `${pctSign(totalPLPct)}${totalPLPct.toFixed(1)}%${allPriced ? '' : ` · ${withData.length}/${visiblePositions.length}`}` : 'loading…',
                 subColor: withData.length > 0 ? (totalPLUSD >= 0 ? 'var(--green)' : 'var(--red)') : 'var(--ink3)',
                 color: withData.length > 0 ? (totalPLUSD >= 0 ? 'var(--green)' : 'var(--red)') : 'var(--ink3)',
               },
@@ -1477,8 +1505,8 @@ export default function PortfolioPage() {
             const winners = withData.filter(p => p.priceData && p.priceData.price >= p.purchase_price).length
             const losers  = withData.length - winners
             const winRate = withData.length > 0 ? (winners / withData.length) * 100 : 0
-            const uniqueSets  = new Set(openPositions.map(p => p.set_name).filter(Boolean)).size
-            const gradedCount = openPositions.filter(p => /^(PSA|BGS|CGC|ACE)\s/.test(p.grade)).length
+            const uniqueSets  = new Set(visiblePositions.map(p => p.set_name).filter(Boolean)).size
+            const gradedCount = visiblePositions.filter(p => /^(PSA|BGS|CGC|ACE)\s/.test(p.grade)).length
             const avgPlPct = withData.length > 0
               ? withData.reduce((sum, p) => sum + ((p.priceData!.price - p.purchase_price) / p.purchase_price) * 100, 0) / withData.length
               : 0
@@ -1488,12 +1516,12 @@ export default function PortfolioPage() {
                 <div style={{ borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden' }}>
                   <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink3)' }}>Portfolio Health</span>
-                    <span style={{ fontSize: 11, color: 'var(--ink3)' }}>{openPositions.length} positions</span>
+                    <span style={{ fontSize: 11, color: 'var(--ink3)' }}>{visiblePositions.length} positions</span>
                   </div>
                   {/* Cards / Sets / Graded */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', borderBottom: '1px solid var(--border)' }}>
                     {[
-                      { num: openPositions.length, label: 'Cards' },
+                      { num: visiblePositions.length, label: 'Cards' },
                       { num: uniqueSets, label: 'Sets' },
                       { num: gradedCount, label: 'Graded', gold: true },
                     ].map((h, i) => (
@@ -1599,7 +1627,7 @@ export default function PortfolioPage() {
           })()}
 
           {/* ── Performance Chart ── */}
-          {openPositions.length > 0 && (
+          {visiblePositions.length > 0 && (
             <div style={{ marginBottom: 16 }}>
               <button
                 onClick={() => setShowChart(v => !v)}
@@ -1612,7 +1640,7 @@ export default function PortfolioPage() {
 
               {showChart && (
                 <div style={{ borderRadius: 14, padding: '20px 20px 8px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
-                  <PortfolioChart positions={openPositions} fmtCurrency={fmtCurrency} />
+                  <PortfolioChart positions={visiblePositions} fmtCurrency={fmtCurrency} />
                 </div>
               )}
             </div>
@@ -1629,7 +1657,7 @@ export default function PortfolioPage() {
               ))}
             </div>
             <div style={{ fontSize: 11, color: 'var(--ink3)' }}>
-              {openPositions.filter(p => p.priceData).length}/{openPositions.length} prices loaded
+              {openPositions.filter(p => p.priceData).length}/{visiblePositions.length} prices loaded
             </div>
           </div>
           )}
@@ -1659,7 +1687,7 @@ export default function PortfolioPage() {
             {listLoading && [0, 1, 2].map(i => <SkeletonRow key={i} last={i === 2} />)}
 
             {/* Empty state */}
-            {!listLoading && openPositions.length === 0 && (
+            {!listLoading && visiblePositions.length === 0 && (
               <div style={{ padding: '64px 24px', textAlign: 'center' }}>
                 <div style={{ fontSize: 40, marginBottom: 16 }}>📊</div>
                 <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>No positions yet</div>
@@ -1671,7 +1699,7 @@ export default function PortfolioPage() {
             )}
 
             {/* Filter empty */}
-            {!listLoading && openPositions.length > 0 && filtered.length === 0 && (
+            {!listLoading && visiblePositions.length > 0 && filtered.length === 0 && (
               <div style={{ padding: '40px 24px', textAlign: 'center' }}>
                 <div style={{ fontSize: 13, color: 'var(--ink3)', marginBottom: 12 }}>No positions match this filter.</div>
                 <button onClick={() => setFilter('all')} style={{ fontSize: 12, color: 'var(--gold)', background: 'none', border: 'none', cursor: 'pointer' }}>Show all</button>
@@ -1923,6 +1951,7 @@ export default function PortfolioPage() {
           onSave={handleAdd}
           currency={currency}
           rates={rates}
+          pfGroups={pfGroups}
         />
       )}
       {editPos && (
@@ -1935,6 +1964,7 @@ export default function PortfolioPage() {
           onMarkSold={() => { setSellPos(editPos); setEditPos(null) }}
           currency={currency}
           rates={rates}
+          pfGroups={pfGroups}
         />
       )}
       {sellPos && (

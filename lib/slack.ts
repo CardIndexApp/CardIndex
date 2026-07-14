@@ -47,6 +47,46 @@ export async function notifyNewUser(user: {
   })
 }
 
+export async function notifyNewPurchase(purchase: {
+  platform: 'web' | 'ios'
+  tier: string
+  email?: string | null
+  userId?: string | null
+  billingInterval?: string | null  // 'month' | 'year' | null
+  amountUsd?: number | null        // in dollars (not cents)
+  productId?: string | null        // Apple product id
+}): Promise<void> {
+  const url = process.env.SLACK_WEBHOOK_PURCHASES_URL ?? process.env.SLACK_WEBHOOK_URL
+  if (!url) {
+    console.warn('[slack] notifyNewPurchase: no webhook URL set (SLACK_WEBHOOK_PURCHASES_URL or SLACK_WEBHOOK_URL)')
+    return
+  }
+
+  const tierLabel = purchase.tier === 'pro' ? 'Pro' : purchase.tier === 'standard' ? 'Standard' : purchase.tier
+  const platformIcon = purchase.platform === 'ios' ? '📱' : '🌐'
+  const interval = purchase.billingInterval === 'year' ? 'Annual' : purchase.billingInterval === 'month' ? 'Monthly' : null
+  const planLabel = [tierLabel, interval].filter(Boolean).join(' · ')
+  const identity = purchase.email ?? purchase.userId ?? 'unknown'
+  const revenue = purchase.amountUsd != null ? ` · $${purchase.amountUsd.toFixed(2)}` : ''
+
+  const lines = [
+    `*${platformIcon} New ${planLabel} subscription*`,
+    `*User:* ${identity}`,
+    `*Platform:* ${purchase.platform === 'ios' ? 'iOS (App Store)' : 'Web (Stripe)'}${revenue}`,
+  ]
+  if (purchase.productId) lines.push(`*Product:* ${purchase.productId}`)
+
+  await post(url, {
+    text: `${platformIcon} New ${planLabel} subscription — ${identity}`,
+    blocks: [
+      {
+        type: 'section',
+        text: { type: 'mrkdwn', text: lines.join('\n') },
+      },
+    ],
+  })
+}
+
 export async function notifyReport(report: {
   card_id: string
   card_name?: string | null

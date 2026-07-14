@@ -26,6 +26,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { readFileSync } from 'fs'
 import path from 'path'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { notifyNewPurchase } from '@/lib/slack'
 import {
   SignedDataVerifier,
   Environment,
@@ -128,6 +129,24 @@ export async function POST(req: NextRequest) {
   if (error) {
     console.error('[apple] tier update failed:', error.message)
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  // Slack ping on new initial purchase only (not renewals/restores)
+  if (payload.notificationType === 'SUBSCRIBED' && payload.subtype === 'INITIAL_BUY' && newTier !== 'free') {
+    const { data: profile } = await admin
+      .from('profiles')
+      .select('email')
+      .eq('id', userId)
+      .single()
+    const billingInterval = txn.productId?.includes('.annual') ? 'year' : 'month'
+    await notifyNewPurchase({
+      platform: 'ios',
+      tier: newTier,
+      email: profile?.email ?? null,
+      userId,
+      billingInterval,
+      productId: txn.productId ?? null,
+    })
   }
 
   console.log(`[apple] ${payload.notificationType}/${payload.subtype ?? ''} → user ${userId} tier=${newTier}`)

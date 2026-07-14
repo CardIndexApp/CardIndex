@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { Tier } from '@/lib/tier'
+import { notifyNewPurchase } from '@/lib/slack'
 
 function getStripe() {
   if (!process.env.STRIPE_SECRET_KEY) throw new Error('STRIPE_SECRET_KEY not configured')
@@ -66,6 +67,13 @@ export async function POST(req: NextRequest) {
         const tier = PRICE_TO_TIER[priceId] ?? 'free'
         const customerId = session.customer as string
         await updateProfile(customerId, tier, sub.status)
+
+        // Slack ping — fetch email from Stripe customer object
+        const customer = await stripe.customers.retrieve(customerId)
+        const email = !customer.deleted ? customer.email : null
+        const interval = sub.items.data[0]?.price.recurring?.interval ?? null
+        const amountUsd = session.amount_total != null ? session.amount_total / 100 : null
+        await notifyNewPurchase({ platform: 'web', tier, email, billingInterval: interval, amountUsd })
         break
       }
 

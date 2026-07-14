@@ -427,10 +427,11 @@ function clearSearch() {
             <button
               onClick={clearSearch}
               style={{
-                position: 'absolute', right: 0, top: 0, bottom: 0,
-                width: 52, background: 'none', border: 'none',
-                color: 'var(--ink3)', cursor: 'pointer', fontSize: 20,
+                position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)',
+                width: 24, height: 24, background: 'none', border: 'none',
+                color: 'var(--ink3)', cursor: 'pointer', fontSize: 18, lineHeight: 1,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: 0,
               }}
               aria-label="Clear search"
             >×</button>

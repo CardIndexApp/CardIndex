@@ -1922,77 +1922,78 @@ export default function CardPageClient() {
                             {signal === 'BULLISH' ? '▲' : signal === 'BEARISH' ? '▼' : '●'} {signal}
                           </span>
                         </div>
-                        <div className="ci-adv-4col">
-                          {([{ label: 'CURRENT', value: cur, highlight: true }, { label: '1D AVG', value: a1 }, { label: '7D AVG', value: a7 }, { label: '30D AVG', value: a30 }] as { label: string; value: number | null | undefined; highlight?: boolean }[]).map((m, i) => (
-                            <div key={i} style={{ borderRadius: 10, padding: '12px 14px', background: m.highlight ? 'rgba(232,197,71,0.06)' : 'var(--bg)', border: `1px solid ${m.highlight ? 'rgba(232,197,71,0.2)' : 'var(--border)'}` }}>
-                              <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6 }}>{m.label}</div>
-                              <div className="font-num" style={{ fontSize: 14, fontWeight: 700, color: m.highlight ? 'var(--gold)' : 'var(--ink)' }}>{m.value != null ? fmtCurrency(m.value) : '—'}</div>
+                        {/* 7D / 30D big cells */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+                          {([{ label: '7D AVG', value: a7 }, { label: '30D AVG', value: a30 }] as { label: string; value: number | null | undefined }[]).map((m, i) => (
+                            <div key={i} style={{ borderRadius: 10, padding: '14px 16px', background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                              <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>{m.label}</div>
+                              <div className="font-num" style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>{m.value != null ? fmtCurrency(m.value) : '—'}</div>
                             </div>
                           ))}
                         </div>
                         {a7 && a30 && (
-                          <p style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 12, lineHeight: 1.6 }}>
-                            {signal === 'BULLISH' ? `7-day avg (${fmtCurrency(a7)}) is tracking above the 30-day avg (${fmtCurrency(a30)}) — short-term upward momentum.` : signal === 'BEARISH' ? `7-day avg (${fmtCurrency(a7)}) is tracking below the 30-day avg (${fmtCurrency(a30)}) — short-term downward pressure.` : `7-day and 30-day averages are closely aligned — no clear directional signal.`}
+                          <p style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 16, lineHeight: 1.6 }}>
+                            {signal === 'BULLISH' ? `7-day avg (${fmtCurrency(a7)}) is ${Math.abs(((a7 - a30) / a30) * 100).toFixed(1)}% above the 30-day avg (${fmtCurrency(a30)}) — short-term upward momentum.` : signal === 'BEARISH' ? `7-day avg (${fmtCurrency(a7)}) is ${Math.abs(((a7 - a30) / a30) * 100).toFixed(1)}% below the 30-day avg (${fmtCurrency(a30)}) — short-term downward pressure.` : `7-day and 30-day averages are closely aligned — no clear directional signal.`}
                           </p>
                         )}
+                        {/* Estimated Trend sparkline */}
+                        {a30 && a7 && cur && (() => {
+                          const pts = [a30, a7, cur]
+                          const minV = Math.min(...pts) * 0.98
+                          const maxV = Math.max(...pts) * 1.02
+                          const W = 260; const H = 72; const PAD = 10
+                          const toX = (i: number) => PAD + (i / 2) * (W - PAD * 2)
+                          const toY = (v: number) => H - PAD - ((v - minV) / (maxV - minV)) * (H - PAD * 2)
+                          const lineColor = a7 < a30 ? '#e8524a' : '#3de88a'
+                          const d = pts.map((v, i) => `${i === 0 ? 'M' : 'L'} ${toX(i).toFixed(1)} ${toY(v).toFixed(1)}`).join(' ')
+                          const labels = ['30D Avg', '7D Avg', 'Now']
+                          return (
+                            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+                              <div style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', marginBottom: 10 }}>ESTIMATED TREND</div>
+                              <div style={{ fontSize: 10, color: 'var(--ink3)', marginBottom: 8, opacity: 0.7 }}>30D Avg → 7D Avg → Now</div>
+                              <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 72, overflow: 'visible' }}>
+                                <path d={d} fill="none" stroke={lineColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                {pts.map((v, i) => (
+                                  <circle key={i} cx={toX(i)} cy={toY(v)} r="4" fill={lineColor} />
+                                ))}
+                              </svg>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+                                {labels.map((l, i) => (
+                                  <span key={i} style={{ fontSize: 9, color: 'var(--ink3)', letterSpacing: 0.5 }}>{l}</span>
+                                ))}
+                              </div>
+                              <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 10, opacity: 0.6, fontStyle: 'italic' }}>
+                                Estimated from moving averages — not real price history.
+                              </div>
+                            </div>
+                          )
+                        })()}
                       </div>
                     </div>
                   )
                 })()}
 
-                {/* Market Sentiment card */}
-                {cardTab === 'market' && (liveData.trend || liveData.price_change_pct != null) && (() => {
-                  const change7d  = liveData.avg7d  && liveData.avg7d  > 0 ? ((liveData.price - liveData.avg7d)  / liveData.avg7d)  * 100 : null
-                  const change30d = liveData.avg30d && liveData.avg30d > 0 ? ((liveData.price - liveData.avg30d) / liveData.avg30d) * 100 : liveData.price_change_pct
-                  const trend     = liveData.trend ?? 'stable'
-                  const trendColor = trend === 'up' ? 'var(--green)' : trend === 'down' ? 'var(--red)' : 'var(--gold)'
-                  const trendBg   = trend === 'up' ? 'rgba(61,232,138,0.08)' : trend === 'down' ? 'rgba(232,82,74,0.08)' : 'rgba(232,197,71,0.08)'
-                  const trendBorder = trend === 'up' ? 'rgba(61,232,138,0.2)' : trend === 'down' ? 'rgba(232,82,74,0.2)' : 'rgba(232,197,71,0.2)'
-                  const trendIcon = trend === 'up' ? '↑' : trend === 'down' ? '↓' : '→'
-                  const conf = liveData.confidence
-                  const confDots = conf === 'high' ? '●●●' : conf === 'medium' ? '●●○' : '●○○'
+                {/* Sales Activity card */}
+                {cardTab === 'market' && (() => {
+                  const sales30d = liveData.sales_count_30d ?? 0
+                  const weekEst  = sales30d > 0 ? Math.round(sales30d / 4.3) : null
+                  const liqLabel = sales30d >= 500 ? 'Extremely High' : sales30d >= 200 ? 'Very High' : sales30d >= 50 ? 'High' : sales30d >= 15 ? 'Moderate' : sales30d >= 5 ? 'Low' : 'Very Low'
+                  const liqColor = sales30d >= 50 ? 'var(--green)' : sales30d >= 15 ? 'var(--gold)' : 'var(--red)'
+                  const cols = [
+                    { value: sales30d > 0 ? sales30d.toLocaleString() : '—', label: 'SALES 30D', color: 'var(--ink)' },
+                    { value: weekEst != null ? weekEst.toLocaleString() : '—', label: 'THIS WEEK', color: 'var(--ink)' },
+                    { value: liqLabel, label: 'LIQUIDITY', color: liqColor },
+                  ]
                   return (
                     <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', padding: '18px 20px', marginBottom: 10 }}>
-                      <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', display: 'block', marginBottom: 14 }}>MARKET SENTIMENT</span>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
-                        {/* Trend direction */}
-                        <div style={{ textAlign: 'center', padding: '12px 8px', borderRadius: 10, background: trendBg, border: `1px solid ${trendBorder}` }}>
-                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: trendColor, marginBottom: 8, opacity: 0.75 }}>TREND</div>
-                          <div style={{ fontSize: 20, fontWeight: 800, color: trendColor }}>{trendIcon}</div>
-                          <div style={{ fontSize: 10, fontWeight: 700, color: trendColor, marginTop: 4, letterSpacing: 0.5 }}>
-                            {trend.charAt(0).toUpperCase() + trend.slice(1)}
+                      <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', display: 'block', marginBottom: 14 }}>SALES ACTIVITY</span>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                        {cols.map((c, i) => (
+                          <div key={i} style={{ textAlign: 'center', padding: '14px 8px', borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                            <div className="font-num" style={{ fontSize: 18, fontWeight: 800, color: c.color, marginBottom: 6 }}>{c.value}</div>
+                            <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)' }}>{c.label}</div>
                           </div>
-                        </div>
-                        {/* 7D change */}
-                        <div style={{ textAlign: 'center', padding: '12px 8px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
-                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>7D CHANGE</div>
-                          {change7d != null ? (
-                            <div className="font-num" style={{ fontSize: 14, fontWeight: 700, color: change7d >= 0 ? 'var(--green)' : 'var(--red)' }}>
-                              {change7d >= 0 ? '+' : ''}{change7d.toFixed(1)}%
-                            </div>
-                          ) : <div style={{ fontSize: 12, color: 'var(--ink3)' }}>—</div>}
-                        </div>
-                        {/* 30D change */}
-                        <div style={{ textAlign: 'center', padding: '12px 8px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
-                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>30D CHANGE</div>
-                          {change30d != null ? (
-                            <div className="font-num" style={{ fontSize: 14, fontWeight: 700, color: change30d >= 0 ? 'var(--green)' : 'var(--red)' }}>
-                              {change30d >= 0 ? '+' : ''}{change30d.toFixed(1)}%
-                            </div>
-                          ) : <div style={{ fontSize: 12, color: 'var(--ink3)' }}>—</div>}
-                        </div>
-                        {/* Confidence */}
-                        <div style={{ textAlign: 'center', padding: '12px 8px', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
-                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>CONFIDENCE</div>
-                          {conf ? (
-                            <>
-                              <div style={{ fontSize: 12, color: conf === 'high' ? 'var(--green)' : conf === 'medium' ? 'var(--gold)' : 'var(--ink3)', letterSpacing: 2 }}>{confDots}</div>
-                              <div style={{ fontSize: 10, color: conf === 'high' ? 'var(--green)' : conf === 'medium' ? 'var(--gold)' : 'var(--ink3)', marginTop: 4, fontWeight: 600 }}>
-                                {conf.charAt(0).toUpperCase() + conf.slice(1)}
-                              </div>
-                            </>
-                          ) : <div style={{ fontSize: 12, color: 'var(--ink3)' }}>—</div>}
-                        </div>
+                        ))}
                       </div>
                     </div>
                   )
@@ -2077,80 +2078,63 @@ export default function CardPageClient() {
                   })()}
                 </div>}
 
-                {/* Sales Volume Trend — Market tab */}
-                {cardTab === 'market' && liveData.price_history && liveData.price_history.some((h: { volume?: number }) => (h.volume ?? 0) > 0) && (() => {
-                  const { C: aC, P: aP, L: aL } = CPL
-                  const volData = liveData.price_history.filter((h: { volume?: number }) => h.volume != null).map((h: { month: string; price: number; volume?: number }) => ({ month: h.month, volume: h.volume ?? 0 }))
-                  const maxVol = Math.max(...volData.map((d: { volume: number }) => d.volume), 1)
+                {/* Sales Volume card — Market tab */}
+                {cardTab === 'market' && (() => {
+                  const sales30d   = liveData.sales_count_30d ?? 0
+                  const allTime    = liveData.total_sale_count ?? null
+                  const allTimeFmt = allTime != null ? (allTime >= 1000 ? `${(allTime / 1000).toFixed(1)}K` : allTime.toLocaleString()) : '—'
+                  const pct        = allTime && allTime > 0 && sales30d > 0 ? ((sales30d / allTime) * 100).toFixed(1) : null
+                  const liqLabel   = sales30d >= 500 ? 'Extremely High' : sales30d >= 200 ? 'Very High' : sales30d >= 50 ? 'High' : sales30d >= 15 ? 'Moderate' : sales30d >= 5 ? 'Low' : 'Very Low'
+                  const actColor   = sales30d >= 50 ? 'var(--green)' : sales30d >= 15 ? 'var(--gold)' : 'var(--red)'
+                  const cols = [
+                    { top: sales30d > 0 ? sales30d.toLocaleString() : '—', mid: '30D SALES', bot: 'this grade' },
+                    { top: '—', mid: 'ALL GRADES', bot: '30d' },
+                    { top: allTimeFmt, mid: 'ALL TIME', bot: 'cumulative' },
+                  ]
                   return (
-                    <div style={{ ...aC }} className="ci-card-surface">
-                      <div style={{ ...aP }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ ...aL, marginBottom: 0 }}>SALES VOLUME TREND</span>
-                            <TileInfo id="adv-4" text="Number of completed eBay sales per period. Rising volume alongside rising price confirms genuine demand. Falling volume on a rising price can signal a weak, unsustained move." activeTip={activeTip} setActiveTip={setActiveTip} inline />
+                    <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', padding: '18px 20px', marginBottom: 10 }}>
+                      <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', display: 'block', marginBottom: 14 }}>SALES VOLUME</span>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: pct ? 14 : 0 }}>
+                        {cols.map((c, i) => (
+                          <div key={i} style={{ textAlign: 'center', padding: '12px 8px', borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                            <div className="font-num" style={{ fontSize: 18, fontWeight: 800, color: 'var(--ink)', marginBottom: 4 }}>{c.top}</div>
+                            <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)' }}>{c.mid}</div>
+                            <div style={{ fontSize: 9, color: 'var(--ink3)', opacity: 0.6, marginTop: 2 }}>{c.bot}</div>
                           </div>
-                          <span style={{ fontSize: 10, color: 'var(--ink3)' }}>peak {maxVol} sales/mo</span>
-                        </div>
-                        <ResponsiveContainer width="100%" height={120}>
-                          <ComposedChart data={volData} margin={{ top: 8, right: 4, left: 4, bottom: 0 }}>
-                            <XAxis dataKey="month" tick={{ fill: '#55556a', fontSize: 9, fontFamily: 'Helvetica' }} axisLine={false} tickLine={false} />
-                            <YAxis hide domain={[0, maxVol * 1.2]} />
-                            <Tooltip content={({ active, payload }) => active && payload?.length ? <div style={{ background: '#181828', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '6px 10px' }}><div className="font-num" style={{ fontSize: 12, color: 'rgba(74,158,255,0.9)' }}>{payload[0]?.value} sales</div></div> : null} />
-                            <Bar dataKey="volume" fill="rgba(74,158,255,0.55)" radius={[3, 3, 0, 0]} />
-                          </ComposedChart>
-                        </ResponsiveContainer>
+                        ))}
                       </div>
+                      {pct && (
+                        <div style={{ fontSize: 11, color: actColor }}>
+                          <span style={{ marginRight: 6 }}>●</span>{liqLabel} activity · {pct}% of all-time sales in last 30d
+                        </div>
+                      )}
                     </div>
                   )
                 })()}
 
                 {/* Data Source — Market tab */}
                 {cardTab === 'market' && (() => {
-                  const { C: aC, P: aP, L: aL } = CPL
                   const src = liveData.data_source ?? 'ebay'
-                  const warning = liveData.data_warning
-                  const ebayCount = liveData.ebay_sale_count ?? liveData.sales_count_30d ?? 0
-                  const daysSince = liveData.last_updated_pt ? Math.round((Date.now() - new Date(liveData.last_updated_pt).getTime()) / (1000 * 60 * 60 * 24)) : null
-                  const warningMessages: Record<string, string> = {
-                    limited_sales: 'Fewer than 10 recent eBay sales — price average may be less stable.',
-                    rare_asset: 'High-value card with very few sales — treat price as indicative only.',
-                    high_value_limited: 'High-value card with limited sales data — use additional sources to verify.',
-                    low_volume_tcg_fallback: 'Insufficient eBay data — price sourced from TCGPlayer instead.',
-                    low_volume_no_fallback: 'Very few sales and no TCGPlayer fallback — price has low confidence.',
-                  }
-                  const srcColor = src === 'ebay' ? '#3de88a' : src === 'cardmarket' ? '#60a5fa' : 'var(--gold)'
-                  const srcBg = src === 'ebay' ? 'rgba(61,232,138,0.08)' : src === 'cardmarket' ? 'rgba(96,165,250,0.08)' : 'rgba(232,197,71,0.08)'
-                  const srcBorder = src === 'ebay' ? 'rgba(61,232,138,0.2)' : src === 'cardmarket' ? 'rgba(96,165,250,0.2)' : 'rgba(232,197,71,0.2)'
-                  const srcLabel = src === 'ebay' ? 'eBay' : src === 'cardmarket' ? 'CardMarket' : 'TCGPlayer'
+                  const conf = liveData.confidence
+                  const srcLabel = src === 'ebay' ? 'Ebay' : src === 'cardmarket' ? 'CardMarket' : 'TCGPlayer'
+                  const confLabel = conf === 'high' ? 'High' : conf === 'medium' ? 'Medium' : conf === 'low' ? 'Low' : '—'
+                  const confColor = conf === 'high' ? 'var(--green)' : conf === 'medium' ? 'var(--gold)' : 'var(--red)'
+                  const msAgo = liveData.last_updated_pt ? Date.now() - new Date(liveData.last_updated_pt).getTime() : null
+                  const updatedLabel = msAgo === null ? '—' : msAgo < 60 * 60 * 1000 ? `${Math.round(msAgo / 60000)}m ago` : msAgo < 24 * 60 * 60 * 1000 ? `${Math.round(msAgo / 3600000)}h ago` : `${Math.round(msAgo / 86400000)}d ago`
+                  const cols = [
+                    { label: 'DATA SOURCE', value: srcLabel, color: 'var(--ink)' },
+                    { label: 'LAST UPDATED', value: updatedLabel, color: 'var(--ink)' },
+                    { label: 'CONFIDENCE', value: confLabel, color: confColor },
+                  ]
                   return (
-                    <div style={{ ...aC }} className="ci-card-surface">
-                      <div style={{ ...aP }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ ...aL, marginBottom: 0 }}>DATA SOURCE</span>
-                            <TileInfo id="adv-17" text="Explains where the price data comes from and how trustworthy it is. eBay sold listings are the primary source for English cards. Japanese cards are priced from CardMarket (EU market). TCGPlayer is used as a fallback when eBay data is too sparse." activeTip={activeTip} setActiveTip={setActiveTip} inline />
+                    <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', padding: '18px 20px', marginBottom: 10 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                        {cols.map((c, i) => (
+                          <div key={i} style={{ textAlign: 'center', padding: '12px 8px', borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                            <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 8 }}>{c.label}</div>
+                            <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: c.color }}>{c.value}</div>
                           </div>
-                          <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 99, background: srcBg, border: `1px solid ${srcBorder}`, color: srcColor, textTransform: 'uppercase' }}>{srcLabel}</span>
-                        </div>
-                        <div className="ci-adv-3col" style={{ marginBottom: warning ? 14 : 0 }}>
-                          {[
-                            { label: 'PRIMARY SOURCE', value: src === 'ebay' ? 'eBay Sales' : src === 'cardmarket' ? 'CardMarket (EU)' : 'TCGPlayer', color: srcColor },
-                            { label: 'EBAY SALES (30D)', value: ebayCount > 0 ? ebayCount.toLocaleString() : 'N/A', color: ebayCount >= 10 ? 'var(--green)' : ebayCount >= 5 ? 'var(--gold)' : '#ff6b6b' },
-                            { label: 'DATA AGE', value: daysSince === null ? 'Unknown' : daysSince === 0 ? 'Today' : `${daysSince}d ago`, color: daysSince === null ? 'var(--ink3)' : daysSince <= 1 ? 'var(--green)' : daysSince <= 3 ? 'var(--gold)' : '#ff6b6b' },
-                          ].map((m, i) => (
-                            <div key={i} style={{ borderRadius: 10, padding: '12px 14px', background: 'var(--bg)', border: '1px solid var(--border)' }}>
-                              <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6 }}>{m.label}</div>
-                              <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: m.color }}>{m.value}</div>
-                            </div>
-                          ))}
-                        </div>
-                        {warning && warningMessages[warning] && (
-                          <div style={{ marginTop: 14, padding: '10px 12px', borderRadius: 8, background: 'rgba(232,197,71,0.06)', border: '1px solid rgba(232,197,71,0.18)' }}>
-                            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--gold)', marginBottom: 3 }}>DATA NOTE</div>
-                            <div style={{ fontSize: 11, color: 'var(--ink3)', lineHeight: 1.5 }}>{warningMessages[warning]}</div>
-                          </div>
-                        )}
+                        ))}
                       </div>
                     </div>
                   )
@@ -2921,28 +2905,19 @@ export default function CardPageClient() {
 
                   const TierRow = ({ tierKey, data }: { tierKey: string; data: { avg: number; source: string; saleCount?: number } }) => {
                     const isActive = tierKey === resolvedTier
+                    const srcLabel = data.source === 'ebay' ? 'Ebay' : data.source === 'cardmarket' ? 'CardMarket' : data.source === 'tcgplayer' ? 'TCGPlayer' : data.source
                     return (
                       <div style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        padding: '10px 12px', borderRadius: 8, marginBottom: 4,
-                        background: isActive ? 'rgba(232,197,71,0.07)' : 'transparent',
-                        border: isActive ? '1px solid rgba(232,197,71,0.25)' : '1px solid transparent',
-                        transition: 'background 0.15s',
+                        padding: '11px 4px', borderBottom: '1px solid rgba(255,255,255,0.05)',
+                        background: isActive ? 'rgba(232,197,71,0.04)' : 'transparent',
                       }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ fontSize: 12, color: isActive ? 'var(--gold)' : 'var(--ink2)', fontWeight: isActive ? 700 : 400 }}>
-                            {TIER_LABELS[tierKey] ?? tierKey.replace(/_/g, ' ')}
-                          </span>
-                          {isActive && (
-                            <span style={{ fontSize: 9, letterSpacing: 1, padding: '2px 6px', borderRadius: 4, background: 'rgba(232,197,71,0.15)', color: 'var(--gold)', fontWeight: 600 }}>CURRENT</span>
-                          )}
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          {data.saleCount != null && data.saleCount > 0 && (
-                            <span style={{ fontSize: 10, color: 'var(--ink3)' }}>{data.saleCount} sales</span>
-                          )}
-                          <span style={{ fontSize: 10, color: 'var(--ink3)', opacity: 0.7 }}>{data.source}</span>
-                          <span className="font-num" style={{ fontSize: 14, fontWeight: 700, color: isActive ? 'var(--gold)' : 'var(--ink)', minWidth: 72, textAlign: 'right' }}>
+                        <span style={{ fontSize: 13, color: isActive ? 'var(--gold)' : 'var(--ink)', fontWeight: isActive ? 700 : 400, minWidth: 60 }}>
+                          {TIER_LABELS[tierKey] ?? tierKey.replace(/_/g, ' ')}
+                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                          <span style={{ fontSize: 11, color: 'var(--ink3)' }}>{srcLabel}</span>
+                          <span className="font-num" style={{ fontSize: 14, fontWeight: 700, color: isActive ? 'var(--gold)' : 'var(--ink)', minWidth: 80, textAlign: 'right' }}>
                             {fmtCurrency(data.avg)}
                           </span>
                         </div>
@@ -2956,9 +2931,11 @@ export default function CardPageClient() {
                     <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', padding: '20px', marginBottom: 10 }}>
                       {/* Header row */}
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                        <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)' }}>PRICE LADDER</span>
-                        {liveData.total_sale_count != null && liveData.total_sale_count > 0 && (
-                          <span style={{ fontSize: 10, color: 'var(--ink3)' }}>{liveData.total_sale_count.toLocaleString()} total sales</span>
+                        <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)' }}>GRADE VALUE SNAPSHOT</span>
+                        {availableGraders.length > 0 && (
+                          <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 10px', borderRadius: 99, background: 'rgba(232,197,71,0.12)', border: '1px solid rgba(232,197,71,0.3)', color: 'var(--gold)' }}>
+                            {isRawView ? ladderGrader : (availableGraders[0] ?? 'PSA')}
+                          </span>
                         )}
                       </div>
 

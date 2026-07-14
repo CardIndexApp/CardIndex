@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { card_id, card_name, set_name, grade, card_number, image_url, purchase_price, quantity, purchased_at, notes, pf_group_id } = body
+  const { card_id, card_name, set_name, grade, card_number, image_url, purchase_price, quantity, purchased_at, notes, portfolio_group_id } = body
 
   if (!card_id || !card_name || !grade || purchase_price == null || !quantity) {
     return NextResponse.json({ error: 'card_id, card_name, grade, purchase_price and quantity are required' }, { status: 400 })
@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
       quantity,
       purchased_at: purchased_at || null,
       notes: notes || null,
-      pf_group_id: pf_group_id || null,
+      portfolio_group_id: portfolio_group_id || null,
     })
     .select()
     .single()
@@ -149,7 +149,7 @@ export async function PATCH(req: NextRequest) {
     updates.sale_price = body.sale_price
   }
   if ('sold_at' in body) updates.sold_at = body.sold_at
-  if ('pf_group_id' in body) updates.pf_group_id = body.pf_group_id ?? null
+  if ('portfolio_group_id' in body) updates.portfolio_group_id = body.portfolio_group_id ?? null
 
   const { data, error } = await supabase
     .from('portfolios')

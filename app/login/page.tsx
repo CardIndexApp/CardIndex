@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
@@ -10,7 +10,7 @@ const INK3 = '#50506a'
 const GREEN = '#3de88a'
 const BG = '#0b0c0f'
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter()
   const supabase = createClient()
 
@@ -287,5 +287,13 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   )
 }

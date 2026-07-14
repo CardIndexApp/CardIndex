@@ -794,7 +794,7 @@ export const fmt = (n: number): string => {
 }
 
 export const scoreColor = (s: number): string =>
-  s >= 80 ? '#3de88a' : s >= 60 ? '#e8c547' : '#e8524a'
+  s >= 70 ? '#3de88a' : s >= 50 ? '#d7aa3c' : '#e8524a'
 
 export const scoreLabel = (s: number): string =>
-  s >= 80 ? 'Strong' : s >= 60 ? 'Moderate' : 'Weak'
+  s >= 70 ? 'Strong' : s >= 50 ? 'Moderate' : 'Weak'

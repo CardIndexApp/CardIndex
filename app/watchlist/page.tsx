@@ -190,7 +190,7 @@ export default function Watchlist() {
   const [alertItem, setAlertItem] = useState<EnrichedItem | null>(null)
 
   // Tab: 'overview' | 'cards'
-  const [wlTab, setWlTab] = useState<'overview' | 'cards'>('cards')
+  const [wlTab, setWlTab] = useState<'overview' | 'cards'>('overview')
 
 
   const { fmtCurrency } = useCurrency()

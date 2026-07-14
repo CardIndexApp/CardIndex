@@ -1,4 +1,5 @@
 'use client'
+import React from 'react'
 import Link from 'next/link'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { usePathname } from 'next/navigation'
@@ -38,10 +39,6 @@ const SIDEBAR_NAV = [
   {
     label: 'Watchlist', href: '/watchlist',
     icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M10 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4L10 14.4l-4.8 2.5.9-5.4L2.2 7.7l5.4-.8z"/></svg>,
-  },
-  {
-    label: 'Alerts', href: '/alerts',
-    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>,
   },
   {
     label: 'Search', href: '/search',
@@ -291,36 +288,38 @@ export default function Navbar() {
             {SIDEBAR_NAV.filter(item => (!item.proOnly || userTier === 'pro') && (!item.adminOnly || isAdmin)).map(item => {
               const active = pathname === item.href || pathname.startsWith(item.href + '/')
               return (
-                <Link key={item.href} href={item.href} style={{
-                  padding: '11px 24px',
-                  display: 'flex', alignItems: 'center', gap: 12,
-                  fontSize: 15, fontWeight: active ? 600 : 500,
-                  color: active ? 'var(--ink)' : 'var(--ink3)',
-                  background: active ? 'var(--surface2)' : 'transparent',
-                  textDecoration: 'none',
-                  transition: 'color 0.15s, background 0.15s',
-                }}>
-                  <span style={{ color: active ? 'var(--ink)' : 'var(--ink3)', display: 'flex' }}>{item.icon}</span>
-                  {item.label}
-                </Link>
+                <React.Fragment key={item.href}>
+                  <Link href={item.href} style={{
+                    padding: '11px 24px',
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    fontSize: 15, fontWeight: active ? 600 : 500,
+                    color: active ? 'var(--ink)' : 'var(--ink3)',
+                    background: active ? 'var(--surface2)' : 'transparent',
+                    textDecoration: 'none',
+                    transition: 'color 0.15s, background 0.15s',
+                  }}>
+                    <span style={{ color: active ? 'var(--ink)' : 'var(--ink3)', display: 'flex' }}>{item.icon}</span>
+                    {item.label}
+                  </Link>
+                  {item.href === '/watchlist' && (
+                    <button onClick={() => setShowAlerts(true)} style={{
+                      padding: '11px 24px', display: 'flex', alignItems: 'center', gap: 12,
+                      fontSize: 15, fontWeight: 500, color: 'var(--ink3)',
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      transition: 'color 0.15s',
+                    }}>
+                      <span style={{ display: 'flex' }}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
+                          <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                        </svg>
+                      </span>
+                      Alerts
+                    </button>
+                  )}
+                </React.Fragment>
               )
             })}
-
-            {/* Alerts — opens modal */}
-            <button onClick={() => setShowAlerts(true)} style={{
-              padding: '11px 24px', display: 'flex', alignItems: 'center', gap: 12,
-              fontSize: 15, fontWeight: 500, color: 'var(--ink3)',
-              background: 'none', border: 'none', cursor: 'pointer',
-              transition: 'color 0.15s',
-            }}>
-              <span style={{ display: 'flex' }}>
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M10 2a6 6 0 0 1 6 6c0 3.5 1.5 5 1.5 5h-15S3 11.5 3 8a6 6 0 0 1 6-6z"/>
-                  <path d="M8.5 17.5a1.5 1.5 0 0 0 3 0"/>
-                </svg>
-              </span>
-              Alerts
-            </button>
           </div>
 
           {/* User footer */}

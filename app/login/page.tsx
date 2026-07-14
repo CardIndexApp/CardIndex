@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 const GOLD = '#e8c547'
@@ -14,7 +14,10 @@ export default function LoginPage() {
   const router = useRouter()
   const supabase = createClient()
 
-  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>('signin')
+  const searchParams = useSearchParams()
+  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>(
+    searchParams.get('tab') === 'signup' ? 'signup' : 'signin'
+  )
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')

@@ -209,8 +209,15 @@ export default function Home() {
               <p className="anim d3" style={{ fontSize: 16, color: '#b8b8d0', maxWidth: 460, lineHeight: 1.65, marginBottom: 30 }}>
                 Live market prices, a buy/hold/avoid verdict on every card, and price checks that tell you exactly what&apos;s a fair deal — before you spend a cent.
               </p>
-              <div className="anim d4 hero-cta" style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginBottom: 22 }}>
+              <div className="anim d4 hero-cta" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 22 }}>
                 <AppStoreBadge />
+                <div style={{ width: 1, height: 28, background: 'rgba(255,255,255,0.12)' }} />
+                <a href="/login?tab=signup" style={{ display: 'inline-flex', alignItems: 'center', padding: '11px 24px', borderRadius: 12, background: GOLD, color: '#080810', fontSize: 14, fontWeight: 700, textDecoration: 'none', letterSpacing: '-0.01em', boxShadow: '0 4px 20px rgba(232,197,71,0.3)' }}>
+                  Sign up free
+                </a>
+                <a href="/login" style={{ display: 'inline-flex', alignItems: 'center', padding: '11px 18px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.12)', color: '#b8b8d0', fontSize: 14, fontWeight: 600, textDecoration: 'none', letterSpacing: '-0.01em' }}>
+                  Log in
+                </a>
               </div>
               <div className="anim d5 hero-trust" style={{ display: 'flex', alignItems: 'center', gap: 18, fontSize: 12, color: '#eeeef8', flexWrap: 'wrap' }}>
                 <span><span style={{ color: GREEN }}>✓</span> Free to start</span>

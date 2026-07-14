@@ -957,6 +957,7 @@ export default function CardPageClient() {
   const [priceCheckPrice, setPriceCheckPrice] = useState<number | null>(null)
   const [histWindow, setHistWindow] = useState<'3M' | '6M' | '12M' | 'ALL'>('ALL')
   const [gradingSvc, setGradingSvc] = useState(0)
+  const [cardTab, setCardTab] = useState<'price' | 'market' | 'analysis'>('price')
 
   // Population report
   const [popReport, setPopReport] = useState<{ grades: { grade: string; population: number; grader: string }[] } | null>(null)
@@ -1469,8 +1470,26 @@ export default function CardPageClient() {
                   </div>
                 )}
 
+                {/* Tab switcher */}
+                <div style={{ display: 'flex', gap: 2, marginBottom: 14, padding: '3px', borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                  {(['price', 'market', 'analysis'] as const).map(tab => (
+                    <button
+                      key={tab}
+                      onClick={() => setCardTab(tab)}
+                      style={{
+                        flex: 1, padding: '9px 4px', borderRadius: 9, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, transition: 'all 0.15s',
+                        background: cardTab === tab ? 'var(--surface2)' : 'transparent',
+                        color: cardTab === tab ? (tab === 'analysis' && !['standard','pro'].includes(userTier) ? 'var(--gold)' : 'var(--ink)') : 'var(--ink3)',
+                        boxShadow: cardTab === tab ? '0 1px 4px rgba(0,0,0,0.25)' : 'none',
+                      }}
+                    >
+                      {tab === 'price' ? 'Price' : tab === 'market' ? 'Market' : !['standard','pro'].includes(userTier) ? '🔒 Analysis' : 'Analysis'}
+                    </button>
+                  ))}
+                </div>
+
                 {/* Price summary */}
-                <div className="fade-up-2" style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', padding: '20px', marginBottom: 10 }}>
+                {cardTab === 'price' && <div className="fade-up-2" style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', padding: '20px', marginBottom: 10 }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'nowrap', gap: 16 }}>
                     <div style={{ minWidth: 0 }}>
                       <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', display: 'block', marginBottom: 6 }}>MARKET PRICE</span>
@@ -1807,11 +1826,11 @@ export default function CardPageClient() {
                       </button>
                     )}
                   </div>
-                </div>
+                </div>}
                 {/* end tier gate */}
 
                 {/* ── Price Check result panel ──────────────────────────── */}
-                {priceCheckPrice && priceCheckPrice > 0 && liveData.price > 0 && liveData.score_breakdown && (() => {
+                {cardTab === 'price' && priceCheckPrice && priceCheckPrice > 0 && liveData.price > 0 && liveData.score_breakdown && (() => {
                   const pct      = ((priceCheckPrice - liveData.price) / liveData.price) * 100
                   const verdict  = getPriceVerdict(pct)
                   const pcData   = buildPriceCheckData(liveData, priceCheckPrice)
@@ -1893,7 +1912,7 @@ export default function CardPageClient() {
                 })()}
 
                 {/* Market Sentiment card */}
-                {(liveData.trend || liveData.price_change_pct != null) && (() => {
+                {cardTab === 'market' && (liveData.trend || liveData.price_change_pct != null) && (() => {
                   const change7d  = liveData.avg7d  && liveData.avg7d  > 0 ? ((liveData.price - liveData.avg7d)  / liveData.avg7d)  * 100 : null
                   const change30d = liveData.avg30d && liveData.avg30d > 0 ? ((liveData.price - liveData.avg30d) / liveData.avg30d) * 100 : liveData.price_change_pct
                   const trend     = liveData.trend ?? 'stable'
@@ -1951,7 +1970,7 @@ export default function CardPageClient() {
                 })()}
 
                 {/* Population Report */}
-                <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', padding: '18px 20px', marginBottom: 10 }}>
+                {cardTab === 'market' && <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', padding: '18px 20px', marginBottom: 10 }}>
                   <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', display: 'block', marginBottom: 14 }}>POPULATION REPORT</span>
                   {!popReport || popReport.grades.length === 0 ? (
                     <div style={{ fontSize: 12, color: 'var(--ink3)', textAlign: 'center', padding: '12px 0' }}>
@@ -2027,10 +2046,10 @@ export default function CardPageClient() {
                       </div>
                     )
                   })()}
-                </div>
+                </div>}
 
                 {/* Analysis panel */}
-                {liveData.score_breakdown && (() => {
+                {cardTab === 'analysis' && liveData.score_breakdown && (() => {
                   const a = computeAnalysis(liveData)
                   return (
                     <div className="ci-analysis-panel ci-section" style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', padding: '20px', marginBottom: 10 }}>
@@ -2246,7 +2265,7 @@ export default function CardPageClient() {
                 })()}
 
                 {/* Score breakdown */}
-                {liveData.score_breakdown && (() => {
+                {cardTab === 'analysis' && liveData.score_breakdown && (() => {
                   const a = computeAnalysis(liveData)
                   return (
                   <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', padding: '20px', marginBottom: 10 }}>
@@ -2315,7 +2334,7 @@ export default function CardPageClient() {
                 })()}
 
                 {/* ── Show Full Analysis toggle (Standard+) ── */}
-                {['standard', 'pro'].includes(userTier) ? (
+                {cardTab === 'analysis' && (['standard', 'pro'].includes(userTier) ? (
                   <div style={{ marginBottom: 10 }}>
                     <button
                       onClick={() => setShowAnalysis(!showAnalysis)}
@@ -2332,10 +2351,10 @@ export default function CardPageClient() {
                       🔒 Advanced Analytics — Standard+ feature · Upgrade to unlock
                     </Link>
                   </div>
-                ) : null}
+                ) : null)}
 
                 {/* ── Advanced Analytics (Standard+) ── */}
-                {showAnalysis && ['standard', 'pro'].includes(userTier) && (() => {
+                {cardTab === 'analysis' && showAnalysis && ['standard', 'pro'].includes(userTier) && (() => {
                   const a = computeAnalysis(liveData)
                   const { C: aC, P: aP, L: aL } = CPL
                   const liveRangeLowAdv  = liveData.price_range_low  ?? liveData.price
@@ -3191,7 +3210,7 @@ export default function CardPageClient() {
                 })()}
 
                 {/* Price & Volume Chart — Standard+ only */}
-                {liveData.price_history && liveData.price_history.length >= 2 && !['standard','pro'].includes(userTier) && (
+                {cardTab === 'price' && liveData.price_history && liveData.price_history.length >= 2 && !['standard','pro'].includes(userTier) && (
                   <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', padding: '32px 24px', textAlign: 'center', marginBottom: 10 }}>
                     <div style={{ fontSize: 24, marginBottom: 12 }}>📈</div>
                     <div style={{ display: 'inline-block', padding: '3px 12px', borderRadius: 99, background: 'var(--gold2)', border: '1px solid rgba(232,197,71,0.3)', fontSize: 10, fontWeight: 700, color: 'var(--gold)', letterSpacing: 1, marginBottom: 12 }}>STANDARD FEATURE</div>
@@ -3200,7 +3219,7 @@ export default function CardPageClient() {
                     <Link href="/pricing" style={{ display: 'inline-block', padding: '9px 22px', borderRadius: 10, background: 'var(--gold)', color: '#080810', textDecoration: 'none', fontSize: 13, fontWeight: 700 }}>Upgrade to Standard →</Link>
                   </div>
                 )}
-                {liveData.price_history && liveData.price_history.length >= 2 && ['standard','pro'].includes(userTier) && (() => {
+                {cardTab === 'price' && liveData.price_history && liveData.price_history.length >= 2 && ['standard','pro'].includes(userTier) && (() => {
                   const pts = chartWindow === '7d' ? 7 : chartWindow === '30d' ? 30 : 90
                   const sliced = liveData.price_history.slice(-pts)
                   const hasVolume = sliced.some(p => (p.volume ?? 0) > 0)
@@ -3280,7 +3299,7 @@ export default function CardPageClient() {
                 })()}
 
                 {/* Grade / condition price ladder */}
-                {liveData.all_tier_prices && Object.keys(liveData.all_tier_prices).length > 0 && (() => {
+                {cardTab === 'market' && liveData.all_tier_prices && Object.keys(liveData.all_tier_prices).length > 0 && (() => {
                   const tiers = liveData.all_tier_prices!
                   const resolvedTier = liveData.resolved_tier ?? ''
                   const isRawView = RAW_TIER_KEYS.has(resolvedTier)
@@ -3414,7 +3433,7 @@ export default function CardPageClient() {
                 })()}
 
                 {/* ── Grading ROI Calculator ── */}
-                {liveData.all_tier_prices && (() => {
+                {cardTab === 'market' && liveData.all_tier_prices && (() => {
                   const tiers = liveData.all_tier_prices!
                   const rawEntry = tiers['NEAR_MINT']
                   const rawPrice = rawEntry?.avg ?? 0

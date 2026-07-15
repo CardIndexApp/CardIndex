@@ -22,6 +22,7 @@ interface RecentlyViewedItem {
 interface ChartPosition {
   card_id: string; card_name: string | null; set_name: string | null; grade: string; quantity: number; purchase_price: number
   price: number; avg7d: number | null; avg30d: number | null; image_url: string | null
+  purchased_at: string | null
   price_history: Array<{ month: string; price: number }> | null
 }
 interface PortfolioStats {
@@ -143,7 +144,7 @@ export default function Dashboard() {
 
     const [{ data: wlRows }, { data: pf }] = await Promise.all([
       supabase.from('watchlists').select('id, card_id, card_name, set_name, grade').eq('user_id', user.id).limit(5),
-      supabase.from('portfolios').select('id, card_id, card_name, set_name, image_url, grade, purchase_price, quantity, sold, sale_price').eq('user_id', user.id),
+      supabase.from('portfolios').select('id, card_id, card_name, set_name, image_url, grade, purchase_price, quantity, sold, sale_price, purchased_at').eq('user_id', user.id),
     ])
 
     // Backfill missing image_urls in recently viewed
@@ -253,6 +254,7 @@ export default function Dashboard() {
             avg7d: pd.avg7d,
             avg30d: pd.avg30d,
             image_url: (pos.image_url as string | null) ?? null,
+            purchased_at: (pos.purchased_at as string | null) ?? null,
             price_history: pd.price_history ?? null,
           })
         }
@@ -307,8 +309,7 @@ export default function Dashboard() {
   const pfValue = hasPrices ? portfolioStats?.currentValue : portfolioStats?.costBasis
   const pfPnL = hasPrices && portfolioStats ? portfolioStats.currentValue - portfolioStats.costBasis : null
   const pfPct = pfPnL != null && (portfolioStats?.costBasis ?? 0) > 0 ? (pfPnL / portfolioStats!.costBasis) * 100 : null
-  const chartUp = chartData.length >= 2 ? chartData[chartData.length - 1].value >= chartData[0].value : true
-  const lineColor = chartUp ? '#3ddc84' : '#ff5c5c'
+  const lineColor = '#f4c542'
 
   // 7D / 30D portfolio change from avg data
   const change7d = chartPositions.length > 0 ? chartPositions.reduce((s, p) => {
@@ -341,6 +342,32 @@ export default function Dashboard() {
         .map(p => ({ name: p.card_name ?? p.card_id, pct: (p.price * p.quantity / totalPortfolioValue) * 100 }))
         .sort((a, b) => b.pct - a.pct)[0]
     : null
+
+  // CAGR + Avg Hold from purchased_at
+  const now = Date.now()
+  const posWithDates = chartPositions.filter(p => p.purchased_at && p.purchase_price > 0)
+  const cagrPct = posWithDates.length > 0 ? (() => {
+    const totalVal = posWithDates.reduce((s, p) => s + p.price * p.quantity, 0)
+    if (totalVal <= 0) return null
+    let weightedCAGR = 0, totalWeight = 0
+    for (const p of posWithDates) {
+      const yearsHeld = (now - new Date(p.purchased_at!).getTime()) / (365.25 * 86400000)
+      if (yearsHeld < 1 / 365) continue
+      const posCAGR = Math.pow(p.price / p.purchase_price, 1 / yearsHeld) - 1
+      const weight = p.price * p.quantity
+      weightedCAGR += posCAGR * weight
+      totalWeight += weight
+    }
+    return totalWeight > 0 ? (weightedCAGR / totalWeight) * 100 : null
+  })() : null
+
+  const avgHoldDays = posWithDates.length > 0
+    ? posWithDates.reduce((s, p) => s + (now - new Date(p.purchased_at!).getTime()) / 86400000, 0) / posWithDates.length
+    : null
+  const avgHoldStr = avgHoldDays == null ? null
+    : avgHoldDays < 30 ? `${Math.round(avgHoldDays)}d`
+    : avgHoldDays < 365 ? `${Math.round(avgHoldDays / 30.5)}mo`
+    : `${(avgHoldDays / 365).toFixed(1)}y`
 
   // Portfolio gainers / losers by % change vs purchase price
   const positionsWithPct = chartPositions
@@ -421,41 +448,43 @@ export default function Dashboard() {
             ))}
           </div>
 
-          {/* ── Chart card — only shown when data exists ── */}
+          {/* ── Chart — gold glow line, no card border ── */}
           {chartData.length >= 2 && (
-            <div className="chart-card">
-              <ResponsiveContainer width="100%" height={200}>
-                <AreaChart data={chartData} margin={{ top: 8, right: 0, left: 0, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={lineColor} stopOpacity={0.3} />
-                      <stop offset="100%" stopColor={lineColor} stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <YAxis domain={['dataMin', 'dataMax']} hide />
-                  <Tooltip
-                    content={({ active, payload }) =>
-                      active && payload?.length ? (
-                        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 10px' }}>
-                          <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
-                            {fmtCurrency(payload[0]?.value as number)}
+            <div className="chart-wrap">
+              <div style={{ filter: 'drop-shadow(0 0 8px rgba(244,197,66,0.7))' }}>
+                <ResponsiveContainer width="100%" height={180}>
+                  <AreaChart data={chartData} margin={{ top: 8, right: 0, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#f4c542" stopOpacity={0.22} />
+                        <stop offset="100%" stopColor="#f4c542" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <YAxis domain={['dataMin', 'dataMax']} hide />
+                    <Tooltip
+                      content={({ active, payload }) =>
+                        active && payload?.length ? (
+                          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 10px' }}>
+                            <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
+                              {fmtCurrency(payload[0]?.value as number)}
+                            </div>
+                            <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>{payload[0]?.payload?.label}</div>
                           </div>
-                          <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>{payload[0]?.payload?.label}</div>
-                        </div>
-                      ) : null
-                    }
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="value"
-                    stroke={lineColor}
-                    strokeWidth={2.5}
-                    fill="url(#chartFill)"
-                    dot={false}
-                    activeDot={{ r: 4, fill: lineColor, stroke: 'var(--bg)', strokeWidth: 2 }}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+                        ) : null
+                      }
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="value"
+                      stroke="#f4c542"
+                      strokeWidth={2.5}
+                      fill="url(#chartFill)"
+                      dot={false}
+                      activeDot={{ r: 4, fill: '#f4c542', stroke: 'var(--bg)', strokeWidth: 2 }}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
               <div className="chart-dates">
                 <span>{chartData[0]?.label}</span>
                 <span>Today</span>
@@ -512,7 +541,7 @@ export default function Dashboard() {
                   </div>
 
                   {/* Win Rate — always shown */}
-                  <div className="health-tile">
+                  <div className="health-tile half">
                     <div className="t-lbl">Win Rate</div>
                     {winRate != null ? (
                       <>
@@ -529,7 +558,7 @@ export default function Dashboard() {
                   </div>
 
                   {/* Avg P&L — always shown */}
-                  <div className="health-tile">
+                  <div className="health-tile half">
                     <div className="t-lbl">Avg P&L</div>
                     {avgPL != null ? (
                       <div className="t-val font-num" style={{ color: avgPL >= 0 ? 'var(--green)' : 'var(--red)' }}>
@@ -540,39 +569,33 @@ export default function Dashboard() {
                     )}
                   </div>
 
-                  {/* CAGR — always shown */}
-                  <div className="health-tile">
+                  {/* Bottom 4-col row: CAGR | AVG HOLD | 7D CHG | 30D CHG */}
+                  <div className="health-tile quad">
                     <div className="t-lbl">CAGR</div>
-                    <div className="t-val font-num" style={{ color: 'var(--ink3)' }}>—</div>
+                    <div className="t-val font-num" style={{ color: cagrPct != null ? (cagrPct >= 0 ? 'var(--green)' : 'var(--red)') : 'var(--ink3)' }}>
+                      {cagrPct != null ? `${cagrPct >= 0 ? '+' : ''}${cagrPct.toFixed(0)}%` : '—'}
+                    </div>
                   </div>
 
-                  {/* Avg Hold — always shown */}
-                  <div className="health-tile">
+                  <div className="health-tile quad">
                     <div className="t-lbl">Avg Hold</div>
-                    <div className="t-val font-num" style={{ color: 'var(--ink3)' }}>—</div>
+                    <div className="t-val font-num" style={{ color: avgHoldStr ? 'var(--ink)' : 'var(--ink3)' }}>
+                      {avgHoldStr ?? '—'}
+                    </div>
                   </div>
 
-                  {/* 7D / 30D change strips — always shown */}
-                  <div className="health-tile chg-strip">
-                    <div className="t-lbl">7D Change</div>
-                    {change7d != null ? (
-                      <div className="t-val font-num" style={{ color: change7d >= 0 ? 'var(--green)' : 'var(--red)' }}>
-                        {change7d >= 0 ? '+' : ''}{fmtCurrency(Math.abs(change7d))}
-                      </div>
-                    ) : (
-                      <div className="t-val font-num" style={{ color: 'var(--ink3)' }}>—</div>
-                    )}
+                  <div className="health-tile quad">
+                    <div className="t-lbl">7D CHG</div>
+                    <div className="t-val font-num" style={{ color: change7d != null ? (change7d >= 0 ? 'var(--green)' : 'var(--red)') : 'var(--ink3)' }}>
+                      {change7d != null ? `${change7d >= 0 ? '+' : ''}${fmtCurrency(Math.abs(change7d))}` : '—'}
+                    </div>
                   </div>
 
-                  <div className="health-tile chg-strip">
-                    <div className="t-lbl">30D Change</div>
-                    {change30d != null ? (
-                      <div className="t-val font-num" style={{ color: change30d >= 0 ? 'var(--green)' : 'var(--red)' }}>
-                        {change30d >= 0 ? '+' : ''}{fmtCurrency(Math.abs(change30d))}
-                      </div>
-                    ) : (
-                      <div className="t-val font-num" style={{ color: 'var(--ink3)' }}>—</div>
-                    )}
+                  <div className="health-tile quad">
+                    <div className="t-lbl">30D CHG</div>
+                    <div className="t-val font-num" style={{ color: change30d != null ? (change30d >= 0 ? 'var(--green)' : 'var(--red)') : 'var(--ink3)' }}>
+                      {change30d != null ? `${change30d >= 0 ? '+' : ''}${fmtCurrency(Math.abs(change30d))}` : '—'}
+                    </div>
                   </div>
                 </div>
 
@@ -822,20 +845,18 @@ export default function Dashboard() {
         }
         .tf:hover:not(.active) { background: var(--surface); }
 
-        /* Chart card */
-        .chart-card {
-          background: var(--surface);
-          border: 1px solid var(--border);
-          border-radius: 16px;
-          padding: 20px 24px 14px;
+        /* Chart — no border, bleeds to wrap edges */
+        .chart-wrap {
           margin-bottom: 28px;
+          padding: 0 4px;
         }
         .chart-dates {
           display: flex;
           justify-content: space-between;
           font-size: 11px;
           color: var(--ink3);
-          margin-top: 8px;
+          margin-top: 6px;
+          padding: 0 4px;
         }
 
         /* Grid — single column */
@@ -916,7 +937,8 @@ export default function Dashboard() {
         .hc .num.gold { color: var(--gold); }
         .hc .lbl { font-size: 10.5px; color: var(--ink3); letter-spacing: .8px; margin-top: 3px; text-transform: uppercase; }
 
-        .health-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 0; }
+        /* 6-col grid: [P&L span2][Win Rate][Avg P&L][CAGR][AvgHold] then [7D][30D] each span2 of a 4-col sub-row */
+        .health-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 0; }
         .health-tile {
           background: var(--bg);
           border: 1px solid var(--border);
@@ -924,22 +946,16 @@ export default function Dashboard() {
           padding: 13px 16px;
         }
         .health-tile.pnl {
-          grid-column: span 2;
+          grid-column: span 4;
           background: rgba(61,220,132,0.06);
           border-color: rgba(61,220,132,0.2);
           display: flex;
           justify-content: space-between;
           align-items: center;
         }
-        .health-tile.chg-strip {
-          grid-column: span 3;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 13px 16px;
-        }
+        .health-tile.half { grid-column: span 2; }
+        .health-tile.quad { grid-column: span 1; }
         .health-tile .t-lbl { font-size: 10.5px; color: var(--ink3); letter-spacing: .8px; text-transform: uppercase; margin-bottom: 6px; }
-        .health-tile.chg-strip .t-lbl { margin-bottom: 0; }
         .health-tile .t-val { font-size: 20px; font-weight: 800; }
         .winrate-bar { width: 100%; height: 5px; border-radius: 3px; background: var(--border); margin-top: 8px; overflow: hidden; display: flex; }
         .winrate-bar .w { background: var(--green); height: 100%; }
@@ -1063,9 +1079,6 @@ export default function Dashboard() {
         @media (max-width: 860px) {
           .dash-wrap { padding: 20px 20px 48px; }
           .value-amount { font-size: 36px; }
-          .health-grid { grid-template-columns: repeat(2, 1fr); }
-          .health-tile.pnl { grid-column: span 2; }
-          .health-tile.chg-strip { grid-column: span 1; }
           .bw-grid { grid-template-columns: 1fr; }
           .perf-cols { grid-template-columns: 1fr; gap: 20px; }
           .perf-cols > div + div { padding-left: 0; border-left: none; border-top: 1px solid var(--border); padding-top: 16px; }
@@ -1075,7 +1088,8 @@ export default function Dashboard() {
           .value-amount { font-size: 30px; letter-spacing: -1px; }
           .timeframes { gap: 4px; }
           .tf { padding: 6px 10px; font-size: 12px; }
-          .health-grid { grid-template-columns: 1fr 1fr; }
+          .health-tile.quad { font-size: 14px; padding: 11px 12px; }
+          .health-tile.quad .t-val { font-size: 16px; }
           .watchlist-movers { flex: 0 0 72px; }
           .recent-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; }
         }

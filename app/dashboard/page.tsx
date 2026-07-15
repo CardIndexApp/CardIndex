@@ -14,7 +14,7 @@ import { cacheGet, cacheSet } from '@/lib/searchCache'
 
 interface WatchlistItem {
   id: string; card_id: string; card_name: string; set_name: string; grade: string
-  price?: number | null; avg7d?: number | null
+  price?: number | null; avg7d?: number | null; image_url?: string | null
 }
 interface RecentlyViewedItem {
   card_id: string; card_name: string; grade: string; set_name: string | null; viewed_at: string; image_url?: string | null
@@ -148,7 +148,18 @@ export default function Dashboard() {
     ])
 
     // Backfill missing image_urls in recently viewed
-    const rvMissing = rvItems.filter(r => !r.image_url)
+    // Step 1: try localStorage price cache (populated by /api/card visits)
+    const rvMissing: RecentlyViewedItem[] = []
+    const localImgMap = new Map<string, string>()
+    for (const r of rvItems) {
+      if (r.image_url) continue
+      const hit = cacheGet<{ image_url?: string | null }>(`${r.card_id}:${r.grade}`)
+      if (hit?.image_url) { localImgMap.set(`${r.card_id}:${r.grade}`, hit.image_url) } else { rvMissing.push(r) }
+    }
+    if (localImgMap.size > 0) {
+      setRecentlyViewed(prev => prev.map(r => r.image_url ? r : { ...r, image_url: localImgMap.get(`${r.card_id}:${r.grade}`) ?? null }))
+    }
+    // Step 2: Supabase search_cache for anything still missing
     if (rvMissing.length > 0) {
       const { data: imgCache } = await supabase.from('search_cache').select('cache_key, image_url').in('cache_key', rvMissing.map(r => `${r.card_id}:${r.grade}`))
       if (imgCache?.length) {
@@ -160,11 +171,11 @@ export default function Dashboard() {
     // Watchlist with prices + avg7d for rising/falling
     const wlList = (wlRows ?? []) as WatchlistItem[]
     if (wlList.length > 0) {
-      const { data: priceRows } = await supabase.from('search_cache').select('cache_key, price, avg7d').in('cache_key', wlList.map(w => `${w.card_id}:${w.grade}`))
+      const { data: priceRows } = await supabase.from('search_cache').select('cache_key, price, avg7d, image_url').in('cache_key', wlList.map(w => `${w.card_id}:${w.grade}`))
       const pm = new Map((priceRows ?? []).map(r => [r.cache_key, r]))
       setWatchlistItems(wlList.map(w => {
         const cached = pm.get(`${w.card_id}:${w.grade}`)
-        return { ...w, price: cached?.price ?? null, avg7d: cached?.avg7d ?? null }
+        return { ...w, price: cached?.price ?? null, avg7d: cached?.avg7d ?? null, image_url: cached?.image_url ?? null }
       }))
     } else {
       setWatchlistItems([])
@@ -193,6 +204,7 @@ export default function Dashboard() {
       interface PriceData {
         price: number; avg7d: number | null; avg30d: number | null
         price_history?: Array<{ month: string; price: number }>
+        image_url?: string | null
       }
 
       const priceMap = new Map<string, PriceData>()
@@ -225,7 +237,7 @@ export default function Dashboard() {
                 const json = await r.json()
                 const data = json?.data
                 if (data?.price) {
-                  const pd: PriceData = { price: data.price, avg7d: data.avg7d ?? null, avg30d: data.avg30d ?? null, price_history: data.price_history ?? [] }
+                  const pd: PriceData = { price: data.price, avg7d: data.avg7d ?? null, avg30d: data.avg30d ?? null, price_history: data.price_history ?? [], image_url: data.image_url ?? null }
                   cacheSet(`${pos.card_id}:${pos.grade}`, pd)
                   priceMap.set(`${pos.card_id}:${pos.grade}`, pd)
                 }
@@ -729,7 +741,9 @@ export default function Dashboard() {
                       const isDown = item.price != null && item.avg7d != null && item.price < item.avg7d
                       return (
                         <Link key={item.id} href={`/card/${item.card_id}?${params}`} className="list-row" style={{ borderBottom: i < watchlistItems.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                          <div className="thumb" style={{ background: GRADIENTS[i % GRADIENTS.length] }} />
+                          <div className="thumb" style={{ background: item.image_url ? 'var(--panel-2)' : GRADIENTS[i % GRADIENTS.length] }}>
+                            {item.image_url && <img src={tcgImg(item.image_url)} alt={item.card_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                          </div>
                           <div className="row-info">
                             <div className="row-name">{item.card_name}</div>
                             <div className="row-sub">{item.set_name} · <span style={{ color: 'var(--gold-dim)' }}>{item.grade}</span></div>

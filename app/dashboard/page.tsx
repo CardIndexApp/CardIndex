@@ -12,7 +12,8 @@ import { Area, AreaChart, ResponsiveContainer, Tooltip, YAxis } from 'recharts'
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface WatchlistItem {
-  id: string; card_id: string; card_name: string; set_name: string; grade: string; price?: number | null
+  id: string; card_id: string; card_name: string; set_name: string; grade: string
+  price?: number | null; avg7d?: number | null
 }
 interface RecentlyViewedItem {
   card_id: string; card_name: string; grade: string; set_name: string | null; viewed_at: string; image_url?: string | null
@@ -31,7 +32,7 @@ interface MarketCard {
   change: number | null; price: number | null; score: number | null; image_url: string | null
 }
 
-// ── Chart helpers (ported from portfolio page) ─────────────────────────────────
+// ── Chart helpers ──────────────────────────────────────────────────────────────
 
 function parseMonthKey(m: string): number { return new Date(m).getTime() }
 
@@ -40,7 +41,6 @@ function buildPortfolioHistory(
   windowDays: number,
 ): { label: string; value: number }[] {
   const posWithHistory = positions.filter(p => p.price_history?.length)
-  const totalCost = positions.reduce((s, p) => s + p.purchase_price * p.quantity, 0)
 
   if (posWithHistory.length > 0) {
     const allMonthsSet = new Set<string>()
@@ -65,7 +65,6 @@ function buildPortfolioHistory(
     }).concat([{ label: 'Now', value: positions.reduce((s, p) => s + p.price * p.quantity, 0) }])
   }
 
-  // Synthetic fallback from avg7d/avg30d
   const posWithData = positions.filter(p => p.price > 0)
   if (!posWithData.length) return []
   const hasAvg = posWithData.some(p => p.avg30d != null || p.avg7d != null)
@@ -135,7 +134,6 @@ export default function Dashboard() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.replace('/'); return }
 
-    // Recently viewed from localStorage
     let rvItems: RecentlyViewedItem[] = []
     try {
       rvItems = (JSON.parse(localStorage.getItem(`ci_rv_${user.id}`) ?? '[]') as RecentlyViewedItem[]).slice(0, 6)
@@ -157,12 +155,15 @@ export default function Dashboard() {
       }
     }
 
-    // Watchlist with prices
+    // Watchlist with prices + avg7d for rising/falling
     const wlList = (wlRows ?? []) as WatchlistItem[]
     if (wlList.length > 0) {
-      const { data: priceRows } = await supabase.from('search_cache').select('cache_key, price').in('cache_key', wlList.map(w => `${w.card_id}:${w.grade}`))
-      const pm = new Map((priceRows ?? []).filter(r => r.price != null).map(r => [r.cache_key, r.price as number]))
-      setWatchlistItems(wlList.map(w => ({ ...w, price: pm.get(`${w.card_id}:${w.grade}`) ?? null })))
+      const { data: priceRows } = await supabase.from('search_cache').select('cache_key, price, avg7d').in('cache_key', wlList.map(w => `${w.card_id}:${w.grade}`))
+      const pm = new Map((priceRows ?? []).map(r => [r.cache_key, r]))
+      setWatchlistItems(wlList.map(w => {
+        const cached = pm.get(`${w.card_id}:${w.grade}`)
+        return { ...w, price: cached?.price ?? null, avg7d: cached?.avg7d ?? null }
+      }))
     } else {
       setWatchlistItems([])
     }
@@ -215,14 +216,13 @@ export default function Dashboard() {
     setPortfolioStats({ posCount: openPositions.length, soldCount: soldPositions.length, costBasis, currentValue, cachedCount, realizedPL, winTrades, loseTrades, gradedCount })
     setLoading(false)
 
-    // Market snapshot — non-blocking
     fetch('/api/market')
       .then(r => r.ok ? r.json() : null)
       .then(d => {
         if (!d || d.empty) return
         setMarketSnap({
           topRising: (d.topRising ?? []).slice(0, 5),
-          topFalling: (d.topFalling ?? []).slice(0, 3),
+          topFalling: (d.topFalling ?? []).slice(0, 5),
           risingCount: d.stats?.risingCount ?? 0,
           fallingCount: d.stats?.fallingCount ?? 0,
         })
@@ -240,7 +240,6 @@ export default function Dashboard() {
     setRecentlyViewed([])
   }, [])
 
-  // Build chart data for the selected period
   const chartData = useMemo(() => {
     if (!chartPositions.length) return []
     return buildPortfolioHistory(chartPositions, PERIOD_DAYS[activePeriod])
@@ -262,7 +261,25 @@ export default function Dashboard() {
   const pfPnL = hasPrices && portfolioStats ? portfolioStats.currentValue - portfolioStats.costBasis : null
   const pfPct = pfPnL != null && (portfolioStats?.costBasis ?? 0) > 0 ? (pfPnL / portfolioStats!.costBasis) * 100 : null
   const chartUp = chartData.length >= 2 ? chartData[chartData.length - 1].value >= chartData[0].value : true
-  const lineColor = chartUp ? '#3de88a' : '#e8524a'
+  const lineColor = chartUp ? '#3ddc84' : '#ff5c5c'
+
+  // 7D / 30D portfolio change from avg data
+  const change7d = chartPositions.length > 0 ? chartPositions.reduce((s, p) => {
+    const old = p.avg7d ?? p.price
+    return s + (p.price - old) * p.quantity
+  }, 0) : null
+  const change30d = chartPositions.length > 0 ? chartPositions.reduce((s, p) => {
+    const old = p.avg30d ?? p.avg7d ?? p.price
+    return s + (p.price - old) * p.quantity
+  }, 0) : null
+
+  // Win rate
+  const totalTrades = (portfolioStats?.winTrades ?? 0) + (portfolioStats?.loseTrades ?? 0)
+  const winRate = totalTrades > 0 ? ((portfolioStats!.winTrades / totalTrades) * 100) : null
+
+  // Watchlist movers
+  const wlRising = watchlistItems.filter(w => w.price != null && w.avg7d != null && w.price > w.avg7d).length
+  const wlFalling = watchlistItems.filter(w => w.price != null && w.avg7d != null && w.price < w.avg7d).length
 
   const best = marketSnap?.topRising[0] ?? null
   const worst = marketSnap?.topFalling[0] ?? null
@@ -270,19 +287,19 @@ export default function Dashboard() {
   const CardRow = ({ card, idx, last }: { card: MarketCard; idx: number; last: boolean }) => {
     const params = new URLSearchParams({ name: card.card_name, grade: card.grade })
     return (
-      <Link href={`/card/${card.card_id}?${params}`} style={{ display: 'flex', alignItems: 'center', padding: '11px 0', borderBottom: last ? 'none' : '1px solid rgba(255,255,255,0.06)', textDecoration: 'none', gap: 12 }}>
-        <div style={{ width: 40, height: 40, borderRadius: 8, background: card.image_url ? 'var(--surface2)' : GRADIENTS[idx % GRADIENTS.length], border: '1px solid var(--border)', flexShrink: 0, overflow: 'hidden' }}>
+      <Link href={`/card/${card.card_id}?${params}`} className="list-row" style={{ borderBottom: last ? 'none' : undefined }}>
+        <div className="thumb" style={{ background: card.image_url ? 'var(--panel-2)' : GRADIENTS[idx % GRADIENTS.length] }}>
           {card.image_url && <img src={tcgImg(card.image_url)} alt={card.card_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{card.card_name}</div>
-          <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>{card.grade}</div>
+        <div className="row-info">
+          <div className="row-name">{card.card_name}</div>
+          <div className="row-sub">{card.grade}</div>
         </div>
-        <div style={{ textAlign: 'right', flexShrink: 0 }}>
-          <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{card.price != null ? fmtCurrency(card.price) : '—'}</div>
+        <div className="row-price">
+          <div className="amt">{card.price != null ? fmtCurrency(card.price) : '—'}</div>
           {card.change != null && (
-            <div className="font-num" style={{ fontSize: 11, color: card.change >= 0 ? 'var(--green)' : 'var(--red)', marginTop: 2 }}>
-              {card.change >= 0 ? '▲' : '▼'}{fmtCurrency(Math.abs(card.change))} ({Math.abs(card.change).toFixed(1)}%)
+            <div className={`chg ${card.change >= 0 ? 'up' : 'down'}`}>
+              {card.change >= 0 ? '▲' : '▼'} {Math.abs(card.change).toFixed(1)}%
             </div>
           )}
         </div>
@@ -293,9 +310,8 @@ export default function Dashboard() {
   return (
     <>
       <Navbar />
-      <main style={{ paddingTop: 88, paddingBottom: 48, minHeight: '100vh' }}>
+      <main style={{ paddingTop: 88, paddingBottom: 60, minHeight: '100vh' }}>
 
-        {/* Pull-to-refresh */}
         {(pullY > 0 || refreshing) && (
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 200, display: 'flex', justifyContent: 'center', transform: `translateY(${refreshing ? 56 : pullY - 8}px)`, transition: refreshing ? 'transform 0.2s ease' : 'none', pointerEvents: 'none' }}>
             <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--surface)', border: '1px solid var(--border2)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 16px rgba(0,0,0,0.4)' }}>
@@ -308,26 +324,45 @@ export default function Dashboard() {
 
         <div className="dash-wrap">
 
-          {/* ── Chart + Portfolio Hero ── */}
-          <div className="dash-hero-section">
-
-            {/* Period tabs */}
-            <div style={{ display: 'flex', gap: 2, marginBottom: 16 }}>
-              {PERIOD_TABS.map(p => (
-                <button key={p} onClick={() => setActivePeriod(p)} style={{ padding: '6px 13px', borderRadius: 99, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'inherit', background: activePeriod === p ? 'var(--gold)' : 'transparent', color: activePeriod === p ? '#08080f' : 'var(--ink3)', transition: 'all 0.15s' }}>
-                  {p}
-                </button>
-              ))}
+          {/* ── Topbar: value + portfolio link ── */}
+          <div className="topbar">
+            <div className="value-block">
+              <div className="value-label">Total Portfolio Value</div>
+              <div className="value-amount font-num">
+                {pfValue != null && pfValue > 0 ? fmtCurrency(pfValue) : '—'}
+              </div>
+              {pfPnL != null && pfPct != null && (
+                <div className={`value-change font-num ${pfPnL >= 0 ? 'up' : 'down'}`}>
+                  {pfPnL >= 0 ? '▲' : '▼'} {fmtCurrency(Math.abs(pfPnL))} ({pfPnL >= 0 ? '+' : ''}{pfPct.toFixed(1)}%)
+                </div>
+              )}
             </div>
+            <Link href="/portfolio" className="bell" title="View Portfolio">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                <path d="M8 1v1M8 14v1M3 8H1M15 8h-1M4.5 4.5 3.4 3.4M12.6 12.6l-1.1-1.1M4.5 11.5l-1.1 1.1M12.6 3.4l-1.1 1.1" />
+                <circle cx="8" cy="8" r="3" />
+              </svg>
+            </Link>
+          </div>
 
-            {/* Chart */}
-            {chartData.length >= 2 && (
-              <div style={{ width: '100%', height: 140, marginBottom: 4 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
+          {/* ── Period tabs ── */}
+          <div className="timeframes">
+            {PERIOD_TABS.map(p => (
+              <button key={p} onClick={() => setActivePeriod(p)} className={`tf${activePeriod === p ? ' active' : ''}`}>
+                {p}
+              </button>
+            ))}
+          </div>
+
+          {/* ── Chart card ── */}
+          <div className="chart-card">
+            {chartData.length >= 2 ? (
+              <>
+                <ResponsiveContainer width="100%" height={200}>
+                  <AreaChart data={chartData} margin={{ top: 8, right: 0, left: 0, bottom: 0 }}>
                     <defs>
                       <linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={lineColor} stopOpacity={0.18} />
+                        <stop offset="0%" stopColor={lineColor} stopOpacity={0.3} />
                         <stop offset="100%" stopColor={lineColor} stopOpacity={0} />
                       </linearGradient>
                     </defs>
@@ -348,231 +383,553 @@ export default function Dashboard() {
                       type="monotone"
                       dataKey="value"
                       stroke={lineColor}
-                      strokeWidth={2}
+                      strokeWidth={2.5}
                       fill="url(#chartFill)"
                       dot={false}
                       activeDot={{ r: 4, fill: lineColor, stroke: 'var(--bg)', strokeWidth: 2 }}
                     />
                   </AreaChart>
                 </ResponsiveContainer>
-              </div>
-            )}
-            {chartData.length >= 2 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-                <span style={{ fontSize: 10, color: 'var(--ink3)' }}>{chartData[0]?.label}</span>
-                <span style={{ fontSize: 10, color: 'var(--ink3)' }}>Today</span>
-              </div>
-            )}
-
-            {/* Portfolio value */}
-            <div style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 6 }}>Total Portfolio Value</div>
-            <div className="font-num" style={{ fontSize: 44, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-2px', lineHeight: 1, marginBottom: 6 }}>
-              {pfValue != null && pfValue > 0 ? fmtCurrency(pfValue) : '—'}
-            </div>
-            {pfPnL != null && pfPct != null && (
-              <div className="font-num" style={{ fontSize: 17, fontWeight: 600, color: pfPnL >= 0 ? 'var(--green)' : 'var(--red)', marginBottom: 2 }}>
-                {pfPnL >= 0 ? '+' : ''}{fmtCurrency(pfPnL)} ({pfPnL >= 0 ? '+' : ''}{pfPct.toFixed(1)}%)
+                <div className="chart-dates">
+                  <span>{chartData[0]?.label}</span>
+                  <span>Today</span>
+                </div>
+              </>
+            ) : (
+              <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ fontSize: 13, color: 'var(--ink3)' }}>Not enough data for this period</div>
               </div>
             )}
           </div>
 
-          {/* ── Two-column grid ── */}
+          {/* ── Cards grid ── */}
           <div className="dash-grid">
 
-            {/* LEFT column */}
-            <div className="dash-left">
+            {/* Portfolio Health */}
+            {portfolioStats && portfolioStats.posCount > 0 && (
+              <div className="card health-card">
+                <div className="card-header">
+                  <div className="card-title">Portfolio Health</div>
+                  <div className="health-positions">{portfolioStats.posCount} position{portfolioStats.posCount !== 1 ? 's' : ''}</div>
+                </div>
 
-              {/* Top Performers */}
-              {marketSnap && (marketSnap.topRising.length > 0 || marketSnap.topFalling.length > 0) && (
-                <div className="dash-card">
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                    <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', textTransform: 'uppercase' }}>Top Performers</span>
-                    <Link href="/market" style={{ fontSize: 11, fontWeight: 600, color: 'var(--gold)', textDecoration: 'none' }}>See all ›</Link>
-                  </div>
-                  {marketSnap.topRising.length > 0 && (
-                    <>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--green)', display: 'inline-block', flexShrink: 0 }} />
-                        <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--green)', letterSpacing: 1 }}>GAINERS</span>
+                <div className="health-counts">
+                  {[
+                    { label: 'CARDS', value: portfolioStats.posCount, gold: false },
+                    { label: 'SOLD', value: portfolioStats.soldCount, gold: false },
+                    { label: 'GRADED', value: portfolioStats.gradedCount, gold: true },
+                  ].map((s, i) => (
+                    <div key={i} className="hc">
+                      <div className={`num${s.gold ? ' gold' : ''}`}>{s.value}</div>
+                      <div className="lbl">{s.label}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="health-grid">
+                  {pfPnL != null && (
+                    <div className="health-tile pnl">
+                      <div>
+                        <div className="t-lbl">Total P&L</div>
+                        <div className="t-val font-num" style={{ color: pfPnL >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                          {pfPnL >= 0 ? '+' : ''}{fmtCurrency(Math.abs(pfPnL))}
+                        </div>
                       </div>
-                      {marketSnap.topRising.slice(0, 5).map((card, i) => (
-                        <CardRow key={card.card_id + 'g' + i} card={card} idx={i} last={i === 4 && marketSnap.topFalling.length === 0} />
-                      ))}
-                    </>
+                      {pfPct != null && (
+                        <div style={{ textAlign: 'right' }}>
+                          <div className="t-lbl">Return</div>
+                          <div className="t-val font-num" style={{ color: pfPct >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                            {pfPct >= 0 ? '+' : ''}{pfPct.toFixed(1)}%
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   )}
-                  {marketSnap.topFalling.length > 0 && (
-                    <>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: marketSnap.topRising.length > 0 ? 14 : 0, marginBottom: 4 }}>
-                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--red)', display: 'inline-block', flexShrink: 0 }} />
-                        <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--red)', letterSpacing: 1 }}>LOSERS</span>
+
+                  {winRate != null && (
+                    <div className="health-tile">
+                      <div className="t-lbl">Win Rate</div>
+                      <div className="t-val font-num" style={{ color: winRate >= 50 ? 'var(--green)' : 'var(--red)' }}>{winRate.toFixed(0)}%</div>
+                      <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 2 }}>{portfolioStats.winTrades}W · {portfolioStats.loseTrades}L</div>
+                      <div className="winrate-bar">
+                        <div className="w" style={{ width: `${winRate}%` }} />
+                        <div className="l" style={{ width: `${100 - winRate}%` }} />
                       </div>
-                      {marketSnap.topFalling.map((card, i) => (
-                        <CardRow key={card.card_id + 'l' + i} card={card} idx={i + 10} last={i === marketSnap.topFalling.length - 1} />
-                      ))}
-                    </>
+                    </div>
+                  )}
+
+                  {change7d != null && (
+                    <div className="health-tile chg-strip">
+                      <div className="t-lbl">7D Change</div>
+                      <div className="t-val font-num" style={{ color: change7d >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                        {change7d >= 0 ? '+' : ''}{fmtCurrency(Math.abs(change7d))}
+                      </div>
+                    </div>
+                  )}
+
+                  {change30d != null && (
+                    <div className="health-tile chg-strip">
+                      <div className="t-lbl">30D Change</div>
+                      <div className="t-val font-num" style={{ color: change30d >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                        {change30d >= 0 ? '+' : ''}{fmtCurrency(Math.abs(change30d))}
+                      </div>
+                    </div>
                   )}
                 </div>
-              )}
-            </div>
 
-            {/* RIGHT column */}
-            <div className="dash-right">
-
-              {/* Recently Viewed */}
-              {recentlyViewed.length > 0 && (
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                    <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', textTransform: 'uppercase' }}>Recently Viewed</span>
-                    <button onClick={clearRecentlyViewed} style={{ fontSize: 10, fontWeight: 700, color: 'var(--gold)', background: 'none', border: 'none', cursor: 'pointer', letterSpacing: 0.5, fontFamily: 'inherit' }}>CLEAR</button>
-                  </div>
-                  <div className="rv-grid">
-                    {recentlyViewed.slice(0, 4).map((item, i) => {
-                      const params = new URLSearchParams({ grade: item.grade, name: item.card_name })
-                      if (item.set_name) params.set('set', item.set_name)
-                      return (
-                        <Link key={`${item.card_id}-${i}`} href={`/card/${item.card_id}?${params}`} style={{ textDecoration: 'none' }}>
-                          <div style={{ width: '100%', aspectRatio: '2/3', borderRadius: 8, background: item.image_url ? 'var(--surface2)' : 'linear-gradient(160deg,var(--surface2) 0%,rgba(100,100,180,0.12) 100%)', border: '1px solid var(--border2)', marginBottom: 6, overflow: 'hidden' }}>
-                            {item.image_url && <img src={tcgImg(item.image_url)} alt={item.card_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                {/* Best / Worst subsection */}
+                {(best || worst) && (
+                  <div className="health-bw">
+                    <div className="health-bw-title">Best / Worst</div>
+                    <div className="bw-grid">
+                      {best && (
+                        <Link href={`/card/${best.card_id}?${new URLSearchParams({ name: best.card_name, grade: best.grade })}`} className="bw-row" style={{ textDecoration: 'none' }}>
+                          <div className="bw-bar best" />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div className="bw-label">BEST</div>
+                            <div className="bw-name">{best.card_name}</div>
                           </div>
-                          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.card_name}</div>
-                          <div style={{ fontSize: 9, color: 'var(--ink3)', marginTop: 2 }}>{item.grade}</div>
+                          <div className="bw-pct" style={{ color: 'var(--green)' }}>▲ {best.change != null ? `${Math.abs(best.change).toFixed(1)}%` : '—'}</div>
+                        </Link>
+                      )}
+                      {worst && (
+                        <Link href={`/card/${worst.card_id}?${new URLSearchParams({ name: worst.card_name, grade: worst.grade })}`} className="bw-row" style={{ textDecoration: 'none' }}>
+                          <div className="bw-bar worst" />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div className="bw-label">WORST</div>
+                            <div className="bw-name">{worst.card_name}</div>
+                          </div>
+                          <div className="bw-pct" style={{ color: 'var(--red)' }}>▼ {worst.change != null ? `${Math.abs(worst.change).toFixed(1)}%` : '—'}</div>
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <Link href="/portfolio" className="view-portfolio-btn">View Portfolio →</Link>
+              </div>
+            )}
+
+            {/* Top Performers */}
+            {marketSnap && (marketSnap.topRising.length > 0 || marketSnap.topFalling.length > 0) && (
+              <div className="card performers-card">
+                <div className="card-header">
+                  <div className="card-title">Top Performers</div>
+                  <Link href="/market" className="link">See all →</Link>
+                </div>
+                <div className="perf-cols">
+                  {marketSnap.topRising.length > 0 && (
+                    <div>
+                      <div className="perf-col-title gain"><span className="sq gain" />GAINERS</div>
+                      <div className="card-list">
+                        {marketSnap.topRising.map((card, i) => (
+                          <CardRow key={card.card_id + 'g' + i} card={card} idx={i} last={i === marketSnap.topRising.length - 1} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {marketSnap.topFalling.length > 0 && (
+                    <div>
+                      <div className="perf-col-title loss"><span className="sq loss" />LOSERS</div>
+                      <div className="card-list">
+                        {marketSnap.topFalling.map((card, i) => (
+                          <CardRow key={card.card_id + 'l' + i} card={card} idx={i + 10} last={i === marketSnap.topFalling.length - 1} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Watchlist Snapshot */}
+            {watchlistItems.length > 0 && (
+              <div className="card watchlist-card">
+                <div className="card-header">
+                  <div className="card-title">Watchlist Snapshot</div>
+                  <Link href="/watchlist" className="link">View watchlist →</Link>
+                </div>
+                <div className="watchlist-body">
+                  {(wlRising > 0 || wlFalling > 0) && (
+                    <div className="watchlist-movers">
+                      <div className="movers-stat-v">
+                        <div className="dot-circle up">↑</div>
+                        <div className="movers-num up">{wlRising}</div>
+                        <div className="movers-sub">RISING</div>
+                      </div>
+                      <div className="movers-stat-v">
+                        <div className="dot-circle down">↓</div>
+                        <div className="movers-num down">{wlFalling}</div>
+                        <div className="movers-sub">FALLING</div>
+                      </div>
+                    </div>
+                  )}
+                  <div className="card-list watchlist-list">
+                    {watchlistItems.map((item, i) => {
+                      const params = new URLSearchParams({ name: item.card_name, grade: item.grade })
+                      const isUp = item.price != null && item.avg7d != null && item.price > item.avg7d
+                      const isDown = item.price != null && item.avg7d != null && item.price < item.avg7d
+                      return (
+                        <Link key={item.id} href={`/card/${item.card_id}?${params}`} className="list-row" style={{ borderBottom: i < watchlistItems.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                          <div className="thumb" style={{ background: GRADIENTS[i % GRADIENTS.length] }} />
+                          <div className="row-info">
+                            <div className="row-name">{item.card_name}</div>
+                            <div className="row-sub">{item.set_name} · <span style={{ color: 'var(--gold-dim)' }}>{item.grade}</span></div>
+                          </div>
+                          <div className="row-price">
+                            {item.price != null && <div className="amt font-num">{fmtCurrency(item.price)}</div>}
+                            {(isUp || isDown) && (
+                              <div className={`chg ${isUp ? 'up' : 'down'}`}>{isUp ? '▲' : '▼'}</div>
+                            )}
+                          </div>
                         </Link>
                       )
                     })}
                   </div>
                 </div>
-              )}
+              </div>
+            )}
 
-              {/* Watchlist Snapshot */}
-              {watchlistItems.length > 0 && (
-                <div className="dash-card">
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                    <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', textTransform: 'uppercase' }}>Watchlist Snapshot</span>
-                    <Link href="/watchlist" style={{ fontSize: 11, fontWeight: 600, color: 'var(--gold)', textDecoration: 'none' }}>View watchlist ›</Link>
-                  </div>
-                  {watchlistItems.map((item, i) => {
-                    const params = new URLSearchParams({ name: item.card_name, grade: item.grade })
+            {/* Recently Viewed */}
+            {recentlyViewed.length > 0 && (
+              <div className="card recent-card">
+                <div className="card-header">
+                  <div className="card-title">Recently Viewed</div>
+                  <button onClick={clearRecentlyViewed} className="link" style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Clear</button>
+                </div>
+                <div className="recent-grid">
+                  {recentlyViewed.slice(0, 6).map((item, i) => {
+                    const params = new URLSearchParams({ grade: item.grade, name: item.card_name })
+                    if (item.set_name) params.set('set', item.set_name)
                     return (
-                      <Link key={item.id} href={`/card/${item.card_id}?${params}`} style={{ display: 'flex', alignItems: 'center', padding: '11px 0', borderBottom: i < watchlistItems.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none', textDecoration: 'none', gap: 12 }}>
-                        <div style={{ width: 40, height: 40, borderRadius: 8, background: GRADIENTS[i % GRADIENTS.length], border: '1px solid var(--border)', flexShrink: 0 }} />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.card_name}</div>
-                          <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>{item.set_name} · {item.grade}</div>
+                      <Link key={`${item.card_id}-${i}`} href={`/card/${item.card_id}?${params}`} className="recent-item">
+                        <div className="recent-thumb" style={{ background: item.image_url ? 'var(--panel-2)' : 'linear-gradient(135deg,#2a2a30,#1a1a1e)' }}>
+                          {item.image_url && <img src={tcgImg(item.image_url)} alt={item.card_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                         </div>
-                        {item.price != null && (
-                          <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', flexShrink: 0 }}>{fmtCurrency(item.price)}</div>
-                        )}
+                        <div className="recent-name">{item.card_name}</div>
+                        <div className="recent-sub">{item.grade}</div>
                       </Link>
                     )
                   })}
                 </div>
-              )}
+              </div>
+            )}
 
-              {/* Best / Worst */}
-              {(best || worst) && (
-                <div className="dash-card" style={{ padding: 0, overflow: 'hidden' }}>
-                  {best && (
-                    <Link href={`/card/${best.card_id}?${new URLSearchParams({ name: best.card_name, grade: best.grade })}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: worst ? '1px solid var(--border)' : 'none', textDecoration: 'none' }}>
-                      <div>
-                        <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--green)', fontWeight: 700, marginBottom: 3 }}>BEST</div>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{best.card_name}</div>
-                      </div>
-                      <div className="font-num" style={{ fontSize: 18, fontWeight: 800, color: 'var(--green)' }}>
-                        {best.change != null ? `+${best.change.toFixed(1)}%` : '—'}
-                      </div>
-                    </Link>
-                  )}
-                  {worst && (
-                    <Link href={`/card/${worst.card_id}?${new URLSearchParams({ name: worst.card_name, grade: worst.grade })}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', textDecoration: 'none' }}>
-                      <div>
-                        <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--red)', fontWeight: 700, marginBottom: 3 }}>WORST</div>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{worst.card_name}</div>
-                      </div>
-                      <div className="font-num" style={{ fontSize: 18, fontWeight: 800, color: 'var(--red)' }}>
-                        {worst.change != null ? `${worst.change.toFixed(1)}%` : '—'}
-                      </div>
-                    </Link>
-                  )}
-                </div>
-              )}
-
-              {/* Portfolio Health */}
-              {portfolioStats && portfolioStats.posCount > 0 && (() => {
-                const plAmt = hasPrices ? pfPnL : (portfolioStats.realizedPL !== 0 ? portfolioStats.realizedPL : null)
-                const plPct = hasPrices && pfPnL != null && portfolioStats.costBasis > 0 ? (pfPnL / portfolioStats.costBasis) * 100 : null
-                const totalTrades = portfolioStats.winTrades + portfolioStats.loseTrades
-                const winRate = totalTrades > 0 ? (portfolioStats.winTrades / totalTrades) * 100 : null
-                return (
-                  <div className="dash-card">
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                      <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', textTransform: 'uppercase' }}>Portfolio Health</span>
-                      <span style={{ fontSize: 10, color: 'var(--ink3)' }}>{portfolioStats.posCount} position{portfolioStats.posCount !== 1 ? 's' : ''}</span>
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border)', marginBottom: 10 }}>
-                      {[{ label: 'CARDS', value: portfolioStats.posCount }, { label: 'SOLD', value: portfolioStats.soldCount }, { label: 'GRADED', value: portfolioStats.gradedCount }].map((s, i) => (
-                        <div key={i} style={{ textAlign: 'center', padding: '13px 8px', background: 'var(--bg)', borderRight: i < 2 ? '1px solid var(--border)' : 'none' }}>
-                          <div className="font-num" style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink)', lineHeight: 1, marginBottom: 4 }}>{s.value}</div>
-                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)' }}>{s.label}</div>
-                        </div>
-                      ))}
-                    </div>
-                    {plAmt != null && (
-                      <div style={{ display: 'grid', gridTemplateColumns: plPct != null ? '1fr 1fr' : '1fr', gap: 8, marginBottom: 10 }}>
-                        <div style={{ borderRadius: 10, padding: '11px 13px', background: plAmt >= 0 ? 'rgba(61,232,138,0.06)' : 'rgba(232,82,74,0.06)', border: `1px solid ${plAmt >= 0 ? 'rgba(61,232,138,0.2)' : 'rgba(232,82,74,0.2)'}` }}>
-                          <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 5 }}>TOTAL P&L</div>
-                          <div className="font-num" style={{ fontSize: 16, fontWeight: 800, color: plAmt >= 0 ? 'var(--green)' : 'var(--red)' }}>
-                            {plAmt >= 0 ? '+' : ''}{fmtCurrency(Math.abs(plAmt))}
-                          </div>
-                        </div>
-                        {plPct != null && (
-                          <div style={{ borderRadius: 10, padding: '11px 13px', background: plPct >= 0 ? 'rgba(61,232,138,0.06)' : 'rgba(232,82,74,0.06)', border: `1px solid ${plPct >= 0 ? 'rgba(61,232,138,0.2)' : 'rgba(232,82,74,0.2)'}` }}>
-                            <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 5 }}>RETURN</div>
-                            <div className="font-num" style={{ fontSize: 16, fontWeight: 800, color: plPct >= 0 ? 'var(--green)' : 'var(--red)' }}>
-                              {plPct >= 0 ? '+' : ''}{plPct.toFixed(1)}%
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    {winRate != null && (
-                      <div style={{ borderRadius: 10, padding: '11px 13px', background: 'var(--bg)', border: '1px solid var(--border)', marginBottom: 10 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                          <span style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)' }}>WIN RATE</span>
-                          <span className="font-num" style={{ fontSize: 10, color: 'var(--ink3)' }}>{portfolioStats.winTrades}W · {portfolioStats.loseTrades}L</span>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <div className="font-num" style={{ fontSize: 20, fontWeight: 800, color: winRate >= 50 ? 'var(--green)' : 'var(--red)', minWidth: 46 }}>{winRate.toFixed(0)}%</div>
-                          <div style={{ flex: 1, height: 4, borderRadius: 2, background: 'var(--border)', overflow: 'hidden' }}>
-                            <div style={{ height: '100%', width: `${winRate}%`, background: winRate >= 50 ? 'var(--green)' : 'var(--red)', borderRadius: 2 }} />
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    <Link href="/portfolio" style={{ display: 'block', textAlign: 'center', padding: '10px', borderRadius: 10, background: 'var(--gold)', color: '#08080f', fontWeight: 700, fontSize: 13, textDecoration: 'none' }}>
-                      View Portfolio
-                    </Link>
-                  </div>
-                )
-              })()}
-
-            </div>{/* end right */}
           </div>{/* end dash-grid */}
-
-        </div>
+        </div>{/* end dash-wrap */}
       </main>
 
       <style>{`
         @keyframes ptr-spin { to { transform: rotate(360deg); } }
-        .dash-wrap { max-width: 1100px; margin: 0 auto; padding: 28px 28px 0; }
-        .dash-hero-section { margin-bottom: 28px; }
-        .dash-grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 16px; align-items: start; }
-        .dash-left, .dash-right { display: flex; flex-direction: column; gap: 12px; }
-        .dash-card { border-radius: 16px; background: var(--surface); border: 1px solid var(--border); padding: 16px 18px; }
-        .rv-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-        @media (max-width: 700px) {
-          .dash-wrap { padding: 16px 16px 0; }
-          .dash-hero-section { margin-bottom: 20px; }
-          .dash-grid { grid-template-columns: 1fr; }
+
+        .dash-wrap {
+          max-width: 1200px;
+          margin: 0 auto;
+          padding: 32px 40px 60px;
+        }
+
+        /* Topbar */
+        .topbar {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 24px;
+        }
+        .value-label {
+          font-size: 12px;
+          letter-spacing: 1.5px;
+          color: var(--ink3);
+          text-transform: uppercase;
+          margin-bottom: 8px;
+        }
+        .value-amount {
+          font-size: 48px;
+          font-weight: 800;
+          letter-spacing: -2px;
+          color: var(--ink);
+          line-height: 1;
+          margin-bottom: 8px;
+        }
+        .value-change { font-size: 16px; font-weight: 600; }
+        .value-change.up { color: var(--green); }
+        .value-change.down { color: var(--red); }
+        .bell {
+          width: 38px; height: 38px;
+          border-radius: 10px;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          display: flex; align-items: center; justify-content: center;
+          color: var(--ink3);
+          flex-shrink: 0;
+          margin-top: 4px;
+          text-decoration: none;
+          transition: border-color 0.15s;
+        }
+        .bell:hover { border-color: var(--gold); color: var(--gold); }
+
+        /* Period tabs */
+        .timeframes { display: flex; gap: 8px; margin: 0 0 16px; }
+        .tf {
+          padding: 7px 16px;
+          border-radius: 20px;
+          font-size: 13px; font-weight: 600;
+          color: var(--ink3);
+          background: transparent;
+          border: 1px solid transparent;
+          cursor: pointer;
+          font-family: inherit;
+          transition: all 0.15s;
+        }
+        .tf.active {
+          color: var(--gold);
+          border-color: var(--gold);
+          background: rgba(244,197,66,0.08);
+        }
+        .tf:hover:not(.active) { background: var(--surface); }
+
+        /* Chart card */
+        .chart-card {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 16px;
+          padding: 20px 24px 14px;
+          margin-bottom: 28px;
+        }
+        .chart-dates {
+          display: flex;
+          justify-content: space-between;
+          font-size: 11px;
+          color: var(--ink3);
+          margin-top: 8px;
+        }
+
+        /* Grid — single column */
+        .dash-grid { display: flex; flex-direction: column; gap: 20px; }
+
+        /* Base card */
+        .card {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 16px;
+          padding: 20px 22px;
+        }
+        .card-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 16px;
+        }
+        .card-title {
+          font-size: 12px;
+          letter-spacing: 1.2px;
+          text-transform: uppercase;
+          color: var(--ink3);
+          font-weight: 700;
+        }
+        .link { font-size: 13px; color: var(--gold); font-weight: 600; text-decoration: none; cursor: pointer; }
+        .link:hover { opacity: 0.8; }
+
+        /* List rows */
+        .card-list { display: flex; flex-direction: column; }
+        .list-row {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 11px 0;
+          border-top: 1px solid var(--border);
+          text-decoration: none;
+        }
+        .list-row:first-child { border-top: none; padding-top: 4px; }
+        .thumb {
+          width: 38px; height: 52px;
+          border-radius: 5px;
+          object-fit: cover;
+          flex-shrink: 0;
+          border: 1px solid var(--border);
+          overflow: hidden;
+        }
+        .row-info { flex: 1; min-width: 0; }
+        .row-name { font-size: 13.5px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .row-sub { font-size: 11.5px; color: var(--ink3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+        .row-price { text-align: right; flex-shrink: 0; }
+        .row-price .amt { font-size: 14px; font-weight: 700; color: var(--ink); }
+        .chg { font-size: 11.5px; font-weight: 600; margin-top: 2px; }
+        .chg.up { color: var(--green); }
+        .chg.down { color: var(--red); }
+
+        /* Portfolio Health */
+        .health-card {}
+        .health-positions {
+          font-size: 11.5px; font-weight: 600;
+          color: var(--ink3);
+          background: var(--bg);
+          border: 1px solid var(--border);
+          border-radius: 20px;
+          padding: 5px 12px;
+        }
+        .health-counts {
+          display: flex;
+          background: var(--bg);
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          margin-bottom: 16px;
+          overflow: hidden;
+        }
+        .hc { text-align: center; flex: 1; padding: 14px 8px; border-right: 1px solid var(--border); }
+        .hc:last-child { border-right: none; }
+        .hc .num { font-size: 24px; font-weight: 800; color: var(--ink); }
+        .hc .num.gold { color: var(--gold); }
+        .hc .lbl { font-size: 10.5px; color: var(--ink3); letter-spacing: .8px; margin-top: 3px; text-transform: uppercase; }
+
+        .health-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 0; }
+        .health-tile {
+          background: var(--bg);
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          padding: 13px 16px;
+        }
+        .health-tile.pnl {
+          grid-column: span 2;
+          background: rgba(61,220,132,0.06);
+          border-color: rgba(61,220,132,0.2);
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+        .health-tile.chg-strip {
+          grid-column: span 3;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 11px 16px;
+        }
+        .health-tile .t-lbl { font-size: 10.5px; color: var(--ink3); letter-spacing: .8px; text-transform: uppercase; margin-bottom: 6px; }
+        .health-tile.chg-strip .t-lbl { margin-bottom: 0; }
+        .health-tile .t-val { font-size: 20px; font-weight: 800; }
+        .winrate-bar { width: 100%; height: 5px; border-radius: 3px; background: var(--border); margin-top: 8px; overflow: hidden; display: flex; }
+        .winrate-bar .w { background: var(--green); height: 100%; }
+        .winrate-bar .l { background: var(--red); height: 100%; }
+
+        /* Best/Worst */
+        .health-bw { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+        .health-bw-title { font-size: 10.5px; letter-spacing: 1px; text-transform: uppercase; color: var(--ink3); font-weight: 700; margin-bottom: 10px; }
+        .bw-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .bw-row {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 10px 14px;
+          background: var(--bg);
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          text-decoration: none;
+          transition: border-color 0.15s;
+        }
+        .bw-row:hover { border-color: var(--gold); }
+        .bw-bar { width: 3px; height: 34px; border-radius: 2px; flex-shrink: 0; }
+        .bw-bar.best { background: var(--green); }
+        .bw-bar.worst { background: var(--red); }
+        .bw-label { font-size: 10.5px; letter-spacing: 1px; color: var(--ink3); font-weight: 700; }
+        .bw-name { font-size: 13px; font-weight: 600; color: var(--ink); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .bw-pct { margin-left: auto; font-size: 15px; font-weight: 700; flex-shrink: 0; }
+
+        .view-portfolio-btn {
+          display: block;
+          text-align: center;
+          margin-top: 16px;
+          padding: 10px;
+          border-radius: 10px;
+          background: var(--gold);
+          color: #08080f;
+          font-weight: 700;
+          font-size: 13px;
+          text-decoration: none;
+          transition: opacity 0.15s;
+        }
+        .view-portfolio-btn:hover { opacity: 0.88; }
+
+        /* Top Performers */
+        .performers-card {}
+        .perf-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+        .perf-cols > div { padding-right: 18px; }
+        .perf-cols > div + div { padding-left: 18px; padding-right: 0; border-left: 1px solid var(--border); }
+        .perf-col-title { font-size: 11px; letter-spacing: 1px; font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+        .perf-col-title.gain { color: var(--green); }
+        .perf-col-title.loss { color: var(--red); }
+        .sq { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+        .sq.gain { background: var(--green); }
+        .sq.loss { background: var(--red); }
+        .performers-card .thumb { width: 32px; height: 44px; }
+
+        /* Watchlist */
+        .watchlist-card {}
+        .watchlist-body { display: flex; gap: 20px; }
+        .watchlist-movers {
+          flex: 0 0 88px;
+          display: flex;
+          flex-direction: column;
+          border-right: 1px solid var(--border);
+          padding-right: 20px;
+        }
+        .watchlist-list { flex: 1; min-width: 0; }
+        .movers-stat-v {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 4px;
+          padding: 14px 0;
+        }
+        .movers-stat-v + .movers-stat-v { border-top: 1px solid var(--border); }
+        .dot-circle {
+          width: 34px; height: 34px; border-radius: 50%;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 16px;
+        }
+        .dot-circle.up { background: rgba(61,220,132,0.12); color: var(--green); }
+        .dot-circle.down { background: rgba(255,92,92,0.12); color: var(--red); }
+        .movers-num { font-size: 26px; font-weight: 800; }
+        .movers-num.up { color: var(--green); }
+        .movers-num.down { color: var(--red); }
+        .movers-sub { font-size: 10px; letter-spacing: 1px; color: var(--ink3); font-weight: 700; }
+        .gold-dim { color: var(--gold-dim, #c9a53a); }
+
+        /* Recently Viewed */
+        .recent-card {}
+        .recent-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+          gap: 16px;
+        }
+        .recent-item { display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; text-decoration: none; }
+        .recent-thumb {
+          width: 100%;
+          aspect-ratio: 5/7;
+          border-radius: 10px;
+          border: 1px solid var(--border);
+          overflow: hidden;
+        }
+        .recent-name { font-size: 13px; font-weight: 600; color: var(--ink); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
+        .recent-sub { font-size: 11px; color: var(--ink3); }
+
+        @media (max-width: 860px) {
+          .dash-wrap { padding: 20px 20px 48px; }
+          .value-amount { font-size: 36px; }
+          .health-grid { grid-template-columns: repeat(2, 1fr); }
+          .health-tile.pnl { grid-column: span 2; }
+          .health-tile.chg-strip { grid-column: span 1; }
+          .bw-grid { grid-template-columns: 1fr; }
+          .perf-cols { grid-template-columns: 1fr; gap: 20px; }
+          .perf-cols > div + div { padding-left: 0; border-left: none; border-top: 1px solid var(--border); padding-top: 16px; }
+        }
+        @media (max-width: 600px) {
+          .dash-wrap { padding: 16px 16px 48px; }
+          .value-amount { font-size: 30px; letter-spacing: -1px; }
+          .timeframes { gap: 4px; }
+          .tf { padding: 6px 10px; font-size: 12px; }
+          .health-grid { grid-template-columns: 1fr 1fr; }
+          .watchlist-movers { flex: 0 0 72px; }
+          .recent-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; }
         }
       `}</style>
     </>

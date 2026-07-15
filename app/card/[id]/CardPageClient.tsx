@@ -793,14 +793,16 @@ export default function CardPageClient() {
       const grade  = urlGrade ?? (card ? `PSA ${card.grade.replace('PSA ', '')}` : 'PSA 10')
       const cardName = urlName ?? card?.name ?? liveData.card_name ?? ''
       const rvKey  = `ci_rv_${userId}`
-      const stored: Array<{ card_id: string; card_name: string; grade: string; set_name: string | null; viewed_at: string }> =
+      const stored: Array<{ card_id: string; card_name: string; grade: string; set_name: string | null; viewed_at: string; image_url?: string | null }> =
         JSON.parse(localStorage.getItem(rvKey) ?? '[]')
+      const imageUrl = card?.imageUrl ?? liveData.image_url ?? null
       const entry = {
         card_id: id,
         card_name: liveData.card_name ?? cardName,
         grade,
         set_name: liveData.set_name ?? urlSet ?? null,
         viewed_at: new Date().toISOString(),
+        image_url: imageUrl,
       }
       const updated = [entry, ...stored.filter(x => !(x.card_id === id && x.grade === grade))].slice(0, 20)
       localStorage.setItem(rvKey, JSON.stringify(updated))

@@ -19,8 +19,8 @@ interface RecentlyViewedItem {
   card_id: string; card_name: string; grade: string; set_name: string | null; viewed_at: string; image_url?: string | null
 }
 interface ChartPosition {
-  card_id: string; grade: string; quantity: number; purchase_price: number
-  price: number; avg7d: number | null; avg30d: number | null
+  card_id: string; card_name: string | null; set_name: string | null; grade: string; quantity: number; purchase_price: number
+  price: number; avg7d: number | null; avg30d: number | null; image_url: string | null
   price_history: Array<{ month: string; price: number }> | null
 }
 interface PortfolioStats {
@@ -188,7 +188,7 @@ export default function Dashboard() {
       const cacheKeys = openPositions.map((p: { card_id: string; grade: string }) => `${p.card_id}:${p.grade}`)
       const { data: priceRows } = await supabase
         .from('search_cache')
-        .select('cache_key, price, avg7d, avg30d, price_history')
+        .select('cache_key, price, avg7d, avg30d, price_history, card_name, set_name, image_url')
         .in('cache_key', cacheKeys)
       const cacheMap = new Map((priceRows ?? []).map(r => [r.cache_key as string, r]))
       const cps: ChartPosition[] = []
@@ -200,12 +200,15 @@ export default function Dashboard() {
           cachedCount++
           cps.push({
             card_id: pos.card_id as string,
+            card_name: (cached.card_name as string | null) ?? null,
+            set_name: (cached.set_name as string | null) ?? null,
             grade: pos.grade as string,
             quantity: pos.quantity as number,
             purchase_price: pos.purchase_price as number,
             price: cached.price as number,
             avg7d: cached.avg7d as number | null,
             avg30d: cached.avg30d as number | null,
+            image_url: (cached.image_url as string | null) ?? null,
             price_history: (cached.price_history as Array<{ month: string; price: number }> | null) ?? null,
           })
         }
@@ -281,8 +284,28 @@ export default function Dashboard() {
   const wlRising = watchlistItems.filter(w => w.price != null && w.avg7d != null && w.price > w.avg7d).length
   const wlFalling = watchlistItems.filter(w => w.price != null && w.avg7d != null && w.price < w.avg7d).length
 
-  const best = marketSnap?.topRising[0] ?? null
-  const worst = marketSnap?.topFalling[0] ?? null
+  // Derived portfolio stats
+  const setsCount = new Set(chartPositions.map(p => p.set_name).filter(Boolean)).size
+
+  const avgPL = chartPositions.length > 0 && chartPositions.some(p => p.purchase_price > 0)
+    ? chartPositions.filter(p => p.purchase_price > 0).reduce((s, p) => s + (p.price - p.purchase_price) / p.purchase_price * 100, 0) / chartPositions.filter(p => p.purchase_price > 0).length
+    : null
+
+  const totalPortfolioValue = chartPositions.reduce((s, p) => s + p.price * p.quantity, 0)
+  const topConcentration = chartPositions.length > 0 && totalPortfolioValue > 0
+    ? chartPositions
+        .map(p => ({ name: p.card_name ?? p.card_id, pct: (p.price * p.quantity / totalPortfolioValue) * 100 }))
+        .sort((a, b) => b.pct - a.pct)[0]
+    : null
+
+  // Portfolio gainers / losers by % change vs purchase price
+  const positionsWithPct = chartPositions
+    .filter(p => p.purchase_price > 0)
+    .map(p => ({ ...p, pct: (p.price - p.purchase_price) / p.purchase_price * 100 }))
+  const portfolioGainers = [...positionsWithPct].sort((a, b) => b.pct - a.pct).slice(0, 5)
+  const portfolioLosers = [...positionsWithPct].sort((a, b) => a.pct - b.pct).slice(0, 5)
+  const best = portfolioGainers[0] ?? null
+  const worst = portfolioLosers[0] ?? null
 
   const CardRow = ({ card, idx, last }: { card: MarketCard; idx: number; last: boolean }) => {
     const params = new URLSearchParams({ name: card.card_name, grade: card.grade })
@@ -410,22 +433,17 @@ export default function Dashboard() {
               <div className="card health-card">
                 <div className="card-header">
                   <div className="card-title">Portfolio Health</div>
-                  <div className="health-positions">{portfolioStats.posCount} position{portfolioStats.posCount !== 1 ? 's' : ''}</div>
+                  <div className="health-positions">{portfolioStats.posCount} positions</div>
                 </div>
 
+                {/* Counts bar: CARDS / SETS / GRADED */}
                 <div className="health-counts">
-                  {[
-                    { label: 'CARDS', value: portfolioStats.posCount, gold: false },
-                    { label: 'SOLD', value: portfolioStats.soldCount, gold: false },
-                    { label: 'GRADED', value: portfolioStats.gradedCount, gold: true },
-                  ].map((s, i) => (
-                    <div key={i} className="hc">
-                      <div className={`num${s.gold ? ' gold' : ''}`}>{s.value}</div>
-                      <div className="lbl">{s.label}</div>
-                    </div>
-                  ))}
+                  <div className="hc"><div className="num">{portfolioStats.posCount}</div><div className="lbl">CARDS</div></div>
+                  <div className="hc"><div className="num">{setsCount > 0 ? setsCount : portfolioStats.soldCount}</div><div className="lbl">{setsCount > 0 ? 'SETS' : 'SOLD'}</div></div>
+                  <div className="hc"><div className="num gold">{portfolioStats.gradedCount}</div><div className="lbl">GRADED</div></div>
                 </div>
 
+                {/* Tiles row: P&L+Return | Win Rate | Avg P&L | CAGR | Avg Hold */}
                 <div className="health-grid">
                   {pfPnL != null && (
                     <div className="health-tile pnl">
@@ -458,6 +476,26 @@ export default function Dashboard() {
                     </div>
                   )}
 
+                  {avgPL != null && (
+                    <div className="health-tile">
+                      <div className="t-lbl">Avg P&L</div>
+                      <div className="t-val font-num" style={{ color: avgPL >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                        {avgPL >= 0 ? '+' : ''}{avgPL.toFixed(1)}%
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="health-tile">
+                    <div className="t-lbl">CAGR</div>
+                    <div className="t-val font-num" style={{ color: 'var(--ink3)' }}>—</div>
+                  </div>
+
+                  <div className="health-tile">
+                    <div className="t-lbl">Avg Hold</div>
+                    <div className="t-val font-num" style={{ color: 'var(--ink)' }}>—</div>
+                  </div>
+
+                  {/* 7D / 30D strips */}
                   {change7d != null && (
                     <div className="health-tile chg-strip">
                       <div className="t-lbl">7D Change</div>
@@ -477,29 +515,37 @@ export default function Dashboard() {
                   )}
                 </div>
 
-                {/* Best / Worst subsection */}
-                {(best || worst) && (
+                {/* Concentration warning */}
+                {topConcentration && topConcentration.pct >= 30 && (
+                  <div className="health-warning">
+                    <span className="warning-icon">⚠</span>
+                    High concentration: {topConcentration.name} is {topConcentration.pct.toFixed(0)}% of portfolio
+                  </div>
+                )}
+
+                {/* Best / Worst */}
+                {(best || (worst && worst.pct < 0)) && (
                   <div className="health-bw">
                     <div className="health-bw-title">Best / Worst</div>
                     <div className="bw-grid">
                       {best && (
-                        <Link href={`/card/${best.card_id}?${new URLSearchParams({ name: best.card_name, grade: best.grade })}`} className="bw-row" style={{ textDecoration: 'none' }}>
+                        <Link href={`/card/${best.card_id}?${new URLSearchParams({ name: best.card_name ?? best.card_id, grade: best.grade })}`} className="bw-row" style={{ textDecoration: 'none' }}>
                           <div className="bw-bar best" />
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div className="bw-label">BEST</div>
-                            <div className="bw-name">{best.card_name}</div>
+                            <div className="bw-name">{best.card_name ?? best.card_id}</div>
                           </div>
-                          <div className="bw-pct" style={{ color: 'var(--green)' }}>▲ {best.change != null ? `${Math.abs(best.change).toFixed(1)}%` : '—'}</div>
+                          <div className="bw-pct" style={{ color: 'var(--green)' }}>▲ {best.pct.toFixed(1)}%</div>
                         </Link>
                       )}
-                      {worst && (
-                        <Link href={`/card/${worst.card_id}?${new URLSearchParams({ name: worst.card_name, grade: worst.grade })}`} className="bw-row" style={{ textDecoration: 'none' }}>
+                      {worst && worst.pct < 0 && (
+                        <Link href={`/card/${worst.card_id}?${new URLSearchParams({ name: worst.card_name ?? worst.card_id, grade: worst.grade })}`} className="bw-row" style={{ textDecoration: 'none' }}>
                           <div className="bw-bar worst" />
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div className="bw-label">WORST</div>
-                            <div className="bw-name">{worst.card_name}</div>
+                            <div className="bw-name">{worst.card_name ?? worst.card_id}</div>
                           </div>
-                          <div className="bw-pct" style={{ color: 'var(--red)' }}>▼ {worst.change != null ? `${Math.abs(worst.change).toFixed(1)}%` : '—'}</div>
+                          <div className="bw-pct" style={{ color: 'var(--red)' }}>▼ {Math.abs(worst.pct).toFixed(1)}%</div>
                         </Link>
                       )}
                     </div>
@@ -510,31 +556,59 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* Top Performers */}
-            {marketSnap && (marketSnap.topRising.length > 0 || marketSnap.topFalling.length > 0) && (
+            {/* Top Performers — from portfolio */}
+            {positionsWithPct.length > 0 && (
               <div className="card performers-card">
                 <div className="card-header">
                   <div className="card-title">Top Performers</div>
-                  <Link href="/market" className="link">See all →</Link>
+                  <Link href="/portfolio" className="link">View portfolio →</Link>
                 </div>
                 <div className="perf-cols">
-                  {marketSnap.topRising.length > 0 && (
-                    <div>
-                      <div className="perf-col-title gain"><span className="sq gain" />GAINERS</div>
-                      <div className="card-list">
-                        {marketSnap.topRising.map((card, i) => (
-                          <CardRow key={card.card_id + 'g' + i} card={card} idx={i} last={i === marketSnap.topRising.length - 1} />
-                        ))}
-                      </div>
+                  <div>
+                    <div className="perf-col-title gain"><span className="sq gain" />GAINERS</div>
+                    <div className="card-list">
+                      {portfolioGainers.map((pos, i) => {
+                        const params = new URLSearchParams({ name: pos.card_name ?? pos.card_id, grade: pos.grade })
+                        return (
+                          <Link key={pos.card_id + pos.grade + i} href={`/card/${pos.card_id}?${params}`} className="list-row" style={{ borderBottom: i < portfolioGainers.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                            <div className="thumb" style={{ background: pos.image_url ? 'var(--panel-2)' : GRADIENTS[i % GRADIENTS.length] }}>
+                              {pos.image_url && <img src={tcgImg(pos.image_url)} alt={pos.card_name ?? ''} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                            </div>
+                            <div className="row-info">
+                              <div className="row-name">{pos.card_name ?? pos.card_id}</div>
+                              <div className="row-sub">{pos.grade}</div>
+                            </div>
+                            <div className="row-price">
+                              <div className="amt font-num">{fmtCurrency(pos.price)}</div>
+                              <div className="chg up">▲ {pos.pct.toFixed(1)}%</div>
+                            </div>
+                          </Link>
+                        )
+                      })}
                     </div>
-                  )}
-                  {marketSnap.topFalling.length > 0 && (
+                  </div>
+                  {portfolioLosers.some(p => p.pct < 0) && (
                     <div>
                       <div className="perf-col-title loss"><span className="sq loss" />LOSERS</div>
                       <div className="card-list">
-                        {marketSnap.topFalling.map((card, i) => (
-                          <CardRow key={card.card_id + 'l' + i} card={card} idx={i + 10} last={i === marketSnap.topFalling.length - 1} />
-                        ))}
+                        {portfolioLosers.filter(p => p.pct < 0).map((pos, i, arr) => {
+                          const params = new URLSearchParams({ name: pos.card_name ?? pos.card_id, grade: pos.grade })
+                          return (
+                            <Link key={pos.card_id + pos.grade + i} href={`/card/${pos.card_id}?${params}`} className="list-row" style={{ borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                              <div className="thumb" style={{ background: pos.image_url ? 'var(--panel-2)' : GRADIENTS[(i + 10) % GRADIENTS.length] }}>
+                                {pos.image_url && <img src={tcgImg(pos.image_url)} alt={pos.card_name ?? ''} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                              </div>
+                              <div className="row-info">
+                                <div className="row-name">{pos.card_name ?? pos.card_id}</div>
+                                <div className="row-sub">{pos.grade}</div>
+                              </div>
+                              <div className="row-price">
+                                <div className="amt font-num">{fmtCurrency(pos.price)}</div>
+                                <div className="chg down">▼ {Math.abs(pos.pct).toFixed(1)}%</div>
+                              </div>
+                            </Link>
+                          )
+                        })}
                       </div>
                     </div>
                   )}
@@ -801,7 +875,7 @@ export default function Dashboard() {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 11px 16px;
+          padding: 13px 16px;
         }
         .health-tile .t-lbl { font-size: 10.5px; color: var(--ink3); letter-spacing: .8px; text-transform: uppercase; margin-bottom: 6px; }
         .health-tile.chg-strip .t-lbl { margin-bottom: 0; }
@@ -809,6 +883,19 @@ export default function Dashboard() {
         .winrate-bar { width: 100%; height: 5px; border-radius: 3px; background: var(--border); margin-top: 8px; overflow: hidden; display: flex; }
         .winrate-bar .w { background: var(--green); height: 100%; }
         .winrate-bar .l { background: var(--red); height: 100%; }
+        .health-warning {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-top: 12px;
+          padding: 11px 16px;
+          background: rgba(244,197,66,0.06);
+          border: 1px solid rgba(244,197,66,0.18);
+          border-radius: 10px;
+          font-size: 12.5px;
+          color: var(--gold);
+        }
+        .warning-icon { flex-shrink: 0; }
 
         /* Best/Worst */
         .health-bw { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }

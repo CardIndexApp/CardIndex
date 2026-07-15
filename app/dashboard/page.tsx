@@ -143,7 +143,7 @@ export default function Dashboard() {
     } catch { setRecentlyViewed([]) }
 
     const [{ data: wlRows }, { data: pf }] = await Promise.all([
-      supabase.from('watchlists').select('id, card_id, card_name, set_name, grade').eq('user_id', user.id).limit(5),
+      supabase.from('watchlists').select('id, card_id, card_name, set_name, grade, image_url').eq('user_id', user.id).limit(5),
       supabase.from('portfolios').select('id, card_id, card_name, set_name, image_url, grade, purchase_price, quantity, sold, sale_price, purchased_at').eq('user_id', user.id),
     ])
 
@@ -160,11 +160,29 @@ export default function Dashboard() {
       setRecentlyViewed(prev => prev.map(r => r.image_url ? r : { ...r, image_url: localImgMap.get(`${r.card_id}:${r.grade}`) ?? null }))
     }
     // Step 2: Supabase search_cache for anything still missing
+    let stillMissing = rvMissing
     if (rvMissing.length > 0) {
       const { data: imgCache } = await supabase.from('search_cache').select('cache_key, image_url').in('cache_key', rvMissing.map(r => `${r.card_id}:${r.grade}`))
       if (imgCache?.length) {
         const imgMap = new Map(imgCache.filter(r => r.image_url).map(r => [r.cache_key, r.image_url as string]))
         setRecentlyViewed(prev => prev.map(r => r.image_url ? r : { ...r, image_url: imgMap.get(`${r.card_id}:${r.grade}`) ?? null }))
+        stillMissing = rvMissing.filter(r => !imgMap.has(`${r.card_id}:${r.grade}`))
+      }
+    }
+    // Step 3: lazily fetch from /api/card for items still missing an image
+    if (stillMissing.length > 0) {
+      for (const r of stillMissing) {
+        const params = new URLSearchParams({ grade: r.grade, name: r.card_name })
+        if (r.set_name) params.set('set', r.set_name)
+        fetch(`/api/card/${r.card_id}?${params}`)
+          .then(res => res.ok ? res.json() : null)
+          .then(json => {
+            const img = json?.data?.image_url
+            if (img) setRecentlyViewed(prev => prev.map(item =>
+              item.card_id === r.card_id && item.grade === r.grade ? { ...item, image_url: img } : item
+            ))
+          })
+          .catch(() => {})
       }
     }
 
@@ -175,7 +193,7 @@ export default function Dashboard() {
       const pm = new Map((priceRows ?? []).map(r => [r.cache_key, r]))
       setWatchlistItems(wlList.map(w => {
         const cached = pm.get(`${w.card_id}:${w.grade}`)
-        return { ...w, price: cached?.price ?? null, avg7d: cached?.avg7d ?? null, image_url: cached?.image_url ?? null }
+        return { ...w, price: cached?.price ?? null, avg7d: cached?.avg7d ?? null, image_url: w.image_url ?? cached?.image_url ?? null }
       }))
     } else {
       setWatchlistItems([])

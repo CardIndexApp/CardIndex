@@ -377,53 +377,47 @@ export default function Dashboard() {
             ))}
           </div>
 
-          {/* ── Chart card ── */}
-          <div className="chart-card">
-            {chartData.length >= 2 ? (
-              <>
-                <ResponsiveContainer width="100%" height={200}>
-                  <AreaChart data={chartData} margin={{ top: 8, right: 0, left: 0, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={lineColor} stopOpacity={0.3} />
-                        <stop offset="100%" stopColor={lineColor} stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <YAxis domain={['dataMin', 'dataMax']} hide />
-                    <Tooltip
-                      content={({ active, payload }) =>
-                        active && payload?.length ? (
-                          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 10px' }}>
-                            <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
-                              {fmtCurrency(payload[0]?.value as number)}
-                            </div>
-                            <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>{payload[0]?.payload?.label}</div>
+          {/* ── Chart card — only shown when data exists ── */}
+          {chartData.length >= 2 && (
+            <div className="chart-card">
+              <ResponsiveContainer width="100%" height={200}>
+                <AreaChart data={chartData} margin={{ top: 8, right: 0, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={lineColor} stopOpacity={0.3} />
+                      <stop offset="100%" stopColor={lineColor} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <YAxis domain={['dataMin', 'dataMax']} hide />
+                  <Tooltip
+                    content={({ active, payload }) =>
+                      active && payload?.length ? (
+                        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 10px' }}>
+                          <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
+                            {fmtCurrency(payload[0]?.value as number)}
                           </div>
-                        ) : null
-                      }
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="value"
-                      stroke={lineColor}
-                      strokeWidth={2.5}
-                      fill="url(#chartFill)"
-                      dot={false}
-                      activeDot={{ r: 4, fill: lineColor, stroke: 'var(--bg)', strokeWidth: 2 }}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-                <div className="chart-dates">
-                  <span>{chartData[0]?.label}</span>
-                  <span>Today</span>
-                </div>
-              </>
-            ) : (
-              <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ fontSize: 13, color: 'var(--ink3)' }}>Not enough data for this period</div>
+                          <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>{payload[0]?.payload?.label}</div>
+                        </div>
+                      ) : null
+                    }
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="value"
+                    stroke={lineColor}
+                    strokeWidth={2.5}
+                    fill="url(#chartFill)"
+                    dot={false}
+                    activeDot={{ r: 4, fill: lineColor, stroke: 'var(--bg)', strokeWidth: 2 }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+              <div className="chart-dates">
+                <span>{chartData[0]?.label}</span>
+                <span>Today</span>
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* ── Cards grid ── */}
           <div className="dash-grid">
@@ -445,74 +439,97 @@ export default function Dashboard() {
 
                 {/* Tiles row: P&L+Return | Win Rate | Avg P&L | CAGR | Avg Hold */}
                 <div className="health-grid">
-                  {pfPnL != null && (
-                    <div className="health-tile pnl">
-                      <div>
-                        <div className="t-lbl">Total P&L</div>
+                  {/* P&L + Return — always shown */}
+                  <div className="health-tile pnl">
+                    <div>
+                      <div className="t-lbl">Total P&L</div>
+                      {pfPnL != null ? (
                         <div className="t-val font-num" style={{ color: pfPnL >= 0 ? 'var(--green)' : 'var(--red)' }}>
                           {pfPnL >= 0 ? '+' : ''}{fmtCurrency(Math.abs(pfPnL))}
                         </div>
-                      </div>
-                      {pfPct != null && (
-                        <div style={{ textAlign: 'right' }}>
-                          <div className="t-lbl">Return</div>
-                          <div className="t-val font-num" style={{ color: pfPct >= 0 ? 'var(--green)' : 'var(--red)' }}>
-                            {pfPct >= 0 ? '+' : ''}{pfPct.toFixed(1)}%
-                          </div>
+                      ) : portfolioStats.realizedPL !== 0 ? (
+                        <div className="t-val font-num" style={{ color: portfolioStats.realizedPL >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                          {portfolioStats.realizedPL >= 0 ? '+' : ''}{fmtCurrency(Math.abs(portfolioStats.realizedPL))}
                         </div>
+                      ) : (
+                        <div className="t-val font-num" style={{ color: 'var(--ink3)' }}>—</div>
                       )}
                     </div>
-                  )}
-
-                  {winRate != null && (
-                    <div className="health-tile">
-                      <div className="t-lbl">Win Rate</div>
-                      <div className="t-val font-num" style={{ color: winRate >= 50 ? 'var(--green)' : 'var(--red)' }}>{winRate.toFixed(0)}%</div>
-                      <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 2 }}>{portfolioStats.winTrades}W · {portfolioStats.loseTrades}L</div>
-                      <div className="winrate-bar">
-                        <div className="w" style={{ width: `${winRate}%` }} />
-                        <div className="l" style={{ width: `${100 - winRate}%` }} />
-                      </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div className="t-lbl">Return</div>
+                      {pfPct != null ? (
+                        <div className="t-val font-num" style={{ color: pfPct >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                          {pfPct >= 0 ? '+' : ''}{pfPct.toFixed(1)}%
+                        </div>
+                      ) : (
+                        <div className="t-val font-num" style={{ color: 'var(--ink3)' }}>—</div>
+                      )}
                     </div>
-                  )}
+                  </div>
 
-                  {avgPL != null && (
-                    <div className="health-tile">
-                      <div className="t-lbl">Avg P&L</div>
+                  {/* Win Rate — always shown */}
+                  <div className="health-tile">
+                    <div className="t-lbl">Win Rate</div>
+                    {winRate != null ? (
+                      <>
+                        <div className="t-val font-num" style={{ color: winRate >= 50 ? 'var(--green)' : 'var(--red)' }}>{winRate.toFixed(0)}%</div>
+                        <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 2 }}>{portfolioStats.winTrades}W · {portfolioStats.loseTrades}L</div>
+                        <div className="winrate-bar">
+                          <div className="w" style={{ width: `${winRate}%` }} />
+                          <div className="l" style={{ width: `${100 - winRate}%` }} />
+                        </div>
+                      </>
+                    ) : (
+                      <div className="t-val font-num" style={{ color: 'var(--ink3)' }}>—</div>
+                    )}
+                  </div>
+
+                  {/* Avg P&L — always shown */}
+                  <div className="health-tile">
+                    <div className="t-lbl">Avg P&L</div>
+                    {avgPL != null ? (
                       <div className="t-val font-num" style={{ color: avgPL >= 0 ? 'var(--green)' : 'var(--red)' }}>
                         {avgPL >= 0 ? '+' : ''}{avgPL.toFixed(1)}%
                       </div>
-                    </div>
-                  )}
+                    ) : (
+                      <div className="t-val font-num" style={{ color: 'var(--ink3)' }}>—</div>
+                    )}
+                  </div>
 
+                  {/* CAGR — always shown */}
                   <div className="health-tile">
                     <div className="t-lbl">CAGR</div>
                     <div className="t-val font-num" style={{ color: 'var(--ink3)' }}>—</div>
                   </div>
 
+                  {/* Avg Hold — always shown */}
                   <div className="health-tile">
                     <div className="t-lbl">Avg Hold</div>
-                    <div className="t-val font-num" style={{ color: 'var(--ink)' }}>—</div>
+                    <div className="t-val font-num" style={{ color: 'var(--ink3)' }}>—</div>
                   </div>
 
-                  {/* 7D / 30D strips */}
-                  {change7d != null && (
-                    <div className="health-tile chg-strip">
-                      <div className="t-lbl">7D Change</div>
+                  {/* 7D / 30D change strips — always shown */}
+                  <div className="health-tile chg-strip">
+                    <div className="t-lbl">7D Change</div>
+                    {change7d != null ? (
                       <div className="t-val font-num" style={{ color: change7d >= 0 ? 'var(--green)' : 'var(--red)' }}>
                         {change7d >= 0 ? '+' : ''}{fmtCurrency(Math.abs(change7d))}
                       </div>
-                    </div>
-                  )}
+                    ) : (
+                      <div className="t-val font-num" style={{ color: 'var(--ink3)' }}>—</div>
+                    )}
+                  </div>
 
-                  {change30d != null && (
-                    <div className="health-tile chg-strip">
-                      <div className="t-lbl">30D Change</div>
+                  <div className="health-tile chg-strip">
+                    <div className="t-lbl">30D Change</div>
+                    {change30d != null ? (
                       <div className="t-val font-num" style={{ color: change30d >= 0 ? 'var(--green)' : 'var(--red)' }}>
                         {change30d >= 0 ? '+' : ''}{fmtCurrency(Math.abs(change30d))}
                       </div>
-                    </div>
-                  )}
+                    ) : (
+                      <div className="t-val font-num" style={{ color: 'var(--ink3)' }}>—</div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Concentration warning */}

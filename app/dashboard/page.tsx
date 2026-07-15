@@ -8,6 +8,7 @@ import { usePullToRefresh } from '@/lib/usePullToRefresh'
 import { useCurrency } from '@/lib/currency'
 import { tcgImg } from '@/lib/img'
 import { Area, AreaChart, ResponsiveContainer, Tooltip, YAxis } from 'recharts'
+import { cacheGet, cacheSet } from '@/lib/searchCache'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -142,7 +143,7 @@ export default function Dashboard() {
 
     const [{ data: wlRows }, { data: pf }] = await Promise.all([
       supabase.from('watchlists').select('id, card_id, card_name, set_name, grade').eq('user_id', user.id).limit(5),
-      supabase.from('portfolios').select('id, card_id, grade, purchase_price, quantity, sold, sale_price').eq('user_id', user.id),
+      supabase.from('portfolios').select('id, card_id, card_name, set_name, image_url, grade, purchase_price, quantity, sold, sale_price').eq('user_id', user.id),
     ])
 
     // Backfill missing image_urls in recently viewed
@@ -185,31 +186,74 @@ export default function Dashboard() {
     }
 
     if (openPositions.length > 0) {
-      const cacheKeys = openPositions.map((p: { card_id: string; grade: string }) => `${p.card_id}:${p.grade}`)
-      const { data: priceRows } = await supabase
-        .from('search_cache')
-        .select('cache_key, price, avg7d, avg30d, price_history, card_name, set_name, image_url')
-        .in('cache_key', cacheKeys)
-      const cacheMap = new Map((priceRows ?? []).map(r => [r.cache_key as string, r]))
+      // Fetch prices the same way the portfolio page does:
+      // 1. Check localStorage (cacheGet) — populated by any prior portfolio/card page visit
+      // 2. Fall back to /api/card/ for anything not yet cached
+      interface PriceData {
+        price: number; avg7d: number | null; avg30d: number | null
+        price_history?: Array<{ month: string; price: number }>
+      }
+
+      const priceMap = new Map<string, PriceData>()
+
+      // Step 1: localStorage hits (instant, no network)
+      const uncached: typeof openPositions = []
+      for (const pos of openPositions) {
+        const key = `${pos.card_id}:${pos.grade}`
+        const hit = cacheGet<PriceData>(key)
+        if (hit?.price) {
+          priceMap.set(key, hit)
+        } else {
+          uncached.push(pos)
+        }
+      }
+
+      // Step 2: fetch missing prices from API in parallel (batches of 8)
+      if (uncached.length > 0) {
+        const BATCH = 8
+        for (let i = 0; i < uncached.length; i += BATCH) {
+          await Promise.all(
+            uncached.slice(i, i + BATCH).map(async (pos) => {
+              try {
+                const name = (pos.card_name as string | null) ?? ''
+                if (!name) return
+                const params = new URLSearchParams({ grade: pos.grade as string, name })
+                if (pos.set_name) params.set('set', pos.set_name as string)
+                const r = await fetch(`/api/card/${pos.card_id}?${params}`)
+                if (!r.ok) return
+                const json = await r.json()
+                const data = json?.data
+                if (data?.price) {
+                  const pd: PriceData = { price: data.price, avg7d: data.avg7d ?? null, avg30d: data.avg30d ?? null, price_history: data.price_history ?? [] }
+                  cacheSet(`${pos.card_id}:${pos.grade}`, pd)
+                  priceMap.set(`${pos.card_id}:${pos.grade}`, pd)
+                }
+              } catch { /* ignore per-card failures */ }
+            })
+          )
+        }
+      }
+
+      // Step 3: build chart positions from combined price data
       const cps: ChartPosition[] = []
       for (const pos of openPositions) {
         const key = `${pos.card_id}:${pos.grade}`
-        const cached = cacheMap.get(key)
-        if (cached?.price != null && cached.price > 0) {
-          currentValue += (cached.price as number) * (pos.quantity as number)
+        const pd = priceMap.get(key)
+        if (pd?.price && pd.price > 0) {
+          currentValue += pd.price * (pos.quantity as number)
           cachedCount++
           cps.push({
             card_id: pos.card_id as string,
-            card_name: (cached.card_name as string | null) ?? null,
-            set_name: (cached.set_name as string | null) ?? null,
+            card_name: (pos.card_name as string | null) ?? null,
+            set_name: (pos.set_name as string | null) ?? null,
             grade: pos.grade as string,
             quantity: pos.quantity as number,
             purchase_price: pos.purchase_price as number,
-            price: cached.price as number,
-            avg7d: cached.avg7d as number | null,
-            avg30d: cached.avg30d as number | null,
-            image_url: (cached.image_url as string | null) ?? null,
-            price_history: (cached.price_history as Array<{ month: string; price: number }> | null) ?? null,
+            price: pd.price,
+            avg7d: pd.avg7d,
+            avg30d: pd.avg30d,
+            image_url: (pos.image_url as string | null) ?? null,
+            price_history: pd.price_history ?? null,
           })
         }
       }

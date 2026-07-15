@@ -6,17 +6,9 @@ import Navbar from '@/components/Navbar'
 import { createClient } from '@/lib/supabase/client'
 import { usePullToRefresh } from '@/lib/usePullToRefresh'
 import { useCurrency } from '@/lib/currency'
-import { cacheGet, cacheSet } from '@/lib/searchCache'
 import { tcgImg } from '@/lib/img'
-import { scoreColor } from '@/lib/data'
 
-type Tier = 'free' | 'standard' | 'pro'
-
-interface Profile {
-  email: string
-  username: string | null
-  tier: Tier
-}
+interface Profile { email: string; username: string | null; tier: string }
 
 interface WatchlistItem {
   id: string
@@ -24,6 +16,7 @@ interface WatchlistItem {
   card_name: string
   set_name: string
   grade: string
+  price?: number | null
 }
 
 interface RecentlyViewedItem {
@@ -35,236 +28,131 @@ interface RecentlyViewedItem {
 }
 
 interface PortfolioStats {
-  posCount: number        // open positions only
-  soldCount: number       // sold positions
-  costBasis: number       // USD, open positions only
-  currentValue: number    // USD, from cache (0 if no cache hits)
-  cachedCount: number     // how many open positions have a cached price
-  realizedPL: number      // USD, from sold positions
+  posCount: number
+  soldCount: number
+  costBasis: number
+  currentValue: number
+  cachedCount: number
+  realizedPL: number
+  winTrades: number
+  loseTrades: number
+  gradedCount: number
 }
 
-const QUICK_ACTIONS = [
-  {
-    label: 'Search Cards',
-    desc: 'Find any Pokémon card and get live price data',
-    href: '/search',
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="6.5" cy="6.5" r="4.5"/><path d="M14 14l-3-3"/>
-      </svg>
-    ),
-    color: 'var(--ink2)',
-    bg: 'var(--surface2)',
-    border: 'var(--border2)',
-  },
-  {
-    label: 'My Watchlist',
-    desc: 'Track your cards and monitor price movements',
-    href: '/watchlist',
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M8 2l1.5 3 3.5.5-2.5 2.5.6 3.5L8 10l-3.1 1.5.6-3.5L3 5.5l3.5-.5z"/>
-      </svg>
-    ),
-    color: 'var(--gold)',
-    bg: 'var(--gold2)',
-    border: 'rgba(232,197,71,0.2)',
-  },
-  {
-    label: 'Market',
-    desc: 'Browse trending cards and market movers',
-    href: '/market',
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="1 11 5 6 9 8 15 3"/><polyline points="11 3 15 3 15 7"/>
-      </svg>
-    ),
-    color: 'var(--blue)',
-    bg: 'rgba(74,158,255,0.1)',
-    border: 'rgba(74,158,255,0.2)',
-  },
-  {
-    label: 'Portfolio',
-    desc: 'Track P&L, cost basis and market performance',
-    href: '/portfolio',
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="1" y="10" width="3" height="5" rx="0.5"/>
-        <rect x="6" y="6"  width="3" height="9" rx="0.5"/>
-        <rect x="11" y="2" width="3" height="13" rx="0.5"/>
-      </svg>
-    ),
-    color: 'var(--green)',
-    bg: 'rgba(61,232,138,0.08)',
-    border: 'rgba(61,232,138,0.2)',
-  },
-  {
-    label: 'Account',
-    desc: 'Manage your profile, plan, and security',
-    href: '/account',
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6"/>
-      </svg>
-    ),
-    color: 'var(--ink2)',
-    bg: 'var(--surface2)',
-    border: 'var(--border2)',
-  },
-]
-
-const TIER_LABELS: Record<Tier, string> = { free: 'Free', standard: 'Standard', pro: 'Pro' }
-const TIER_COLORS: Record<Tier, string> = { free: 'var(--ink3)', standard: 'var(--blue)', pro: 'var(--gold)' }
-
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
-  return `${Math.floor(hrs / 24)}d ago`
+interface MarketCard {
+  card_id: string
+  card_name: string
+  grade: string
+  change: number | null
+  price: number | null
+  score: number | null
+  image_url: string | null
 }
+
+const PERIOD_TABS = ['1D', '7D', '30D', '90D', '1Y', 'ALL']
 
 export default function Dashboard() {
   const router = useRouter()
   const supabase = createClient()
-  const { fmtCurrency, currency, rates } = useCurrency()
+  const { fmtCurrency } = useCurrency()
 
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [watchlist, setWatchlist] = useState<WatchlistItem[]>([])
+  const [watchlistItems, setWatchlistItems] = useState<WatchlistItem[]>([])
   const [recentlyViewed, setRecentlyViewed] = useState<RecentlyViewedItem[]>([])
   const [portfolioStats, setPortfolioStats] = useState<PortfolioStats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [activePeriod, setActivePeriod] = useState('30D')
   const [marketSnap, setMarketSnap] = useState<{
-    signal: string
-    level: number | null
-    change7d: number | null
-    change30d: number | null
-    topRising: { card_id: string; card_name: string; grade: string; change: number | null; price: number | null; score: number | null; image_url: string | null }[]
-    topFalling: { card_id: string; card_name: string; grade: string; change: number | null; price: number | null; score: number | null; image_url: string | null }[]
+    topRising: MarketCard[]
+    topFalling: MarketCard[]
     risingCount: number
     fallingCount: number
   } | null>(null)
-  const [alerts, setAlerts] = useState<{ id: string; card_name: string; grade: string; target_price: number; direction: 'above' | 'below'; is_active: boolean; triggered_at: string | null }[]>([])
-  const [watchlistTotal, setWatchlistTotal] = useState(0)
-  const [groupsCount, setGroupsCount] = useState(0)
 
   const load = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.replace('/'); return }
 
-    const DASH_KEY = `dashboard:data:${user.id}`
-
-    // ── 1. Render from cache instantly ────────────────────────────────────
-    type DashCache = { profile: Profile; watchlist: WatchlistItem[]; portfolioStats: PortfolioStats }
-    const cached = cacheGet<DashCache>(DASH_KEY)
-    if (cached) {
-      setProfile(cached.profile)
-      setWatchlist(cached.watchlist)
-      setPortfolioStats(cached.portfolioStats)
-      setLoading(false)
-    }
-
-    // Recently viewed is always from localStorage — read it immediately
+    // Recently viewed from localStorage
     try {
-      const rvKey = `ci_rv_${user.id}`
-      const stored: RecentlyViewedItem[] = JSON.parse(localStorage.getItem(rvKey) ?? '[]')
-      setRecentlyViewed(stored.slice(0, 5))
-    } catch {
-      setRecentlyViewed([])
-    }
+      const stored: RecentlyViewedItem[] = JSON.parse(localStorage.getItem(`ci_rv_${user.id}`) ?? '[]')
+      setRecentlyViewed(stored.slice(0, 6))
+    } catch { setRecentlyViewed([]) }
 
-    // ── 2. Silently refresh from server ───────────────────────────────────
-    const [{ data: prof }, { count: wlCount }, { data: pf }, { count: grpCount }] = await Promise.all([
+    const [{ data: prof }, { data: wlRows }, { data: pf }] = await Promise.all([
       supabase.from('profiles').select('email, username, tier').eq('id', user.id).single(),
-      supabase.from('watchlists').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+      supabase.from('watchlists').select('id, card_id, card_name, set_name, grade').eq('user_id', user.id).limit(5),
       supabase.from('portfolios').select('id, card_id, grade, purchase_price, quantity, sold, sale_price').eq('user_id', user.id),
-      supabase.from('watchlist_groups').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
     ])
 
-    const freshProfile: Profile = prof ?? { email: user.email ?? '', username: null, tier: 'free' }
-    setProfile(freshProfile)
-    setWatchlistTotal(wlCount ?? 0)
-    setGroupsCount(grpCount ?? 0)
+    setProfile(prof ?? { email: user.email ?? '', username: null, tier: 'free' })
 
-    // Portfolio stats — pull prices from search_cache (same source as portfolio page)
+    // Watchlist items — enrich with prices from search_cache
+    const wlList = (wlRows ?? []) as WatchlistItem[]
+    if (wlList.length > 0) {
+      const keys = wlList.map(w => `${w.card_id}:${w.grade}`)
+      const { data: priceRows } = await supabase.from('search_cache').select('cache_key, price').in('cache_key', keys)
+      const pm = new Map<string, number>()
+      for (const r of priceRows ?? []) { if (r.price != null) pm.set(r.cache_key, r.price) }
+      setWatchlistItems(wlList.map(w => ({ ...w, price: pm.get(`${w.card_id}:${w.grade}`) ?? null })))
+    } else {
+      setWatchlistItems([])
+    }
+
+    // Portfolio stats
     const positions = pf ?? []
-    const openPositions = positions.filter(p => !p.sold)
-    const soldPositions = positions.filter(p => p.sold)
-
-    let costBasis = 0
-    let currentValue = 0
-    let cachedCount = 0
-    let realizedPL = 0
+    const openPositions = positions.filter((p: { sold: boolean }) => !p.sold)
+    const soldPositions = positions.filter((p: { sold: boolean }) => p.sold)
+    let costBasis = 0, currentValue = 0, cachedCount = 0, realizedPL = 0, winTrades = 0, loseTrades = 0, gradedCount = 0
 
     for (const pos of openPositions) {
       costBasis += (pos.purchase_price as number) * (pos.quantity as number)
+      if (/^(PSA|BGS|CGC|SGC)/i.test((pos.grade as string) ?? '')) gradedCount++
     }
-    for (const pos of soldPositions.filter(p => p.sale_price != null)) {
-      realizedPL += ((pos.sale_price as number) - (pos.purchase_price as number)) * (pos.quantity as number)
+    for (const pos of soldPositions.filter((p: { sale_price: number | null }) => p.sale_price != null)) {
+      const gain = ((pos.sale_price as number) - (pos.purchase_price as number)) * (pos.quantity as number)
+      realizedPL += gain
+      if (gain >= 0) winTrades++; else loseTrades++
     }
 
     if (openPositions.length > 0) {
-      const cacheKeys = openPositions.map(p => `${p.card_id}:${p.grade}`)
-      const { data: priceRows } = await supabase
-        .from('search_cache')
-        .select('cache_key, price')
-        .in('cache_key', cacheKeys)
-
+      const cacheKeys = openPositions.map((p: { card_id: string; grade: string }) => `${p.card_id}:${p.grade}`)
+      const { data: priceRows } = await supabase.from('search_cache').select('cache_key, price').in('cache_key', cacheKeys)
       const priceMap = new Map<string, number>()
-      for (const row of priceRows ?? []) {
-        if (row.price != null && row.price > 0) priceMap.set(row.cache_key, row.price)
-      }
-
+      for (const row of priceRows ?? []) { if (row.price != null && row.price > 0) priceMap.set(row.cache_key, row.price) }
       for (const pos of openPositions) {
         const price = priceMap.get(`${pos.card_id}:${pos.grade}`)
-        if (price) {
-          currentValue += price * (pos.quantity as number)
-          cachedCount++
-        }
+        if (price) { currentValue += price * (pos.quantity as number); cachedCount++ }
       }
     }
 
-    const freshStats: PortfolioStats = { posCount: openPositions.length, soldCount: soldPositions.length, costBasis, currentValue, cachedCount, realizedPL }
-    setPortfolioStats(freshStats)
+    setPortfolioStats({ posCount: openPositions.length, soldCount: soldPositions.length, costBasis, currentValue, cachedCount, realizedPL, winTrades, loseTrades, gradedCount })
+    setLoading(false)
 
-    // Save fresh data to cache for next visit
-    cacheSet<DashCache>(DASH_KEY, { profile: freshProfile, watchlist: [], portfolioStats: freshStats })
-
-    // Market snapshot — non-blocking, best-effort
+    // Market snapshot — non-blocking
     fetch('/api/market')
       .then(r => r.ok ? r.json() : null)
       .then(d => {
         if (!d || d.empty) return
         setMarketSnap({
-          signal: d.signal ?? 'stable',
-          level: d.indexMetrics?.level ?? null,
-          change7d: d.indexMetrics?.change7d ?? null,
-          change30d: d.indexMetrics?.change30d ?? null,
-          topRising: (d.topRising ?? []).slice(0, 8),
+          topRising: (d.topRising ?? []).slice(0, 5),
           topFalling: (d.topFalling ?? []).slice(0, 3),
           risingCount: d.stats?.risingCount ?? 0,
           fallingCount: d.stats?.fallingCount ?? 0,
         })
       })
       .catch(() => {})
-
-    // Alerts — non-blocking
-    fetch('/api/alerts')
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.alerts) setAlerts(d.alerts) })
-      .catch(() => {})
-
-    setLoading(false)
   }, [])
 
   useEffect(() => { load() }, [load])
-
   const { pullY, refreshing } = usePullToRefresh(load)
 
-  const displayName = profile?.username ?? profile?.email?.split('@')[0] ?? ''
-  const tier = (profile?.tier ?? 'free') as Tier
+  const clearRecentlyViewed = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    localStorage.removeItem(`ci_rv_${user.id}`)
+    setRecentlyViewed([])
+  }, [])
 
   if (loading) {
     return (
@@ -277,280 +165,131 @@ export default function Dashboard() {
     )
   }
 
-  const activeAlerts  = alerts.filter(a => a.is_active)
-  const firedAlerts   = alerts.filter(a => !a.is_active && a.triggered_at).slice(0, 4)
+  const hasPrices = (portfolioStats?.cachedCount ?? 0) > 0
+  const pfValue = hasPrices ? portfolioStats?.currentValue : portfolioStats?.costBasis
+  const pfPnL = hasPrices && portfolioStats ? portfolioStats.currentValue - portfolioStats.costBasis : null
+  const pfPct = pfPnL != null && (portfolioStats?.costBasis ?? 0) > 0 ? (pfPnL / portfolioStats!.costBasis) * 100 : null
+
+  const gradients = [
+    'linear-gradient(135deg,#1a3a6e,#2d5aa0)',
+    'linear-gradient(135deg,#6e1a6e,#a03da0)',
+    'linear-gradient(135deg,#2a6e3a,#3d9a52)',
+    'linear-gradient(135deg,#6e3a1a,#a05a2d)',
+    'linear-gradient(135deg,#1a5a6e,#2d8ca0)',
+  ]
+
+  const CardRow = ({ card, idx, last }: { card: MarketCard; idx: number; last: boolean }) => {
+    const params = new URLSearchParams({ name: card.card_name, grade: card.grade })
+    return (
+      <Link href={`/card/${card.card_id}?${params}`} style={{ display: 'flex', alignItems: 'center', padding: '12px 0', borderBottom: last ? 'none' : '1px solid rgba(255,255,255,0.06)', textDecoration: 'none', gap: 12 }}>
+        <div style={{ width: 42, height: 42, borderRadius: 8, background: card.image_url ? 'var(--surface2)' : gradients[idx % gradients.length], border: '1px solid var(--border)', flexShrink: 0, overflow: 'hidden' }}>
+          {card.image_url && <img src={tcgImg(card.image_url)} alt={card.card_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{card.card_name}</div>
+          <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>{card.grade}</div>
+        </div>
+        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+          <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{card.price != null ? fmtCurrency(card.price) : '—'}</div>
+          {card.change != null && (
+            <div className="font-num" style={{ fontSize: 11, color: card.change >= 0 ? 'var(--green)' : 'var(--red)', marginTop: 2 }}>
+              {card.change >= 0 ? '▲' : '▼'}{fmtCurrency(Math.abs(card.change))} ({Math.abs(card.change).toFixed(1)}%)
+            </div>
+          )}
+        </div>
+      </Link>
+    )
+  }
 
   return (
     <>
       <Navbar />
-      <main style={{ paddingTop: 88, paddingBottom: 88, minHeight: '100vh' }}>
-        {/* Pull-to-refresh indicator */}
+      <main style={{ paddingTop: 88, paddingBottom: 40, minHeight: '100vh' }}>
+
+        {/* Pull-to-refresh */}
         {(pullY > 0 || refreshing) && (
-          <div style={{
-            position: 'fixed', top: 0, left: 0, right: 0, zIndex: 200,
-            display: 'flex', justifyContent: 'center',
-            transform: `translateY(${refreshing ? 56 : pullY - 8}px)`,
-            transition: refreshing ? 'transform 0.2s ease' : 'none',
-            pointerEvents: 'none',
-          }}>
-            <div style={{
-              width: 32, height: 32, borderRadius: '50%',
-              background: 'var(--surface)', border: '1px solid var(--border2)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
-            }}>
-              <svg
-                width="14" height="14" viewBox="0 0 14 14" fill="none"
-                stroke="var(--gold)" strokeWidth="2" strokeLinecap="round"
-                style={{ animation: refreshing ? 'ptr-spin 0.7s linear infinite' : 'none',
-                         opacity: pullY / 72 > 1 ? 1 : pullY / 72 }}
-              >
-                {refreshing
-                  ? <path d="M7 1a6 6 0 1 0 6 6" />
-                  : <path d="M7 1v6M4 4l3 3 3-3" />}
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 200, display: 'flex', justifyContent: 'center', transform: `translateY(${refreshing ? 56 : pullY - 8}px)`, transition: refreshing ? 'transform 0.2s ease' : 'none', pointerEvents: 'none' }}>
+            <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--surface)', border: '1px solid var(--border2)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 16px rgba(0,0,0,0.4)' }}>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--gold)" strokeWidth="2" strokeLinecap="round" style={{ animation: refreshing ? 'ptr-spin 0.7s linear infinite' : 'none', opacity: Math.min(pullY / 72, 1) }}>
+                {refreshing ? <path d="M7 1a6 6 0 1 0 6 6" /> : <path d="M7 1v6M4 4l3 3 3-3" />}
               </svg>
             </div>
           </div>
         )}
 
-        <div className="dash-content" style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 24px 0', display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ maxWidth: 600, margin: '0 auto', padding: '20px 20px 0' }}>
 
-          {/* ── Page title ── */}
-          <div style={{ marginBottom: 8 }}>
-            <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.01em', color: 'var(--ink)' }}>Dashboard</div>
-          </div>
-
-          {/* ── Stat tiles ── */}
-          {(() => {
-            const hasPrices = (portfolioStats?.cachedCount ?? 0) > 0
-            const pfValue   = hasPrices ? portfolioStats?.currentValue : portfolioStats?.costBasis
-            const pfLabel   = hasPrices ? 'Portfolio Value' : 'Cost Basis'
-            const pfChange  = hasPrices && portfolioStats ? portfolioStats.currentValue - portfolioStats.costBasis : null
-
-            const wlSub = groupsCount > 0 ? `across ${groupsCount} collection${groupsCount !== 1 ? 's' : ''}` : 'in watchlist'
-            const alertSub = firedAlerts.length > 0 ? `${firedAlerts.length} triggered today` : 'none triggered'
-            const alertSubColor = firedAlerts.length > 0 ? 'var(--red)' : 'var(--ink3)'
-            const gainersVal = marketSnap?.risingCount ?? 0
-            const gainersColor = gainersVal > 0 ? 'var(--green)' : 'var(--ink)'
-
-            const tiles: { label: string; value: string; valueColor: string; sub: string; subColor: string; change?: number | null; href: string | null }[] = [
-              {
-                label: pfLabel,
-                value: pfValue != null ? fmtCurrency(pfValue) : '—',
-                valueColor: 'var(--ink)',
-                sub: portfolioStats?.posCount ? `${portfolioStats.posCount} positions${!hasPrices ? ' · visit portfolio' : ''}` : 'No positions yet',
-                subColor: 'var(--ink3)',
-                change: pfChange,
-                href: '/portfolio',
-              },
-              {
-                label: 'Cards Tracked',
-                value: watchlistTotal.toString(),
-                valueColor: 'var(--ink)',
-                sub: wlSub,
-                subColor: 'var(--ink3)',
-                href: '/watchlist',
-              },
-              {
-                label: 'Active Alerts',
-                value: activeAlerts.length.toString(),
-                valueColor: 'var(--ink)',
-                sub: alertSub,
-                subColor: alertSubColor,
-                href: null,
-              },
-              {
-                label: "Today's Gainers",
-                value: marketSnap ? gainersVal.toString() : '—',
-                valueColor: gainersColor,
-                sub: marketSnap?.fallingCount != null ? `vs ${marketSnap.fallingCount} losers` : 'from market index',
-                subColor: 'var(--ink3)',
-                href: '/market',
-              },
-            ]
-            return (
-              <div className="dash-stat-tiles" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-                {tiles.map((t, i) => {
-                  const inner = (
-                    <div style={{ padding: '20px 22px' }}>
-                      <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 10 }}>{t.label}</div>
-                      <div className="font-num" style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-1px', color: t.valueColor, lineHeight: 1, marginBottom: 8 }}>{t.value}</div>
-                      {t.change != null && (
-                        <div style={{ fontSize: 13, fontWeight: 600, color: t.change >= 0 ? 'var(--green)' : 'var(--red)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            {t.change >= 0 ? <><line x1="5" y1="9" x2="5" y2="1"/><polyline points="2,4 5,1 8,4"/></> : <><line x1="5" y1="1" x2="5" y2="9"/><polyline points="2,6 5,9 8,6"/></>}
-                          </svg>
-                          {t.change >= 0 ? '+' : '−'}{fmtCurrency(Math.abs(t.change))} today
-                        </div>
-                      )}
-                      <div style={{ fontSize: 12, color: t.subColor }}>{t.sub}</div>
-                    </div>
-                  )
-                  const tileStyle: React.CSSProperties = { borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', textDecoration: 'none', display: 'block', transition: 'border-color 0.15s' }
-                  return t.href ? (
-                    <Link key={i} href={t.href} style={tileStyle}
-                      onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(232,197,71,0.3)')}
-                      onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border2)')}
-                    >{inner}</Link>
-                  ) : (
-                    <div key={i} style={tileStyle}>{inner}</div>
-                  )
-                })}
+          {/* ── Portfolio Value Hero ── */}
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 8 }}>Total Portfolio Value</div>
+            <div className="font-num" style={{ fontSize: 40, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-1.5px', lineHeight: 1, marginBottom: 6 }}>
+              {pfValue != null && pfValue > 0 ? fmtCurrency(pfValue) : '—'}
+            </div>
+            {pfPnL != null && pfPct != null && (
+              <div className="font-num" style={{ fontSize: 16, fontWeight: 600, color: pfPnL >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                {pfPnL >= 0 ? '+' : ''}{fmtCurrency(pfPnL)} ({pfPnL >= 0 ? '+' : ''}{pfPct.toFixed(1)}%)
               </div>
-            )
-          })()}
-
-          {/* ── Two-col: Movers table + right sidebar ── */}
-          <div className="dash-two-col" style={{ display: 'grid', gridTemplateColumns: '1.7fr 1fr', gap: 16, alignItems: 'start' }}>
-
-            {/* TOP MOVERS TODAY — table layout */}
-            <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden' }}>
-              <div style={{ padding: '12px 18px 11px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink3)' }}>Top Movers Today</span>
-                <Link href="/market" style={{ fontSize: 11, fontWeight: 600, color: 'var(--gold)', textDecoration: 'none' }}>View all →</Link>
-              </div>
-              {/* Column headers */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 80px 52px', padding: '8px 18px', gap: 8, borderBottom: '1px solid var(--border)' }}>
-                {['CARD', 'PRICE', '7D CHG', 'SCORE'].map((h, i) => (
-                  <div key={h} style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--ink3)', textTransform: 'uppercase', textAlign: i > 0 ? 'right' as const : 'left' as const }}>{h}</div>
-                ))}
-              </div>
-              {/* Rows */}
-              {marketSnap && marketSnap.topRising.length > 0 ? marketSnap.topRising.map((item, i) => {
-                const params = new URLSearchParams({ name: item.card_name, grade: item.grade })
-                const sc = item.score
-                const scColor = sc == null ? 'var(--ink3)' : sc >= 75 ? 'var(--green)' : sc >= 50 ? 'var(--gold)' : 'var(--red)'
-                const gradients = [
-                  'linear-gradient(135deg,#1a3a6e,#2d5aa0)',
-                  'linear-gradient(135deg,#6e1a6e,#a03da0)',
-                  'linear-gradient(135deg,#2a6e3a,#3d9a52)',
-                  'linear-gradient(135deg,#6e3a1a,#a05a2d)',
-                  'linear-gradient(135deg,#1a5a6e,#2d8ca0)',
-                  'linear-gradient(135deg,#3a6e1a,#5aa03d)',
-                  'linear-gradient(135deg,#6e1a3a,#a03d5a)',
-                  'linear-gradient(135deg,#1a6e5a,#2da08c)',
-                ]
-                return (
-                  <Link key={i} href={`/card/${item.card_id}?${params}`}
-                    style={{ display: 'grid', gridTemplateColumns: '1fr 90px 80px 52px', alignItems: 'center', gap: 8, padding: '11px 18px', borderBottom: i < marketSnap.topRising.length - 1 ? '1px solid var(--border)' : 'none', textDecoration: 'none', background: 'transparent', transition: 'background 0.12s' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--hover-subtle)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-                      <div style={{ width: 38, height: 38, borderRadius: 8, background: item.image_url ? 'var(--surface2)' : gradients[i % gradients.length], border: '1px solid var(--border)', flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {item.image_url && <img src={tcgImg(item.image_url)} alt={item.card_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
-                      </div>
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.card_name}</div>
-                        <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 2 }}>{item.grade}</div>
-                      </div>
-                    </div>
-                    <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', textAlign: 'right' as const }}>
-                      {item.price != null ? fmtCurrency(item.price) : '—'}
-                    </div>
-                    <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: item.change != null && item.change >= 0 ? 'var(--green)' : 'var(--red)', textAlign: 'right' as const }}>
-                      {item.change != null ? `${item.change >= 0 ? '+' : ''}${item.change.toFixed(1)}%` : '—'}
-                    </div>
-                    <div className="font-num" style={{ fontSize: 15, fontWeight: 700, color: scColor, textAlign: 'right' as const }}>
-                      {sc != null ? sc : '—'}
-                    </div>
-                  </Link>
-                )
-              }) : Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 90px 80px 52px', alignItems: 'center', gap: 8, padding: '11px 18px', borderBottom: i < 4 ? '1px solid var(--border)' : 'none' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{ width: 38, height: 38, borderRadius: 8, background: 'var(--surface2)', flexShrink: 0 }} />
-                    <div>
-                      <div style={{ height: 13, width: 120, borderRadius: 3, background: 'var(--surface2)', marginBottom: 6 }} />
-                      <div style={{ height: 10, width: 70, borderRadius: 3, background: 'var(--surface2)' }} />
-                    </div>
-                  </div>
-                  {[1, 2, 3].map(j => <div key={j} style={{ height: 13, borderRadius: 3, background: 'var(--surface2)', marginLeft: 'auto', width: 50 }} />)}
-                </div>
+            )}
+            {/* Period tabs */}
+            <div style={{ display: 'flex', gap: 2, marginTop: 16 }}>
+              {PERIOD_TABS.map(p => (
+                <button key={p} onClick={() => setActivePeriod(p)} style={{ padding: '6px 13px', borderRadius: 99, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'inherit', background: activePeriod === p ? 'var(--gold)' : 'transparent', color: activePeriod === p ? '#08080f' : 'var(--ink3)', transition: 'all 0.15s' }}>
+                  {p}
+                </button>
               ))}
             </div>
-
-            {/* Right column — Triggered Alerts + Market Snapshot */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-
-              {/* Triggered Alerts */}
-              <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden' }}>
-                <div style={{ padding: '12px 16px 11px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink3)' }}>Triggered Alerts</span>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: activeAlerts.length > 0 ? 'var(--gold)' : 'var(--ink3)' }}>{activeAlerts.length} active</span>
-                </div>
-                {firedAlerts.length > 0 ? firedAlerts.map((alert, i) => {
-                  const dirLabel = alert.direction === 'above' ? 'crossed above' : 'dropped below'
-                  return (
-                    <div key={alert.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 16px', borderBottom: i < firedAlerts.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                      <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--red)', flexShrink: 0, marginTop: 4 }} />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{alert.card_name}</div>
-                        <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 2 }}>Price {dirLabel} {fmtCurrency(alert.target_price)}</div>
-                      </div>
-                      {alert.triggered_at && <span style={{ fontSize: 10, color: 'var(--ink3)', flexShrink: 0 }}>{timeAgo(alert.triggered_at)}</span>}
-                    </div>
-                  )
-                }) : (
-                  <div style={{ padding: '20px 16px', textAlign: 'center' as const }}>
-                    <div style={{ fontSize: 12, color: 'var(--ink3)', marginBottom: 8 }}>No alerts triggered yet</div>
-                    <div style={{ fontSize: 11, color: 'var(--ink3)' }}>{activeAlerts.length} active alert{activeAlerts.length !== 1 ? 's' : ''} watching</div>
-                  </div>
-                )}
-              </div>
-
-              {/* Market Snapshot */}
-              {(() => {
-                const scores = marketSnap?.topRising.map(r => r.score).filter((s): s is number => s != null) ?? []
-                const avgScore = scores.length > 0 ? (scores.reduce((a, b) => a + b, 0) / scores.length) : null
-                const totalTracked = (marketSnap?.risingCount ?? 0) + (marketSnap?.fallingCount ?? 0)
-                const holdCount = totalTracked > 0 ? Math.max(0, totalTracked - (marketSnap?.risingCount ?? 0) - (marketSnap?.fallingCount ?? 0)) : null
-                const rows: { label: string; value: string | number | null; color: string }[] = [
-                  { label: 'Avg score (tracked)', value: avgScore != null ? avgScore.toFixed(1) : null, color: 'var(--green)' },
-                  { label: 'BUY signals', value: marketSnap?.risingCount ?? null, color: 'var(--green)' },
-                  { label: 'HOLD signals', value: holdCount, color: 'var(--gold)' },
-                  { label: 'SELL signals', value: marketSnap?.fallingCount ?? null, color: 'var(--red)' },
-                ]
-                return (
-                  <div style={{ borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border2)', overflow: 'hidden' }}>
-                    <div style={{ padding: '12px 16px 11px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink3)' }}>Market Snapshot</span>
-                      <Link href="/market" style={{ fontSize: 11, fontWeight: 600, color: 'var(--gold)', textDecoration: 'none' }}>Full market →</Link>
-                    </div>
-                    <div style={{ padding: '4px 0' }}>
-                      {rows.map((row, i) => row.value != null && (
-                        <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 16px', borderBottom: i < rows.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                          <span style={{ fontSize: 13, color: 'var(--ink2)' }}>{row.label}</span>
-                          <span className="font-num" style={{ fontSize: 15, fontWeight: 700, color: row.color }}>{row.value}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )
-              })()}
-            </div>
           </div>
+
+          {/* ── Movers Card ── */}
+          {marketSnap && (marketSnap.topRising.length > 0 || marketSnap.topFalling.length > 0) && (
+            <div style={{ borderRadius: 16, background: 'var(--surface)', border: '1px solid var(--border)', padding: '16px 18px', marginBottom: 12 }}>
+              {/* Counts row */}
+              <div style={{ display: 'flex', gap: 20, marginBottom: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(61,232,138,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="var(--green)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="6.5" y1="11" x2="6.5" y2="2"/><polyline points="3,5 6.5,2 10,5"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="font-num" style={{ fontSize: 22, fontWeight: 800, color: 'var(--green)', lineHeight: 1 }}>{marketSnap.risingCount}</div>
+                    <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--green)', opacity: 0.75 }}>RISING</div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(232,82,74,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="var(--red)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="6.5" y1="2" x2="6.5" y2="11"/><polyline points="3,8 6.5,11 10,8"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="font-num" style={{ fontSize: 22, fontWeight: 800, color: 'var(--red)', lineHeight: 1 }}>{marketSnap.fallingCount}</div>
+                    <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--red)', opacity: 0.75 }}>FALLING</div>
+                  </div>
+                </div>
+              </div>
+              {marketSnap.topRising.map((card, i) => (
+                <CardRow key={card.card_id + i} card={card} idx={i} last={i === marketSnap.topRising.length - 1} />
+              ))}
+            </div>
+          )}
 
           {/* ── Recently Viewed ── */}
           {recentlyViewed.length > 0 && (
-            <div className="dash-recently-viewed">
+            <div style={{ marginBottom: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--ink3)', textTransform: 'uppercase' }}>Recently Viewed</span>
-                <Link href="/search" style={{ fontSize: 11, fontWeight: 600, color: 'var(--gold)', textDecoration: 'none' }}>Search cards →</Link>
+                <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', textTransform: 'uppercase' }}>Recently Viewed</span>
+                <button onClick={clearRecentlyViewed} style={{ fontSize: 10, fontWeight: 700, color: 'var(--gold)', background: 'none', border: 'none', cursor: 'pointer', letterSpacing: 0.5, fontFamily: 'inherit' }}>CLEAR</button>
               </div>
-              <div className="dash-rv-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12 }}>
-                {recentlyViewed.map((item, i) => {
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+                {recentlyViewed.slice(0, 4).map((item, i) => {
                   const params = new URLSearchParams({ grade: item.grade, name: item.card_name })
                   if (item.set_name) params.set('set', item.set_name)
                   return (
-                    <Link key={`${item.card_id}-${i}`} href={`/card/${item.card_id}?${params.toString()}`}
-                      style={{ textDecoration: 'none', transition: 'opacity 0.12s' }}
-                      onMouseEnter={e => (e.currentTarget.style.opacity = '0.8')}
-                      onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
-                    >
-                      <div style={{ width: '100%', aspectRatio: '2/3', borderRadius: 6, background: 'linear-gradient(160deg, var(--surface2) 0%, rgba(100,100,180,0.12) 100%)', border: '1px solid var(--border2)', marginBottom: 8 }} />
+                    <Link key={`${item.card_id}-${i}`} href={`/card/${item.card_id}?${params}`} style={{ textDecoration: 'none' }}>
+                      <div style={{ width: '100%', aspectRatio: '2/3', borderRadius: 8, background: 'linear-gradient(160deg,var(--surface2) 0%,rgba(100,100,180,0.12) 100%)', border: '1px solid var(--border2)', marginBottom: 6 }} />
                       <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.card_name}</div>
-                      <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>{item.grade}</div>
+                      <div style={{ fontSize: 9, color: 'var(--ink3)', marginTop: 2 }}>{item.grade}</div>
                     </Link>
                   )
                 })}
@@ -558,34 +297,162 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* ── Upgrade banner (free users only) ── */}
-          {tier === 'free' && (
-            <div style={{ borderRadius: 14, background: 'var(--gold2)', border: '1px solid rgba(232,197,71,0.2)', padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--gold)', marginBottom: 3 }}>Unlock the full CardIndex</div>
-                <div style={{ fontSize: 12, color: 'rgba(232,197,71,0.7)' }}>Price history charts, trend indicators, unlimited watchlist and more.</div>
+          {/* ── Watchlist Snapshot ── */}
+          {watchlistItems.length > 0 && (
+            <div style={{ borderRadius: 16, background: 'var(--surface)', border: '1px solid var(--border)', padding: '16px 18px', marginBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', textTransform: 'uppercase' }}>Watchlist Snapshot</span>
+                <Link href="/watchlist" style={{ fontSize: 11, fontWeight: 600, color: 'var(--gold)', textDecoration: 'none' }}>View watchlist ›</Link>
               </div>
-              <Link href="/pricing" style={{ padding: '9px 20px', borderRadius: 10, background: 'var(--gold)', color: '#080810', textDecoration: 'none', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
-                See plans
-              </Link>
+              {watchlistItems.map((item, i) => {
+                const params = new URLSearchParams({ name: item.card_name, grade: item.grade })
+                return (
+                  <Link key={item.id} href={`/card/${item.card_id}?${params}`} style={{ display: 'flex', alignItems: 'center', padding: '12px 0', borderBottom: i < watchlistItems.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none', textDecoration: 'none', gap: 12 }}>
+                    <div style={{ width: 42, height: 42, borderRadius: 8, background: gradients[i % gradients.length], border: '1px solid var(--border)', flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.card_name}</div>
+                      <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 2 }}>{item.set_name} · {item.grade}</div>
+                    </div>
+                    {item.price != null && (
+                      <div className="font-num" style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', flexShrink: 0 }}>{fmtCurrency(item.price)}</div>
+                    )}
+                  </Link>
+                )
+              })}
             </div>
           )}
+
+          {/* ── Best / Worst ── */}
+          {marketSnap && (marketSnap.topRising.length > 0 || marketSnap.topFalling.length > 0) && (() => {
+            const best = marketSnap.topRising[0]
+            const worst = marketSnap.topFalling[0]
+            return (
+              <div style={{ borderRadius: 16, background: 'var(--surface)', border: '1px solid var(--border)', overflow: 'hidden', marginBottom: 12 }}>
+                {best && (
+                  <Link href={`/card/${best.card_id}?${new URLSearchParams({ name: best.card_name, grade: best.grade })}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: worst ? '1px solid var(--border)' : 'none', textDecoration: 'none' }}>
+                    <div>
+                      <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--green)', fontWeight: 700, marginBottom: 3 }}>BEST</div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{best.card_name}</div>
+                    </div>
+                    <div className="font-num" style={{ fontSize: 18, fontWeight: 800, color: 'var(--green)' }}>
+                      {best.change != null ? `+${best.change.toFixed(1)}%` : '—'}
+                    </div>
+                  </Link>
+                )}
+                {worst && (
+                  <Link href={`/card/${worst.card_id}?${new URLSearchParams({ name: worst.card_name, grade: worst.grade })}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', textDecoration: 'none' }}>
+                    <div>
+                      <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--red)', fontWeight: 700, marginBottom: 3 }}>WORST</div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{worst.card_name}</div>
+                    </div>
+                    <div className="font-num" style={{ fontSize: 18, fontWeight: 800, color: 'var(--red)' }}>
+                      {worst.change != null ? `${worst.change.toFixed(1)}%` : '—'}
+                    </div>
+                  </Link>
+                )}
+              </div>
+            )
+          })()}
+
+          {/* ── Top Performers ── */}
+          {marketSnap && (marketSnap.topRising.length > 0 || marketSnap.topFalling.length > 0) && (
+            <div style={{ borderRadius: 16, background: 'var(--surface)', border: '1px solid var(--border)', padding: '16px 18px', marginBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', textTransform: 'uppercase' }}>Top Performers</span>
+                <Link href="/market" style={{ fontSize: 11, fontWeight: 600, color: 'var(--gold)', textDecoration: 'none' }}>See all ›</Link>
+              </div>
+              {marketSnap.topRising.length > 0 && (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--green)', display: 'inline-block', flexShrink: 0 }} />
+                    <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--green)', letterSpacing: 1 }}>GAINERS</span>
+                  </div>
+                  {marketSnap.topRising.slice(0, 3).map((card, i) => (
+                    <CardRow key={card.card_id + 'g' + i} card={card} idx={i} last={i === Math.min(marketSnap.topRising.length, 3) - 1 && marketSnap.topFalling.length === 0} />
+                  ))}
+                </>
+              )}
+              {marketSnap.topFalling.length > 0 && (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: marketSnap.topRising.length > 0 ? 14 : 0, marginBottom: 4 }}>
+                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--red)', display: 'inline-block', flexShrink: 0 }} />
+                    <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--red)', letterSpacing: 1 }}>LOSERS</span>
+                  </div>
+                  {marketSnap.topFalling.map((card, i) => (
+                    <CardRow key={card.card_id + 'l' + i} card={card} idx={i + 10} last={i === marketSnap.topFalling.length - 1} />
+                  ))}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* ── Portfolio Health ── */}
+          {portfolioStats && portfolioStats.posCount > 0 && (() => {
+            const plAmt = hasPrices ? pfPnL : (portfolioStats.realizedPL !== 0 ? portfolioStats.realizedPL : null)
+            const plPct = hasPrices && pfPnL != null && portfolioStats.costBasis > 0 ? (pfPnL / portfolioStats.costBasis) * 100 : null
+            const totalTrades = portfolioStats.winTrades + portfolioStats.loseTrades
+            const winRate = totalTrades > 0 ? (portfolioStats.winTrades / totalTrades) * 100 : null
+            return (
+              <div style={{ borderRadius: 16, background: 'var(--surface)', border: '1px solid var(--border)', padding: '16px 18px', marginBottom: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                  <span style={{ fontSize: 9, letterSpacing: 2, color: 'var(--ink3)', textTransform: 'uppercase' }}>Portfolio Health</span>
+                  <span style={{ fontSize: 10, color: 'var(--ink3)' }}>{portfolioStats.posCount} position{portfolioStats.posCount !== 1 ? 's' : ''}</span>
+                </div>
+                {/* Cards / Sold / Graded */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border)', marginBottom: 10 }}>
+                  {[{ label: 'CARDS', value: portfolioStats.posCount }, { label: 'SOLD', value: portfolioStats.soldCount }, { label: 'GRADED', value: portfolioStats.gradedCount }].map((s, i) => (
+                    <div key={i} style={{ textAlign: 'center', padding: '14px 8px', background: 'var(--bg)', borderRight: i < 2 ? '1px solid var(--border)' : 'none' }}>
+                      <div className="font-num" style={{ fontSize: 24, fontWeight: 800, color: 'var(--ink)', lineHeight: 1, marginBottom: 4 }}>{s.value}</div>
+                      <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)' }}>{s.label}</div>
+                    </div>
+                  ))}
+                </div>
+                {/* P&L / Return */}
+                {plAmt != null && (
+                  <div style={{ display: 'grid', gridTemplateColumns: plPct != null ? '1fr 1fr' : '1fr', gap: 10, marginBottom: 10 }}>
+                    <div style={{ borderRadius: 10, padding: '12px 14px', background: plAmt >= 0 ? 'rgba(61,232,138,0.06)' : 'rgba(232,82,74,0.06)', border: `1px solid ${plAmt >= 0 ? 'rgba(61,232,138,0.2)' : 'rgba(232,82,74,0.2)'}` }}>
+                      <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6 }}>TOTAL P&L</div>
+                      <div className="font-num" style={{ fontSize: 18, fontWeight: 800, color: plAmt >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                        {plAmt >= 0 ? '+' : ''}{fmtCurrency(Math.abs(plAmt))}
+                      </div>
+                    </div>
+                    {plPct != null && (
+                      <div style={{ borderRadius: 10, padding: '12px 14px', background: plPct >= 0 ? 'rgba(61,232,138,0.06)' : 'rgba(232,82,74,0.06)', border: `1px solid ${plPct >= 0 ? 'rgba(61,232,138,0.2)' : 'rgba(232,82,74,0.2)'}` }}>
+                        <div style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)', marginBottom: 6 }}>RETURN</div>
+                        <div className="font-num" style={{ fontSize: 18, fontWeight: 800, color: plPct >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                          {plPct >= 0 ? '+' : ''}{plPct.toFixed(1)}%
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* Win rate */}
+                {winRate != null && (
+                  <div style={{ borderRadius: 10, padding: '12px 14px', background: 'var(--bg)', border: '1px solid var(--border)', marginBottom: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <span style={{ fontSize: 9, letterSpacing: 1.5, color: 'var(--ink3)' }}>WIN RATE</span>
+                      <span className="font-num" style={{ fontSize: 10, color: 'var(--ink3)' }}>{portfolioStats.winTrades}W · {portfolioStats.loseTrades}L</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div className="font-num" style={{ fontSize: 22, fontWeight: 800, color: winRate >= 50 ? 'var(--green)' : 'var(--red)', minWidth: 52 }}>{winRate.toFixed(0)}%</div>
+                      <div style={{ flex: 1, height: 4, borderRadius: 2, background: 'var(--border)', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${winRate}%`, background: winRate >= 50 ? 'var(--green)' : 'var(--red)', borderRadius: 2 }} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <Link href="/portfolio" style={{ display: 'block', textAlign: 'center', padding: '11px', borderRadius: 10, background: 'var(--gold)', color: '#08080f', fontWeight: 700, fontSize: 13, textDecoration: 'none' }}>
+                  View Portfolio
+                </Link>
+              </div>
+            )
+          })()}
 
         </div>
       </main>
 
       <style>{`
         @keyframes ptr-spin { to { transform: rotate(360deg); } }
-        @media (min-width: 641px) {
-          body.has-sidebar main { padding-top: 0 !important; }
-          .dash-content { padding-top: 32px !important; }
-        }
-        @media (max-width: 640px) {
-          .dash-stat-tiles { grid-template-columns: repeat(2, 1fr) !important; }
-          .dash-two-col { grid-template-columns: 1fr !important; }
-          .dash-rv-grid { grid-template-columns: repeat(3, 1fr) !important; }
-          .dash-content { padding: 16px 16px 0 !important; gap: 12px !important; }
-        }
       `}</style>
     </>
   )

@@ -1033,24 +1033,13 @@ export default function AdminPage() {
             <span className="adm-sl" style={{}}>Health &amp; Usage</span>
             <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
           </div>
-          <div className="adm-grid adm-grid-4" style={{ gap: 10, marginBottom: 12 }}>
+          <div className="adm-grid adm-grid-4" style={{ gap: 10, marginBottom: 24 }}>
             <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
-              <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.22em', color: 'var(--ink3)', marginBottom: 8, textTransform: 'uppercase' }}>User Searches</div>
+              <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.22em', color: 'var(--ink3)', marginBottom: 8, textTransform: 'uppercase' }}>Total Searches</div>
               <div className="font-num" style={{ fontSize: 26, fontWeight: 900, color: 'var(--ink)', lineHeight: 1 }}>
-                {usageStats ? (usageStats.userSearches?.total ?? usageStats.totalSearches).toLocaleString() : '—'}
+                {usageStats ? usageStats.totalSearches.toLocaleString() : '—'}
               </div>
-              <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 5 }}>
-                All-time · <strong>{usageStats?.userSearches?.yesterday.toLocaleString() ?? '—'}</strong> yesterday
-              </div>
-            </div>
-            <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
-              <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.22em', color: 'var(--ink3)', marginBottom: 8, textTransform: 'uppercase' }}>API Calls</div>
-              <div className="font-num" style={{ fontSize: 26, fontWeight: 900, color: 'var(--ink)', lineHeight: 1 }}>
-                {usageStats ? (usageStats.apiCalls?.total ?? usageStats.totalSearches).toLocaleString() : '—'}
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 5 }}>
-                All-time · <strong>{usageStats?.apiCalls?.yesterday.toLocaleString() ?? '—'}</strong> yesterday
-              </div>
+              <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 5 }}>All-time log entries</div>
             </div>
             <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
               <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.22em', color: 'var(--ink3)', marginBottom: 8, textTransform: 'uppercase' }}>Cached Cards</div>
@@ -1066,8 +1055,6 @@ export default function AdminPage() {
               </div>
               <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 5 }}>Not refreshed in &gt;24h</div>
             </div>
-          </div>
-          <div className="adm-grid adm-grid-4" style={{ gap: 10, marginBottom: 24 }}>
             <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: `1px solid ${usageStats && usageStats.openReports > 0 ? 'rgba(232,82,74,0.3)' : 'var(--border2)'}` }}>
               <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.22em', color: 'var(--ink3)', marginBottom: 8, textTransform: 'uppercase' }}>Issue Reports</div>
               <div className="font-num" style={{ fontSize: 26, fontWeight: 900, lineHeight: 1, color: usageStats && usageStats.openReports > 0 ? 'var(--red)' : 'var(--ink)' }}>

@@ -461,12 +461,6 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
-            <Link href="/portfolio" className="bell" title="View Portfolio">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-                <path d="M8 1v1M8 14v1M3 8H1M15 8h-1M4.5 4.5 3.4 3.4M12.6 12.6l-1.1-1.1M4.5 11.5l-1.1 1.1M12.6 3.4l-1.1 1.1" />
-                <circle cx="8" cy="8" r="3" />
-              </svg>
-            </Link>
           </div>
 
           {/* ── Period tabs ── */}

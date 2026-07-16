@@ -1917,38 +1917,6 @@ export default function AdminPage() {
             </>
           )}
 
-        </div>
-      </main>
-
-      {/* ── Top Searched share modal ── */}
-      {showTopSearchedModal && topSearched && topSearched.cards.length > 0 && (
-        <ShareTopSearchedModal
-          cards={topSearched.cards}
-          weekNum={topSearched.weekNum}
-          year={topSearched.year}
-          dateStr={topSearched.dateStr}
-          fmtFn={fmtPrice}
-          currency={currency}
-          onClose={() => setShowTopSearchedModal(false)}
-        />
-      )}
-
-      {/* ── Stat card modal ── */}
-      {activeStatModal && (
-        <ShareStatModal config={activeStatModal} onClose={() => setActiveStatModal(null)} />
-      )}
-
-      {/* ── End Card modal ── */}
-      {showEndCardModal && (
-        <ShareEndCardModal onClose={() => setShowEndCardModal(false)} />
-      )}
-
-      {/* ── Brand Lockup modal ── */}
-      {showBrandModal && (
-        <ShareBrandModal onClose={() => setShowBrandModal(false)} />
-      )}
-
-      {/* ── Migration SQL modal ── */}
           {/* ── Banners tab ──────────────────────────────────────────────── */}
           {activeTab === 'banners' && (
             <>
@@ -2059,6 +2027,37 @@ export default function AdminPage() {
               </div>
             </>
           )}
+
+        </div>
+      </main>
+
+      {/* ── Top Searched share modal ── */}
+      {showTopSearchedModal && topSearched && topSearched.cards.length > 0 && (
+        <ShareTopSearchedModal
+          cards={topSearched.cards}
+          weekNum={topSearched.weekNum}
+          year={topSearched.year}
+          dateStr={topSearched.dateStr}
+          fmtFn={fmtPrice}
+          currency={currency}
+          onClose={() => setShowTopSearchedModal(false)}
+        />
+      )}
+
+      {/* ── Stat card modal ── */}
+      {activeStatModal && (
+        <ShareStatModal config={activeStatModal} onClose={() => setActiveStatModal(null)} />
+      )}
+
+      {/* ── End Card modal ── */}
+      {showEndCardModal && (
+        <ShareEndCardModal onClose={() => setShowEndCardModal(false)} />
+      )}
+
+      {/* ── Brand Lockup modal ── */}
+      {showBrandModal && (
+        <ShareBrandModal onClose={() => setShowBrandModal(false)} />
+      )}
 
       {migrationSql && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}

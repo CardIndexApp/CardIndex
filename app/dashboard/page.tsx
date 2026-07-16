@@ -122,6 +122,8 @@ export default function Dashboard() {
   const supabase = createClient()
   const { fmtCurrency } = useCurrency()
 
+  const [activeBanner, setActiveBanner] = useState<{ id: string; title: string; body: string; cta_label: string | null; cta_url: string | null } | null>(null)
+  const [bannerDismissed, setBannerDismissed] = useState(false)
   const [watchlistItems, setWatchlistItems] = useState<WatchlistItem[]>([])
   const [recentlyViewed, setRecentlyViewed] = useState<RecentlyViewedItem[]>([])
   const [portfolioStats, setPortfolioStats] = useState<PortfolioStats | null>(null)
@@ -295,6 +297,11 @@ export default function Dashboard() {
     setPortfolioStats({ posCount: openPositions.length, soldCount: soldPositions.length, costBasis, currentValue, cachedCount, realizedPL, winTrades, loseTrades, gradedCount })
     setLoading(false)
 
+    fetch('/api/banners')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.banner) setActiveBanner(d.banner) })
+      .catch(() => {})
+
     fetch('/api/market')
       .then(r => r.ok ? r.json() : null)
       .then(d => {
@@ -462,6 +469,22 @@ export default function Dashboard() {
               )}
             </div>
           </div>
+
+          {/* ── Active banner ── */}
+          {activeBanner && !bannerDismissed && (
+            <div className="dash-banner">
+              <div className="dash-banner-body">
+                <div className="dash-banner-title">{activeBanner.title}</div>
+                <div className="dash-banner-text">{activeBanner.body}</div>
+                {activeBanner.cta_label && activeBanner.cta_url && (
+                  <a href={activeBanner.cta_url} target="_blank" rel="noopener noreferrer" className="dash-banner-cta">
+                    {activeBanner.cta_label}
+                  </a>
+                )}
+              </div>
+              <button className="dash-banner-dismiss" onClick={() => setBannerDismissed(true)} aria-label="Dismiss">✕</button>
+            </div>
+          )}
 
           {/* ── Period tabs ── */}
           <div className="timeframes">
@@ -850,6 +873,46 @@ export default function Dashboard() {
           transition: border-color 0.15s;
         }
         .bell:hover { border-color: var(--gold); color: var(--gold); }
+
+        /* Active banner */
+        .dash-banner {
+          display: flex;
+          align-items: flex-start;
+          gap: 12px;
+          margin-bottom: 20px;
+          padding: 14px 18px;
+          border-radius: 12px;
+          background: rgba(244,197,66,0.07);
+          border: 1px solid rgba(244,197,66,0.25);
+        }
+        .dash-banner-body { flex: 1; min-width: 0; }
+        .dash-banner-title { font-size: 14px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
+        .dash-banner-text { font-size: 13px; color: var(--ink2); line-height: 1.5; }
+        .dash-banner-cta {
+          display: inline-block;
+          margin-top: 10px;
+          padding: 6px 14px;
+          border-radius: 7px;
+          background: var(--gold);
+          color: #08080f;
+          font-size: 12px;
+          font-weight: 700;
+          text-decoration: none;
+          transition: opacity 0.15s;
+        }
+        .dash-banner-cta:hover { opacity: 0.85; }
+        .dash-banner-dismiss {
+          flex-shrink: 0;
+          background: none;
+          border: none;
+          color: var(--ink3);
+          font-size: 14px;
+          cursor: pointer;
+          padding: 2px 4px;
+          line-height: 1;
+          margin-top: 1px;
+        }
+        .dash-banner-dismiss:hover { color: var(--ink); }
 
         /* Period tabs */
         .timeframes { display: flex; gap: 8px; margin: 0 0 16px; }

@@ -895,7 +895,7 @@ export default function PortfolioPage() {
       }
     }
 
-    const params = new URLSearchParams({ grade: pos.grade, name: pos.card_name })
+    const params = new URLSearchParams({ grade: pos.grade, name: pos.card_name, source: 'refresh' })
     if (pos.set_name)              params.set('set', pos.set_name)
     if (pos.card_number)           params.set('number', pos.card_number)
     if (bustCache || attempt > 0)  params.set('bust_cache', '1')

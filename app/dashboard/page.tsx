@@ -172,7 +172,7 @@ export default function Dashboard() {
     // Step 3: lazily fetch from /api/card for items still missing an image
     if (stillMissing.length > 0) {
       for (const r of stillMissing) {
-        const params = new URLSearchParams({ grade: r.grade, name: r.card_name })
+        const params = new URLSearchParams({ grade: r.grade, name: r.card_name, source: 'refresh' })
         if (r.set_name) params.set('set', r.set_name)
         fetch(`/api/card/${r.card_id}?${params}`)
           .then(res => res.ok ? res.json() : null)
@@ -248,7 +248,7 @@ export default function Dashboard() {
               try {
                 const name = (pos.card_name as string | null) ?? ''
                 if (!name) return
-                const params = new URLSearchParams({ grade: pos.grade as string, name })
+                const params = new URLSearchParams({ grade: pos.grade as string, name, source: 'refresh' })
                 if (pos.set_name) params.set('set', pos.set_name as string)
                 const r = await fetch(`/api/card/${pos.card_id}?${params}`)
                 if (!r.ok) return

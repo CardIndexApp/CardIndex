@@ -186,13 +186,31 @@ export async function GET(req: NextRequest) {
   } catch { /* non-fatal */ }
 
   // ── Usage / health metrics ────────────────────────────────────────────────
+  const todayStart     = new Date(now); todayStart.setUTCHours(0, 0, 0, 0)
+  const yesterdayStart = new Date(todayStart.getTime() - 86400000)
+
   const [
-    { count: totalSearches },
+    { count: totalApiCalls },
+    { count: totalUserSearches },
+    { count: apiCallsYesterday },
+    { count: userSearchesYesterday },
     { count: cachedCards },
     { count: staleCacheCount },
     { count: openReports },
   ] = await Promise.all([
+    // All API calls (searches + background refreshes)
     admin.from('search_log').select('*', { count: 'exact', head: true }),
+    // User-initiated searches only (no source tag)
+    admin.from('search_log').select('*', { count: 'exact', head: true }).is('source', null),
+    // All API calls yesterday
+    admin.from('search_log').select('*', { count: 'exact', head: true })
+      .gte('searched_at', yesterdayStart.toISOString())
+      .lt('searched_at', todayStart.toISOString()),
+    // User searches yesterday
+    admin.from('search_log').select('*', { count: 'exact', head: true })
+      .is('source', null)
+      .gte('searched_at', yesterdayStart.toISOString())
+      .lt('searched_at', todayStart.toISOString()),
     admin.from('search_cache').select('*', { count: 'exact', head: true }),
     admin.from('search_cache')
       .select('*', { count: 'exact', head: true })
@@ -200,11 +218,12 @@ export async function GET(req: NextRequest) {
     admin.from('card_reports').select('*', { count: 'exact', head: true }),
   ])
 
-  // ── Per-user search counts ────────────────────────────────────────────────
+  // ── Per-user search counts (user-initiated only, no refreshes) ───────────
   const { data: searchLogRows } = await admin
     .from('search_log')
     .select('user_id')
     .not('user_id', 'is', null)
+    .is('source', null)
 
   const searchCountMap: Record<string, number> = {}
   for (const row of searchLogRows ?? []) {
@@ -243,11 +262,13 @@ export async function GET(req: NextRequest) {
       conversionRate,
     },
     usageStats: {
-      totalSearches:  totalSearches  ?? 0,
-      cachedCards:    cachedCards    ?? 0,
-      staleCacheCount: staleCacheCount ?? 0,
-      openReports:    openReports    ?? 0,
+      totalSearches:   totalUserSearches  ?? 0,
+      cachedCards:     cachedCards        ?? 0,
+      staleCacheCount: staleCacheCount    ?? 0,
+      openReports:     openReports        ?? 0,
       topTrackedCards,
+      apiCalls:     { total: totalApiCalls     ?? 0, yesterday: apiCallsYesterday     ?? 0 },
+      userSearches: { total: totalUserSearches ?? 0, yesterday: userSearchesYesterday ?? 0 },
     },
   })
 }

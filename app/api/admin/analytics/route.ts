@@ -42,12 +42,18 @@ export async function GET(req: NextRequest) {
   const d30 = new Date(now.getTime() - 30 * 86400000)
 
   // ── Parallel queries ──────────────────────────────────────────────────────
+  const todayStart = new Date(now); todayStart.setUTCHours(0, 0, 0, 0)
+  const yesterdayStart = new Date(todayStart.getTime() - 86400000)
+
   const [
     { data: funnel },
     { data: dailySearches },
     { data: platformStats },
     { data: allProfiles },
-    { count: liveSearches },
+    { count: liveApiCalls },
+    { count: liveUserSearches },
+    { count: apiCallsYesterday },
+    { count: userSearchesYesterday },
     { data: portfolioUsers },
     { data: watchlistUsers },
     { data: searchLogUsers },
@@ -57,10 +63,22 @@ export async function GET(req: NextRequest) {
     admin.rpc('search_volume_by_day', { days: 30 }),
     admin.from('platform_stats').select('value').eq('key', 'archived_searches').single(),
     admin.from('profiles').select('id, last_active_at, tier, trial_ends_at, stripe_customer_id, created_at'),
+    // All API calls (searches + refreshes)
     admin.from('search_log').select('*', { count: 'exact', head: true }),
+    // User-initiated searches only (no source tag)
+    admin.from('search_log').select('*', { count: 'exact', head: true }).is('source', null),
+    // API calls yesterday
+    admin.from('search_log').select('*', { count: 'exact', head: true })
+      .gte('searched_at', yesterdayStart.toISOString())
+      .lt('searched_at', todayStart.toISOString()),
+    // User searches yesterday
+    admin.from('search_log').select('*', { count: 'exact', head: true })
+      .is('source', null)
+      .gte('searched_at', yesterdayStart.toISOString())
+      .lt('searched_at', todayStart.toISOString()),
     admin.from('portfolios').select('user_id'),
     admin.from('watchlists').select('user_id'),
-    admin.from('search_log').select('user_id').not('user_id', 'is', null),
+    admin.from('search_log').select('user_id').not('user_id', 'is', null).is('source', null),
     admin.from('upgrade_requests').select('user_id').eq('action', 'approve'),
   ])
 
@@ -73,9 +91,10 @@ export async function GET(req: NextRequest) {
   const wau = activeProfiles.filter(p => new Date(p.last_active_at!) >= d7).length
   const mau = activeProfiles.filter(p => new Date(p.last_active_at!) >= d30).length
 
-  // ── All-time searches ─────────────────────────────────────────────────────
-  const archivedSearches   = (platformStats as { value: number } | null)?.value ?? 0
-  const totalSearchesAllTime = (liveSearches ?? 0) + archivedSearches
+  // ── All-time counts ───────────────────────────────────────────────────────
+  const archivedSearches     = (platformStats as { value: number } | null)?.value ?? 0
+  const totalApiCallsAllTime = (liveApiCalls ?? 0) + archivedSearches
+  const totalSearchesAllTime = liveUserSearches ?? 0
 
   // ── Trial conversion (post-launch only) ──────────────────────────────────
   const expiredTrials          = postLaunch.filter(p => p.trial_ends_at && new Date(p.trial_ends_at) < now)
@@ -151,6 +170,14 @@ export async function GET(req: NextRequest) {
     },
     searchVolume:        dailySearches ?? [],
     totalSearchesAllTime,
+    apiCalls: {
+      total:     totalApiCallsAllTime,
+      yesterday: apiCallsYesterday ?? 0,
+    },
+    userSearches: {
+      total:     totalSearchesAllTime,
+      yesterday: userSearchesYesterday ?? 0,
+    },
     insights: {
       trialConversion: {
         expiredTrials:         expiredTrials.length,

@@ -232,7 +232,7 @@ export default function Watchlist() {
       }
     }
 
-    const params = new URLSearchParams({ grade: item.grade, name: item.card_name })
+    const params = new URLSearchParams({ grade: item.grade, name: item.card_name, source: 'refresh' })
     if (item.set_name)               params.set('set', item.set_name)
     if (item.card_number)            params.set('number', item.card_number)
     if (bustCache || attempt > 0)    params.set('bust_cache', '1')

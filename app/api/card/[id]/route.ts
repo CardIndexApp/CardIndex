@@ -13,6 +13,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 import {
   searchByTcgPlayerId,
   findBestMatch,
@@ -142,18 +144,30 @@ export async function GET(
   const urlGame    = req.nextUrl.searchParams.get('game')     ?? 'pokemon'
   const bustCache  = req.nextUrl.searchParams.get('bust_cache') === '1'
   const allTiers   = req.nextUrl.searchParams.get('all_tiers')  === '1'
+  const isRefresh  = req.nextUrl.searchParams.get('source') === 'refresh'
 
   if (!cardName) {
     return NextResponse.json({ error: 'name param required' }, { status: 400 })
   }
 
-  // Optionally resolve the requesting user for per-user search tracking.
-  // Anonymous searches (no token) still work — user_id is nullable in search_log.
+  // Require authentication — try Bearer token (iOS) then cookie session (web).
   let searchUserId: string | null = null
   const authHeader = req.headers.get('authorization')
   if (authHeader?.startsWith('Bearer ')) {
     const { data } = await adminClient().auth.getUser(authHeader.slice(7))
     searchUserId = data.user?.id ?? null
+  } else {
+    const cookieStore = await cookies()
+    const serverClient = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
+    )
+    const { data } = await serverClient.auth.getUser()
+    searchUserId = data.user?.id ?? null
+  }
+  if (!searchUserId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   const cacheKey = `${id}:${grade}`
@@ -171,7 +185,7 @@ export async function GET(
     // Treat rows with missing price_history as stale so they pick up the field on next fetch
     const missingHistory = !cached.price_history || (cached.price_history as unknown[]).length === 0
     if (age < CACHE_TTL_MS && !missingHistory) {
-      await supabase.from('search_log').insert({ card_id: id, card_name: cardName, grade, ...(searchUserId ? { user_id: searchUserId } : {}) })
+      await supabase.from('search_log').insert({ card_id: id, card_name: cardName, grade, user_id: searchUserId, ...(isRefresh ? { source: 'refresh' } : {}) })
       // Recompute warning from stored fields if not already present (pre-migration rows)
       const recomputed = cached.data_warning !== undefined ? cached : {
         ...cached,
@@ -725,7 +739,7 @@ export async function GET(
 
   const [{ error: upsertErr }] = await Promise.all([
     supabase.from('search_cache').upsert(record),
-    supabase.from('search_log').insert({ card_id: id, card_name: cardName, grade, ...(searchUserId ? { user_id: searchUserId } : {}) }),
+    supabase.from('search_log').insert({ card_id: id, card_name: cardName, grade, user_id: searchUserId, ...(isRefresh ? { source: 'refresh' } : {}) }),
   ])
 
   if (upsertErr) {

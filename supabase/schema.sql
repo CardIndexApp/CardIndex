@@ -202,3 +202,10 @@ create policy "wlgroups_all_own" on public.watchlist_groups
 drop policy if exists "pfgroups_all_own" on public.portfolio_groups;
 create policy "pfgroups_all_own" on public.portfolio_groups
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- app_banners: admin writes use service-role (bypasses RLS); public reads active banners only.
+alter table public.app_banners enable row level security;
+
+drop policy if exists "banners_select_active" on public.app_banners;
+create policy "banners_select_active" on public.app_banners
+  for select using (active = true);

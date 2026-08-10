@@ -66,9 +66,10 @@ export async function GET(_req: NextRequest) {
 
   // Deduplicate by name — Poketrace splits old sets into many small variant
   // subsets. Keep the entry with the most cards per unique name.
+  // Note: do NOT filter out cardCount === 0 here — new sets appear in the API
+  // before their card count is populated, so filtering by count hides them.
   const byName = new Map<string, PtSet>()
   for (const s of allSets) {
-    if (s.cardCount === 0) continue
     const existing = byName.get(s.name)
     if (!existing || s.cardCount > existing.cardCount || (s.cardCount === existing.cardCount && s.logo && !existing.logo)) {
       byName.set(s.name, s)

@@ -957,6 +957,7 @@ export default function CardPageClient() {
   const [priceCheckOpen, setPriceCheckOpen]   = useState(false)
   const [priceCheckInput, setPriceCheckInput] = useState('')
   const [priceCheckPrice, setPriceCheckPrice] = useState<number | null>(null)
+  const [upgradeModal, setUpgradeModal] = useState<{ feature: string; desc: string; tier: string } | null>(null)
   const [histWindow, setHistWindow] = useState<'3M' | '6M' | '12M' | 'ALL'>('ALL')
   const [gradingSvc, setGradingSvc] = useState(0)
   const [cardTab, setCardTab] = useState<'price' | 'market' | 'analysis'>('price')
@@ -1336,9 +1337,12 @@ export default function CardPageClient() {
                           ⚖ Compare
                         </Link>
                       ) : (
-                        <Link href="/pricing" style={{ padding: '8px 14px', borderRadius: 10, background: 'var(--surface2)', border: '1.5px solid var(--border2)', fontSize: 11, fontWeight: 600, color: 'var(--ink3)', width: '100%', textDecoration: 'none', display: 'block', textAlign: 'center', boxSizing: 'border-box' }}>
+                        <button
+                          onClick={() => setUpgradeModal({ feature: 'Compare Cards', desc: 'Side-by-side price and trend comparison across multiple cards and grades.', tier: 'Pro' })}
+                          style={{ padding: '8px 14px', borderRadius: 10, background: 'var(--surface2)', border: '1.5px solid var(--border2)', fontSize: 11, fontWeight: 600, color: 'var(--ink3)', width: '100%', display: 'block', textAlign: 'center', boxSizing: 'border-box', cursor: 'pointer' }}
+                        >
                           🔒 Compare — Pro
-                        </Link>
+                        </button>
                       )}
                       {/* Share — Pro+ */}
                       {liveData && (userTier === 'pro' || isAdmin) && (
@@ -1763,9 +1767,12 @@ export default function CardPageClient() {
                   {/* ── Price Check trigger ─────────────────────────────── */}
                   <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
                     {!getTierLimits(userTier).priceCheck ? (
-                      <Link href="/pricing" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', padding: '9px 0', borderRadius: 8, background: 'none', border: '1px solid var(--border2)', color: 'var(--ink3)', fontSize: 13, fontWeight: 600, textDecoration: 'none' }}>
+                      <button
+                        onClick={() => setUpgradeModal({ feature: 'Price Check', desc: 'Compare your purchase price directly to the live market rate to see if you got a deal.', tier: 'Standard' })}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', padding: '9px 0', borderRadius: 8, background: 'none', border: '1px solid var(--border2)', color: 'var(--ink3)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+                      >
                         🔒 Price Check — Standard+
-                      </Link>
+                      </button>
                     ) : priceCheckOpen ? (
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                         <div style={{ position: 'relative', flex: 1 }}>
@@ -3433,9 +3440,13 @@ export default function CardPageClient() {
                       Compare
                     </Link>
                   ) : isLoggedIn ? (
-                    <Link href="/pricing" className="ci-no-print" style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface2)', border: '1.5px solid var(--border2)', borderRadius: 10, padding: '9px 14px', fontSize: 11, fontWeight: 600, color: 'var(--ink3)', textDecoration: 'none' }}>
+                    <button
+                      className="ci-no-print"
+                      onClick={() => setUpgradeModal({ feature: 'Compare Cards', desc: 'Side-by-side price and trend comparison across multiple cards and grades.', tier: 'Pro' })}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface2)', border: '1.5px solid var(--border2)', borderRadius: 10, padding: '9px 14px', fontSize: 11, fontWeight: 600, color: 'var(--ink3)', cursor: 'pointer' }}
+                    >
                       🔒 Compare — Pro
-                    </Link>
+                    </button>
                   ) : null}
                   {/* Share — Pro+ */}
                   {liveData && (userTier === 'pro' || isAdmin) && (
@@ -4867,6 +4878,42 @@ export default function CardPageClient() {
         visible={toastVisible}
         onHide={() => setToastVisible(false)}
       />
+
+      {/* ── Upgrade modal ──────────────────────────────────────────────────── */}
+      {upgradeModal && (
+        <div
+          style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+          onClick={() => setUpgradeModal(null)}
+        >
+          <div
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, padding: 32, maxWidth: 380, width: '100%', position: 'relative' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setUpgradeModal(null)}
+              style={{ position: 'absolute', top: 14, right: 16, background: 'none', border: 'none', color: 'var(--ink3)', fontSize: 18, cursor: 'pointer', lineHeight: 1 }}
+              aria-label="Close"
+            >✕</button>
+
+            <div style={{ textAlign: 'center', marginBottom: 20 }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 52, height: 52, borderRadius: 14, background: 'rgba(232,197,71,0.08)', border: '1px solid rgba(232,197,71,0.2)', fontSize: 24, marginBottom: 16 }}>🔒</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px', marginBottom: 8 }}>{upgradeModal.feature}</div>
+              <div style={{ fontSize: 13, color: 'var(--ink2)', lineHeight: 1.6 }}>{upgradeModal.desc}</div>
+            </div>
+
+            <div style={{ background: 'var(--surface2)', borderRadius: 12, padding: '14px 16px', marginBottom: 20, fontSize: 12, color: 'var(--ink2)', lineHeight: 1.7 }}>
+              Requires <strong style={{ color: 'var(--gold)' }}>{upgradeModal.tier}</strong> plan or higher.
+            </div>
+
+            <a
+              href="/pricing"
+              style={{ display: 'block', width: '100%', padding: '13px 0', background: '#e8c547', color: '#09090f', fontWeight: 800, fontSize: 14, borderRadius: 12, textAlign: 'center', textDecoration: 'none', boxSizing: 'border-box' }}
+            >
+              View Plans
+            </a>
+          </div>
+        </div>
+      )}
     </>
   )
 }

@@ -124,6 +124,8 @@ export default function Dashboard() {
 
   const [activeBanner, setActiveBanner] = useState<{ id: string; title: string; body: string; cta_label: string | null; cta_url: string | null } | null>(null)
   const [bannerDismissed, setBannerDismissed] = useState(false)
+  const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null)
+  const [trialBannerDismissed, setTrialBannerDismissed] = useState(false)
   const [watchlistItems, setWatchlistItems] = useState<WatchlistItem[]>([])
   const [recentlyViewed, setRecentlyViewed] = useState<RecentlyViewedItem[]>([])
   const [portfolioStats, setPortfolioStats] = useState<PortfolioStats | null>(null)
@@ -137,6 +139,12 @@ export default function Dashboard() {
   const load = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.replace('/'); return }
+
+    // Fetch profile for trial info
+    supabase.from('profiles').select('trial_ends_at, tier').eq('id', user.id).single()
+      .then(({ data: prof }) => {
+        if (prof?.trial_ends_at) setTrialEndsAt(prof.trial_ends_at)
+      })
 
     let rvItems: RecentlyViewedItem[] = []
     try {
@@ -469,6 +477,27 @@ export default function Dashboard() {
               )}
             </div>
           </div>
+
+          {/* ── Trial countdown banner ── */}
+          {(() => {
+            if (!trialEndsAt || trialBannerDismissed) return null
+            const msLeft = new Date(trialEndsAt).getTime() - Date.now()
+            const daysLeft = Math.ceil(msLeft / (1000 * 60 * 60 * 24))
+            if (daysLeft <= 0 || daysLeft > 7) return null
+            const urgent = daysLeft <= 2
+            return (
+              <div className="dash-banner" style={{ borderColor: urgent ? 'rgba(232,82,74,0.5)' : 'rgba(232,197,71,0.4)', background: urgent ? 'rgba(232,82,74,0.06)' : undefined }}>
+                <div className="dash-banner-body">
+                  <div className="dash-banner-title" style={{ color: urgent ? '#e8524a' : undefined }}>
+                    {urgent ? `⚠️ Pro trial expires in ${daysLeft === 1 ? '1 day' : `${daysLeft} days`}` : `Your Pro trial ends in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}`}
+                  </div>
+                  <div className="dash-banner-text">Upgrade to keep price history, trend indicators, and portfolio tracking.</div>
+                  <a href="/pricing" className="dash-banner-cta" style={{ background: urgent ? '#e8524a' : undefined }}>Upgrade now</a>
+                </div>
+                <button className="dash-banner-dismiss" onClick={() => setTrialBannerDismissed(true)} aria-label="Dismiss">✕</button>
+              </div>
+            )
+          })()}
 
           {/* ── Active banner ── */}
           {activeBanner && !bannerDismissed && (

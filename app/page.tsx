@@ -221,7 +221,7 @@ export default function Home() {
               </div>
               <div className="anim d5 hero-trust" style={{ display: 'flex', alignItems: 'center', gap: 18, fontSize: 12, color: '#eeeef8', flexWrap: 'wrap' }}>
                 <span><span style={{ color: GREEN }}>✓</span> Free to start</span>
-                <span><span style={{ color: GREEN }}>✓</span> 14-day Pro trial</span>
+                <span><span style={{ color: GREEN }}>✓</span> 7-day Pro trial</span>
                 <span><span style={{ color: GREEN }}>✓</span> No card needed</span>
               </div>
             </div>

@@ -14,7 +14,7 @@ create table if not exists public.profiles (
   subscription_status     text,
   created_at    timestamptz default now(),
   last_active_at timestamptz,  -- heartbeat: updated by the app on launch/foreground
-  trial_ends_at  timestamptz   -- 14-day Pro trial expiry, set on signup
+  trial_ends_at  timestamptz   -- 7-day Pro trial expiry, set on signup
 );
 
 -- Backfill for existing databases (schema uses create-if-not-exists above)
@@ -26,7 +26,7 @@ create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
   insert into public.profiles (id, email, username, trial_ends_at)
-  values (new.id, new.email, new.raw_user_meta_data->>'username', now() + interval '14 days');
+  values (new.id, new.email, new.raw_user_meta_data->>'username', now() + interval '7 days');
   return new;
 end;
 $$;

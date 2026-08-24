@@ -45,6 +45,8 @@ export async function GET(req: NextRequest) {
   const todayStart = new Date(now); todayStart.setUTCHours(0, 0, 0, 0)
   const yesterdayStart = new Date(todayStart.getTime() - 86400000)
 
+  const ninetyDaysAgo = new Date(now.getTime() - 90 * 86400000)
+
   const [
     { data: funnel },
     { data: dailySearches },
@@ -58,11 +60,12 @@ export async function GET(req: NextRequest) {
     { data: watchlistUsers },
     { data: searchLogUsers },
     { data: approvedUpgrades },
+    { data: recentSearchLog },
   ] = await Promise.all([
     admin.from('admin_funnel_summary').select('*').single(),
     admin.rpc('search_volume_by_day', { days: 30 }),
     admin.from('platform_stats').select('value').eq('key', 'archived_searches').single(),
-    admin.from('profiles').select('id, last_active_at, tier, trial_ends_at, stripe_customer_id, created_at'),
+    admin.from('profiles').select('id, last_active_at, tier, trial_ends_at, stripe_customer_id, apple_original_transaction_id, created_at'),
     // All API calls (searches + refreshes)
     admin.from('search_log').select('*', { count: 'exact', head: true }),
     // User-initiated searches only (no source tag)
@@ -80,6 +83,12 @@ export async function GET(req: NextRequest) {
     admin.from('watchlists').select('user_id'),
     admin.from('search_log').select('user_id').not('user_id', 'is', null).is('source', null),
     admin.from('upgrade_requests').select('user_id').eq('action', 'approve'),
+    // Recent search log with timestamps — used for cohort, day-by-day, top cards, median
+    admin.from('search_log')
+      .select('user_id, card_id, card_name, searched_at')
+      .is('source', null)
+      .not('user_id', 'is', null)
+      .gte('searched_at', ninetyDaysAgo.toISOString()),
   ])
 
   const profiles      = allProfiles ?? []
@@ -106,7 +115,11 @@ export async function GET(req: NextRequest) {
 
   // ── Churn (ever paid → now free) ─────────────────────────────────────────
   const approvedUserIds = new Set((approvedUpgrades ?? []).map(r => r.user_id))
-  const everPaid        = profiles.filter(p => approvedUserIds.has(p.id) || (p.stripe_customer_id ?? null) !== null)
+  const everPaid        = profiles.filter(p =>
+    approvedUserIds.has(p.id) ||
+    (p.stripe_customer_id ?? null) !== null ||
+    (p.apple_original_transaction_id ?? null) !== null
+  )
   const churned         = everPaid.filter(p => p.tier === 'free')
   const churnRate       = everPaid.length > 0
     ? +((churned.length / everPaid.length) * 100).toFixed(1)
@@ -144,6 +157,122 @@ export async function GET(req: NextRequest) {
     }
   }
   const powerUsers = Object.values(searchCountMap).filter(c => c > POWER_THRESHOLD).length
+
+  // ── Cohort retention by signup week (last 6 weeks) ───────────────────────
+  const sixWeeksAgo = new Date(now.getTime() - 42 * 86400000)
+  const weekFloor = (d: Date): string => {
+    const copy = new Date(d)
+    copy.setUTCHours(0, 0, 0, 0)
+    copy.setUTCDate(copy.getUTCDate() - copy.getUTCDay()) // floor to Sunday
+    return copy.toISOString().slice(0, 10)
+  }
+  const recentSignups = profiles.filter(p => new Date(p.created_at) >= sixWeeksAgo)
+  const cohortMap: Record<string, { signups: number; searched: number; portfolio: number; paid: number }> = {}
+  for (const p of recentSignups) {
+    const week = weekFloor(new Date(p.created_at))
+    if (!cohortMap[week]) cohortMap[week] = { signups: 0, searched: 0, portfolio: 0, paid: 0 }
+    cohortMap[week].signups++
+    if (searchedSet.has(p.id)) cohortMap[week].searched++
+    if (portfolioSet.has(p.id)) cohortMap[week].portfolio++
+    if (p.tier !== 'free') cohortMap[week].paid++
+  }
+  const cohortRetention = Object.entries(cohortMap)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([week, d]) => ({
+      week,
+      signups:       d.signups,
+      searched:      d.searched,
+      portfolio:     d.portfolio,
+      paid:          d.paid,
+      searchRate:    d.signups > 0 ? +((d.searched  / d.signups) * 100).toFixed(1) : 0,
+      portfolioRate: d.signups > 0 ? +((d.portfolio / d.signups) * 100).toFixed(1) : 0,
+    }))
+
+  // ── Trial day-by-day engagement ───────────────────────────────────────────
+  // For each user with a trial, bucket searches by day relative to trial start (ends_at - 7d)
+  const trialProfileMap: Record<string, Date> = {}
+  for (const p of profiles) {
+    if (p.trial_ends_at) {
+      const trialStart = new Date(new Date(p.trial_ends_at).getTime() - 7 * 86400000)
+      trialProfileMap[p.id] = trialStart
+    }
+  }
+  const dayBuckets: Record<number, { searches: number; users: Set<string> }> = {}
+  for (let i = 0; i <= 6; i++) dayBuckets[i] = { searches: 0, users: new Set() }
+  for (const row of recentSearchLog ?? []) {
+    if (!row.user_id || !row.searched_at) continue
+    const trialStart = trialProfileMap[row.user_id]
+    if (!trialStart) continue
+    const dayOffset = Math.floor(
+      (new Date(row.searched_at).getTime() - trialStart.getTime()) / 86400000
+    )
+    if (dayOffset >= 0 && dayOffset <= 6) {
+      dayBuckets[dayOffset].searches++
+      dayBuckets[dayOffset].users.add(row.user_id)
+    }
+  }
+  const trialDayEngagement = Array.from({ length: 7 }, (_, i) => ({
+    day:         i,
+    searches:    dayBuckets[i].searches,
+    uniqueUsers: dayBuckets[i].users.size,
+  }))
+
+  // ── Top 10 searched cards (last 90 days) ──────────────────────────────────
+  const cardCountMap: Record<string, { cardName: string; count: number }> = {}
+  for (const row of recentSearchLog ?? []) {
+    if (!row.card_id) continue
+    const key = row.card_id as string
+    if (!cardCountMap[key]) cardCountMap[key] = { cardName: (row.card_name as string | null) ?? key, count: 0 }
+    cardCountMap[key].count++
+  }
+  const topSearchedCards = Object.entries(cardCountMap)
+    .sort(([, a], [, b]) => b.count - a.count)
+    .slice(0, 10)
+    .map(([cardId, { cardName, count }]) => ({ cardId, cardName, count }))
+
+  // ── Median hours: signup → first search ──────────────────────────────────
+  const firstSearchMap: Record<string, number> = {}
+  for (const row of recentSearchLog ?? []) {
+    if (!row.user_id || !row.searched_at) continue
+    const ts = new Date(row.searched_at).getTime()
+    if (!(row.user_id in firstSearchMap) || ts < firstSearchMap[row.user_id]) {
+      firstSearchMap[row.user_id] = ts
+    }
+  }
+  const profileCreatedMap: Record<string, number> = {}
+  for (const p of profiles) profileCreatedMap[p.id] = new Date(p.created_at).getTime()
+
+  const hoursToFirstSearch: number[] = []
+  for (const [uid, firstTs] of Object.entries(firstSearchMap)) {
+    const createdTs = profileCreatedMap[uid]
+    if (createdTs != null) {
+      const hours = (firstTs - createdTs) / 3600000
+      if (hours >= 0) hoursToFirstSearch.push(hours)
+    }
+  }
+  hoursToFirstSearch.sort((a, b) => a - b)
+  const medianHoursToFirstSearch = hoursToFirstSearch.length > 0
+    ? +hoursToFirstSearch[Math.floor(hoursToFirstSearch.length / 2)].toFixed(1)
+    : null
+
+  // ── Paywall impressions from app_events ───────────────────────────────────
+  let paywallImpressions: { context: string; impressions: number }[] = []
+  try {
+    const { data: pwEvents } = await admin
+      .from('app_events')
+      .select('properties')
+      .eq('event_name', 'paywall_shown')
+    if (pwEvents && pwEvents.length > 0) {
+      const pwMap: Record<string, number> = {}
+      for (const row of pwEvents) {
+        const ctx = (row.properties as { context?: string })?.context ?? 'unknown'
+        pwMap[ctx] = (pwMap[ctx] ?? 0) + 1
+      }
+      paywallImpressions = Object.entries(pwMap)
+        .sort(([, a], [, b]) => b - a)
+        .map(([context, impressions]) => ({ context, impressions }))
+    }
+  } catch { /* app_events table may not exist yet */ }
 
   // ── Cache coverage ────────────────────────────────────────────────────────
   const [
@@ -211,6 +340,11 @@ export async function GET(req: NextRequest) {
         cached:         cachedSet.size,
         rate:           cachedCoverage,
       },
+      cohortRetention,
+      trialDayEngagement,
+      topSearchedCards,
+      medianHoursToFirstSearch,
+      paywallImpressions,
     },
   })
 }

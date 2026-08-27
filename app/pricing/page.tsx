@@ -19,54 +19,31 @@ const tiers = [
       { text: 'Full market overview page', included: true },
       { text: 'Recently viewed cards', included: true },
       { text: 'Watchlist (up to 5 cards)', included: true },
-      { text: 'Price Check (enter your price for analysis)', included: false },
-      { text: 'Price history & trend indicators', included: false },
-      { text: 'Advanced analytics (12 panels)', included: false },
-      { text: 'Compare cards side-by-side', included: false },
-      { text: 'Portfolio & P&L tracking', included: false },
-    ],
-  },
-  {
-    name: 'Standard',
-    tagline: 'For collectors who want to track and act on the market',
-    monthlyPrice: 9,
-    annualPrice: 7,
-    cta: 'Start Standard',
-    highlight: true,
-    badge: 'Most popular',
-    features: [
-      { text: 'Everything in Free', included: true },
-      { text: 'Watchlist (up to 30 cards)', included: true },
-      { text: 'Price Check — analyse any price against the market', included: true },
-      { text: 'Price history chart (30 / 90 day windows)', included: true },
-      { text: '30d price change % & trend badge', included: true },
-      { text: 'All-grade price ladder (PSA, BGS, CGC)', included: true },
-      { text: 'Export card analysis as PDF', included: true },
-      { text: 'Advanced analytics — 12 panels:', included: true },
-      { text: '  Moving average signal & price velocity', included: true },
-      { text: '  Volatility, momentum phases & score radar', included: true },
-      { text: '  Grade premium, outlier detection & more', included: true },
+      { text: 'Price history & analytics', included: false },
+      { text: 'Price Check tool', included: false },
       { text: 'Compare cards side-by-side', included: false },
       { text: 'Portfolio & P&L tracking', included: false },
     ],
   },
   {
     name: 'Pro',
-    tagline: 'For serious investors managing large collections',
-    monthlyPrice: 19,
-    annualPrice: 15,
+    tagline: 'Everything you need to track and trade smarter',
+    monthlyPrice: 4.99,
+    annualPrice: 3.33,
     cta: 'Start Pro',
-    highlight: false,
+    highlight: true,
+    badge: 'Most popular',
     features: [
-      { text: 'Everything in Standard', included: true },
-      { text: 'Watchlist (up to 100 cards)', included: true },
-      { text: 'Compare up to 5 cards side-by-side', included: true },
-      { text: 'Full price analysis suite:', included: true },
-      { text: '  vs-market comparison & price position gauge', included: true },
-      { text: '  VWAP analysis & sale velocity', included: true },
-      { text: '  Score opportunity breakdown', included: true },
-      { text: '  eBay sold listings with outlier flags', included: true },
+      { text: 'Everything in Free', included: true },
+      { text: 'Unlimited watchlist', included: true },
       { text: 'Portfolio tracking — positions, cost basis, P&L', included: true },
+      { text: 'Price Check — analyse any price against the market', included: true },
+      { text: 'Price history chart (30 / 90 day windows)', included: true },
+      { text: '30d price change % & trend badge', included: true },
+      { text: 'All-grade price ladder (PSA, BGS, CGC)', included: true },
+      { text: 'Advanced analytics — 12 panels', included: true },
+      { text: 'Compare cards side-by-side', included: true },
+      { text: 'Share card snapshots', included: true },
       { text: 'CSV export (watchlist & portfolio)', included: true },
     ],
   },
@@ -74,12 +51,8 @@ const tiers = [
 
 const faqs = [
   {
-    q: 'Can I switch plans later?',
-    a: 'Yes — you can upgrade, downgrade, or cancel at any time. Changes take effect at the start of your next billing cycle.',
-  },
-  {
-    q: 'What\'s the difference between Standard and Pro?',
-    a: 'Standard gives you Price Check, the full analytics suite (12 panels), price history charts, and PDF export. Pro adds card comparison (up to 5 cards side-by-side), the full price analysis suite (VWAP, vs-market comparison, eBay listings), portfolio tracking with P&L reporting, and CSV export.',
+    q: 'Is there a free trial?',
+    a: 'Yes — all new accounts get a 7-day free trial of Pro. No credit card required to sign up.',
   },
   {
     q: 'Can I cancel my subscription?',
@@ -87,11 +60,15 @@ const faqs = [
   },
   {
     q: 'What payment methods do you accept?',
-    a: 'We accept all major credit and debit cards. Annual plans are charged upfront and save you up to 22%.',
+    a: 'We accept all major credit and debit cards via Stripe. Annual plans are charged upfront and save you around 33%.',
+  },
+  {
+    q: 'What happens to my data if I cancel?',
+    a: 'Your watchlist and portfolio data is saved. If you re-subscribe, everything is right where you left it.',
   },
 ]
 
-type UserTier = 'free' | 'standard' | 'pro' | null
+type UserTier = 'free' | 'pro' | null
 
 export default function Pricing() {
   const [annual, setAnnual] = useState(false)
@@ -115,10 +92,6 @@ export default function Pricing() {
 
   // Map tier name + billing cycle → Stripe price ID
   const PRICE_IDS: Record<string, Record<string, string>> = {
-    standard: {
-      monthly: process.env.NEXT_PUBLIC_STRIPE_PRICE_STANDARD_MONTHLY ?? '',
-      annual:  process.env.NEXT_PUBLIC_STRIPE_PRICE_STANDARD_ANNUAL  ?? '',
-    },
     pro: {
       monthly: process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO_MONTHLY ?? '',
       annual:  process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO_ANNUAL  ?? '',
@@ -202,7 +175,7 @@ export default function Pricing() {
                 >
                   Annual
                   <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--green)', background: 'rgba(61,232,138,0.12)', border: '1px solid rgba(61,232,138,0.25)', borderRadius: 99, padding: '1px 7px', letterSpacing: 0.5 }}>
-                    SAVE 22%
+                    SAVE 33%
                   </span>
                 </button>
               </div>
@@ -252,7 +225,7 @@ export default function Pricing() {
                   </div>
                   {tier.monthlyPrice > 0 && annual && (
                     <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 4 }}>
-                      Billed ${tier.annualPrice * 12}/year
+                      Billed $39.99/year
                     </div>
                   )}
                   {tier.monthlyPrice === 0 && (

@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
     admin.from('admin_funnel_summary').select('*').single(),
     admin.rpc('search_volume_by_day', { days: 30 }),
     admin.from('platform_stats').select('value').eq('key', 'archived_searches').single(),
-    admin.from('profiles').select('id, last_active_at, tier, trial_ends_at, stripe_customer_id, apple_original_transaction_id, created_at'),
+    admin.from('profiles').select('id, last_active_at, tier, trial_ends_at, stripe_customer_id, apple_original_transaction_id, created_at, subscription_status'),
     admin.from('search_log').select('*', { count: 'exact', head: true }),
     admin.from('search_log').select('*', { count: 'exact', head: true }).is('source', null),
     admin.from('search_log').select('*', { count: 'exact', head: true })
@@ -119,7 +119,8 @@ export async function GET(req: NextRequest) {
   const everPaid        = profiles.filter(p =>
     approvedUserIds.has(p.id) ||
     (p.stripe_customer_id ?? null) !== null ||
-    (p.apple_original_transaction_id ?? null) !== null
+    (p.apple_original_transaction_id ?? null) !== null ||
+    (p.subscription_status != null && p.subscription_status !== '')
   )
   const churned         = everPaid.filter(p => p.tier === 'free')
   const churnRate       = everPaid.length > 0

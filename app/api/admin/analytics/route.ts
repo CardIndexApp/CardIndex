@@ -397,8 +397,18 @@ export async function GET(req: NextRequest) {
     ? +([...searchedCombos].filter(k => cachedSet.has(k)).length / searchedCombos.size * 100).toFixed(1)
     : 0
 
+  const funnelMapped = funnel ? {
+    totalSignups:   (funnel as Record<string, unknown>).total_signups   ?? (funnel as Record<string, unknown>).totalSignups,
+    searched:       (funnel as Record<string, unknown>).searched,
+    addedPortfolio: (funnel as Record<string, unknown>).added_portfolio ?? (funnel as Record<string, unknown>).addedPortfolio,
+    convertedPaid:  (funnel as Record<string, unknown>).converted_paid  ?? (funnel as Record<string, unknown>).convertedPaid,
+    pctSearched:    (funnel as Record<string, unknown>).pct_searched    ?? (funnel as Record<string, unknown>).pctSearched,
+    pctPortfolio:   (funnel as Record<string, unknown>).pct_portfolio   ?? (funnel as Record<string, unknown>).pctPortfolio,
+    pctPaid:        (funnel as Record<string, unknown>).pct_paid        ?? (funnel as Record<string, unknown>).pctPaid,
+  } : null
+
   return NextResponse.json({
-    funnel,
+    funnel: funnelMapped,
     retention: {
       dau,
       wau,

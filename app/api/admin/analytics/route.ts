@@ -397,14 +397,16 @@ export async function GET(req: NextRequest) {
     ? +([...searchedCombos].filter(k => cachedSet.has(k)).length / searchedCombos.size * 100).toFixed(1)
     : 0
 
-  const funnelMapped = funnel ? {
-    totalSignups:   (funnel as Record<string, unknown>).total_signups   ?? (funnel as Record<string, unknown>).totalSignups,
-    searched:       (funnel as Record<string, unknown>).searched,
-    addedPortfolio: (funnel as Record<string, unknown>).added_portfolio ?? (funnel as Record<string, unknown>).addedPortfolio,
-    convertedPaid:  (funnel as Record<string, unknown>).converted_paid  ?? (funnel as Record<string, unknown>).convertedPaid,
-    pctSearched:    (funnel as Record<string, unknown>).pct_searched    ?? (funnel as Record<string, unknown>).pctSearched,
-    pctPortfolio:   (funnel as Record<string, unknown>).pct_portfolio   ?? (funnel as Record<string, unknown>).pctPortfolio,
-    pctPaid:        (funnel as Record<string, unknown>).pct_paid        ?? (funnel as Record<string, unknown>).pctPaid,
+  const f = funnel as Record<string, unknown> | null
+  const funnelMapped = f ? {
+    totalSignups:   f.total_signups   ?? f.totalSignups,
+    searched:       f.searched,
+    addedPortfolio: f.added_portfolio ?? f.addedPortfolio,
+    addedWatchlist: f.added_watchlist ?? f.addedWatchlist ?? 0,
+    convertedPaid:  f.converted_paid  ?? f.convertedPaid,
+    pctSearched:    f.pct_searched    ?? f.pctSearched,
+    pctPortfolio:   f.pct_portfolio   ?? f.pctPortfolio,
+    pctPaid:        f.pct_paid        ?? f.pctPaid,
   } : null
 
   return NextResponse.json({

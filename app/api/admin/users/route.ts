@@ -4,6 +4,8 @@
  * Restricted to users with is_admin = true.
  */
 import { NextRequest, NextResponse } from 'next/server'
+
+export const maxDuration = 60
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
@@ -47,84 +49,74 @@ export async function GET(req: NextRequest) {
   if (!caller?.is_admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   // ── Users ────────────────────────────────────────────────────────────────
-  const { data: users, error: usersErr } = await admin
-    .from('profiles')
-    .select('id, email, username, tier, subscription_status, stripe_customer_id, created_at, is_admin, last_active_at, trial_ends_at')
-    .order('created_at', { ascending: false })
+  // ── All queries in parallel ───────────────────────────────────────────────
+  const now            = new Date()
+  const todayStart     = new Date(now); todayStart.setUTCHours(0, 0, 0, 0)
+  const yesterdayStart = new Date(todayStart.getTime() - 86400000)
+  const sevenDaysAgo   = new Date(now.getTime() - 7  * 24 * 60 * 60 * 1000)
+  const thirtyDaysAgo  = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+
+  const [
+    { data: users, error: usersErr },
+    { data: rawRequests },
+    { data: portfolioRows },
+    { data: wlActivity },
+    { data: exactCacheRowsRaw },
+    { data: searchLogRows },
+    { count: totalApiCalls },
+    { count: totalUserSearches },
+    { count: apiCallsYesterday },
+    { count: userSearchesYesterday },
+    { count: cachedCards },
+    { count: staleCacheCount },
+    { count: openReports },
+  ] = await Promise.all([
+    admin.from('profiles')
+      .select('id, email, username, tier, subscription_status, stripe_customer_id, created_at, is_admin, last_active_at, trial_ends_at')
+      .order('created_at', { ascending: false }),
+    admin.from('upgrade_requests')
+      .select('id, user_id, requested_tier, requested_at, actioned_at, action')
+      .order('requested_at', { ascending: false }),
+    admin.from('portfolios')
+      .select('card_id, card_name, grade, purchase_price, quantity, user_id, added_at'),
+    admin.from('watchlists').select('user_id, added_at'),
+    admin.from('search_cache').select('cache_key, card_id, price'),
+    admin.from('search_log').select('user_id').not('user_id', 'is', null).is('source', null),
+    admin.from('search_log').select('*', { count: 'exact', head: true }),
+    admin.from('search_log').select('*', { count: 'exact', head: true }).is('source', null),
+    admin.from('search_log').select('*', { count: 'exact', head: true })
+      .gte('searched_at', yesterdayStart.toISOString()).lt('searched_at', todayStart.toISOString()),
+    admin.from('search_log').select('*', { count: 'exact', head: true })
+      .is('source', null)
+      .gte('searched_at', yesterdayStart.toISOString()).lt('searched_at', todayStart.toISOString()),
+    admin.from('search_cache').select('*', { count: 'exact', head: true }),
+    admin.from('search_cache').select('*', { count: 'exact', head: true })
+      .lt('last_fetched', new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString()),
+    admin.from('card_reports').select('*', { count: 'exact', head: true }),
+  ])
 
   if (usersErr) return NextResponse.json({ error: usersErr.message }, { status: 500 })
 
-  // ── Upgrade requests ─────────────────────────────────────────────────────
-  const { data: rawRequests } = await admin
-    .from('upgrade_requests')
-    .select('id, user_id, requested_tier, requested_at, actioned_at, action')
-    .order('requested_at', { ascending: false })
-
+  // ── Build maps from parallel results ─────────────────────────────────────
   const userMap = Object.fromEntries((users ?? []).map(u => [u.id, u.email]))
   const requests = (rawRequests ?? []).map(r => ({ ...r, user_email: userMap[r.user_id] ?? null }))
 
-  // ── Portfolio stats ───────────────────────────────────────────────────────
-  const { data: portfolioRows } = await admin
-    .from('portfolios')
-    .select('card_id, card_name, grade, purchase_price, quantity, user_id, added_at')
-
   const rows = portfolioRows ?? []
-
-  // ── Per-user latest activity (watchlist + portfolio writes) ───────────────
-  // Used for a more accurate "last seen" than auth.last_sign_in_at, which only
-  // updates on a fresh sign-in (persistent sessions never refresh it).
-  const { data: wlActivity } = await admin
-    .from('watchlists')
-    .select('user_id, added_at')
 
   const activityMap: Record<string, string | null> = {}
   for (const r of [...rows, ...(wlActivity ?? [])] as { user_id: string; added_at?: string | null }[]) {
     activityMap[r.user_id] = latestISO(activityMap[r.user_id] ?? null, r.added_at ?? null)
   }
 
-  const exactKeys = [...new Set(rows.map(r => `${r.card_id}:${r.grade}`))]
-  const { data: exactCacheRows } = exactKeys.length
-    ? await admin.from('search_cache').select('cache_key, card_id, price, last_fetched').in('cache_key', exactKeys)
-    : { data: [] }
-
   const exactPriceMap = Object.fromEntries(
-    (exactCacheRows ?? []).map(c => [c.cache_key, c.price as number | null])
+    (exactCacheRowsRaw ?? []).map(c => [c.cache_key, c.price as number | null])
   )
-
-  const missingCardIds = [...new Set(
-    rows
-      .filter(r => (exactPriceMap[`${r.card_id}:${r.grade}`] ?? null) === null)
-      .map(r => r.card_id)
-  )]
-
-  const { data: fallbackCacheRows } = missingCardIds.length
-    ? await admin
-        .from('search_cache')
-        .select('card_id, grade, price, last_fetched')
-        .in('card_id', missingCardIds)
-        .not('price', 'is', null)
-        .order('last_fetched', { ascending: false })
-    : { data: [] }
-
-  const fallbackPriceMap: Record<string, number> = {}
-  for (const row of (fallbackCacheRows ?? [])) {
-    const key = row.card_id
-    if (!fallbackPriceMap[key]) fallbackPriceMap[key] = row.price as number
-  }
-  for (const row of (fallbackCacheRows ?? [])) {
-    const missingRow = rows.find(r => r.card_id === row.card_id)
-    if (missingRow && row.grade === missingRow.grade) {
-      fallbackPriceMap[row.card_id] = row.price as number
-    }
-  }
 
   const portfolioStats = rows.reduce(
     (acc, row) => {
       const qty      = row.quantity ?? 1
       const cost     = (row.purchase_price ?? 0) * qty
-      const mktPrice = exactPriceMap[`${row.card_id}:${row.grade}`]
-        ?? fallbackPriceMap[row.card_id]
-        ?? null
+      const mktPrice = exactPriceMap[`${row.card_id}:${row.grade}`] ?? null
 
       acc.totalCostBasis += cost
       acc.totalPositions += qty
@@ -146,19 +138,12 @@ export async function GET(req: NextRequest) {
   )
 
   const usersWithPortfolioCount = portfolioStats.usersWithPortfolio.size
-  const avgCardsPerPortfolio = usersWithPortfolioCount > 0
-    ? portfolioStats.totalPositions / usersWithPortfolioCount
-    : 0
-  const avgPortfolioValue = usersWithPortfolioCount > 0
-    ? portfolioStats.totalMarketValue / usersWithPortfolioCount
-    : 0
+  const avgCardsPerPortfolio    = usersWithPortfolioCount > 0 ? portfolioStats.totalPositions / usersWithPortfolioCount : 0
+  const avgPortfolioValue       = usersWithPortfolioCount > 0 ? portfolioStats.totalMarketValue / usersWithPortfolioCount : 0
 
-  // ── Top tracked cards (by number of users tracking) ──────────────────────
   const cardTrackMap: Record<string, { card_name: string; count: number }> = {}
   for (const row of rows) {
-    if (!cardTrackMap[row.card_id]) {
-      cardTrackMap[row.card_id] = { card_name: row.card_name ?? row.card_id, count: 0 }
-    }
+    if (!cardTrackMap[row.card_id]) cardTrackMap[row.card_id] = { card_name: row.card_name ?? row.card_id, count: 0 }
     cardTrackMap[row.card_id].count += 1
   }
   const topTrackedCards = Object.entries(cardTrackMap)
@@ -166,76 +151,21 @@ export async function GET(req: NextRequest) {
     .sort((a, b) => b.count - a.count)
     .slice(0, 5)
 
-  // ── Growth metrics ────────────────────────────────────────────────────────
-  const now = new Date()
-  const sevenDaysAgo  = new Date(now.getTime() - 7  * 24 * 60 * 60 * 1000)
-  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-
-  const profileList = users ?? []
-  const newThisWeek  = profileList.filter(u => new Date(u.created_at) >= sevenDaysAgo).length
-  const newThisMonth = profileList.filter(u => new Date(u.created_at) >= thirtyDaysAgo).length
-
+  const profileList    = users ?? []
+  const newThisWeek    = profileList.filter(u => new Date(u.created_at) >= sevenDaysAgo).length
+  const newThisMonth   = profileList.filter(u => new Date(u.created_at) >= thirtyDaysAgo).length
   const paidCount      = profileList.filter(u => u.tier !== 'free').length
   const conversionRate = profileList.length > 0 ? (paidCount / profileList.length) * 100 : 0
-
-  // Auth sign-in timestamps (one signal among several for "last seen")
-  const lastSignInMap: Record<string, string | null> = {}
-  try {
-    const { data: { users: authUsers } } = await admin.auth.admin.listUsers({ perPage: 1000 })
-    for (const u of authUsers) lastSignInMap[u.id] = u.last_sign_in_at ?? null
-  } catch { /* non-fatal */ }
-
-  // ── Usage / health metrics ────────────────────────────────────────────────
-  const todayStart     = new Date(now); todayStart.setUTCHours(0, 0, 0, 0)
-  const yesterdayStart = new Date(todayStart.getTime() - 86400000)
-
-  const [
-    { count: totalApiCalls },
-    { count: totalUserSearches },
-    { count: apiCallsYesterday },
-    { count: userSearchesYesterday },
-    { count: cachedCards },
-    { count: staleCacheCount },
-    { count: openReports },
-  ] = await Promise.all([
-    // All API calls (searches + background refreshes)
-    admin.from('search_log').select('*', { count: 'exact', head: true }),
-    // User-initiated searches only (no source tag)
-    admin.from('search_log').select('*', { count: 'exact', head: true }).is('source', null),
-    // All API calls yesterday
-    admin.from('search_log').select('*', { count: 'exact', head: true })
-      .gte('searched_at', yesterdayStart.toISOString())
-      .lt('searched_at', todayStart.toISOString()),
-    // User searches yesterday
-    admin.from('search_log').select('*', { count: 'exact', head: true })
-      .is('source', null)
-      .gte('searched_at', yesterdayStart.toISOString())
-      .lt('searched_at', todayStart.toISOString()),
-    admin.from('search_cache').select('*', { count: 'exact', head: true }),
-    admin.from('search_cache')
-      .select('*', { count: 'exact', head: true })
-      .lt('last_fetched', new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString()),
-    admin.from('card_reports').select('*', { count: 'exact', head: true }),
-  ])
-
-  // ── Per-user search counts (user-initiated only, no refreshes) ───────────
-  const { data: searchLogRows } = await admin
-    .from('search_log')
-    .select('user_id')
-    .not('user_id', 'is', null)
-    .is('source', null)
 
   const searchCountMap: Record<string, number> = {}
   for (const row of searchLogRows ?? []) {
     if (row.user_id) searchCountMap[row.user_id] = (searchCountMap[row.user_id] ?? 0) + 1
   }
 
-  // Merge sign-in + derived last-active into each user row.
-  // last_active_at = most recent of sign-in, watchlist add, portfolio add.
-  const usersWithLastSeen = (users ?? []).map(u => ({
+  const usersWithLastSeen = profileList.map(u => ({
     ...u,
-    last_sign_in_at: lastSignInMap[u.id] ?? null,
-    last_active_at:  latestISO(u.last_active_at, lastSignInMap[u.id] ?? null, activityMap[u.id] ?? null),
+    last_sign_in_at: null,
+    last_active_at:  latestISO(u.last_active_at, activityMap[u.id] ?? null),
     search_count:    searchCountMap[u.id] ?? 0,
   }))
 

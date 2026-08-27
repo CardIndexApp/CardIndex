@@ -106,7 +106,34 @@ interface TcgCard {
   rarity?: string
 }
 
-type AdminTab = 'users' | 'market' | 'content' | 'banners'
+type AdminTab = 'users' | 'market' | 'content' | 'banners' | 'analytics'
+
+interface AnalyticsInsights {
+  trialConversion:          { expiredTrials: number; convertedBeforeExpiry: number; activeTrials: number; rate: number }
+  churn:                    { everPaid: number; nowFree: number; rate: number }
+  featureAdoption:          { portfolioOnly: number; watchlistOnly: number; both: number; neither: number; total: number }
+  searchToPortfolio:        { searchedUsers: number; searchedAndPortfolio: number; rate: number }
+  powerUsers:               { count: number; threshold: number }
+  cacheHitRate:             { uniqueSearched: number; cached: number; rate: number }
+  cohortRetention?:         { week: string; signups: number; searched: number; portfolio: number; paid: number; searchRate: number; portfolioRate: number }[]
+  trialDayEngagement?:      { day: number; searches: number; uniqueUsers: number }[]
+  topSearchedCards?:        { cardId: string; cardName: string; count: number }[]
+  medianHoursToFirstSearch?: number
+  paywallImpressions?:      { context: string; impressions: number; uniqueUsers: number; converted: number; conversionRate: number }[]
+  proFeatureAdoption?:      { feature: string; users: number; proTotal: number; rate: number }[]
+  zombieTrials?:            number
+  dayNReturnRates?:         { dayN: number; cohortSize: number; returned: number; rate: number }[]
+  atRiskChurners?:          number
+  searchDepth?:             { zero: number; low: number; mid: number; high: number; power: number; total: number }
+  trendingCards?:           { cardId: string; cardName: string; thisWeek: number; lastWeek: number; delta: number }[]
+}
+interface AnalyticsData {
+  funnel:               { totalSignups: number; searched: number; addedPortfolio: number; convertedPaid: number; pctSearched: number; pctPortfolio: number; pctPaid: number }
+  retention:            { dau: number; wau: number; mau: number; dauWauRatio: number }
+  searchVolume:         { date: string; count: number }[]
+  totalSearchesAllTime: number
+  insights?:            AnalyticsInsights
+}
 
 interface TopSearchedResponse {
   cards:   TopSearchedCard[]
@@ -389,6 +416,9 @@ export default function AdminPage() {
 
   // ── Banners tab ───────────────────────────────────────────────────────────
   interface AppBanner { id: string; title: string; body: string; cta_label: string | null; cta_url: string | null; active: boolean; created_at: string }
+  const [analytics, setAnalytics]           = useState<AnalyticsData | null>(null)
+  const [analyticsLoading, setAnalyticsLoading] = useState(false)
+
   const [banners, setBanners]               = useState<AppBanner[]>([])
   const [bannersLoading, setBannersLoading] = useState(false)
   const [bannerForm, setBannerForm]         = useState({ title: '', body: '', cta_label: '', cta_url: '' })
@@ -570,6 +600,16 @@ export default function AdminPage() {
   useEffect(() => {
     if (activeTab === 'banners') loadBanners()
   }, [activeTab]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (activeTab !== 'analytics' || analytics) return
+    setAnalyticsLoading(true)
+    fetch('/api/admin/analytics')
+      .then(r => r.json())
+      .then(json => setAnalytics(json))
+      .catch(() => {})
+      .finally(() => setAnalyticsLoading(false))
+  }, [activeTab, analytics])
 
   function handleCardSearchInput(val: string) {
     setCardSearch(val)
@@ -907,7 +947,7 @@ export default function AdminPage() {
 
           {/* Tab switcher */}
           <div className="adm-tabs" style={{ display: 'flex', gap: 4, marginBottom: 28, borderRadius: 10, padding: 4, background: 'var(--surface)', border: '1px solid var(--border2)', width: 'fit-content' }}>
-            {([['users', 'Users'], ['market', 'Market Index'], ['content', 'Content'], ['banners', 'Banners']] as [AdminTab, string][]).map(([tab, label]) => (
+            {([['users', 'Users'], ['market', 'Market Index'], ['content', 'Content'], ['banners', 'Banners'], ['analytics', 'Analytics']] as [AdminTab, string][]).map(([tab, label]) => (
               <button key={tab} onClick={() => setActiveTab(tab)} className={activeTab === tab ? 'adm-tab-active' : 'adm-tab'} style={{
                 padding: '7px 20px', borderRadius: 7, cursor: 'pointer', fontSize: 13, fontWeight: 600,
                 transition: 'all 0.15s',
@@ -1926,6 +1966,377 @@ export default function AdminPage() {
               </div>
             </>
           )}
+
+          {/* ── Analytics tab ────────────────────────────────────────────── */}
+          {activeTab === 'analytics' && (() => {
+            if (analyticsLoading && !analytics) return (
+              <div style={{ padding: 48, textAlign: 'center', fontSize: 13, color: 'var(--ink3)' }}>Loading analytics…</div>
+            )
+            if (!analytics) return (
+              <div style={{ padding: 48, textAlign: 'center' }}>
+                <div style={{ fontSize: 13, color: 'var(--ink3)', marginBottom: 12 }}>Analytics failed to load</div>
+                <button onClick={() => { setAnalytics(null); setAnalyticsLoading(false) }} style={{ fontSize: 12, fontWeight: 600, color: 'var(--gold)', background: 'transparent', border: '1px solid rgba(232,197,71,0.3)', borderRadius: 8, padding: '7px 16px', cursor: 'pointer' }}>Retry</button>
+              </div>
+            )
+            const ins = analytics.insights
+            const pct = (v: number, of: number) => of > 0 ? `${((v / of) * 100).toFixed(1)}%` : '0%'
+
+            const StatTile = ({ label, value, sub, color = 'var(--ink)' }: { label: string; value: string; sub: string; color?: string }) => (
+              <div style={{ borderRadius: 12, padding: '14px 18px', background: 'var(--surface)', border: '1px solid var(--border2)', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.2em', color: 'var(--ink3)', textTransform: 'uppercase' }}>{label}</div>
+                <div className="font-num" style={{ fontSize: 24, fontWeight: 900, color, lineHeight: 1 }}>{value}</div>
+                <div style={{ fontSize: 11, color: 'var(--ink3)' }}>{sub}</div>
+              </div>
+            )
+
+            const SectionHead = ({ title }: { title: string }) => (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, marginTop: 4 }}>
+                <span className="adm-sl">{title}</span>
+                <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+              </div>
+            )
+
+            return (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+                  <button onClick={() => setAnalytics(null)} style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 7, padding: '5px 12px', cursor: 'pointer' }}>↺ Refresh</button>
+                </div>
+
+                {/* Funnel */}
+                <SectionHead title="Conversion Funnel · Since Launch" />
+                <div style={S.card}>
+                  <div style={{ ...S.body, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {[
+                      { label: 'Signed Up',       value: analytics.funnel.totalSignups,   pct: null,                            color: 'var(--blue, #4a9eff)' },
+                      { label: 'Searched',         value: analytics.funnel.searched,       pct: analytics.funnel.pctSearched,    color: 'var(--gold)' },
+                      { label: 'Added Portfolio',  value: analytics.funnel.addedPortfolio, pct: analytics.funnel.pctPortfolio,   color: 'var(--green)' },
+                      { label: 'Converted to Pro', value: analytics.funnel.convertedPaid,  pct: analytics.funnel.pctPaid,        color: 'var(--gold)' },
+                    ].map(step => (
+                      <div key={step.label} style={{ borderRadius: 10, padding: '10px 14px', background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>{step.label}</span>
+                          <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <span className="font-num" style={{ fontSize: 14, fontWeight: 800, color: step.color }}>{step.value}</span>
+                            {step.pct != null && <span style={{ fontSize: 11, color: 'var(--ink3)' }}>{step.pct.toFixed(1)}%</span>}
+                          </span>
+                        </div>
+                        <div style={{ height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${step.pct ?? 100}%`, background: step.color, borderRadius: 3, opacity: 0.7 }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Retention */}
+                <SectionHead title="Retention" />
+                <div className="adm-grid adm-grid-4" style={{ gap: 10, marginBottom: 24 }}>
+                  <StatTile label="DAU" value={`${analytics.retention.dau}`} sub="Active today" color="var(--gold)" />
+                  <StatTile label="WAU" value={`${analytics.retention.wau}`} sub="Active this week" />
+                  <StatTile label="MAU" value={`${analytics.retention.mau}`} sub="Active this month" />
+                  <StatTile label="DAU/WAU" value={`${analytics.retention.dauWauRatio.toFixed(1)}%`} sub="Engagement ratio" color={analytics.retention.dauWauRatio >= 20 ? 'var(--green)' : 'var(--gold)'} />
+                </div>
+
+                {ins && <>
+                  {/* Trial Conversion */}
+                  <SectionHead title="Trial Conversion · Post-Launch" />
+                  <div className="adm-grid adm-grid-4" style={{ gap: 10, marginBottom: 24 }}>
+                    <StatTile label="Converted" value={`${ins.trialConversion.rate.toFixed(1)}%`} sub={`${ins.trialConversion.convertedBeforeExpiry} of ${ins.trialConversion.expiredTrials} expired`} color={ins.trialConversion.rate >= 10 ? 'var(--green)' : ins.trialConversion.rate >= 5 ? 'var(--gold)' : 'var(--red)'} />
+                    <StatTile label="Active Trials" value={`${ins.trialConversion.activeTrials}`} sub="Still in trial" color="var(--gold)" />
+                    <StatTile label="Expired" value={`${ins.trialConversion.expiredTrials}`} sub="Trial ended" />
+                    <StatTile label="Paid" value={`${ins.trialConversion.convertedBeforeExpiry}`} sub="Converted before expiry" color="var(--green)" />
+                  </div>
+
+                  {/* Zombie + At-risk */}
+                  {(ins.zombieTrials != null || ins.atRiskChurners != null) && <>
+                    <SectionHead title="Trial & Churn Risk" />
+                    <div className="adm-grid adm-grid-3" style={{ gap: 10, marginBottom: 24 }}>
+                      {ins.zombieTrials != null && <StatTile label="Zombie Trials" value={`${ins.zombieTrials}`} sub="Expired, never searched" color={ins.zombieTrials === 0 ? 'var(--green)' : 'var(--red)'} />}
+                      {ins.atRiskChurners != null && <StatTile label="At-Risk Pro" value={`${ins.atRiskChurners}`} sub="Pro, inactive 30+ days" color={ins.atRiskChurners === 0 ? 'var(--green)' : ins.atRiskChurners <= 2 ? 'var(--gold)' : 'var(--red)'} />}
+                      <StatTile label="Churn Rate" value={`${ins.churn.rate.toFixed(1)}%`} sub={`${ins.churn.nowFree} of ${ins.churn.everPaid} ever-paid`} color={ins.churn.rate <= 5 ? 'var(--green)' : ins.churn.rate <= 15 ? 'var(--gold)' : 'var(--red)'} />
+                    </div>
+                  </>}
+
+                  {/* D1/D3/D7 */}
+                  {ins.dayNReturnRates && ins.dayNReturnRates.length > 0 && <>
+                    <SectionHead title="Early Return Rates · D1 / D3 / D7" />
+                    <div className="adm-grid adm-grid-3" style={{ gap: 10, marginBottom: 24 }}>
+                      {ins.dayNReturnRates.map(r => (
+                        <div key={r.dayN} style={{ borderRadius: 12, padding: '20px 18px', background: 'var(--surface)', border: '1px solid var(--border2)', textAlign: 'center' }}>
+                          <div className="font-num" style={{ fontSize: 28, fontWeight: 900, color: r.rate >= 30 ? 'var(--green)' : r.rate >= 15 ? 'var(--gold)' : 'var(--red)', lineHeight: 1, marginBottom: 4 }}>{r.rate.toFixed(1)}%</div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>Day {r.dayN}</div>
+                          <div style={{ fontSize: 11, color: 'var(--ink3)' }}>{r.returned} / {r.cohortSize} users</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--ink3)', marginBottom: 24, marginTop: -16 }}>% of users who searched on exactly that day after signup</div>
+                  </>}
+
+                  {/* Search Depth */}
+                  {ins.searchDepth && <>
+                    <SectionHead title="Search Depth · Post-Launch Users" />
+                    <div style={{ ...S.card, marginBottom: 24 }}>
+                      <div style={{ ...S.body, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {([
+                          { label: '0 searches', value: ins.searchDepth.zero,  color: 'var(--red)' },
+                          { label: '1–5',        value: ins.searchDepth.low,   color: 'var(--ink3)' },
+                          { label: '6–20',       value: ins.searchDepth.mid,   color: 'var(--gold)' },
+                          { label: '21–50',      value: ins.searchDepth.high,  color: 'var(--green)' },
+                          { label: '50+',        value: ins.searchDepth.power, color: '#4a9eff' },
+                        ] as const).map(b => (
+                          <div key={b.label} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink)', width: 72, flexShrink: 0 }}>{b.label}</span>
+                            <div style={{ flex: 1, height: 7, borderRadius: 4, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                              <div style={{ height: '100%', width: `${ins.searchDepth!.total > 0 ? (b.value / ins.searchDepth!.total) * 100 : 0}%`, background: b.color, borderRadius: 4, opacity: 0.75 }} />
+                            </div>
+                            <span className="font-num" style={{ fontSize: 12, fontWeight: 700, color: b.color, width: 30, textAlign: 'right' }}>{b.value}</span>
+                            <span style={{ fontSize: 11, color: 'var(--ink3)', width: 40, textAlign: 'right' }}>{pct(b.value, ins.searchDepth!.total)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>}
+
+                  {/* Feature Adoption */}
+                  <SectionHead title="Feature Adoption · Post-Launch" />
+                  <div className="adm-grid adm-grid-4" style={{ gap: 10, marginBottom: 24 }}>
+                    <StatTile label="Both Features" value={pct(ins.featureAdoption.both, ins.featureAdoption.total)} sub={`${ins.featureAdoption.both} users`} color="var(--green)" />
+                    <StatTile label="Portfolio Only" value={pct(ins.featureAdoption.portfolioOnly, ins.featureAdoption.total)} sub={`${ins.featureAdoption.portfolioOnly} users`} color="#4a9eff" />
+                    <StatTile label="Watchlist Only" value={pct(ins.featureAdoption.watchlistOnly, ins.featureAdoption.total)} sub={`${ins.featureAdoption.watchlistOnly} users`} color="var(--gold)" />
+                    <StatTile label="No Features" value={pct(ins.featureAdoption.neither, ins.featureAdoption.total)} sub={`${ins.featureAdoption.neither} users`} color={ins.featureAdoption.neither === 0 ? 'var(--green)' : 'var(--ink3)'} />
+                  </div>
+
+                  {/* Pro Feature Adoption */}
+                  {ins.proFeatureAdoption && ins.proFeatureAdoption.length > 0 && <>
+                    <SectionHead title="Pro Feature Adoption · Unique Users" />
+                    <div style={{ ...S.card, marginBottom: 24 }}>
+                      <div style={{ ...S.body, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {ins.proFeatureAdoption.map(f => (
+                          <div key={f.feature} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink)', width: 100, flexShrink: 0, textTransform: 'capitalize' }}>{f.feature.replace(/_/g, ' ')}</span>
+                            <div style={{ flex: 1, height: 7, borderRadius: 4, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                              <div style={{ height: '100%', width: `${f.rate}%`, background: 'var(--green)', borderRadius: 4, opacity: 0.7 }} />
+                            </div>
+                            <span className="font-num" style={{ fontSize: 12, fontWeight: 700, color: f.rate >= 50 ? 'var(--green)' : f.rate >= 20 ? 'var(--gold)' : 'var(--ink3)', width: 40, textAlign: 'right' }}>{f.rate.toFixed(0)}%</span>
+                          </div>
+                        ))}
+                        <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 4 }}>of {ins.proFeatureAdoption[0]?.proTotal ?? 0} Pro users</div>
+                      </div>
+                    </div>
+                  </>}
+
+                  {/* Search → Portfolio */}
+                  <SectionHead title="Search → Portfolio Rate" />
+                  <div className="adm-grid adm-grid-3" style={{ gap: 10, marginBottom: 24 }}>
+                    <StatTile label="Conversion Rate" value={`${ins.searchToPortfolio.rate.toFixed(1)}%`} sub="Searched → added card" color={ins.searchToPortfolio.rate >= 30 ? 'var(--green)' : ins.searchToPortfolio.rate >= 15 ? 'var(--gold)' : 'var(--ink3)'} />
+                    <StatTile label="Searched Users" value={`${ins.searchToPortfolio.searchedUsers}`} sub="Used search" />
+                    <StatTile label="Converted" value={`${ins.searchToPortfolio.searchedAndPortfolio}`} sub="Search → portfolio" color="var(--green)" />
+                  </div>
+
+                  {/* Median time */}
+                  {ins.medianHoursToFirstSearch != null && <>
+                    <SectionHead title="Time to First Search" />
+                    <div className="adm-grid adm-grid-3" style={{ gap: 10, marginBottom: 24 }}>
+                      <StatTile
+                        label="Median Signup → Search"
+                        value={ins.medianHoursToFirstSearch < 1 ? `${(ins.medianHoursToFirstSearch * 60).toFixed(0)} min` : `${ins.medianHoursToFirstSearch.toFixed(1)} hr`}
+                        sub={ins.medianHoursToFirstSearch < 2 ? 'Fast activation' : ins.medianHoursToFirstSearch < 24 ? 'Good activation' : 'Slow — improve onboarding'}
+                        color={ins.medianHoursToFirstSearch < 2 ? 'var(--green)' : ins.medianHoursToFirstSearch < 24 ? 'var(--gold)' : 'var(--red)'}
+                      />
+                      <StatTile label="Power Users" value={`${ins.powerUsers.count}`} sub={`>${ins.powerUsers.threshold} searches`} color="var(--gold)" />
+                    </div>
+                  </>}
+
+                  {/* Paywall Impressions */}
+                  {ins.paywallImpressions && ins.paywallImpressions.length > 0 && <>
+                    <SectionHead title="Paywall Impressions · By Gate" />
+                    <div style={{ ...S.card, marginBottom: 24 }}>
+                      <div style={S.body}>
+                        <div className="adm-grid adm-grid-3" style={{ gap: 10, marginBottom: 14 }}>
+                          <StatTile label="Total" value={`${ins.paywallImpressions.reduce((a, r) => a + r.impressions, 0)}`} sub="All impressions" color="var(--gold)" />
+                          <StatTile label="Unique Users" value={`${ins.paywallImpressions.reduce((a, r) => a + r.uniqueUsers, 0)}`} sub="Hit a paywall" />
+                          <StatTile label="Converted" value={`${ins.paywallImpressions.reduce((a, r) => a + r.converted, 0)}`} sub="Now Pro" color="var(--green)" />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          {ins.paywallImpressions.map(row => (
+                            <div key={row.context} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                              <div>
+                                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', textTransform: 'capitalize' }}>{row.context.replace(/_/g, ' ')}</div>
+                                <div style={{ fontSize: 11, color: 'var(--ink3)' }}>{row.impressions} impressions · {row.uniqueUsers} users</div>
+                              </div>
+                              <div style={{ textAlign: 'right' }}>
+                                <div className="font-num" style={{ fontSize: 14, fontWeight: 800, color: (row.conversionRate ?? 0) >= 20 ? 'var(--green)' : 'var(--gold)' }}>{(row.conversionRate ?? 0).toFixed(0)}%</div>
+                                <div style={{ fontSize: 10, color: 'var(--ink3)' }}>converted</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </>}
+
+                  {/* Trending Cards */}
+                  {ins.trendingCards && ins.trendingCards.length > 0 && <>
+                    <SectionHead title="Trending Cards · This Week vs Last" />
+                    <div style={{ ...S.card, marginBottom: 24 }}>
+                      <div style={{ ...S.body, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {ins.trendingCards.map((card, i) => {
+                          const maxCount = ins.trendingCards![0]?.thisWeek ?? 1
+                          return (
+                            <div key={card.cardId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                              <span className="font-num" style={{ fontSize: 11, fontWeight: 800, color: 'var(--ink3)', width: 20, textAlign: 'right', flexShrink: 0 }}>#{i + 1}</span>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{card.cardName}</div>
+                                <div style={{ height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.06)', marginTop: 4, overflow: 'hidden' }}>
+                                  <div style={{ height: '100%', width: `${(card.thisWeek / maxCount) * 100}%`, background: '#4a9eff', borderRadius: 2, opacity: 0.7 }} />
+                                </div>
+                              </div>
+                              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                                <div className="font-num" style={{ fontSize: 13, fontWeight: 800, color: '#4a9eff' }}>{card.thisWeek}</div>
+                                <div style={{ fontSize: 10, color: card.delta > 0 ? 'var(--green)' : card.delta < 0 ? 'var(--red)' : 'var(--ink3)' }}>
+                                  {card.lastWeek === 0 ? 'new' : card.delta > 0 ? `+${card.delta}` : `${card.delta}`}
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </>}
+
+                  {/* Top Searched Cards */}
+                  {ins.topSearchedCards && ins.topSearchedCards.length > 0 && <>
+                    <SectionHead title="Top Searched Cards · Last 90 Days" />
+                    <div style={{ ...S.card, marginBottom: 24 }}>
+                      <div style={{ ...S.body, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {ins.topSearchedCards.map((card, i) => {
+                          const maxCount = ins.topSearchedCards![0]?.count ?? 1
+                          return (
+                            <div key={card.cardId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                              <span className="font-num" style={{ fontSize: 11, fontWeight: 800, color: 'var(--ink3)', width: 20, textAlign: 'right', flexShrink: 0 }}>#{i + 1}</span>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{card.cardName}</div>
+                                <div style={{ height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.06)', marginTop: 4, overflow: 'hidden' }}>
+                                  <div style={{ height: '100%', width: `${(card.count / maxCount) * 100}%`, background: 'var(--gold)', borderRadius: 2, opacity: 0.6 }} />
+                                </div>
+                              </div>
+                              <span className="font-num" style={{ fontSize: 13, fontWeight: 800, color: 'var(--gold)', flexShrink: 0 }}>{card.count}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </>}
+
+                  {/* Cohort Retention */}
+                  {ins.cohortRetention && ins.cohortRetention.length > 0 && <>
+                    <SectionHead title="Cohort Retention · By Signup Week" />
+                    <div style={{ ...S.card, marginBottom: 24 }}>
+                      <div style={{ ...S.body, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        {ins.cohortRetention.map(c => {
+                          const weekLabel = (() => {
+                            try { const d = new Date(c.week); return `Week of ${d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` } catch { return c.week }
+                          })()
+                          return (
+                            <div key={c.week} style={{ borderRadius: 10, padding: '12px 14px', background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink)' }}>{weekLabel}</span>
+                                <span style={{ fontSize: 10, color: 'var(--ink3)' }}>{c.signups} signed up</span>
+                              </div>
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 80px', gap: 8 }}>
+                                {[{ label: 'Searched', rate: c.searchRate, value: c.searched, color: 'var(--gold)' }, { label: 'Portfolio', rate: c.portfolioRate, value: c.portfolio, color: 'var(--green)' }].map(b => (
+                                  <div key={b.label}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                                      <span style={{ fontSize: 9, color: 'var(--ink3)' }}>{b.label}</span>
+                                      <span style={{ fontSize: 9, fontWeight: 700, color: b.color }}>{b.rate.toFixed(0)}%</span>
+                                    </div>
+                                    <div style={{ height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                                      <div style={{ height: '100%', width: `${b.rate}%`, background: b.color, opacity: 0.75, borderRadius: 2 }} />
+                                    </div>
+                                    <div style={{ fontSize: 9, color: 'var(--ink3)', marginTop: 2 }}>{b.value}</div>
+                                  </div>
+                                ))}
+                                <div style={{ textAlign: 'center' }}>
+                                  <div style={{ fontSize: 9, color: 'var(--ink3)', marginBottom: 2 }}>Paid</div>
+                                  <div className="font-num" style={{ fontSize: 16, fontWeight: 900, color: '#4a9eff' }}>{c.paid}</div>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </>}
+
+                  {/* Trial Day Engagement */}
+                  {ins.trialDayEngagement && ins.trialDayEngagement.length > 0 && <>
+                    <SectionHead title="Trial Engagement · Searches Per Day" />
+                    <div style={{ ...S.card, marginBottom: 24 }}>
+                      <div style={S.body}>
+                        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 80 }}>
+                          {ins.trialDayEngagement.map(d => {
+                            const maxSearches = Math.max(...ins.trialDayEngagement!.map(x => x.searches), 1)
+                            const h = maxSearches > 0 ? (d.searches / maxSearches) * 100 : 0
+                            return (
+                              <div key={d.day} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, height: '100%', justifyContent: 'flex-end' }}>
+                                <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--gold)' }}>{d.searches}</span>
+                                <div style={{ width: '100%', height: `${Math.max(h, 3)}%`, background: 'rgba(232,197,71,0.7)', borderRadius: '3px 3px 0 0', minHeight: 3 }} />
+                                <span style={{ fontSize: 9, color: 'var(--ink3)' }}>D{d.day}</span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                        <div style={{ fontSize: 10, color: 'var(--ink3)', marginTop: 8 }}>
+                          {Math.max(...ins.trialDayEngagement.map(d => d.uniqueUsers))} peak unique users in a single day
+                        </div>
+                      </div>
+                    </div>
+                  </>}
+
+                  {/* Cache */}
+                  <SectionHead title="Cache Coverage" />
+                  <div className="adm-grid adm-grid-3" style={{ gap: 10, marginBottom: 24 }}>
+                    <StatTile label="Coverage" value={`${ins.cacheHitRate.rate.toFixed(1)}%`} sub="Searched combos cached" color={ins.cacheHitRate.rate >= 80 ? 'var(--green)' : ins.cacheHitRate.rate >= 50 ? 'var(--gold)' : 'var(--red)'} />
+                    <StatTile label="Cached" value={`${ins.cacheHitRate.cached}`} sub="Unique card/grade combos" />
+                    <StatTile label="Ever Searched" value={`${ins.cacheHitRate.uniqueSearched}`} sub="Unique combos" />
+                  </div>
+                </>}
+
+                {/* Search Volume */}
+                <SectionHead title="Search Volume · Last 30 Days" />
+                <div style={{ ...S.card, marginBottom: 24 }}>
+                  <div style={S.body}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+                      <div>
+                        <div className="font-num" style={{ fontSize: 28, fontWeight: 900, color: 'var(--gold)', lineHeight: 1 }}>{analytics.totalSearchesAllTime.toLocaleString()}</div>
+                        <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 4 }}>All-time searches</div>
+                      </div>
+                      {analytics.searchVolume.length > 0 && (
+                        <div style={{ textAlign: 'right' }}>
+                          <div className="font-num" style={{ fontSize: 20, fontWeight: 900, color: 'var(--ink)', lineHeight: 1 }}>{analytics.searchVolume[analytics.searchVolume.length - 1]?.count}</div>
+                          <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 4 }}>Yesterday</div>
+                        </div>
+                      )}
+                    </div>
+                    {analytics.searchVolume.length > 0 && (() => {
+                      const counts = analytics.searchVolume.map(d => d.count)
+                      const maxV = Math.max(...counts, 1)
+                      const minV = Math.min(...counts)
+                      const range = Math.max(maxV - minV, 1)
+                      const w = 100 / (counts.length - 1)
+                      const pts = counts.map((c, i) => `${i * w},${100 - ((c - minV) / range) * 85 - 5}`).join(' ')
+                      return (
+                        <svg viewBox={`0 0 100 100`} preserveAspectRatio="none" style={{ width: '100%', height: 80 }}>
+                          <polyline points={`0,100 ${pts} 100,100`} fill="rgba(232,197,71,0.12)" stroke="none" />
+                          <polyline points={pts} fill="none" stroke="var(--gold)" strokeWidth="1.5" strokeLinejoin="round" />
+                        </svg>
+                      )
+                    })()}
+                  </div>
+                </div>
+              </>
+            )
+          })()}
 
           {/* ── Banners tab ──────────────────────────────────────────────── */}
           {activeTab === 'banners' && (

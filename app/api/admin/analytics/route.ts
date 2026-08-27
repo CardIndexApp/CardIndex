@@ -10,6 +10,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 const LAUNCH_DATE      = '2026-06-30T00:00:00Z'
 const POWER_THRESHOLD  = 20
 
+export const maxDuration = 60
+
 export async function GET(req: NextRequest) {
   const admin = createAdminClient()
 
@@ -61,20 +63,18 @@ export async function GET(req: NextRequest) {
     { data: searchLogUsers },
     { data: approvedUpgrades },
     { data: recentSearchLog },
+    { data: featureUsedEvents },
+    { data: paywallEvents },
   ] = await Promise.all([
     admin.from('admin_funnel_summary').select('*').single(),
     admin.rpc('search_volume_by_day', { days: 30 }),
     admin.from('platform_stats').select('value').eq('key', 'archived_searches').single(),
     admin.from('profiles').select('id, last_active_at, tier, trial_ends_at, stripe_customer_id, apple_original_transaction_id, created_at'),
-    // All API calls (searches + refreshes)
     admin.from('search_log').select('*', { count: 'exact', head: true }),
-    // User-initiated searches only (no source tag)
     admin.from('search_log').select('*', { count: 'exact', head: true }).is('source', null),
-    // API calls yesterday
     admin.from('search_log').select('*', { count: 'exact', head: true })
       .gte('searched_at', yesterdayStart.toISOString())
       .lt('searched_at', todayStart.toISOString()),
-    // User searches yesterday
     admin.from('search_log').select('*', { count: 'exact', head: true })
       .is('source', null)
       .gte('searched_at', yesterdayStart.toISOString())
@@ -83,12 +83,13 @@ export async function GET(req: NextRequest) {
     admin.from('watchlists').select('user_id'),
     admin.from('search_log').select('user_id').not('user_id', 'is', null).is('source', null),
     admin.from('upgrade_requests').select('user_id').eq('action', 'approve'),
-    // Recent search log with timestamps — used for cohort, day-by-day, top cards, median
     admin.from('search_log')
       .select('user_id, card_id, card_name, searched_at')
       .is('source', null)
       .not('user_id', 'is', null)
       .gte('searched_at', ninetyDaysAgo.toISOString()),
+    admin.from('app_events').select('user_id, properties').eq('event_name', 'feature_used'),
+    admin.from('app_events').select('user_id, properties').eq('event_name', 'paywall_shown'),
   ])
 
   const profiles      = allProfiles ?? []
@@ -255,24 +256,122 @@ export async function GET(req: NextRequest) {
     ? +hoursToFirstSearch[Math.floor(hoursToFirstSearch.length / 2)].toFixed(1)
     : null
 
-  // ── Paywall impressions from app_events ───────────────────────────────────
-  let paywallImpressions: { context: string; impressions: number }[] = []
-  try {
-    const { data: pwEvents } = await admin
-      .from('app_events')
-      .select('properties')
-      .eq('event_name', 'paywall_shown')
-    if (pwEvents && pwEvents.length > 0) {
-      const pwMap: Record<string, number> = {}
-      for (const row of pwEvents) {
-        const ctx = (row.properties as { context?: string })?.context ?? 'unknown'
-        pwMap[ctx] = (pwMap[ctx] ?? 0) + 1
-      }
-      paywallImpressions = Object.entries(pwMap)
-        .sort(([, a], [, b]) => b - a)
-        .map(([context, impressions]) => ({ context, impressions }))
+  // ── Paywall impressions ────────────────────────────────────────────────────
+  const proUserIds = new Set(profiles.filter(p => p.tier !== 'free').map(p => p.id))
+  const paywallContextMap: Record<string, { impressions: number; uniqueUsers: Set<string>; converted: number }> = {}
+  for (const row of paywallEvents ?? []) {
+    const ctx = (row.properties as { context?: string })?.context ?? 'unknown'
+    if (!paywallContextMap[ctx]) paywallContextMap[ctx] = { impressions: 0, uniqueUsers: new Set(), converted: 0 }
+    paywallContextMap[ctx].impressions++
+    if (row.user_id) {
+      paywallContextMap[ctx].uniqueUsers.add(row.user_id)
+      if (proUserIds.has(row.user_id)) paywallContextMap[ctx].converted++
     }
-  } catch { /* app_events table may not exist yet */ }
+  }
+  const paywallImpressions = Object.entries(paywallContextMap)
+    .sort(([, a], [, b]) => b.impressions - a.impressions)
+    .map(([context, d]) => ({
+      context,
+      impressions:  d.impressions,
+      uniqueUsers:  d.uniqueUsers.size,
+      converted:    d.converted,
+      conversionRate: d.uniqueUsers.size > 0
+        ? +((d.converted / d.uniqueUsers.size) * 100).toFixed(1)
+        : 0,
+    }))
+
+  // ── Pro feature adoption ───────────────────────────────────────────────────
+  const featureUserMap: Record<string, Set<string>> = {}
+  for (const row of featureUsedEvents ?? []) {
+    if (!row.user_id) continue
+    const feat = (row.properties as { feature?: string })?.feature ?? 'unknown'
+    if (!featureUserMap[feat]) featureUserMap[feat] = new Set()
+    featureUserMap[feat].add(row.user_id)
+  }
+  const proTotal = proUserIds.size
+  const proFeatureAdoption = Object.entries(featureUserMap)
+    .map(([feature, users]) => {
+      const proUsers = [...users].filter(id => proUserIds.has(id)).length
+      return {
+        feature,
+        users:    proUsers,
+        proTotal,
+        rate:     proTotal > 0 ? +((proUsers / proTotal) * 100).toFixed(1) : 0,
+      }
+    })
+    .sort((a, b) => b.users - a.users)
+
+  // ── Zombie trials (expired, never searched) ────────────────────────────────
+  const zombieTrialCount = expiredTrials.filter(p => !searchedSet.has(p.id)).length
+
+  // ── D1 / D3 / D7 return rates ─────────────────────────────────────────────
+  // Build user_id → set of day offsets (relative to signup) where they searched
+  const userSearchDayOffsets: Record<string, Set<number>> = {}
+  for (const row of recentSearchLog ?? []) {
+    if (!row.user_id || !row.searched_at) continue
+    const created = profileCreatedMap[row.user_id]
+    if (created == null) continue
+    const offset = Math.floor((new Date(row.searched_at).getTime() - created) / 86400000)
+    if (offset < 0 || offset > 90) continue
+    if (!userSearchDayOffsets[row.user_id]) userSearchDayOffsets[row.user_id] = new Set()
+    userSearchDayOffsets[row.user_id].add(offset)
+  }
+
+  const computeReturnRate = (dayN: number) => {
+    // Only consider users signed up >= dayN days ago and <= 90 days (within recentSearchLog window)
+    const cohort = postLaunch.filter(p => {
+      const days = (now.getTime() - new Date(p.created_at).getTime()) / 86400000
+      return days >= dayN && days <= 90
+    })
+    const returned = cohort.filter(p => userSearchDayOffsets[p.id]?.has(dayN)).length
+    return { dayN, cohortSize: cohort.length, returned, rate: cohort.length > 0 ? +((returned / cohort.length) * 100).toFixed(1) : 0 }
+  }
+  const dayNReturnRates = [computeReturnRate(1), computeReturnRate(3), computeReturnRate(7)]
+
+  // ── At-risk churners ───────────────────────────────────────────────────────
+  const atRiskChurners = profiles.filter(p =>
+    p.tier !== 'free' && (!p.last_active_at || new Date(p.last_active_at) < d30)
+  ).length
+
+  // ── Search depth distribution (post-launch) ───────────────────────────────
+  const depthBuckets = { zero: 0, low: 0, mid: 0, high: 0, power: 0 }
+  for (const id of postLaunchIds) {
+    const c = searchCountMap[id] ?? 0
+    if (c === 0)       depthBuckets.zero++
+    else if (c <= 5)   depthBuckets.low++
+    else if (c <= 20)  depthBuckets.mid++
+    else if (c <= 50)  depthBuckets.high++
+    else               depthBuckets.power++
+  }
+  const searchDepth = { ...depthBuckets, total: postLaunch.length }
+
+  // ── Trending cards (this week vs last week) ────────────────────────────────
+  const oneWeekAgo  = new Date(now.getTime() - 7  * 86400000)
+  const twoWeeksAgo = new Date(now.getTime() - 14 * 86400000)
+  const thisWeekMap: Record<string, { cardName: string; count: number }> = {}
+  const lastWeekMap: Record<string, number> = {}
+  for (const row of recentSearchLog ?? []) {
+    if (!row.card_id || !row.searched_at) continue
+    const ts  = new Date(row.searched_at)
+    const key = row.card_id as string
+    const name = (row.card_name as string | null) ?? key
+    if (ts >= oneWeekAgo) {
+      if (!thisWeekMap[key]) thisWeekMap[key] = { cardName: name, count: 0 }
+      thisWeekMap[key].count++
+    } else if (ts >= twoWeeksAgo) {
+      lastWeekMap[key] = (lastWeekMap[key] ?? 0) + 1
+    }
+  }
+  const trendingCards = Object.entries(thisWeekMap)
+    .map(([cardId, { cardName, count }]) => ({
+      cardId,
+      cardName,
+      thisWeek: count,
+      lastWeek: lastWeekMap[cardId] ?? 0,
+      delta:    count - (lastWeekMap[cardId] ?? 0),
+    }))
+    .sort((a, b) => b.thisWeek - a.thisWeek)
+    .slice(0, 10)
 
   // ── Cache coverage ────────────────────────────────────────────────────────
   const [
@@ -345,6 +444,12 @@ export async function GET(req: NextRequest) {
       topSearchedCards,
       medianHoursToFirstSearch,
       paywallImpressions,
+      proFeatureAdoption,
+      zombieTrials:   zombieTrialCount,
+      dayNReturnRates,
+      atRiskChurners,
+      searchDepth,
+      trendingCards,
     },
   })
 }

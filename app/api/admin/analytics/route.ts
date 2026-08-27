@@ -93,6 +93,9 @@ export async function GET(req: NextRequest) {
   ])
 
   const profiles      = allProfiles ?? []
+  const ADMIN_STATUSES = new Set(['admin_granted', 'admin_revoked'])
+  const isRealPaid    = (p: { tier: string; subscription_status: string | null }) =>
+    p.tier !== 'free' && (p.subscription_status == null || !ADMIN_STATUSES.has(p.subscription_status))
   const postLaunch    = profiles.filter(p => new Date(p.created_at) >= new Date(LAUNCH_DATE))
 
   // ── Retention ─────────────────────────────────────────────────────────────
@@ -108,21 +111,24 @@ export async function GET(req: NextRequest) {
 
   // ── Trial conversion (post-launch only) ──────────────────────────────────
   const expiredTrials          = postLaunch.filter(p => p.trial_ends_at && new Date(p.trial_ends_at) < now)
-  const convertedBeforeExpiry  = expiredTrials.filter(p => p.tier !== 'free')
+  const convertedBeforeExpiry  = expiredTrials.filter(p => isRealPaid(p))
   const activeTrials           = postLaunch.filter(p => p.trial_ends_at && new Date(p.trial_ends_at) >= now)
   const trialRate              = expiredTrials.length > 0
     ? +((convertedBeforeExpiry.length / expiredTrials.length) * 100).toFixed(1)
     : 0
 
   // ── Churn (ever paid → now free) ─────────────────────────────────────────
-  const approvedUserIds = new Set((approvedUpgrades ?? []).map(r => r.user_id))
+  // Only real payments count — admin grants (admin_granted/admin_revoked) are excluded.
+  const REAL_PAID_STATUSES = new Set(['active', 'canceled', 'canceling', 'apple_canceled', 'trialing', 'past_due', 'unpaid'])
+  const CHURNED_STATUSES = new Set(['canceled', 'canceling', 'apple_canceled'])
   const everPaid        = profiles.filter(p =>
-    approvedUserIds.has(p.id) ||
     (p.stripe_customer_id ?? null) !== null ||
     (p.apple_original_transaction_id ?? null) !== null ||
-    (p.subscription_status != null && p.subscription_status !== '')
+    (p.subscription_status != null && REAL_PAID_STATUSES.has(p.subscription_status))
   )
-  const churned         = everPaid.filter(p => p.tier === 'free')
+  const churned         = everPaid.filter(p =>
+    p.tier === 'free' || (p.subscription_status != null && CHURNED_STATUSES.has(p.subscription_status))
+  )
   const churnRate       = everPaid.length > 0
     ? +((churned.length / everPaid.length) * 100).toFixed(1)
     : 0
@@ -176,7 +182,7 @@ export async function GET(req: NextRequest) {
     cohortMap[week].signups++
     if (searchedSet.has(p.id)) cohortMap[week].searched++
     if (portfolioSet.has(p.id)) cohortMap[week].portfolio++
-    if (p.tier !== 'free') cohortMap[week].paid++
+    if (isRealPaid(p)) cohortMap[week].paid++
   }
   const cohortRetention = Object.entries(cohortMap)
     .sort(([a], [b]) => a.localeCompare(b))
@@ -258,7 +264,7 @@ export async function GET(req: NextRequest) {
     : null
 
   // ── Paywall impressions ────────────────────────────────────────────────────
-  const proUserIds = new Set(profiles.filter(p => p.tier !== 'free').map(p => p.id))
+  const proUserIds = new Set(profiles.filter(p => isRealPaid(p)).map(p => p.id))
   const paywallContextMap: Record<string, { impressions: number; uniqueUsers: Set<string>; converted: number }> = {}
   for (const row of paywallEvents ?? []) {
     const ctx = (row.properties as { context?: string })?.context ?? 'unknown'
@@ -331,7 +337,7 @@ export async function GET(req: NextRequest) {
 
   // ── At-risk churners ───────────────────────────────────────────────────────
   const atRiskChurners = profiles.filter(p =>
-    p.tier !== 'free' && (!p.last_active_at || new Date(p.last_active_at) < d30)
+    isRealPaid(p) && (!p.last_active_at || new Date(p.last_active_at) < d30)
   ).length
 
   // ── Search depth distribution (post-launch) ───────────────────────────────

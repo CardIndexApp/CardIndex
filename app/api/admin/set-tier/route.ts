@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
 
   const { error } = await admin
     .from('profiles')
-    .update({ tier, subscription_status: tier === 'free' ? null : 'active' })
+    .update({ tier, subscription_status: tier === 'free' ? 'admin_revoked' : 'admin_granted' })
     .eq('id', userId)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

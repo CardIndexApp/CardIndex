@@ -974,9 +974,7 @@ export default function AdminPage() {
               <div key={t} style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
                 <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)', marginBottom: 8, textTransform: 'capitalize' }}>{t}</div>
                 <div className="font-num" style={{ fontSize: 30, fontWeight: 900, color: TIER_COLORS[t], lineHeight: 1 }}>
-                  {t === 'pro'
-                    ? users.filter(u => u.tier === 'pro' || u.tier === 'standard').length
-                    : users.filter(u => u.tier === t).length}
+                  {users.filter(u => u.tier === t).length}
                 </div>
               </div>
             ))}
@@ -984,7 +982,7 @@ export default function AdminPage() {
               <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.22em', color: 'var(--ink3)', marginBottom: 8, textTransform: 'uppercase' }}>Converted</div>
               <div className="font-num" style={{ fontSize: 30, fontWeight: 900, color: 'var(--gold)', lineHeight: 1 }}>
                 {users.length > 0
-                  ? `${((users.filter(u => u.tier === 'pro' || u.tier === 'standard').length / users.length) * 100).toFixed(1)}%`
+                  ? `${((users.filter(u => u.tier === 'pro').length / users.length) * 100).toFixed(1)}%`
                   : '0%'}
               </div>
             </div>
@@ -1258,17 +1256,17 @@ export default function AdminPage() {
                           {(['free', 'pro'] as const).map(t => (
                             <button
                               key={t}
-                              disabled={(u.tier === t || (t === 'pro' && u.tier === 'standard')) || savingId === u.id}
+                              disabled={u.tier === t || savingId === u.id}
                               onClick={() => setTier(u.id, t)}
                               style={{
                                 padding: '4px 10px',
                                 borderRadius: 6,
-                                border: `1px solid ${(u.tier === t || (t === 'pro' && u.tier === 'standard')) ? TIER_COLORS[t] : 'var(--border2)'}`,
-                                background: (u.tier === t || (t === 'pro' && u.tier === 'standard')) ? (t === 'pro' ? 'rgba(232,197,71,0.1)' : 'rgba(255,255,255,0.06)') : 'transparent',
-                                color: (u.tier === t || (t === 'pro' && u.tier === 'standard')) ? TIER_COLORS[t] : 'var(--ink3)',
+                                border: `1px solid ${u.tier === t ? TIER_COLORS[t] : 'var(--border2)'}`,
+                                background: u.tier === t ? (t === 'pro' ? 'rgba(232,197,71,0.1)' : 'rgba(255,255,255,0.06)') : 'transparent',
+                                color: u.tier === t ? TIER_COLORS[t] : 'var(--ink3)',
                                 fontSize: 11,
                                 fontWeight: 600,
-                                cursor: (u.tier === t || (t === 'pro' && u.tier === 'standard')) ? 'default' : 'pointer',
+                                cursor: u.tier === t ? 'default' : 'pointer',
                                 opacity: savingId === u.id ? 0.5 : 1,
                                 transition: 'all 0.15s',
                               }}
@@ -2047,15 +2045,14 @@ export default function AdminPage() {
                     <StatTile label="Paid" value={`${ins.trialConversion.convertedBeforeExpiry}`} sub="Converted before expiry" color="var(--green)" />
                   </div>
 
-                  {/* Zombie + At-risk */}
-                  {(ins.zombieTrials != null || ins.atRiskChurners != null) && <>
-                    <SectionHead title="Trial & Churn Risk" />
-                    <div className="adm-grid adm-grid-3" style={{ gap: 10, marginBottom: 24 }}>
-                      {ins.zombieTrials != null && <StatTile label="Zombie Trials" value={`${ins.zombieTrials}`} sub="Expired, never searched" color={ins.zombieTrials === 0 ? 'var(--green)' : 'var(--red)'} />}
-                      {ins.atRiskChurners != null && <StatTile label="At-Risk Pro" value={`${ins.atRiskChurners}`} sub="Pro, inactive 30+ days" color={ins.atRiskChurners === 0 ? 'var(--green)' : ins.atRiskChurners <= 2 ? 'var(--gold)' : 'var(--red)'} />}
-                      <StatTile label="Churn Rate" value={`${ins.churn.rate.toFixed(1)}%`} sub={`${ins.churn.nowFree} of ${ins.churn.everPaid} ever-paid`} color={ins.churn.rate <= 5 ? 'var(--green)' : ins.churn.rate <= 15 ? 'var(--gold)' : 'var(--red)'} />
-                    </div>
-                  </>}
+                  {/* Churn */}
+                  <SectionHead title="Churn" />
+                  <div className="adm-grid adm-grid-4" style={{ gap: 10, marginBottom: 24 }}>
+                    <StatTile label="Churn Rate" value={`${ins.churn.rate.toFixed(1)}%`} sub="Ever-paid → now free" color={ins.churn.rate <= 5 ? 'var(--green)' : ins.churn.rate <= 15 ? 'var(--gold)' : 'var(--red)'} />
+                    <StatTile label="Churned" value={`${ins.churn.nowFree}`} sub={`of ${ins.churn.everPaid} ever-paid`} color={ins.churn.nowFree === 0 ? 'var(--green)' : 'var(--red)'} />
+                    {ins.atRiskChurners != null && <StatTile label="At-Risk Pro" value={`${ins.atRiskChurners}`} sub="Pro, inactive 30+ days" color={ins.atRiskChurners === 0 ? 'var(--green)' : ins.atRiskChurners <= 2 ? 'var(--gold)' : 'var(--red)'} />}
+                    {ins.zombieTrials != null && <StatTile label="Zombie Trials" value={`${ins.zombieTrials}`} sub="Expired, never searched" color={ins.zombieTrials === 0 ? 'var(--green)' : 'var(--red)'} />}
+                  </div>
 
                   {/* D1/D3/D7 */}
                   {ins.dayNReturnRates && ins.dayNReturnRates.length > 0 && <>

@@ -154,7 +154,8 @@ export async function GET(req: NextRequest) {
   const profileList    = users ?? []
   const newThisWeek    = profileList.filter(u => new Date(u.created_at) >= sevenDaysAgo).length
   const newThisMonth   = profileList.filter(u => new Date(u.created_at) >= thirtyDaysAgo).length
-  const paidCount      = profileList.filter(u => u.tier !== 'free').length
+  const ADMIN_STATUSES = new Set(['admin_granted', 'admin_revoked'])
+  const paidCount      = profileList.filter(u => u.tier !== 'free' && (u.subscription_status == null || !ADMIN_STATUSES.has(u.subscription_status))).length
   const conversionRate = profileList.length > 0 ? (paidCount / profileList.length) * 100 : 0
 
   const searchCountMap: Record<string, number> = {}

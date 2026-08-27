@@ -11,7 +11,7 @@ import ShareBrandModal from '@/components/ShareBrandModal'
 import ShareStatModal, { type StatCardConfig } from '@/components/ShareStatModal'
 import { useCurrency, CURRENCIES } from '@/lib/currency'
 
-type Tier = 'free' | 'standard' | 'pro'
+type Tier = 'free' | 'pro'
 
 interface UserRow {
   id: string
@@ -115,9 +115,9 @@ interface TopSearchedResponse {
   dateStr: string
 }
 
-const TIER_COLORS: Record<Tier, string> = {
+const TIER_COLORS: Record<string, string> = {
   free: 'var(--ink3)',
-  standard: 'var(--blue, #4a9eff)',
+  standard: 'var(--gold)',
   pro: 'var(--gold)',
 }
 
@@ -125,16 +125,16 @@ const S = {
   card: { borderRadius: 16, background: 'var(--surface)', border: '1px solid var(--border2)', marginBottom: 16, overflow: 'hidden' } as React.CSSProperties,
   head: { padding: '16px 22px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' } as React.CSSProperties,
   body: { padding: 22 } as React.CSSProperties,
-  pill: (tier: Tier) => ({
+  pill: (tier: string) => ({
     display: 'inline-block',
     fontSize: 10,
     fontWeight: 700,
     letterSpacing: 0.5,
     padding: '2px 9px',
     borderRadius: 99,
-    color: TIER_COLORS[tier],
-    background: tier === 'pro' ? 'rgba(232,197,71,0.1)' : tier === 'standard' ? 'rgba(74,158,255,0.1)' : 'rgba(255,255,255,0.06)',
-    border: `1px solid ${tier === 'pro' ? 'rgba(232,197,71,0.3)' : tier === 'standard' ? 'rgba(74,158,255,0.3)' : 'rgba(255,255,255,0.12)'}`,
+    color: (tier === 'pro' || tier === 'standard') ? 'var(--gold)' : 'var(--ink3)',
+    background: (tier === 'pro' || tier === 'standard') ? 'rgba(232,197,71,0.1)' : 'rgba(255,255,255,0.06)',
+    border: `1px solid ${(tier === 'pro' || tier === 'standard') ? 'rgba(232,197,71,0.3)' : 'rgba(255,255,255,0.12)'}`,
   } as React.CSSProperties),
 }
 
@@ -930,14 +930,24 @@ export default function AdminPage() {
             <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
           </div>
           <div className="adm-grid adm-grid-4" style={{ gap: 10, marginBottom: 24 }}>
-            {(['free', 'standard', 'pro'] as Tier[]).map(t => (
+            {(['free', 'pro'] as const).map(t => (
               <div key={t} style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
                 <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)', marginBottom: 8, textTransform: 'capitalize' }}>{t}</div>
                 <div className="font-num" style={{ fontSize: 30, fontWeight: 900, color: TIER_COLORS[t], lineHeight: 1 }}>
-                  {users.filter(u => u.tier === t).length}
+                  {t === 'pro'
+                    ? users.filter(u => u.tier === 'pro' || u.tier === 'standard').length
+                    : users.filter(u => u.tier === t).length}
                 </div>
               </div>
             ))}
+            <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
+              <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.22em', color: 'var(--ink3)', marginBottom: 8, textTransform: 'uppercase' }}>Converted</div>
+              <div className="font-num" style={{ fontSize: 30, fontWeight: 900, color: 'var(--gold)', lineHeight: 1 }}>
+                {users.length > 0
+                  ? `${((users.filter(u => u.tier === 'pro' || u.tier === 'standard').length / users.length) * 100).toFixed(1)}%`
+                  : '0%'}
+              </div>
+            </div>
             <div style={{ borderRadius: 14, padding: '16px 20px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
               <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.22em', color: 'var(--ink3)', marginBottom: 8, textTransform: 'uppercase' }}>Total</div>
               <div className="font-num" style={{ fontSize: 30, fontWeight: 900, color: 'var(--ink)', lineHeight: 1 }}>{users.length}</div>
@@ -1205,21 +1215,21 @@ export default function AdminPage() {
                       </td>
                       <td style={{ padding: '12px 16px' }}>
                         <div className="adm-tier-btns" style={{ display: 'flex', gap: 6 }}>
-                          {(['free', 'standard', 'pro'] as Tier[]).map(t => (
+                          {(['free', 'pro'] as const).map(t => (
                             <button
                               key={t}
-                              disabled={u.tier === t || savingId === u.id}
+                              disabled={(u.tier === t || (t === 'pro' && u.tier === 'standard')) || savingId === u.id}
                               onClick={() => setTier(u.id, t)}
                               style={{
                                 padding: '4px 10px',
                                 borderRadius: 6,
-                                border: `1px solid ${u.tier === t ? TIER_COLORS[t] : 'var(--border2)'}`,
-                                background: u.tier === t ? (t === 'pro' ? 'rgba(232,197,71,0.1)' : t === 'standard' ? 'rgba(74,158,255,0.1)' : 'rgba(255,255,255,0.06)') : 'transparent',
-                                color: u.tier === t ? TIER_COLORS[t] : 'var(--ink3)',
+                                border: `1px solid ${(u.tier === t || (t === 'pro' && u.tier === 'standard')) ? TIER_COLORS[t] : 'var(--border2)'}`,
+                                background: (u.tier === t || (t === 'pro' && u.tier === 'standard')) ? (t === 'pro' ? 'rgba(232,197,71,0.1)' : 'rgba(255,255,255,0.06)') : 'transparent',
+                                color: (u.tier === t || (t === 'pro' && u.tier === 'standard')) ? TIER_COLORS[t] : 'var(--ink3)',
                                 fontSize: 11,
                                 fontWeight: 600,
-                                cursor: u.tier === t ? 'default' : 'pointer',
-                                opacity: savingId === u.id && u.tier !== t ? 0.5 : 1,
+                                cursor: (u.tier === t || (t === 'pro' && u.tier === 'standard')) ? 'default' : 'pointer',
+                                opacity: savingId === u.id ? 0.5 : 1,
                                 transition: 'all 0.15s',
                               }}
                             >

@@ -29,7 +29,7 @@ const tiers = [
     name: 'Pro',
     tagline: 'Everything you need to track and trade smarter',
     monthlyPrice: 4.99,
-    annualPrice: 3.33,
+    annualPrice: 4.17,
     cta: 'Start Pro',
     highlight: true,
     badge: 'Most popular',
@@ -60,7 +60,7 @@ const faqs = [
   },
   {
     q: 'What payment methods do you accept?',
-    a: 'We accept all major credit and debit cards via Stripe. Annual plans are charged upfront and save you around 33%.',
+    a: 'We accept all major credit and debit cards via Stripe. Annual plans are charged upfront and save you around 17%.',
   },
   {
     q: 'What happens to my data if I cancel?',
@@ -175,7 +175,7 @@ export default function Pricing() {
                 >
                   Annual
                   <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--green)', background: 'rgba(61,232,138,0.12)', border: '1px solid rgba(61,232,138,0.25)', borderRadius: 99, padding: '1px 7px', letterSpacing: 0.5 }}>
-                    SAVE 33%
+                    SAVE 17%
                   </span>
                 </button>
               </div>
@@ -225,7 +225,7 @@ export default function Pricing() {
                   </div>
                   {tier.monthlyPrice > 0 && annual && (
                     <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 4 }}>
-                      Billed $39.99/year
+                      Billed $49.99/year
                     </div>
                   )}
                   {tier.monthlyPrice === 0 && (

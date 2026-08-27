@@ -93,9 +93,12 @@ export async function GET(req: NextRequest) {
   ])
 
   const profiles      = allProfiles ?? []
-  const ADMIN_STATUSES = new Set(['admin_granted', 'admin_revoked'])
-  const isRealPaid    = (p: { tier: string; subscription_status: string | null }) =>
-    p.tier !== 'free' && (p.subscription_status == null || !ADMIN_STATUSES.has(p.subscription_status))
+  const ADMIN_STATUSES    = new Set(['admin_granted', 'admin_revoked'])
+  const INACTIVE_STATUSES = new Set(['canceled', 'canceling', 'apple_canceled'])
+  const isRealPaid        = (p: { tier: string; subscription_status: string | null }) =>
+    p.tier !== 'free' &&
+    (p.subscription_status == null || !ADMIN_STATUSES.has(p.subscription_status)) &&
+    (p.subscription_status == null || !INACTIVE_STATUSES.has(p.subscription_status))
   const postLaunch    = profiles.filter(p => new Date(p.created_at) >= new Date(LAUNCH_DATE))
 
   // ── Retention ─────────────────────────────────────────────────────────────
@@ -122,7 +125,6 @@ export async function GET(req: NextRequest) {
   const REAL_PAID_STATUSES = new Set(['active', 'canceled', 'canceling', 'apple_canceled', 'trialing', 'past_due', 'unpaid'])
   const CHURNED_STATUSES = new Set(['canceled', 'canceling', 'apple_canceled'])
   const everPaid        = profiles.filter(p =>
-    (p.stripe_customer_id ?? null) !== null ||
     (p.apple_original_transaction_id ?? null) !== null ||
     (p.subscription_status != null && REAL_PAID_STATUSES.has(p.subscription_status))
   )

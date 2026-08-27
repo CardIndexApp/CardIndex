@@ -155,12 +155,6 @@ export default function Pricing() {
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-              {/* Promotional notice */}
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 99, background: 'rgba(232,197,71,0.08)', border: '1px solid rgba(232,197,71,0.3)' }}>
-                <span style={{ fontSize: 14 }}>🎉</span>
-                <span style={{ fontSize: 13, color: 'var(--gold)', fontWeight: 600 }}>Promotional pricing for our first 100 users — lock in this rate forever.</span>
-              </div>
-
               {/* Billing toggle */}
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12, borderRadius: 99, padding: '4px 6px', background: 'var(--surface)', border: '1px solid var(--border2)' }}>
                 <button

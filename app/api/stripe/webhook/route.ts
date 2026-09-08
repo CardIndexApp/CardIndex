@@ -66,6 +66,7 @@ export async function POST(req: NextRequest) {
         const priceId = sub.items.data[0]?.price.id ?? ''
         const tier = PRICE_TO_TIER[priceId] ?? 'free'
         const customerId = session.customer as string
+        console.log('[stripe-webhook] checkout.session.completed', { customerId, priceId, tier, knownPrices: Object.keys(PRICE_TO_TIER) })
         await updateProfile(customerId, tier, sub.status)
 
         // Slack ping — fetch email from Stripe customer object

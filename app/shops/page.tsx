@@ -274,6 +274,17 @@ export default function ShopsPage() {
     <>
       <Navbar />
       <main style={{ background: BG, minHeight: '100vh', color: '#e8e8f0', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", WebkitFontSmoothing: 'antialiased' }}>
+        <style>{`
+          .shops-hero-btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+          .shops-dashboard-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+          .shops-scan-flow { display: flex; flex-wrap: wrap; gap: 0; justify-content: center; align-items: center; }
+          .shops-print-row { display: flex; flex-wrap: wrap; gap: 56px; align-items: center; justify-content: center; }
+          @media (max-width: 600px) {
+            .shops-scan-flow { flex-direction: column; gap: 24px; }
+            .shops-scan-arrow { transform: rotate(90deg); }
+            .shops-print-row { gap: 32px; }
+          }
+        `}</style>
 
         {/* ── Hero ───────────────────────────────────────────────────────────── */}
         <section style={{ padding: '120px 24px 80px', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
@@ -289,7 +300,7 @@ export default function ShopsPage() {
             <p style={{ fontSize: 17, color: '#b8b8d0', lineHeight: 1.7, maxWidth: 500, margin: '0 auto 36px' }}>
               Print QR stickers from your dashboard. Customers scan to see the current price and stock level — updated automatically, no repricing required.
             </p>
-            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <div className="shops-hero-btns">
               <a href="#waitlist" style={{ display: 'inline-block', padding: '12px 32px', background: GOLD, color: '#09090f', fontWeight: 700, fontSize: 14, borderRadius: 12, textDecoration: 'none', letterSpacing: '-0.2px', boxShadow: '0 4px 20px rgba(232,197,71,0.25)' }}>
                 Join the waitlist
               </a>
@@ -307,7 +318,7 @@ export default function ShopsPage() {
             <h2 style={{ fontSize: 'clamp(24px,4vw,36px)', fontWeight: 800, letterSpacing: '-0.8px', margin: '0 0 10px', color: '#eeeef8' }}>Your whole inventory, one place</h2>
             <p style={{ fontSize: 14, color: '#b8b8d0', maxWidth: 420, margin: '0 auto', lineHeight: 1.65 }}>Add cards, set your price, generate QR labels, and see which cards customers are scanning most.</p>
           </div>
-          <ShopDashboardMockup />
+          <div className="shops-dashboard-scroll"><ShopDashboardMockup /></div>
         </section>
 
         {/* ── Scan flow ─────────────────────────────────────────────────────── */}
@@ -318,7 +329,7 @@ export default function ShopsPage() {
             <p style={{ fontSize: 14, color: '#b8b8d0', maxWidth: 420, margin: '0 auto', lineHeight: 1.65 }}>The sticker never changes — the price behind it does. Every scan shows live data.</p>
           </div>
 
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 0, justifyContent: 'center', alignItems: 'center' }}>
+          <div className="shops-scan-flow">
             {/* Sticker */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: '0 28px' }}>
               <div style={{ fontSize: 9, color: '#3a3a4a', fontWeight: 700, letterSpacing: 1.5 }}>THE STICKER</div>
@@ -335,7 +346,7 @@ export default function ShopsPage() {
             </div>
 
             {/* Arrow */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: '0 4px' }}>
+            <div className="shops-scan-arrow" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: '0 4px' }}>
               <div style={{ fontSize: 9, color: '#2a2a3a', fontWeight: 600, letterSpacing: 0.5 }}>customer scans</div>
               <svg width="44" height="16" viewBox="0 0 44 16" fill="none">
                 <path d="M2 8 H36 M30 2 L42 8 L30 14" stroke="#2a2a3a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -350,7 +361,7 @@ export default function ShopsPage() {
 
         {/* ── Print labels ──────────────────────────────────────────────────── */}
         <section style={{ padding: '0 24px 100px', maxWidth: 860, margin: '0 auto' }}>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 56, alignItems: 'center', justifyContent: 'center' }}>
+          <div className="shops-print-row">
             <div style={{ maxWidth: 320 }}>
               <Eyebrow>PRINT-READY LABELS</Eyebrow>
               <h2 style={{ fontSize: 'clamp(22px,4vw,32px)', fontWeight: 800, letterSpacing: '-0.8px', margin: '0 0 14px', color: '#eeeef8' }}>Sticker sheets in one click</h2>

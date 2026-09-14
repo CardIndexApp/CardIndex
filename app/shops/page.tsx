@@ -60,7 +60,7 @@ function ShopDashboardMockup() {
   ]
 
   return (
-    <div style={{ background: '#0d0d16', border: '1px solid #1e1e2e', borderRadius: 20, overflow: 'hidden', boxShadow: '0 40px 80px rgba(0,0,0,0.6)', maxWidth: 780, margin: '0 auto' }}>
+    <div style={{ background: '#0d0d16', border: '1px solid #1e1e2e', borderRadius: 20, overflow: 'hidden', boxShadow: '0 40px 80px rgba(0,0,0,0.6)', maxWidth: 780, minWidth: 680, margin: '0 auto' }}>
       {/* Titlebar */}
       <div style={{ background: '#13131f', borderBottom: '1px solid #1a1a2a', padding: '11px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={{ display: 'flex', gap: 6 }}>
@@ -281,7 +281,8 @@ export default function ShopsPage() {
           .shops-print-row { display: flex; flex-wrap: wrap; gap: 56px; align-items: center; justify-content: center; }
           @media (max-width: 600px) {
             .shops-scan-flow { flex-direction: column; gap: 24px; }
-            .shops-scan-arrow { transform: rotate(90deg); }
+            .shops-scan-arrow { flex-direction: row !important; gap: 8px !important; padding: 0 !important; }
+            .shops-scan-arrow svg { transform: rotate(90deg); }
             .shops-print-row { gap: 32px; }
           }
         `}</style>

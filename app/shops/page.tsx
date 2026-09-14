@@ -50,6 +50,54 @@ function QRPattern({ size = 64 }: { size?: number }) {
   )
 }
 
+// ── Shop Dashboard Mockup (mobile) ───────────────────────────────────────────
+function ShopDashboardMockupMobile() {
+  const cards = [
+    { name: 'Charizard VMAX', grade: 'PSA 10', price: 'A$449', trend: '+8.2%', up: true },
+    { name: 'Pikachu V-Union', grade: 'Raw NM', price: 'A$68',  trend: '+2.1%', up: true },
+    { name: 'Umbreon VMAX',   grade: 'PSA 9',   price: 'A$210', trend: '-1.4%', up: false },
+  ]
+  return (
+    <div style={{ background: '#0d0d16', border: '1px solid #1e1e2e', borderRadius: 16, overflow: 'hidden', boxShadow: '0 24px 48px rgba(0,0,0,0.6)' }}>
+      <div style={{ background: '#13131f', borderBottom: '1px solid #1a1a2a', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 5 }}>
+          {[0,1,2].map(i => <div key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: 'rgba(255,255,255,0.1)' }} />)}
+        </div>
+        <div style={{ flex: 1, textAlign: 'center', fontSize: 10, color: '#3a3a4a', fontWeight: 600 }}>CardIndex for Shops</div>
+      </div>
+      <div style={{ padding: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+          {[{ label: 'Cards Listed', value: '142', sub: '+6 this week' }, { label: 'Scans Today', value: '83', sub: '12 more than yesterday', hi: true }].map(s => (
+            <div key={s.label} style={{ background: '#13131f', border: '1px solid #1a1a2a', borderRadius: 10, padding: '10px 11px' }}>
+              <div style={{ fontSize: 8.5, color: '#4a4a5a', marginBottom: 3, fontWeight: 600 }}>{s.label}</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: '#eeeef8', letterSpacing: '-0.5px' }}>{s.value}</div>
+              <div style={{ fontSize: 8.5, color: s.hi ? GREEN : '#4a4a5a', marginTop: 2 }}>{s.sub}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ background: '#13131f', border: '1px solid #1a1a2a', borderRadius: 10, overflow: 'hidden' }}>
+          <div style={{ padding: '9px 12px', borderBottom: '1px solid #1a1a2a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#c0c0d8' }}>Inventory</span>
+            <button style={{ padding: '4px 9px', background: GOLD, color: '#09090f', fontSize: 9, fontWeight: 800, borderRadius: 6, border: 'none' }}>+ Add Card</button>
+          </div>
+          {cards.map((c, i) => (
+            <div key={i} style={{ padding: '10px 12px', borderBottom: i < cards.length - 1 ? '1px solid #0f0f1a' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#e0e0f0' }}>{c.name}</div>
+                <div style={{ fontSize: 9, color: '#3a3a4a', marginTop: 1 }}>{c.grade}</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: GOLD }}>{c.price}</div>
+                <div style={{ fontSize: 9, color: c.up ? GREEN : '#e8524a', marginTop: 1 }}>{c.trend}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Shop Dashboard Mockup ─────────────────────────────────────────────────────
 function ShopDashboardMockup() {
   const inventory = [
@@ -60,7 +108,7 @@ function ShopDashboardMockup() {
   ]
 
   return (
-    <div style={{ background: '#0d0d16', border: '1px solid #1e1e2e', borderRadius: 20, overflow: 'hidden', boxShadow: '0 40px 80px rgba(0,0,0,0.6)', maxWidth: 780, minWidth: 680, margin: '0 auto' }}>
+    <div style={{ background: '#0d0d16', border: '1px solid #1e1e2e', borderRadius: 20, overflow: 'hidden', boxShadow: '0 40px 80px rgba(0,0,0,0.6)', maxWidth: 780, margin: '0 auto' }}>
       {/* Titlebar */}
       <div style={{ background: '#13131f', borderBottom: '1px solid #1a1a2a', padding: '11px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={{ display: 'flex', gap: 6 }}>
@@ -276,7 +324,8 @@ export default function ShopsPage() {
       <main style={{ background: BG, minHeight: '100vh', color: '#e8e8f0', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", WebkitFontSmoothing: 'antialiased' }}>
         <style>{`
           .shops-hero-btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-          .shops-dashboard-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+          .shops-dashboard-scroll { }
+          .shops-dashboard-mobile { display: none; }
           .shops-scan-flow { display: flex; flex-wrap: wrap; gap: 0; justify-content: center; align-items: center; }
           .shops-print-row { display: flex; flex-wrap: wrap; gap: 56px; align-items: center; justify-content: center; }
           @media (max-width: 600px) {
@@ -284,6 +333,8 @@ export default function ShopsPage() {
             .shops-scan-arrow { flex-direction: row !important; gap: 8px !important; padding: 0 !important; }
             .shops-scan-arrow svg { transform: rotate(90deg); }
             .shops-print-row { gap: 32px; }
+            .shops-dashboard-scroll { display: none; }
+            .shops-dashboard-mobile { display: block; }
           }
         `}</style>
 
@@ -320,6 +371,7 @@ export default function ShopsPage() {
             <p style={{ fontSize: 14, color: '#b8b8d0', maxWidth: 420, margin: '0 auto', lineHeight: 1.65 }}>Add cards, set your price, generate QR labels, and see which cards customers are scanning most.</p>
           </div>
           <div className="shops-dashboard-scroll"><ShopDashboardMockup /></div>
+          <div className="shops-dashboard-mobile"><ShopDashboardMockupMobile /></div>
         </section>
 
         {/* ── Scan flow ─────────────────────────────────────────────────────── */}

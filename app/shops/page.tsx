@@ -158,128 +158,67 @@ function ShopDashboardMockup() {
 
 // ── Customer Phone Mockup ─────────────────────────────────────────────────────
 function CustomerPhoneMockup() {
-  const [tab, setTab] = useState<'price' | 'history' | 'sales'>('price')
-
-  const sparkPoints = [38, 35, 42, 39, 44, 41, 48, 45, 50, 47, 52, 55, 51, 58, 54, 61, 58, 63, 59, 65, 62, 68, 65, 72, 69, 75, 71, 78, 74, 80]
-  const w = 220, h = 52, pad = 4
-  const min = Math.min(...sparkPoints), max = Math.max(...sparkPoints)
-  const pts = sparkPoints.map((v, i) => {
-    const x = pad + (i / (sparkPoints.length - 1)) * (w - pad * 2)
-    const y = h - pad - ((v - min) / (max - min)) * (h - pad * 2)
-    return `${x},${y}`
-  }).join(' ')
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
       {/* Phone frame */}
-      <div style={{ width: 260, background: 'linear-gradient(180deg,#1c1d25,#0a0b0e)', border: '1px solid rgba(255,255,255,0.13)', borderRadius: 40, padding: 8, boxShadow: '0 40px 80px -20px rgba(0,0,0,0.8)' }}>
-        {/* Notch */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 6 }}>
-          <div style={{ width: 80, height: 6, background: '#000', borderRadius: 4 }} />
+      <div style={{ width: 240, background: 'linear-gradient(180deg,#1c1d25,#0a0b0e)', border: '1px solid rgba(255,255,255,0.13)', borderRadius: 44, padding: 8, boxShadow: '0 48px 80px -20px rgba(0,0,0,0.85)' }}>
+        {/* Dynamic island */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
+          <div style={{ width: 72, height: 20, background: '#000', borderRadius: 10 }} />
         </div>
         {/* Screen */}
-        <div style={{ background: '#09090f', borderRadius: 32, overflow: 'hidden', padding: '16px 14px' }}>
+        <div style={{ background: '#09090f', borderRadius: 36, overflow: 'hidden', padding: '20px 16px 24px' }}>
 
-          {/* Shop header */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, paddingBottom: 12, borderBottom: '1px solid #1a1a2a' }}>
-            <div style={{ width: 28, height: 28, background: `linear-gradient(135deg,${GOLD},#c8a020)`, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>🃏</div>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#f2f2f3' }}>PokeZone Melbourne</div>
-              <div style={{ fontSize: 9, color: '#5a5a6a' }}>Live price · Updated just now</div>
-            </div>
+          {/* Shop badge */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 20 }}>
+            <div style={{ width: 24, height: 24, background: `linear-gradient(135deg,${GOLD},#c8a020)`, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}>🃏</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#c0c0d0' }}>PokeZone Melbourne</div>
           </div>
 
-          {/* Card info */}
-          <div style={{ display: 'flex', gap: 10, marginBottom: 14, alignItems: 'flex-start' }}>
-            {/* Card art placeholder */}
-            <div style={{ width: 54, height: 74, background: 'linear-gradient(135deg,#1a2a4a,#2a1a4a)', borderRadius: 6, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #2a2a3d', fontSize: 22 }}>
-              🔥
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: '#f2f2f3', letterSpacing: '-0.3px', lineHeight: 1.2 }}>Charizard VMAX</div>
-              <div style={{ fontSize: 10, color: '#7b7b82', marginBottom: 6 }}>Sword & Shield · PSA 10</div>
-              <div style={{ fontSize: 22, fontWeight: 900, color: GOLD, letterSpacing: '-1px', lineHeight: 1 }}>A$449</div>
-              <div style={{ fontSize: 10, color: '#7b7b82', marginTop: 2 }}>Shop price</div>
-            </div>
+          {/* Card hero */}
+          <div style={{ textAlign: 'center', marginBottom: 20 }}>
+            <div style={{ width: 70, height: 96, background: 'linear-gradient(135deg,#1a2a4a,#2a1a4a)', borderRadius: 8, margin: '0 auto 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #2a2a3d', fontSize: 32, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>🔥</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: '#f2f2f3', letterSpacing: '-0.4px' }}>Charizard VMAX</div>
+            <div style={{ fontSize: 10, color: '#5a5a6a', marginTop: 2 }}>Sword & Shield · PSA 10</div>
           </div>
 
-          {/* Tabs */}
-          <div style={{ display: 'flex', gap: 2, background: '#13131f', borderRadius: 10, padding: 3, marginBottom: 12 }}>
-            {(['price', 'history', 'sales'] as const).map(t => (
-              <button key={t} onClick={() => setTab(t)} style={{ flex: 1, padding: '5px 0', borderRadius: 8, border: 'none', background: tab === t ? '#1e1e2e' : 'transparent', color: tab === t ? '#f2f2f3' : '#5a5a6a', fontSize: 9, fontWeight: 700, cursor: 'pointer', textTransform: 'capitalize' }}>
-                {t === 'price' ? 'Price' : t === 'history' ? 'History' : 'Sales'}
-              </button>
-            ))}
-          </div>
-
-          {tab === 'price' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {[
-                { label: 'Market price', value: 'A$420', note: 'Live data' },
-                { label: '7-day avg', value: 'A$398', note: '↑ trending' },
-                { label: '30-day avg', value: 'A$385', note: '' },
-                { label: 'Market trend', value: '+8.2%', note: 'This week', green: true },
-              ].map(r => (
-                <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 10px', background: '#13131f', borderRadius: 8 }}>
-                  <span style={{ fontSize: 10, color: '#7b7b82' }}>{r.label}</span>
-                  <div style={{ textAlign: 'right' }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: r.green ? GREEN : '#e8e8f0' }}>{r.value}</span>
-                    {r.note && <div style={{ fontSize: 9, color: '#4a4a5a' }}>{r.note}</div>}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {tab === 'history' && (
-            <div>
-              <svg width="100%" height={h + 8} viewBox={`0 0 ${w} ${h + 8}`} preserveAspectRatio="none" style={{ display: 'block' }}>
-                <defs>
-                  <linearGradient id="sg" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={GOLD} stopOpacity="0.3"/>
-                    <stop offset="100%" stopColor={GOLD} stopOpacity="0"/>
-                  </linearGradient>
-                </defs>
-                <polygon points={`${pad},${h} ${pts} ${w - pad},${h}`} fill="url(#sg)" />
-                <polyline points={pts} fill="none" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: '#4a4a5a', marginTop: 4 }}>
-                <span>30 days ago</span><span>Today</span>
+          {/* Price block */}
+          <div style={{ background: '#13131f', border: '1px solid #1e1e2e', borderRadius: 16, padding: '16px 14px', marginBottom: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+              <div>
+                <div style={{ fontSize: 10, color: '#5a5a6a', marginBottom: 2 }}>Shop price</div>
+                <div style={{ fontSize: 28, fontWeight: 900, color: GOLD, letterSpacing: '-1px', lineHeight: 1 }}>A$449</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 10, color: '#5a5a6a', marginBottom: 2 }}>Market price</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: '#a0a0c0', letterSpacing: '-0.5px' }}>A$420</div>
               </div>
             </div>
-          )}
-
-          {tab === 'sales' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              {[
-                { price: 'A$428', date: '2 days ago', platform: 'eBay' },
-                { price: 'A$415', date: '4 days ago', platform: 'eBay' },
-                { price: 'A$440', date: '1 week ago', platform: 'eBay' },
-                { price: 'A$398', date: '10 days ago', platform: 'eBay' },
-              ].map((s, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 10px', background: '#13131f', borderRadius: 8 }}>
-                  <div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: '#e8e8f0' }}>{s.price}</div>
-                    <div style={{ fontSize: 9, color: '#4a4a5a' }}>{s.platform}</div>
-                  </div>
-                  <div style={{ fontSize: 9, color: '#4a4a5a', textAlign: 'right', alignSelf: 'center' }}>{s.date}</div>
-                </div>
-              ))}
+            <div style={{ height: 1, background: '#1e1e2e', marginBottom: 12 }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: 10, color: '#5a5a6a', marginBottom: 2 }}>In stock</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: GREEN }}>3 available</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 10, color: '#5a5a6a', marginBottom: 2 }}>Trend</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: GREEN }}>▲ 8.2% this week</div>
+              </div>
             </div>
-          )}
+          </div>
 
           {/* CTA */}
-          <div style={{ marginTop: 12, padding: '8px 12px', background: 'rgba(232,197,71,0.08)', border: `1px solid rgba(232,197,71,0.2)`, borderRadius: 10, textAlign: 'center' }}>
-            <div style={{ fontSize: 10, color: GOLD, fontWeight: 700 }}>Interested? Ask in store →</div>
+          <div style={{ background: `linear-gradient(135deg,${GOLD},#d4a820)`, borderRadius: 12, padding: '11px 0', textAlign: 'center' }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: '#09090f' }}>Ask in store to purchase</div>
           </div>
 
         </div>
         {/* Home bar */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 6 }}>
-          <div style={{ width: 60, height: 4, background: 'rgba(255,255,255,0.2)', borderRadius: 2 }} />
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
+          <div style={{ width: 56, height: 4, background: 'rgba(255,255,255,0.18)', borderRadius: 2 }} />
         </div>
       </div>
-      <div style={{ fontSize: 12, color: '#5a5a6a', textAlign: 'center' }}>What customers see after scanning</div>
+      <div style={{ fontSize: 11, color: '#4a4a5a', textAlign: 'center', letterSpacing: 0.5 }}>What customers see after scanning</div>
     </div>
   )
 }
@@ -295,18 +234,17 @@ function StickerSheetMockup() {
     { name: 'Mewtwo V', grade: 'Raw LP', price: 'A$18' },
   ]
   return (
-    <div style={{ background: '#f5f5f0', borderRadius: 16, padding: 20, maxWidth: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
-      <div style={{ fontSize: 10, color: '#999', marginBottom: 12, textAlign: 'center', fontWeight: 600, letterSpacing: 1 }}>PRINT PREVIEW — AVERY L7160</div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+    <div style={{ background: '#f0efe8', borderRadius: 20, padding: '20px 18px', maxWidth: 400, boxShadow: '0 24px 64px rgba(0,0,0,0.55)', border: '1px solid #e0dfd8' }}>
+      <div style={{ fontSize: 9, color: '#aaa8a0', marginBottom: 14, textAlign: 'center', fontWeight: 700, letterSpacing: 1.5 }}>PRINT PREVIEW — AVERY L7160</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
         {cards.map((c, i) => (
-          <div key={i} style={{ background: '#fff', border: '1px dashed #ddd', borderRadius: 8, padding: '8px 6px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-            <div style={{ background: '#fff', padding: 3, borderRadius: 4, border: '1px solid #eee' }}>
+          <div key={i} style={{ background: '#fff', border: '1.5px dashed #dddbd5', borderRadius: 10, padding: '10px 8px 8px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+            <div style={{ background: '#fafaf8', padding: 5, borderRadius: 6, border: '1px solid #ededea' }}>
               <QRPattern />
             </div>
-            <div style={{ fontSize: 7.5, fontWeight: 700, color: '#111', textAlign: 'center', lineHeight: 1.3 }}>{c.name}</div>
-            <div style={{ fontSize: 6.5, color: '#666' }}>{c.grade}</div>
-            <div style={{ fontSize: 9, fontWeight: 800, color: '#1a1a1a' }}>{c.price}</div>
-            <div style={{ fontSize: 6, color: '#aaa' }}>cardindex.gg</div>
+            <div style={{ fontSize: 8, fontWeight: 800, color: '#1a1a16', textAlign: 'center', lineHeight: 1.25, letterSpacing: '-0.1px' }}>{c.name}</div>
+            <div style={{ fontSize: 7, color: '#888', fontWeight: 500 }}>{c.grade}</div>
+            <div style={{ fontSize: 11, fontWeight: 900, color: '#0d0d0a', letterSpacing: '-0.3px' }}>{c.price}</div>
           </div>
         ))}
       </div>
@@ -382,24 +320,26 @@ export default function ShopsPage() {
             <p style={{ fontSize: 14, color: '#a0a0c0', maxWidth: 480, margin: '0 auto' }}>The sticker never changes — the price behind it does. Customers always see today's market data.</p>
           </div>
 
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 48, justifyContent: 'center', alignItems: 'flex-start' }}>
-            {/* Sticker → phone flow */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
-              <div style={{ fontSize: 12, color: '#5a5a6a', fontWeight: 600, letterSpacing: 1 }}>THE STICKER</div>
-              <div style={{ background: '#fff', borderRadius: 16, padding: 16, boxShadow: '0 16px 48px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, width: 130 }}>
-                <QRPattern />
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 32, justifyContent: 'center', alignItems: 'center' }}>
+            {/* Sticker */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+              <div style={{ fontSize: 10, color: '#4a4a5a', fontWeight: 700, letterSpacing: 1.5 }}>THE STICKER</div>
+              <div style={{ background: '#fff', borderRadius: 18, padding: '18px 16px', boxShadow: '0 20px 56px rgba(0,0,0,0.55)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, width: 140 }}>
+                <div style={{ background: '#fafaf8', padding: 8, borderRadius: 10, border: '1px solid #ededea' }}>
+                  <QRPattern />
+                </div>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: 9, color: '#111', fontWeight: 800 }}>Charizard VMAX</div>
-                  <div style={{ fontSize: 8, color: '#666' }}>PSA 10</div>
-                  <div style={{ fontSize: 11, color: '#111', fontWeight: 900, marginTop: 2 }}>A$449</div>
-                  <div style={{ fontSize: 7, color: '#aaa', marginTop: 1 }}>cardindex.gg</div>
+                  <div style={{ fontSize: 10, color: '#111', fontWeight: 800, letterSpacing: '-0.2px' }}>Charizard VMAX</div>
+                  <div style={{ fontSize: 8.5, color: '#888', marginTop: 1 }}>PSA 10</div>
+                  <div style={{ fontSize: 13, color: '#0d0d0a', fontWeight: 900, marginTop: 4, letterSpacing: '-0.3px' }}>A$449</div>
                 </div>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                <div style={{ width: 2, height: 20, background: 'linear-gradient(180deg,#3a3a4a,transparent)' }} />
-                <div style={{ fontSize: 11, color: '#7b7b82' }}>Customer scans →</div>
-                <div style={{ width: 2, height: 20, background: 'linear-gradient(180deg,transparent,#3a3a4a)' }} />
-              </div>
+            </div>
+
+            {/* Arrow */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+              <div style={{ fontSize: 10, color: '#4a4a5a', fontWeight: 600 }}>customer scans</div>
+              <div style={{ fontSize: 26, color: '#3a3a4a' }}>→</div>
             </div>
 
             <CustomerPhoneMockup />

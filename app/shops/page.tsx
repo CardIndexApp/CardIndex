@@ -466,7 +466,7 @@ export default function ShopsPage() {
             <Eyebrow>EARLY ACCESS</Eyebrow>
             <h2 style={{ fontSize: 'clamp(22px,4vw,30px)', fontWeight: 800, letterSpacing: '-0.8px', margin: '0 0 10px', color: '#eeeef8' }}>Get early access</h2>
             <p style={{ fontSize: 14, color: '#b8b8d0', marginBottom: 28, lineHeight: 1.65 }}>
-              Rolling out to shops in early 2027. Join the waitlist and we'll reach out first.
+              Join the waitlist and we'll reach out when shop access opens.
             </p>
 
             {status === 'done' ? (

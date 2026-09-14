@@ -160,62 +160,46 @@ function ShopDashboardMockup() {
 function CustomerPhoneMockup() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
-      {/* Phone frame */}
-      <div style={{ width: 240, background: 'linear-gradient(180deg,#1c1d25,#0a0b0e)', border: '1px solid rgba(255,255,255,0.13)', borderRadius: 44, padding: 8, boxShadow: '0 48px 80px -20px rgba(0,0,0,0.85)' }}>
-        {/* Dynamic island */}
+      <div style={{ width: 220, background: 'linear-gradient(180deg,#1c1d25,#0a0b0e)', border: '1px solid rgba(255,255,255,0.13)', borderRadius: 44, padding: 8, boxShadow: '0 48px 80px -20px rgba(0,0,0,0.85)' }}>
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
-          <div style={{ width: 72, height: 20, background: '#000', borderRadius: 10 }} />
+          <div style={{ width: 68, height: 18, background: '#000', borderRadius: 9 }} />
         </div>
-        {/* Screen */}
-        <div style={{ background: '#09090f', borderRadius: 36, overflow: 'hidden', padding: '20px 16px 24px' }}>
+        <div style={{ background: '#09090f', borderRadius: 36, overflow: 'hidden', padding: '18px 14px 22px' }}>
 
-          {/* Shop badge */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 20 }}>
-            <div style={{ width: 24, height: 24, background: `linear-gradient(135deg,${GOLD},#c8a020)`, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}>🃏</div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#c0c0d0' }}>PokeZone Melbourne</div>
+          {/* Shop name */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 18 }}>
+            <div style={{ width: 22, height: 22, background: `linear-gradient(135deg,${GOLD},#c8a020)`, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11 }}>🃏</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#b0b0c8' }}>PokeZone Melbourne</div>
           </div>
 
-          {/* Card hero */}
-          <div style={{ textAlign: 'center', marginBottom: 20 }}>
-            <div style={{ width: 70, height: 96, background: 'linear-gradient(135deg,#1a2a4a,#2a1a4a)', borderRadius: 8, margin: '0 auto 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #2a2a3d', fontSize: 32, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>🔥</div>
+          {/* Card */}
+          <div style={{ textAlign: 'center', marginBottom: 18 }}>
+            <div style={{ width: 60, height: 82, background: 'linear-gradient(135deg,#1a2a4a,#2a1a4a)', borderRadius: 7, margin: '0 auto 10px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #2a2a3d', fontSize: 28, boxShadow: '0 10px 28px rgba(0,0,0,0.6)' }}>🔥</div>
             <div style={{ fontSize: 14, fontWeight: 800, color: '#f2f2f3', letterSpacing: '-0.4px' }}>Charizard VMAX</div>
-            <div style={{ fontSize: 10, color: '#5a5a6a', marginTop: 2 }}>Sword & Shield · PSA 10</div>
+            <div style={{ fontSize: 10, color: '#4a4a5a', marginTop: 3 }}>Sword & Shield · PSA 10</div>
           </div>
 
-          {/* Price block */}
-          <div style={{ background: '#13131f', border: '1px solid #1e1e2e', borderRadius: 16, padding: '16px 14px', marginBottom: 12 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
-              <div>
-                <div style={{ fontSize: 10, color: '#5a5a6a', marginBottom: 2 }}>Shop price</div>
-                <div style={{ fontSize: 28, fontWeight: 900, color: GOLD, letterSpacing: '-1px', lineHeight: 1 }}>A$449</div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 10, color: '#5a5a6a', marginBottom: 2 }}>Market price</div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: '#a0a0c0', letterSpacing: '-0.5px' }}>A$420</div>
-              </div>
+          {/* Price + stock */}
+          <div style={{ background: '#13131f', border: '1px solid #1e1e2e', borderRadius: 14, padding: '14px 12px', marginBottom: 10 }}>
+            <div style={{ textAlign: 'center', marginBottom: 12 }}>
+              <div style={{ fontSize: 10, color: '#5a5a6a', marginBottom: 3, fontWeight: 600, letterSpacing: 0.5 }}>PRICE</div>
+              <div style={{ fontSize: 32, fontWeight: 900, color: GOLD, letterSpacing: '-1.5px', lineHeight: 1 }}>A$449</div>
             </div>
             <div style={{ height: 1, background: '#1e1e2e', marginBottom: 12 }} />
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ fontSize: 10, color: '#5a5a6a', marginBottom: 2 }}>In stock</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: GREEN }}>3 available</div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 10, color: '#5a5a6a', marginBottom: 2 }}>Trend</div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: GREEN }}>▲ 8.2% this week</div>
-              </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 10, color: '#5a5a6a', marginBottom: 3, fontWeight: 600, letterSpacing: 0.5 }}>IN STOCK</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: GREEN }}>3 available</div>
             </div>
           </div>
 
           {/* CTA */}
-          <div style={{ background: `linear-gradient(135deg,${GOLD},#d4a820)`, borderRadius: 12, padding: '11px 0', textAlign: 'center' }}>
+          <div style={{ background: `linear-gradient(135deg,${GOLD},#d4a820)`, borderRadius: 10, padding: '10px 0', textAlign: 'center' }}>
             <div style={{ fontSize: 12, fontWeight: 800, color: '#09090f' }}>Ask in store to purchase</div>
           </div>
 
         </div>
-        {/* Home bar */}
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
-          <div style={{ width: 56, height: 4, background: 'rgba(255,255,255,0.18)', borderRadius: 2 }} />
+          <div style={{ width: 52, height: 4, background: 'rgba(255,255,255,0.15)', borderRadius: 2 }} />
         </div>
       </div>
       <div style={{ fontSize: 11, color: '#4a4a5a', textAlign: 'center', letterSpacing: 0.5 }}>What customers see after scanning</div>
@@ -320,11 +304,11 @@ export default function ShopsPage() {
             <p style={{ fontSize: 14, color: '#a0a0c0', maxWidth: 480, margin: '0 auto' }}>The sticker never changes — the price behind it does. Customers always see today's market data.</p>
           </div>
 
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 32, justifyContent: 'center', alignItems: 'center' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 0, justifyContent: 'center', alignItems: 'center' }}>
             {/* Sticker */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: '0 24px' }}>
               <div style={{ fontSize: 10, color: '#4a4a5a', fontWeight: 700, letterSpacing: 1.5 }}>THE STICKER</div>
-              <div style={{ background: '#fff', borderRadius: 18, padding: '18px 16px', boxShadow: '0 20px 56px rgba(0,0,0,0.55)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, width: 140 }}>
+              <div style={{ background: '#fff', borderRadius: 18, padding: '18px 16px', boxShadow: '0 24px 60px rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, width: 140 }}>
                 <div style={{ background: '#fafaf8', padding: 8, borderRadius: 10, border: '1px solid #ededea' }}>
                   <QRPattern />
                 </div>
@@ -337,12 +321,16 @@ export default function ShopsPage() {
             </div>
 
             {/* Arrow */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-              <div style={{ fontSize: 10, color: '#4a4a5a', fontWeight: 600 }}>customer scans</div>
-              <div style={{ fontSize: 26, color: '#3a3a4a' }}>→</div>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '0 8px' }}>
+              <div style={{ fontSize: 9, color: '#3a3a4a', fontWeight: 600, letterSpacing: 0.5 }}>customer scans</div>
+              <svg width="40" height="16" viewBox="0 0 40 16" fill="none">
+                <path d="M0 8 H32 M26 2 L38 8 L26 14" stroke="#3a3a4a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
             </div>
 
-            <CustomerPhoneMockup />
+            <div style={{ padding: '0 24px' }}>
+              <CustomerPhoneMockup />
+            </div>
           </div>
         </section>
 

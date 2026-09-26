@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await ctx.admin
     .from('notification_preferences')
-    .select('price_alert, verdict_change, weekly_digest, inactivity, new_release')
+    .select('price_alert, verdict_change, weekly_digest, inactivity, new_release, milestones')
     .eq('user_id', ctx.userId)
     .single()
 
@@ -33,7 +33,7 @@ export async function PUT(req: NextRequest) {
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
-  const allowed = ['price_alert', 'verdict_change', 'weekly_digest', 'inactivity', 'new_release']
+  const allowed = ['price_alert', 'verdict_change', 'weekly_digest', 'inactivity', 'new_release', 'milestones']
   const updates: Record<string, boolean> = {}
   for (const key of allowed) {
     if (typeof body[key] === 'boolean') updates[key] = body[key]

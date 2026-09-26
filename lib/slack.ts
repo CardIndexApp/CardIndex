@@ -87,6 +87,42 @@ export async function notifyNewPurchase(purchase: {
   })
 }
 
+export async function notifySubscriptionLifecycle(event: {
+  type: 'renewal' | 'cancelled' | 'expired' | 'refund' | 'billing_failed'
+  email?: string | null
+  userId?: string | null
+  productId?: string | null
+  billingInterval?: string | null
+}): Promise<void> {
+  const url = process.env.SLACK_WEBHOOK_PURCHASES_URL ?? process.env.SLACK_WEBHOOK_URL
+  if (!url) return
+
+  const META: Record<string, { icon: string; label: string }> = {
+    renewal:        { icon: '🔄', label: 'Subscription renewed' },
+    cancelled:      { icon: '❌', label: 'Auto-renew disabled' },
+    expired:        { icon: '⌛', label: 'Subscription expired' },
+    refund:         { icon: '💸', label: 'Refund issued' },
+    billing_failed: { icon: '⚠️', label: 'Billing failed (grace period)' },
+  }
+
+  const { icon, label } = META[event.type]
+  const identity = event.email ?? event.userId ?? 'unknown'
+  const interval = event.billingInterval === 'year' ? 'Annual' : event.billingInterval === 'month' ? 'Monthly' : null
+  const planLabel = ['Pro', interval].filter(Boolean).join(' · ')
+
+  const lines = [
+    `*${icon} ${label}*`,
+    `*User:* ${identity}`,
+    interval ? `*Plan:* ${planLabel}` : null,
+    event.productId ? `*Product:* ${event.productId}` : null,
+  ].filter(Boolean).join('\n')
+
+  await post(url, {
+    text: `${icon} ${label} — ${identity}`,
+    blocks: [{ type: 'section', text: { type: 'mrkdwn', text: lines } }],
+  })
+}
+
 export async function notifyReport(report: {
   card_id: string
   card_name?: string | null

@@ -11,7 +11,7 @@ import { sendPush } from '@/lib/apns'
 const INACTIVE_DAYS   = 7
 const COOLDOWN_DAYS   = 7
 
-const MESSAGES = [
+const GENERIC_MESSAGES = [
   { title: '👀 Your portfolio misses you', body: 'Check in to see how your cards are performing.' },
   { title: '📊 Market has moved', body: "It's been a while — see what's changed in your portfolio." },
   { title: '🃏 New signals available', body: 'Fresh verdicts are ready for cards on your watchlist.' },
@@ -38,6 +38,19 @@ export async function GET(req: NextRequest) {
   if (!candidates?.length) return NextResponse.json({ ok: true, log: ['no inactive users'] })
 
   const candidateIds = candidates.map(c => c.id)
+
+  // Pick one card name per user for a personalized nudge
+  const { data: watchlistItems } = await admin
+    .from('watchlists')
+    .select('user_id, card_name')
+    .in('user_id', candidateIds)
+
+  const cardNameByUser: Record<string, string> = {}
+  for (const item of watchlistItems ?? []) {
+    if (!cardNameByUser[item.user_id] && item.card_name) {
+      cardNameByUser[item.user_id] = item.card_name
+    }
+  }
 
   const { data: prefs } = await admin
     .from('notification_preferences')
@@ -76,7 +89,10 @@ export async function GET(req: NextRequest) {
     if (recentlyNotified.has(user.id))     continue
     if (!tokenMap[user.id]?.length)        continue
 
-    const msg = MESSAGES[sent % MESSAGES.length]
+    const cardName = cardNameByUser[user.id]
+    const msg = cardName
+      ? { title: '🃏 Have you checked in lately?', body: `${cardName} and your other cards are waiting. See what's moved.` }
+      : GENERIC_MESSAGES[sent % GENERIC_MESSAGES.length]
 
     for (const token of tokenMap[user.id]) {
       await sendPush(token, { ...msg, data: { screen: 'home' } }, `inactivity-${user.id}`)

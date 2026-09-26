@@ -80,7 +80,21 @@ export async function GET(req: NextRequest) {
     const pctStr  = `${Math.abs(gainPct).toFixed(1)}%`
     const valStr  = `$${Math.abs(gain).toFixed(0)}`
 
-    const body = `Your portfolio is ${dir} ${pctStr} (${gain >= 0 ? '+' : '-'}${valStr}) across ${userPositions.length} card${userPositions.length !== 1 ? 's' : ''}.`
+    // Top mover: biggest % move from purchase price
+    let topMover: { name: string; pct: number } | null = null
+    for (const pos of userPositions) {
+      const current = priceMap[`${pos.card_id}:${pos.grade}`]
+      if (!current || !pos.purchase_price || pos.purchase_price === 0) continue
+      const movePct = ((current - pos.purchase_price) / pos.purchase_price) * 100
+      if (!topMover || Math.abs(movePct) > Math.abs(topMover.pct)) {
+        topMover = { name: pos.card_name ?? pos.card_id, pct: movePct }
+      }
+    }
+    const moverStr = topMover
+      ? ` · Top: ${topMover.name} ${topMover.pct >= 0 ? '+' : ''}${topMover.pct.toFixed(0)}%`
+      : ''
+
+    const body = `Your portfolio is ${dir} ${pctStr} (${gain >= 0 ? '+' : '-'}${valStr}) across ${userPositions.length} card${userPositions.length !== 1 ? 's' : ''}${moverStr}.`
 
     for (const token of tokenMap[userId]) {
       await sendPush(token,

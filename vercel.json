@@ -23,6 +23,10 @@
     {
       "path": "/api/cron/notify-trial-expiry",
       "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/notify-milestones",
+      "schedule": "30 10 * * *"
     }
   ]
 }

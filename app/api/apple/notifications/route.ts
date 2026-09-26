@@ -26,7 +26,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { readFileSync } from 'fs'
 import path from 'path'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { notifyNewPurchase } from '@/lib/slack'
+import { notifyNewPurchase, notifySubscriptionLifecycle } from '@/lib/slack'
 import {
   SignedDataVerifier,
   Environment,
@@ -131,22 +131,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // Slack ping on new initial purchase only (not renewals/restores)
-  if (payload.notificationType === 'SUBSCRIBED' && payload.subtype === 'INITIAL_BUY' && newTier !== 'free') {
-    const { data: profile } = await admin
-      .from('profiles')
-      .select('email')
-      .eq('id', userId)
-      .single()
-    const billingInterval = txn.productId?.includes('.annual') ? 'year' : 'month'
-    await notifyNewPurchase({
-      platform: 'ios',
-      tier: newTier,
-      email: profile?.email ?? null,
-      userId,
-      billingInterval,
-      productId: txn.productId ?? null,
-    })
+  // Fetch email once for all Slack calls
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('email')
+    .eq('id', userId)
+    .single()
+  const email = profile?.email ?? null
+  const billingInterval = txn.productId?.includes('.annual') ? 'year' : 'month'
+  const slackBase = { email, userId, productId: txn.productId ?? null, billingInterval }
+
+  const type = payload.notificationType
+  const sub  = payload.subtype ?? ''
+
+  if (type === 'SUBSCRIBED' && sub === 'INITIAL_BUY' && newTier !== 'free') {
+    await notifyNewPurchase({ platform: 'ios', tier: newTier, ...slackBase })
+  } else if (type === 'DID_RENEW') {
+    await notifySubscriptionLifecycle({ type: 'renewal', ...slackBase })
+  } else if (type === 'DID_CHANGE_RENEWAL_STATUS' && sub === 'AUTO_RENEW_DISABLED') {
+    await notifySubscriptionLifecycle({ type: 'cancelled', ...slackBase })
+  } else if (type === 'EXPIRED') {
+    await notifySubscriptionLifecycle({ type: 'expired', ...slackBase })
+  } else if (type === 'REFUND') {
+    await notifySubscriptionLifecycle({ type: 'refund', ...slackBase })
+  } else if (type === 'DID_FAIL_TO_RENEW') {
+    await notifySubscriptionLifecycle({ type: 'billing_failed', ...slackBase })
   }
 
   console.log(`[apple] ${payload.notificationType}/${payload.subtype ?? ''} → user ${userId} tier=${newTier}`)

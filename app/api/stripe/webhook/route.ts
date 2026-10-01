@@ -25,10 +25,10 @@ function getStripe() {
 const PRICE_TO_TIER: Record<string, Tier> = Object.fromEntries(
   (
     [
-      [process.env.STRIPE_PRICE_STANDARD_MONTHLY, 'standard' as Tier],
-      [process.env.STRIPE_PRICE_STANDARD_ANNUAL,  'standard' as Tier],
-      [process.env.STRIPE_PRICE_PRO_MONTHLY,      'pro'      as Tier],
-      [process.env.STRIPE_PRICE_PRO_ANNUAL,        'pro'      as Tier],
+      [process.env.NEXT_PUBLIC_STRIPE_PRICE_STANDARD_MONTHLY, 'standard' as Tier],
+      [process.env.NEXT_PUBLIC_STRIPE_PRICE_STANDARD_ANNUAL,  'standard' as Tier],
+      [process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO_MONTHLY,      'pro'      as Tier],
+      [process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO_ANNUAL,        'pro'      as Tier],
     ] as [string | undefined, Tier][]
   ).filter(([priceId]) => !!priceId)
 )

@@ -9,44 +9,44 @@ export type Tier = 'free' | 'standard' | 'pro'
 
 export interface TierLimits {
   watchlist: number      // max watchlist entries
+  portfolioCards: number // max portfolio positions (0 = none, -1 = unlimited)
   priceHistory: boolean  // access to full price history charts
   trendIndicators: boolean
   priceCheck: boolean    // enter a custom price for analysis
   advancedAnalytics: boolean
   compare: boolean       // card comparison tool
-  portfolioTracking: boolean
   dataExport: boolean
 }
 
 export const TIER_LIMITS: Record<Tier, TierLimits> = {
   free: {
     watchlist: 5,
+    portfolioCards: 5,
     priceHistory: false,
     trendIndicators: false,
     priceCheck: false,
     advancedAnalytics: false,
     compare: false,
-    portfolioTracking: false,
     dataExport: false,
   },
   standard: {
     watchlist: 30,
+    portfolioCards: -1,
     priceHistory: true,
     trendIndicators: true,
     priceCheck: true,
     advancedAnalytics: true,
     compare: false,
-    portfolioTracking: false,
     dataExport: false,
   },
   pro: {
     watchlist: 100,
+    portfolioCards: -1,
     priceHistory: true,
     trendIndicators: true,
     priceCheck: true,
     advancedAnalytics: true,
     compare: true,
-    portfolioTracking: true,
     dataExport: true,
   },
 }

@@ -33,10 +33,16 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // Portfolio tracking is a Pro feature
   const { data: profile } = await supabase.from('profiles').select('tier').eq('id', user.id).single()
-  if (!getTierLimits(profile?.tier).portfolioTracking) {
-    return NextResponse.json({ error: 'Portfolio tracking requires a Pro plan.' }, { status: 403 })
+  const limits = getTierLimits(profile?.tier)
+  if (limits.portfolioCards === 0) {
+    return NextResponse.json({ error: 'Portfolio tracking requires a paid plan.' }, { status: 403 })
+  }
+  if (limits.portfolioCards > 0) {
+    const { count } = await supabase.from('portfolios').select('id', { count: 'exact', head: true }).eq('user_id', user.id)
+    if ((count ?? 0) >= limits.portfolioCards) {
+      return NextResponse.json({ error: `Free plan includes ${limits.portfolioCards} portfolio cards. Upgrade to Pro for unlimited tracking.`, limitReached: true }, { status: 403 })
+    }
   }
 
   const body = await req.json()

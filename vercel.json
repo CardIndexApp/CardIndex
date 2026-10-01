@@ -27,6 +27,10 @@
     {
       "path": "/api/cron/notify-milestones",
       "schedule": "30 10 * * *"
+    },
+    {
+      "path": "/api/cron/welcome-email",
+      "schedule": "0 * * * *"
     }
   ]
 }

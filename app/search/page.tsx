@@ -8,6 +8,7 @@ import { cacheGet, cacheSet, cacheKey } from '@/lib/searchCache'
 import { anonLimitReached, incrementAnonSearchCount, anonWindowRemainingMs, clearAnonSearchCount } from '@/lib/anonSearchLimit'
 import { createClient } from '@/lib/supabase/client'
 import { isCardResult } from '@/lib/cardFilter'
+import { posthog } from '@/lib/posthog'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -276,6 +277,7 @@ function SearchPageInner() {
         setStaleResults(refined)
         cacheSet(key, filtered)
       }
+      posthog.capture('search_performed', { query: raw.trim(), result_count: refined.length })
       setCommittedQuery(raw.trim())
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return

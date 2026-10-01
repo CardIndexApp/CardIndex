@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Navbar from '@/components/Navbar'
 import { createClient } from '@/lib/supabase/client'
+import { posthog } from '@/lib/posthog'
 import { usePullToRefresh } from '@/lib/usePullToRefresh'
 import { useCurrency } from '@/lib/currency'
 import { tcgImg } from '@/lib/img'
@@ -140,10 +141,15 @@ export default function Dashboard() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.replace('/'); return }
 
-    // Fetch profile for trial info
-    supabase.from('profiles').select('trial_ends_at, tier').eq('id', user.id).single()
+    // Fetch profile for trial info + identify in PostHog
+    supabase.from('profiles').select('trial_ends_at, tier, email, username').eq('id', user.id).single()
       .then(({ data: prof }) => {
         if (prof?.trial_ends_at) setTrialEndsAt(prof.trial_ends_at)
+        posthog.identify(user.id, {
+          email: prof?.email ?? user.email,
+          username: prof?.username,
+          tier: prof?.tier,
+        })
       })
 
     let rvItems: RecentlyViewedItem[] = []

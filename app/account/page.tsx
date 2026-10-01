@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Navbar from '@/components/Navbar'
 import { createClient } from '@/lib/supabase/client'
+import { posthog } from '@/lib/posthog'
 import { CURRENCIES, useCurrency, type CurrencyCode } from '@/lib/currency'
 import { useTheme } from '@/lib/theme'
 
@@ -78,6 +79,7 @@ function AccountPageInner() {
   useEffect(() => {
     if (searchParams.get('upgraded') === '1') {
       setSuccessBanner("You're now on your new plan. Welcome!")
+      posthog.capture('subscription_converted', { platform: 'web' })
       // Remove the query param from the URL without triggering a navigation
       const url = new URL(window.location.href)
       url.searchParams.delete('upgraded')

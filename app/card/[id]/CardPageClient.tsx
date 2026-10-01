@@ -14,6 +14,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useCurrency, CURRENCIES } from '@/lib/currency'
 import { getTierLimits } from '@/lib/tier'
 import { cacheSet } from '@/lib/searchCache'
+import { posthog } from '@/lib/posthog'
 
 // Module-level session cache — persists across navigations within a tab.
 // Key: the full API URL string. Cleared automatically when the module unloads (tab close / full refresh).
@@ -806,6 +807,12 @@ export default function CardPageClient() {
       }
       const updated = [entry, ...stored.filter(x => !(x.card_id === id && x.grade === grade))].slice(0, 20)
       localStorage.setItem(rvKey, JSON.stringify(updated))
+      posthog.capture('card_viewed', {
+        card_id: id,
+        card_name: entry.card_name,
+        set_name: entry.set_name,
+        grade: entry.grade,
+      })
     } catch {}
   }, [liveData, userId])
 
@@ -890,6 +897,7 @@ export default function CardPageClient() {
       setWatchlistItemId(json.item?.id ?? null)
       if (userId) cacheSet(`watchlist:items:${userId}`, null)
       showToast('Added to watchlist', '★')
+      posthog.capture('watchlist_added', { card_id: id, card_name: cardName, grade, set_name: setName })
     }
     setWatchlistLoading(false)
   }
@@ -958,6 +966,10 @@ export default function CardPageClient() {
   const [priceCheckInput, setPriceCheckInput] = useState('')
   const [priceCheckPrice, setPriceCheckPrice] = useState<number | null>(null)
   const [upgradeModal, setUpgradeModal] = useState<{ feature: string; desc: string; tier: string } | null>(null)
+  const openUpgradeModal = (modal: { feature: string; desc: string; tier: string }) => {
+    posthog.capture('upgrade_modal_opened', { feature: modal.feature, required_tier: modal.tier })
+    setUpgradeModal(modal)
+  }
   const [histWindow, setHistWindow] = useState<'3M' | '6M' | '12M' | 'ALL'>('ALL')
   const [gradingSvc, setGradingSvc] = useState(0)
   const [cardTab, setCardTab] = useState<'price' | 'market' | 'analysis'>('price')
@@ -1338,7 +1350,7 @@ export default function CardPageClient() {
                         </Link>
                       ) : (
                         <button
-                          onClick={() => setUpgradeModal({ feature: 'Compare Cards', desc: 'Side-by-side price and trend comparison across multiple cards and grades.', tier: 'Pro' })}
+                          onClick={() => openUpgradeModal({ feature: 'Compare Cards', desc: 'Side-by-side price and trend comparison across multiple cards and grades.', tier: 'Pro' })}
                           style={{ padding: '8px 14px', borderRadius: 10, background: 'var(--surface2)', border: '1.5px solid var(--border2)', fontSize: 11, fontWeight: 600, color: 'var(--ink3)', width: '100%', display: 'block', textAlign: 'center', boxSizing: 'border-box', cursor: 'pointer' }}
                         >
                           🔒 Compare — Pro
@@ -1768,7 +1780,7 @@ export default function CardPageClient() {
                   <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
                     {!getTierLimits(userTier).priceCheck ? (
                       <button
-                        onClick={() => setUpgradeModal({ feature: 'Price Check', desc: 'Compare your purchase price directly to the live market rate to see if you got a deal.', tier: 'Standard' })}
+                        onClick={() => openUpgradeModal({ feature: 'Price Check', desc: 'Compare your purchase price directly to the live market rate to see if you got a deal.', tier: 'Standard' })}
                         style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', padding: '9px 0', borderRadius: 8, background: 'none', border: '1px solid var(--border2)', color: 'var(--ink3)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
                       >
                         🔒 Price Check — Standard+
@@ -3442,7 +3454,7 @@ export default function CardPageClient() {
                   ) : isLoggedIn ? (
                     <button
                       className="ci-no-print"
-                      onClick={() => setUpgradeModal({ feature: 'Compare Cards', desc: 'Side-by-side price and trend comparison across multiple cards and grades.', tier: 'Pro' })}
+                      onClick={() => openUpgradeModal({ feature: 'Compare Cards', desc: 'Side-by-side price and trend comparison across multiple cards and grades.', tier: 'Pro' })}
                       style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface2)', border: '1.5px solid var(--border2)', borderRadius: 10, padding: '9px 14px', fontSize: 11, fontWeight: 600, color: 'var(--ink3)', cursor: 'pointer' }}
                     >
                       🔒 Compare — Pro

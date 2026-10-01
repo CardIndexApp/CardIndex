@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import Navbar from '@/components/Navbar'
 import BetaModal from '@/components/BetaModal'
 import { createClient } from '@/lib/supabase/client'
+import { posthog } from '@/lib/posthog'
 
 const tiers = [
   {
@@ -110,6 +111,7 @@ export default function Pricing() {
         setCheckoutError('Price ID not configured — check Vercel environment variables.')
         return
       }
+      posthog.capture('checkout_started', { tier: tierName.toLowerCase(), billing_cycle: cycle })
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

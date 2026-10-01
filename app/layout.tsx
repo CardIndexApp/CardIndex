@@ -4,6 +4,7 @@ import './globals.css'
 import { CurrencyProvider } from '@/lib/currency'
 import { ThemeProvider } from '@/lib/theme'
 import OfflineBanner from '@/components/OfflineBanner'
+import { PostHogProvider } from '@/lib/posthog'
 
 
 export const viewport: Viewport = {
@@ -65,12 +66,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="dns-prefetch" href="https://www.google-analytics.com" />
       </head>
       <body>
-        <ThemeProvider>
-          <CurrencyProvider>
-            <OfflineBanner />
-            {children}
-          </CurrencyProvider>
-        </ThemeProvider>
+        <PostHogProvider>
+          <ThemeProvider>
+            <CurrencyProvider>
+              <OfflineBanner />
+              {children}
+            </CurrencyProvider>
+          </ThemeProvider>
+        </PostHogProvider>
         {/* Google Analytics 4 */}
         <Script src="https://www.googletagmanager.com/gtag/js?id=G-BRGK35HQFB" strategy="afterInteractive" />
         <Script id="ga4-init" strategy="afterInteractive">{`
